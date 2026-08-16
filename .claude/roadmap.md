@@ -1,5 +1,10 @@
 # roadmap — ai-native-trust-network（叩き）
 
+> **2026-08-16 更新**: 企画書 v2（`docs/原案/00b-企画書v2-2026-08-16.md`）を反映。
+> 変更は 3 点 — Step 1 の調査対象に 6 件追加 / Step 3 に **Profile の器**を追加 /
+> 「以降」の Phase 順を **v2 の並びを採らず v1 のまま**に確定（`decisions.md` **D8**）。
+> **Step 0〜3 の骨格は変えていない。**
+
 原案 §22「最初の 90 日」を、**着手可能な量に絞った版**。
 オーナーの受領時発言「企画が先行して AI を擁しても生み出すペースが追いつけません」を前提に、
 **Month 1〜3 を全部やる形では組まない。**
@@ -10,15 +15,17 @@
 
 ---
 
-## Step 0 — 着手前（上流の作業・リポは未作成）
+## Step 0 — 着手前（上流の作業）
 
 | | 内容 | 状態 |
 |---|---|---|
 | 0-1 | **D6 製品名の決定** → **`warifu`（割符）で確定**（2026-08-15） | **済** |
-| 0-2 | リポ作成 `meta-taro/warifu`（**public**・`develop` 既定・**初回 commit に個人名検出 CI を同梱**） | 未 |
-| 0-3 | 担当の割り当て | 未 |
+| 0-2 | リポ作成 `meta-taro/warifu`（**public**・`develop` 既定） | **済**（2026-08-15） |
+| 0-3 | 叩きの初回 commit（**個人名検出 CI を同梱**） | **済**（2026-08-16） |
+| 0-4 | **企画書 v2 の反映** | **済**（2026-08-16） |
+| 0-5 | 担当の割り当て | 未 |
 
-**リポ作成はオーナーの最終確認後**（配布・公開に当たる操作のため）。
+**公開に当たる操作は人間が最終確認する。**
 
 `warifu.dev` は未登録。**試作が動くまで取らなくてよい**が、押さえるだけなら先に取る手もある（D6）。
 
@@ -34,6 +41,16 @@
 
 DIDComm v2 / W3C DID / VC / UCAN / ZCAP / MLS / Nostr / Matrix / libp2p 系 / Keybase の
 どこまでが原案 §4 §6 §9 §3.5 を既にカバーしているかを出す。
+
+**2026-08-16 追加**（企画書 v2 §4 で名指しされた分）:
+**OpenMolt Network**（P2P Agent-to-Agent + libp2p + DID＝**最も近い。最優先**）/
+**Agent Identity Protocol (AIP)**（Capability ベース委譲の標準化提案）/
+**Signet AI**（Local-first Agent の Identity・Memory）/
+**SimpleX Chat**（招待型 Connection・利用者 ID を持たない設計＝原案 §7 の先行実装）/
+**Jami**（分散 P2P で Voice/Video を実際に動かしている）/ OpenAgents（Workspace 中心＝中心が違う）。
+
+**この 3 つ（OpenMolt / AIP / Signet）は「該当なし」判定を大きく減らす可能性がある。**
+減るほど良い（既存に寄せられるほど 2 実装目が現実的になる）。
 
 **結論が「既存でおおむね足りる」でも失敗ではない。**
 その場合この企画は新規格ではなく**プロファイル + Reference Implementation** になり、
@@ -65,6 +82,19 @@ E2EE Text / Revoke が、**この 1 つの用途で全部必要になる。**
 **部品として立てる以上、これが最初に世に出るもの。**
 仕様書より先にこれを出す（規格を名乗るなら順序は逆だが、いまは名乗らない）。
 
+### 2026-08-16 追加 — **Profile の「器」だけをここに入れる**（企画書 v2 §8 / PRD §11-2）
+
+v2 が Personal / Work Profile Isolation を第一級の機能にした。
+**n=2 は構造的に「Personal Profile に Device が 2 台」そのもの**なので、ここと衝突しない。
+
+**後から入れると Identity の形が変わる**（Profile ごとに鍵を分けるため。D2 と同じ性質）ので、
+**器だけ最初に持たせる**:
+
+- Identity / Keys / Trust Graph / Agent Memory が **Profile 単位で分離される構造**
+- Profile の**切替**（1 つしか無くても切替の口を作っておく）
+- **Work Profile の中身（Organization Policy / Member / ACL / Retention / Audit）は作らない**
+  — v2 §18 §19 は厚く書かれているが、**PRD §8 の判断（企業向け記述は Personal の設計を歪める）は変えない**
+
 **ここまでで一旦止めて評価する。**
 
 ---
@@ -91,15 +121,24 @@ Step 1〜4 の結果を見てから組み直す。
 
 ---
 
-## 以降（原案 §13 の Phase 2〜6・**今回は着手しない**）
+## 以降（**今回は着手しない**・2026-08-16 に企画書 v2 を反映して並べ直し）
 
-| Phase | 内容 | 備考 |
-|---|---|---|
-| 2 | P2P Text / Connection Request / Rate Limit / Spam Defense | **Relay 自社運用はここまで行わない**（D3） |
-| 3 | Agent Identity / Capability / Approval Gate / MCP Adapter | **D5 を実装で担保する所** |
-| 4 | File / Voice / Video / Screen Share | 既存 OSS を最大限使う |
-| 5 | Email / Messenger / Telephone Adapter | |
-| 6 | Organization / Audit / Compliance Archive | 企業向け。Personal が固まってから |
+**v2 §25 の Phase 0〜8 をそのまま採らない。**理由は `decisions.md` **D8**。
+v2 は Voice/Video を Phase 3、Embedded SFU を Phase 4、**Agent を Phase 5** に置いたが、
+前 2 者は v2 自身の §22「再発明しない領域」に載っており、
+**再発明しない領域を先に 2 フェーズ費やして独自価値（§23）を後に回す順**になっている。
+v2 §26 の 90 日プラン（Month 3 = Agent Calendar Demo）とも矛盾する。**90 日プランを正とする。**
+
+| Phase | 内容 | v2 の対応章 | 備考 |
+|---|---|---|---|
+| 2 | P2P Text / Connection Request / Rate Limit / Spam Defense / **File Quarantine** | v2 §11 §12 | **Relay 自社運用はここまで行わない**（D3）。**File Quarantine は v2 で新規**（受信 File を Downloads へ直接置かず検査。**Trusted からの File も Zero Trust**） |
+| **3** | **Agent Identity / Capability / Approval Gate / A2A Intent / MCP Adapter** | v2 §15 §16 **§17** | **D5 を実装で担保する所。**代表 Demo は **v2 §17 の AI 会議調整**（`meeting.request` → 空き時間だけ返却 → 双方承認 → 双方 Calendar へ Event）。**Private Calendar の中身を相手に見せない**制約が Capability の実地テストになる |
+| 4 | File / Voice / Video / Screen Share | v2 §13 | **既存 OSS を最大限使う**（v2 §22 の再発明しない領域）。1:1 WebRTC まで |
+| 5 | Email / Messenger / Telephone Adapter | v2 §25 Phase 8 | |
+| 6 | Organization / Audit / Compliance Archive | v2 §18 §19 | 企業向け。**Personal が固まってから**（PRD §8・v2 で厚くなったが方針は変えない） |
+| **最後尾** | **Embedded SFU / Cooperative Relay / Topology Manager / 分散 Relay Tree** | **v2 §14 / Phase 4・7** | **D7 が未決のため最後尾。**設計内容（Peer Election / Health Metrics / Failover / 5 段 Fallback / Relay Capability 8 指標）は**捨てずに保持する**。**他人の通信を利用者の端末が中継する構造**なので、着手前に D7 の決着が要る |
+
+**Phase 1〜3 では中継が発生しない**ので、**D7 は着手のブロッカーにならない**（D2 とは違う）。
 
 ---
 
