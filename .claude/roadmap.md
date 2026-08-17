@@ -1,5 +1,14 @@
 # roadmap — ai-native-trust-network（叩き）
 
+> **2026-08-17 更新（オーナー指示による方針転換）**: **Voice/Video を前倒しする**（`decisions.md` **D9**）。
+> D8 が定めていた「覆してよい条件（Voice/Video を先に出す事業上の理由）」が発火したため。
+> 併せて**実装言語と Transport を確定**（**D10** — Rust + iroh + WebRTC + Tauri 2）、
+> **md-business との依存の向きを確定**（**D11** — md-business → warifu の一方向）。
+>
+> 変更は 3 点 — **Step 3 を M1〜M3 に分解** / **Step 3.5「4 人までの会議」を新設** /
+> Step 2 が**ブロッカーでなくなった**（D2 追記のシード導出により、決着前に Identity を書ける）。
+> **Embedded SFU（5 人以上）は最後尾のまま**。D7 が未決のため、ここは動かさない。
+
 > **2026-08-16 更新**: 企画書 v2（`docs/原案/00b-企画書v2-2026-08-16.md`）を反映。
 > 変更は 3 点 — Step 1 の調査対象に 6 件追加 / Step 3 に **Profile の器**を追加 /
 > 「以降」の Phase 順を **v2 の並びを採らず v1 のまま**に確定（`decisions.md` **D8**）。
@@ -59,15 +68,44 @@ DIDComm v2 / W3C DID / VC / UCAN / ZCAP / MLS / Nostr / Matrix / libp2p 系 / Ke
 **この結果が出るまで、仕様も実装も書き始めない。**
 原案 §8「再発明しない」を Transport だけでなく Identity と Capability にも適用する。
 
+### 2026-08-17 — **通信路と会議に関わる範囲だけ先に完了**（D9 / D10）
+
+D9 で会議を前倒しした結果、**Transport を決めないと着手できない状態**になったため、
+`issues/001` のうち**通信路・会議・シグナリングに関わる部分だけ**を先に済ませ、**D10 で確定させた**。
+
+| 調べたもの | 結論 |
+|---|---|
+| iroh 1.0 | **採用**（公開鍵でダイヤル・QUIC・NAT 越え・Relay fallback・多言語バインディング） |
+| libp2p | 採らない（DHT 探索が既定で付く。**探索は原案 §21 が持たないと決めた機能**） |
+| Matrix | 採らない（ホームサーバー前提） |
+| Trystero（BitTorrent / Nostr をシグナリングに流用） | **採らない**（相手が誰かを他人のインフラに渡す） |
+| Jami | 参照する（分散 P2P で Voice/Video が動く数少ない例）。fork はしない（**中心が通話であって Identity ではない**） |
+| WebRTC / Codec | **再発明しない**。WebView の実装をそのまま使う |
+| フルメッシュの実用上限 | **3〜4 人**（帯域が `K×(N−1)`）→ **「複数人」を 4 人までと定義**（D9） |
+
+**残り（Identity / VC / Capability / DIDComm / UCAN / MLS / OpenMolt / AIP / Signet / SimpleX）は
+この決定に影響しない**ので、Step 3 以降と**並行して進める**。
+
 ---
 
 ## Step 2 — 復旧モデルの決着（`issues/002`）
 
 D2。全端末を失った人間の Identity をどうするか。
-**Phase 1（Identity 生成）を書き始める前に決める。**後から入れると Identity の形が変わる。
 
 先行例（PGP / Keybase / SSB）が**機能ではなくここで死んでいる**ため、
 調査は「どう実装するか」ではなく「**何を失う方式か**」を出す形にする。
+
+### 2026-08-17 — **着手のブロッカーではなくなった**（D2 追記）
+
+これまで「Phase 1 を書き始める前に決める」としていた。理由は
+**後から入れると Identity の形が変わる**から。
+
+**鍵を 1 本のシードから決定論的に導出する形にしておけば、D2 の選択肢 a〜d のどれを選んでも
+Identity の形が変わらない**ため、この制約は外れた（`decisions.md` D2 追記）。
+
+**ただし決着は要る。**「どれを既定にするか」「復旧で何が戻り何が戻らないか」
+「復旧を相手にどう伝えるか（なりすましの入口）」は未決のままで、
+**人に配る段階（Step 3 の実機検証）より前に決める。**
 
 ---
 
@@ -95,7 +133,47 @@ v2 が Personal / Work Profile Isolation を第一級の機能にした。
 - **Work Profile の中身（Organization Policy / Member / ACL / Retention / Audit）は作らない**
   — v2 §18 §19 は厚く書かれているが、**PRD §8 の判断（企業向け記述は Personal の設計を歪める）は変えない**
 
+### 2026-08-17 — **M1〜M3 に分解**（D10 で言語と Transport が決まったため）
+
+| | 作るもの | 検証のしかた | ネットワーク |
+|---|---|---|---|
+| **M1** | `warifu-core` — シード / Profile / Device 鍵 / **割符（招待）の生成と検証** / 失効 | **単体テストだけで完結** | **不要** |
+| **M2** | `warifu-net` — iroh で 2 台をつなぐ。割符を照合して E2EE チャネルを張る | 同一 PC の 2 プロセス → 実機 2 台 | 要 |
+| **M3** | Intent の口 — `file.*` / `meeting.*` を M2 の上に載せる | 単体テスト + 2 プロセス | 要 |
+
+**M1 はネットワークもオーナーの判断も待たずに書ける。**ここから着手する。
+
 **ここまでで一旦止めて評価する。**
+
+---
+
+## Step 3.5 — **4 人までの会議**（2026-08-17 新設・`issues/005`）
+
+D9。**SFU を使わないフルメッシュに限る。**5 人以上は最後尾のまま（D7 未決）。
+
+| | 作るもの |
+|---|---|
+| **M4** | SDP / ICE を **M2 の E2EE チャネル上で**交換する（外部のシグナリングサーバを使わない） |
+| **M5** | Tauri 2 + WebView の WebRTC で 2 人の映像・音声。**Codec は書かない** |
+| **M6** | 3〜4 人のフルメッシュ。**参加者ごとに帯域と CPU を実測して記録する** |
+| **M7** | 画面共有（会議中に md-business の文書を見せる用途がこれ） |
+
+**M6 の実測が、この Step の主目的である。**
+「4 人まで」は文献値であって、**手元の回線で成立するかは測らないと分からない**。
+成立しなければ D9 に戻り、3 人に下げるか SFU に進むかを判断する。
+
+---
+
+## Step 3.6 — **md-business との掛け合わせ**（2026-08-17 新設・`issues/006`）
+
+D11。**依存の向きは md-business → warifu の一方向**。warifu は文書を知らない。
+
+| | 作るもの | どこに置くか |
+|---|---|---|
+| **M8** | `file.*` で md-business の文書ファイルを 2 台間で渡す | warifu 側（**中身を解釈しない**） |
+| **M9** | 受け取り側で md-business が開く | **md-business 側**（別リポ） |
+
+**M9 は warifu のリポジトリの作業ではない。**必要になった時点で md-business 側へ Issue を立てる。
 
 ---
 
@@ -123,6 +201,10 @@ Step 1〜4 の結果を見てから組み直す。
 
 ## 以降（**今回は着手しない**・2026-08-16 に企画書 v2 を反映して並べ直し）
 
+> **2026-08-17**: D9 により Voice/Video は**この表から抜けて Step 3.5 へ上がった**。
+> **Embedded SFU（最後尾）は動かしていない** — D7 が未決のままだから。
+> D8 の「覆す場合も SFU は切り離して最後尾に残す」という但し書きを、そのまま守っている。
+
 **v2 §25 の Phase 0〜8 をそのまま採らない。**理由は `decisions.md` **D8**。
 v2 は Voice/Video を Phase 3、Embedded SFU を Phase 4、**Agent を Phase 5** に置いたが、
 前 2 者は v2 自身の §22「再発明しない領域」に載っており、
@@ -133,7 +215,7 @@ v2 §26 の 90 日プラン（Month 3 = Agent Calendar Demo）とも矛盾する
 |---|---|---|---|
 | 2 | P2P Text / Connection Request / Rate Limit / Spam Defense / **File Quarantine** | v2 §11 §12 | **Relay 自社運用はここまで行わない**（D3）。**File Quarantine は v2 で新規**（受信 File を Downloads へ直接置かず検査。**Trusted からの File も Zero Trust**） |
 | **3** | **Agent Identity / Capability / Approval Gate / A2A Intent / MCP Adapter** | v2 §15 §16 **§17** | **D5 を実装で担保する所。**代表 Demo は **v2 §17 の AI 会議調整**（`meeting.request` → 空き時間だけ返却 → 双方承認 → 双方 Calendar へ Event）。**Private Calendar の中身を相手に見せない**制約が Capability の実地テストになる |
-| 4 | File / Voice / Video / Screen Share | v2 §13 | **既存 OSS を最大限使う**（v2 §22 の再発明しない領域）。1:1 WebRTC まで |
+| ~~4~~ | ~~File / Voice / Video / Screen Share~~ | v2 §13 | **2026-08-17 に Step 3.5 / 3.6 へ前倒し**（D9）。ここには残らない |
 | 5 | Email / Messenger / Telephone Adapter | v2 §25 Phase 8 | |
 | 6 | Organization / Audit / Compliance Archive | v2 §18 §19 | 企業向け。**Personal が固まってから**（PRD §8・v2 で厚くなったが方針は変えない） |
 | **最後尾** | **Embedded SFU / Cooperative Relay / Topology Manager / 分散 Relay Tree** | **v2 §14 / Phase 4・7** | **D7 が未決のため最後尾。**設計内容（Peer Election / Health Metrics / Failover / 5 段 Fallback / Relay Capability 8 指標）は**捨てずに保持する**。**他人の通信を利用者の端末が中継する構造**なので、着手前に D7 の決着が要る |
