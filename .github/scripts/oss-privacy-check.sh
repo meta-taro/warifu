@@ -148,7 +148,11 @@ added="$(printf '%s\n' "$diff_out" | awk '
   /^\+/        { print f "\t" ln "\t" substr($0, 2); ln++; next }
 ')"
 
+# 1 行ごとに grep を起こすと、追加行数ぶんプロセスが増える。
+# 依存の lock ファイルだけで数千行になるため、そのままでは手元で数分〜十数分かかる。
+# **遅い検査は飛ばされる**ので、候補を先に絞ってから 1 行ずつ見る。
 if [ -n "$added" ]; then
+  # メールは '@' を含む行にしか出ない。
   while IFS=$'\t' read -r f ln content; do
     [ -z "${f:-}" ] && continue
     printf '%s' "$f" | grep -Eq "$SELF_RE" && continue
@@ -159,19 +163,24 @@ if [ -n "$added" ]; then
       note "NG [added-email] $f:$ln : $(printf '%s' "$found" | mask_email)"
       fail=1
     done < <(printf '%s' "$content" | grep -Eo "$EMAIL_RE" | sort -u)
+  done < <(printf '%s\n' "$added" | grep -F '@')
 
-    if [ -n "$DENY_WORDS" ]; then
-      i=0
-      while IFS= read -r w; do
-        i=$((i + 1))
-        [ -z "$w" ] && continue
-        if printf '%s' "$content" | grep -qiF -- "$w"; then
-          note "NG [added-denyword] $f:$ln : 禁止語 #$i に一致"
-          fail=1
-        fi
-      done <<< "$DENY_WORDS"
-    fi
-  done <<< "$added"
+  # 禁止語は語ごとに 1 回だけ全体へ当てる（行ごとに当てると 行数 × 語数 になる）。
+  # 当たった行だけ、中身に本当に含まれるかを見直す（ファイル名側での取り違えを避ける）。
+  if [ -n "$DENY_WORDS" ]; then
+    i=0
+    while IFS= read -r w; do
+      i=$((i + 1))
+      [ -z "$w" ] && continue
+      while IFS=$'\t' read -r f ln content; do
+        [ -z "${f:-}" ] && continue
+        printf '%s' "$f" | grep -Eq "$SELF_RE" && continue
+        printf '%s' "$content" | grep -qiF -- "$w" || continue
+        note "NG [added-denyword] $f:$ln : 禁止語 #$i に一致"
+        fail=1
+      done < <(printf '%s\n' "$added" | grep -iF -- "$w")
+    done <<< "$DENY_WORDS"
+  fi
 fi
 
 # --- 結果 -------------------------------------------------------------------
