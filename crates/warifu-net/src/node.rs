@@ -16,7 +16,10 @@ const ALPN: &[u8] = b"warifu/1";
 const HELLO: &[u8; 4] = b"WRF1";
 
 /// 一度に受け取る上限。**長さだけ大きく宣言して確保させる攻撃を止める。**
-const MAX_MESSAGE: usize = 16 * 1024 * 1024;
+///
+/// 上に載る層（`warifu-intent` など）は、自分の header を足した合計がここを超えないよう
+/// **自分で**上限を決める必要がある。だから公開している。
+pub const MAX_MESSAGE: usize = 16 * 1024 * 1024;
 
 /// 呼びに行くのを諦めるまで。
 ///
@@ -124,6 +127,7 @@ impl Node {
             connection,
             send,
             recv,
+            _endpoint: self.endpoint.clone(),
         })
     }
 
@@ -179,6 +183,7 @@ impl Node {
             connection,
             send,
             recv,
+            _endpoint: self.endpoint.clone(),
         })
     }
 }
@@ -197,12 +202,22 @@ fn to_public_key(id: EndpointId) -> Result<PublicKey, Error> {
 /// [`Session::send`] が返るのは「送る列に積んだ」ところまでで、相手に届いた合図ではない。
 /// **積んだまま落とすと、まだ網に出ていない分は消える。**
 /// 送り終わりなら [`Session::finish`] を呼ぶ（相手が受け取り切るまで待つ）。
+///
+/// # 元の [`Node`] は落としてよい
+///
+/// 繋がった後は、この経路だけを持ち回せる。**結び目の寿命に巻き込まれない。**
 #[derive(Debug)]
 pub struct Session {
     peer: PublicKey,
     connection: Connection,
     send: SendStream,
     recv: RecvStream,
+    /// **読まないが、手放さない。**
+    ///
+    /// 結び目は最後の持ち手が落ちた時点で閉じ、その上の経路も道連れになる。
+    /// そうなると送った側には成功が返り、受ける側は永久に待つ
+    /// ――**落ちたことにすら気づけない**ので、経路が自分で生かしておく。
+    _endpoint: Endpoint,
 }
 
 impl Session {

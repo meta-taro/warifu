@@ -273,3 +273,33 @@ async fn 読めない宛先の文字列は受け取らない() {
     assert!("ふつうの文字列".parse::<Address>().is_err());
     assert!("WARIFU1-AAAA".parse::<Address>().is_err());
 }
+
+#[tokio::test]
+async fn 結び目を落としても経路は生きている() {
+    // 呼び出す側は「繋がったら Session だけ持ち回す」と書きたくなる。
+    // そこで経路が黙って死ぬと、**送った側は成功が返り、受ける側は永久に待つ**。
+    // 落ちたことにすら気づけないので、Session は自分で結び目を生かす。
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = {
+        let 受け手 = 受け手.clone();
+        tokio::spawn(async move { 受け手.accept(&Revocations::new()).await })
+    };
+    let mut こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let mut あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // ここで結び目を手放す。**経路はまだ使う**
+    drop(受け手);
+    drop(呼ぶ側);
+
+    時間を切る(こちら.send(b"warifu")).await.expect("送れない");
+    let 届いた = 時間を切る(あちら.recv()).await.expect("届かない");
+    assert_eq!(届いた, b"warifu", "結び目を落とした後も往復する");
+}

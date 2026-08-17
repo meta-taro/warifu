@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/warifu-core", "crates/warifu-net"]
+members = ["crates/warifu-core", "crates/warifu-net", "crates/warifu-intent"]
 
 [workspace.package]
 version = "0.0.0"
@@ -16,6 +16,7 @@ sha2 = "0.10"
 getrandom = "0.3"
 zeroize = { version = "1.8", features = ["derive"] }
 warifu-core = { path = "crates/warifu-core" }
+warifu-net = { path = "crates/warifu-net" }
 iroh = "1.0"
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
 

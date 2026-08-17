@@ -45,4 +45,4 @@ mod node;
 
 pub use address::Address;
 pub use error::Error;
-pub use node::{Node, Session};
+pub use node::{MAX_MESSAGE, Node, Session};

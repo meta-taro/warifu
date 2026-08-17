@@ -3508,6 +3508,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-intent"
+version = "0.0.0"
+dependencies = [
+ "getrandom 0.3.4",
+ "tokio",
+ "warifu-core",
+ "warifu-net",
+]
+
+[[package]]
 name = "warifu-net"
 version = "0.0.0"
 dependencies = [
