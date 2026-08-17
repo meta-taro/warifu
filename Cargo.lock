@@ -3518,6 +3518,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-meeting"
+version = "0.0.0"
+dependencies = [
+ "tokio",
+ "warifu-core",
+ "warifu-intent",
+ "warifu-net",
+]
+
+[[package]]
 name = "warifu-net"
 version = "0.0.0"
 dependencies = [
