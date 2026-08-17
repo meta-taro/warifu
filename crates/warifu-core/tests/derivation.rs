@@ -124,3 +124,35 @@ fn 壊れた公開鍵の文字列は読めない() {
     // 長さは合っているが 16 進として不正
     assert!("zz".repeat(32).parse::<PublicKey>().is_err());
 }
+
+#[test]
+fn 端末の秘密鍵は取り出せて同じ公開鍵に戻る() {
+    // 経路（warifu-net）は、この 32 byte をそのまま QUIC の鍵に使う。
+    // **同じ鍵でなければ、割符で確定した相手と、実際に繋がった相手が別物になる。**
+    let device = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+
+    let mut secret = device.secret_key_bytes();
+    let 戻した = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+
+    assert_eq!(secret, 戻した.secret_key_bytes(), "同じ導出から同じ秘密鍵");
+    assert_ne!(
+        secret,
+        device.public_key().to_bytes(),
+        "秘密鍵と公開鍵が同じ値になっている"
+    );
+
+    // 取り出した秘密鍵から作り直した署名鍵が、同じ公開鍵を名乗る
+    use ed25519_dalek::{Signer as _, SigningKey};
+    let signing = SigningKey::from_bytes(&secret);
+    assert_eq!(
+        signing.verifying_key().to_bytes(),
+        device.public_key().to_bytes()
+    );
+
+    // 署名も一致する
+    let sig = warifu_core::Signature::from_bytes(signing.sign(b"warifu").to_bytes());
+    assert!(device.public_key().verify(b"warifu", &sig).is_ok());
+
+    use zeroize::Zeroize as _;
+    secret.zeroize();
+}

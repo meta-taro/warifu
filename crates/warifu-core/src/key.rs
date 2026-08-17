@@ -170,6 +170,18 @@ impl Device {
         PublicKey::from(&self.signing)
     }
 
+    /// この端末の**秘密鍵そのもの**を 32 byte で取り出す。
+    ///
+    /// 経路（`warifu-net`）が QUIC の鍵として同じ値を使うために開けてある。
+    /// 別の鍵で繋ぐと、**割符で確定した相手と、実際に繋がった相手が別物になる。**
+    ///
+    /// 呼ぶ側は、使い終わったら [`zeroize`](https://docs.rs/zeroize) で消すこと。
+    /// **保存・表示・送信をしない。**
+    #[must_use]
+    pub fn secret_key_bytes(&self) -> [u8; 32] {
+        self.signing.to_bytes()
+    }
+
     /// 署名する。
     #[must_use]
     pub fn sign(&self, message: &[u8]) -> Signature {

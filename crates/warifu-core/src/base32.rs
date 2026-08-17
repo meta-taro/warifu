@@ -5,11 +5,14 @@
 //!
 //! **同じバイト列に複数の表記を許さない**（余りビットが 0 でなければ受け取らない）。
 //! 許すと、同じ割符から別の文字列を無限に作れてしまう。
+//!
+//! **warifu が外に出す文字列は、すべてここを通す。**
+//! 割符と宛先で表記が違うと、受け取った人が「どちらの形式か」を当てる羽目になる。
 
 const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 /// バイト列を base32 の文字列にする。
-pub(crate) fn encode(data: &[u8]) -> String {
+pub fn encode(data: &[u8]) -> String {
     let mut out = String::with_capacity(data.len().div_ceil(5) * 8);
     let mut buf: u32 = 0;
     let mut bits: u32 = 0;
@@ -29,7 +32,7 @@ pub(crate) fn encode(data: &[u8]) -> String {
 }
 
 /// base32 の文字列をバイト列に戻す。読めなければ [`None`]。
-pub(crate) fn decode(text: &str) -> Option<Vec<u8>> {
+pub fn decode(text: &str) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(text.len() * 5 / 8);
     let mut buf: u32 = 0;
     let mut bits: u32 = 0;

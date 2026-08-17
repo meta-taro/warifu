@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/warifu-core"]
+members = ["crates/warifu-core", "crates/warifu-net"]
 
 [workspace.package]
 version = "0.0.0"
@@ -15,6 +15,18 @@ hkdf = "0.12"
 sha2 = "0.10"
 getrandom = "0.3"
 zeroize = { version = "1.8", features = ["derive"] }
+warifu-core = { path = "crates/warifu-core" }
+iroh = "1.0"
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+
+[profile.dev]
+# 自分たちのコードのデバッグ情報は残す
+debug = true
+
+[profile.dev.package."*"]
+# 依存（iroh だけで 300 crate 超）のデバッグ情報は落とす。
+# 残すと target が数 GB 単位で膨らむ。**追うのは自分たちのコードなので、無くて困らない。**
+debug = false
 
 [profile.release]
 # 鍵を扱うので、リリースでも overflow を黙って回さない

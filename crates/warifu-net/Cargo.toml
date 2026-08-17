@@ -1,0 +1,21 @@
+[package]
+name = "warifu-net"
+description = "割符で確定した相手に、公開鍵だけで繋ぐ経路。iroh の上に載る薄い層。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+warifu-core.workspace = true
+iroh.workspace = true
+tokio.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

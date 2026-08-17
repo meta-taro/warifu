@@ -35,7 +35,7 @@
 //! # Ok::<(), warifu_core::Error>(())
 //! ```
 
-mod base32;
+pub mod base32;
 mod error;
 mod key;
 mod revocation;
