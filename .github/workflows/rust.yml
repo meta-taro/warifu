@@ -1,0 +1,66 @@
+name: rust
+
+# 品質ゲート（product-baseline §5）。
+# 手元に git hooks は無く、開発機によっては cargo すら入っていないことがある。
+# §5 は「手元のゲートが実行不能なら CI を最終ゲートにして先へ進む」と定めているので、
+# **その最終ゲートをここに置く**。落ちたまま放置しない・無効化して通したことにしない（§20）。
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+
+permissions:
+  contents: read
+
+# 同じ枝への push が続いたとき、古い実行を残さない（結果が 2 つ出ると、どちらが今か分からなくなる）
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # 依存だけで 300 crate 超（iroh）。デバッグ情報を落として cache を膨らませない
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # runner に入っている rust は更新されるので、必要な component だけを明示して入れ直す。
+      # 第三者の action を足さないのは、依存を増やさないため（§12）。
+      - name: toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt,clippy
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      # fmt → clippy → test の順。形の崩れで clippy のログを読ませない
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # warifu-net / warifu-meeting のテストは実際に経路を張る（iroh）。
+      # ここが runner のネットワーク都合で落ちた場合、直すのは**テスト側**であって、
+      # テストを消すことではない（§4「繋がらない環境でも走る形にする」）。
+      - name: test
+        run: cargo test --workspace
