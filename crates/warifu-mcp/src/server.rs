@@ -5,10 +5,11 @@ use std::sync::{Arc, Mutex};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{ErrorData, Implementation, ServerCapabilities, ServerInfo};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
+use warifu_calendar::{Calendar, Span};
 use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
-use crate::{OpenArgs, ToolError};
+use crate::{OpenArgs, SlotsArgs, ToolError};
 
 /// この口を叩いている相手の名前。
 ///
@@ -29,8 +30,14 @@ struct Inner {
     messages: Vec<Received>,
     reader: Reader,
     gate: Gate,
+    calendar: Calendar,
     now: u64,
 }
+
+/// 一度に返す空き枠の上限。
+///
+/// **相手に決めさせない。**細かく刻んで尋ねられても、一度に出る量はこちらが決める。
+const 空き枠の上限: usize = 8;
 
 impl Warifu {
     /// 受信箱と規則と関所を渡してサーバを作る。
@@ -42,9 +49,18 @@ impl Warifu {
                 messages,
                 reader: Reader::with_rules(rules),
                 gate,
+                calendar: Calendar::new(),
                 now,
             })),
         }
+    }
+
+    /// 予定表を持たせる。
+    ///
+    /// 持たせなければ `calendar_slots` は空を返す（**札があっても中身は出ない**）。
+    pub fn with_calendar(self, calendar: Calendar) -> Self {
+        self.inner.lock().expect("毒されていない").calendar = calendar;
+        self
     }
 
     /// 出している口の名前。
@@ -152,6 +168,32 @@ impl Warifu {
             // View は non_exhaustive。**知らない段を勝手に文字列にしない**
             _ => Err(ToolError::Unavailable("知らない段が返りました".to_owned()).into()),
         }
+    }
+
+    /// 空いている枠を出す。**予定の中身は入らない。**
+    #[tool(description = "空いている枠を出す。予定の題名や場所は返らない。")]
+    pub async fn calendar_slots(
+        &self,
+        Parameters(args): Parameters<SlotsArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("calendar.freebusy")?;
+
+        let 窓 = Span::new(args.start, args.end).map_err(|e| ToolError::BadArgs(e.to_string()))?;
+        let inner = self.inner.lock().expect("毒されていない");
+        // 窓が広すぎる・長さが 0 は、**札の問題ではない**ので Denied と混ぜない
+        let 空き = inner
+            .calendar
+            .slots(&窓, args.duration, 空き枠の上限)
+            .map_err(|e| ToolError::Unavailable(e.to_string()))?;
+
+        if 空き.is_empty() {
+            return Ok("空いている枠はありません。".to_owned());
+        }
+        Ok(空き
+            .iter()
+            .map(|s| format!("{}\t{}", s.start(), s.end()))
+            .collect::<Vec<_>>()
+            .join("\n"))
     }
 
     /// 承認済みの規則を、人が読める形で出す。

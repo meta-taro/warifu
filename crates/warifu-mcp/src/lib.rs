@@ -26,6 +26,11 @@
 //! 出した時点で、**AI が自分に許可を出せる。**
 //! 生成と適用を分けた意味（`decisions.md` **D19** / **D24**）が、そこで消える。
 //!
+//! # 予定表は「空いているか」しか出さない
+//!
+//! `calendar_slots` が返すのは区間だけで、**予定の題名も場所も入らない**
+//! （`warifu-calendar`）。何件返すかも**こちらが決める** — 相手に決めさせない。
+//!
 //! # 段ごとに札が要る
 //!
 //! 本文を読む（Level 3）札と、metadata を見る（Level 0）札は**別**である。
@@ -35,4 +40,4 @@ mod server;
 mod tools;
 
 pub use server::{Warifu, subject};
-pub use tools::{OpenArgs, ToolError};
+pub use tools::{OpenArgs, SlotsArgs, ToolError};

@@ -15,6 +15,20 @@ pub struct OpenArgs {
     pub level: String,
 }
 
+/// [`crate::Warifu::calendar_slots`] の引数。
+///
+/// **件数の上限がここに無いのは意図。**何件返すかを相手に決めさせない
+/// （`warifu-calendar` の考え方と同じで、一度に見える量はこちらが決める）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct SlotsArgs {
+    /// 窓の始まり（epoch 秒）。
+    pub start: u64,
+    /// 窓の終わり（epoch 秒）。**広すぎれば断られる。**
+    pub end: u64,
+    /// ほしい長さ（秒）。
+    pub duration: u64,
+}
+
 /// tool が返す失敗。
 ///
 /// **断った理由を、実行できなかった理由と混ぜない。**

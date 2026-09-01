@@ -6,8 +6,9 @@
 //! AI が受信箱を人のように扱えることが、この口の目的である。
 //! **だが、何をしてよいかを AI が決めてよいわけではない。**
 
+use warifu_calendar::{Calendar, Event, Span};
 use warifu_capability::{Action, Gate, Grant};
-use warifu_mcp::{OpenArgs, Warifu, subject};
+use warifu_mcp::{OpenArgs, SlotsArgs, Warifu, subject};
 use warifu_read::{
     Body, Extract, Kind, Priority, Received, RuleDraft, RuleStore, SenderId, Source,
 };
@@ -177,9 +178,116 @@ fn 承認の口を出していない() {
 }
 
 #[test]
-fn 出している口は_3_つだけ() {
+fn 出している口は_4_つだけ() {
     // 増やすときは、**その口に札の種類が要るか**を先に決める
     let 名前 = Warifu::tool_names();
 
-    assert_eq!(名前.len(), 3, "{名前:?}");
+    assert_eq!(名前.len(), 4, "{名前:?}");
+}
+
+// ── 予定表（企画書 v2 §17 / roadmap Phase 3 の代表 Demo） ──
+
+/// 2026-09-02 09:00〜（epoch 秒）
+const 朝: u64 = 1_756_803_600;
+/// 予定の題名。**どこにも漏れてはいけない文字列。**
+const 予定の題名: &str = "SHIRUSHI-予定-mcp-91d4";
+
+fn 予定表つき(動作: &[&str]) -> Warifu {
+    let mut 予定表 = Calendar::new();
+    予定表.add(Event::new(
+        Span::new(朝 + 3_600, 朝 + 7_200).unwrap(),
+        予定の題名,
+    ));
+    用意(動作).with_calendar(予定表)
+}
+
+fn 空き枠を尋ねる(
+    口: &Warifu,
+    長さ: u64,
+    窓: u64,
+) -> Result<String, rmcp::model::ErrorData> {
+    futures_lite_block(
+        口.calendar_slots(rmcp::handler::server::wrapper::Parameters(SlotsArgs {
+            start: 朝,
+            end: 朝 + 窓,
+            duration: 長さ,
+        })),
+    )
+}
+
+/// テストの中で 1 つの Future を回すだけの助け。
+fn futures_lite_block<F: std::future::Future>(f: F) -> F::Output {
+    tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap()
+        .block_on(f)
+}
+
+#[test]
+fn 札が無ければ空き枠を出せない() {
+    let 口 = 予定表つき(&[]);
+
+    let 結果 = 空き枠を尋ねる(&口, 3_600, 14_400);
+
+    assert!(結果.is_err(), "札が無いのに空き枠が出ました");
+    assert!(format!("{結果:?}").contains("関所が断りました"));
+}
+
+#[test]
+fn 札があれば空き枠が出る() {
+    let 口 = 予定表つき(&["calendar.freebusy"]);
+
+    let 空き = 空き枠を尋ねる(&口, 3_600, 14_400).unwrap();
+
+    // 09:00〜10:00 と 11:00〜13:00 の 2 つ
+    assert_eq!(空き.lines().count(), 2, "{空き}");
+}
+
+#[test]
+fn 空き枠に予定の題名が入らない() {
+    // **ここが v2 §17 の要。**見せてよいものと見せてはいけないものが、
+    // 同じ予定表の中に混ざっている。
+    let 口 = 予定表つき(&["calendar.freebusy"]);
+
+    let 空き = 空き枠を尋ねる(&口, 3_600, 14_400).unwrap();
+
+    assert!(!空き.contains(予定の題名), "題名が漏れています: {空き}");
+}
+
+#[test]
+fn 窓が広すぎれば断られるが札の問題とは混ぜない() {
+    // 札はある。**足りないのは札ではない**ので、Denied と同じ言い方にしない。
+    let 口 = 予定表つき(&["calendar.freebusy"]);
+
+    let 結果 = 空き枠を尋ねる(&口, 3_600, 400 * 24 * 60 * 60);
+
+    let 文言 = format!("{結果:?}");
+    assert!(結果.is_err());
+    assert!(文言.contains("窓が広すぎます"), "{文言}");
+    assert!(
+        !文言.contains("関所が断りました"),
+        "札の問題と混ざっています: {文言}"
+    );
+}
+
+#[test]
+fn 予定表が空なら窓いっぱいが空く() {
+    // 予定表を持たせないと「ぜんぶ空いている」と答える。
+    // **これは正しい振る舞いだが、同時に「予定が 1 つも無い」と教えてもいる。**
+    // 空き枠を返す以上ここは避けられないので、窓と件数で絞る（warifu-calendar）。
+    let 口 = 用意(&["calendar.freebusy"]);
+
+    let 空き = 空き枠を尋ねる(&口, 3_600, 14_400).unwrap();
+
+    assert_eq!(空き.lines().count(), 1, "{空き}");
+    assert_eq!(空き, format!("{}\t{}", 朝, 朝 + 14_400));
+}
+
+#[test]
+fn 求めた長さが窓より長ければ空き枠は出ない() {
+    let 口 = 用意(&["calendar.freebusy"]);
+
+    let 空き = 空き枠を尋ねる(&口, 100_000, 14_400).unwrap();
+
+    assert!(空き.contains("空いている枠はありません"), "{空き}");
 }

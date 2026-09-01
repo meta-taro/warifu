@@ -9,6 +9,7 @@ members = [
     "crates/warifu-imap",
     "crates/warifu-capability",
     "crates/warifu-mcp",
+    "crates/warifu-calendar",
 ]
 
 [workspace.package]
@@ -29,6 +30,7 @@ warifu-net = { path = "crates/warifu-net" }
 warifu-intent = { path = "crates/warifu-intent" }
 warifu-read = { path = "crates/warifu-read" }
 warifu-capability = { path = "crates/warifu-capability" }
+warifu-calendar = { path = "crates/warifu-calendar" }
 # MCP は動く仕様なので、自前で追わず公式 SDK に寄せる（D25）
 rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
 schemars = "1"

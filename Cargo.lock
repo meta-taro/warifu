@@ -3900,6 +3900,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-calendar"
+version = "0.0.0"
+
+[[package]]
 name = "warifu-capability"
 version = "0.0.0"
 
@@ -3946,6 +3950,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "warifu-calendar",
  "warifu-capability",
  "warifu-read",
 ]
