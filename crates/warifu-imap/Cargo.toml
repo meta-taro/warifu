@@ -10,6 +10,14 @@ repository.workspace = true
 [dependencies]
 warifu-read.workspace = true
 mail-parser.workspace = true
+async-imap.workspace = true
+futures.workspace = true
+tokio = { workspace = true, features = ["net", "io-util"] }
+tokio-rustls.workspace = true
+webpki-roots.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [lints.rust]
 missing_docs = "warn"

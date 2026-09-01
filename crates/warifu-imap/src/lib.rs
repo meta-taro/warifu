@@ -19,8 +19,14 @@
 //! すべて `Claims` として渡し、判断は `warifu-read` が
 //! **人の承認した規則だけ**で行う。
 
+mod account;
 mod convert;
 mod error;
+mod mailbox;
+mod tls;
 
+pub use account::Account;
 pub use convert::to_received;
 pub use error::Error;
+pub use mailbox::{DEFAULT_LIMIT, Mailbox};
+pub use tls::connect;
