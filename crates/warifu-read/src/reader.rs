@@ -44,7 +44,8 @@ impl Reader {
     ///
     /// - [`Error::NeedsInterpreter`] — 要約は常に、構造化は**当たる規則が無いとき**、
     ///   解釈器が要る。ここで黙って解釈器を呼ばないのがこの層の目的（`issues/007`）
-    /// - [`Error::NotBuiltYet`] — 添付の組み立てはまだ作っていない
+    ///
+    /// 添付（Level 4）は経路側が組み立てたものをそのまま返す。**無ければ空。**
     pub fn open_at(&self, received: &Received, level: Level) -> Result<View, Error> {
         let metadata = self.metadata(received);
         match level {
@@ -64,7 +65,12 @@ impl Reader {
                 metadata,
                 body: received.body().clone(),
             }),
-            Level::Attachments => Err(Error::NotBuiltYet(level)),
+            // 組み立てたのは経路側。**この層は渡すだけで、解釈しない。**
+            // 無ければ空で返す — 「無い」と「まだ作っていない」を混ぜない
+            Level::Attachments => Ok(View::Attachments {
+                metadata,
+                attachments: received.attachments().to_vec(),
+            }),
         }
     }
 

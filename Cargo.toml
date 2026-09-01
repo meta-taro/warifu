@@ -6,6 +6,7 @@ members = [
     "crates/warifu-intent",
     "crates/warifu-meeting",
     "crates/warifu-read",
+    "crates/warifu-imap",
 ]
 
 [workspace.package]
@@ -25,6 +26,8 @@ warifu-core = { path = "crates/warifu-core" }
 warifu-net = { path = "crates/warifu-net" }
 warifu-intent = { path = "crates/warifu-intent" }
 warifu-read = { path = "crates/warifu-read" }
+# MIME を解く。Adapter の内側だけで使い、warifu-read には入れない（D18）
+mail-parser = { version = "0.11", default-features = false, features = ["full_encoding"] }
 iroh = "1.0"
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
 

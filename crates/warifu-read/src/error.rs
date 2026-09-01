@@ -15,8 +15,6 @@ pub enum Error {
     /// この層は既定で呼ばない。呼ぶかどうかは**呼ぶ側が決める**（`decisions.md` **D5**）。
     /// 規則が育てば、同じ形式で二度目からはこれが返らなくなる — それがこの層の目的。
     NeedsInterpreter(Level),
-    /// **その段はまだ作っていない。**解釈器を呼べば出る、という意味ではない。
-    NotBuiltYet(Level),
     /// 記録を置く場所で落ちた。**下の層の理由を捨てない。**
     Storage(String),
 }
@@ -26,7 +24,6 @@ impl fmt::Display for Error {
         match self {
             Self::Malformed => f.write_str("形が壊れています"),
             Self::NeedsInterpreter(l) => write!(f, "{l} を出すには解釈器が要ります"),
-            Self::NotBuiltYet(l) => write!(f, "{l} はまだ作っていません"),
             Self::Storage(why) => write!(f, "記録を置けませんでした: {why}"),
         }
     }

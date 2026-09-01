@@ -7,7 +7,7 @@
 //! 「とりあえず Level 3 で取る」ができてしまうと、この層は無いのと同じになる。
 //! だから **Level 3 は取れる**（呼ぶ側が明示したときだけ）が、**既定にはならない**。
 
-use warifu_read::{Body, Error, Level, Reader, Received, SenderId, Source, View};
+use warifu_read::{Attachment, Body, Error, Level, Reader, Received, SenderId, Source, View};
 
 fn 一通(本文: &str) -> Received {
     Received::new(
@@ -83,13 +83,41 @@ fn 構造化は規則が無ければ解釈器が要る() {
 }
 
 #[test]
-fn 添付はまだ組み立てていない() {
-    // 「解釈器を呼べば出る」ではないので、NeedsInterpreter と混ぜない。
-    let 届いた = 一通("添付あり");
+fn 添付は経路が組み立てたものをそのまま渡す() {
+    // MIME を解くのは経路側（warifu-imap）の仕事。**この層は解釈しない。**
+    // 経路が違っても同じ層が同じ判断をする、を保つには、ここに MIME を入れてはいけない。
+    let 届いた = 一通("本文").with_attachments(vec![Attachment::new("見積.pdf", b"%PDF".to_vec())]);
 
-    let 結果 = Reader::new().open_at(&届いた, Level::Attachments);
+    match Reader::new().open_at(&届いた, Level::Attachments).unwrap() {
+        View::Attachments { attachments, .. } => {
+            assert_eq!(attachments.len(), 1);
+            assert_eq!(attachments[0].name(), "見積.pdf");
+            assert_eq!(attachments[0].bytes(), b"%PDF");
+        }
+        other => panic!("Level 4 を求めたのに {other:?} が返りました"),
+    }
+}
 
-    assert_eq!(結果.unwrap_err(), Error::NotBuiltYet(Level::Attachments));
+#[test]
+fn 添付が無ければ空で返る() {
+    // 「無い」と「まだ作っていない」を混ぜない。**無いものは無いと言う。**
+    match Reader::new()
+        .open_at(&一通("本文"), Level::Attachments)
+        .unwrap()
+    {
+        View::Attachments { attachments, .. } => assert!(attachments.is_empty()),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn 添付の_debug_に中身が出ない() {
+    let 届いた =
+        一通("本文").with_attachments(vec![Attachment::new("秘.pdf", "SHIRUSHI-添付-8d0f".into())]);
+
+    let 見え方 = Reader::new().open_at(&届いた, Level::Attachments).unwrap();
+
+    assert!(!format!("{見え方:?}").contains("SHIRUSHI-添付-8d0f"));
 }
 
 #[test]

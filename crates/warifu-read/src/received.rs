@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use crate::Error;
+use crate::{Attachment, Error};
 
 /// 送信元の長さの上限（バイト）。メールアドレスの上限（RFC 5321）に合わせてある。
 const MAX_SENDER: usize = 320;
@@ -133,6 +133,7 @@ pub struct Received {
     received_at: u64,
     claims: Claims,
     body: Body,
+    attachments: Vec<Attachment>,
 }
 
 impl Received {
@@ -144,7 +145,18 @@ impl Received {
             received_at,
             claims: Claims::new(),
             body,
+            attachments: Vec::new(),
         }
+    }
+
+    /// 添付を添える。
+    ///
+    /// **MIME を解くのは経路側の仕事**（`warifu-imap` など）。
+    /// この層に MIME を入れると、経路の数だけ同じものを作り直すことになる
+    /// （`issues/007`「置き場所を間違えない」）。
+    pub fn with_attachments(mut self, attachments: Vec<Attachment>) -> Self {
+        self.attachments = attachments;
+        self
     }
 
     /// 送信者の申し送りを添える。**添えても metadata は変わらない。**
@@ -176,5 +188,10 @@ impl Received {
     /// 本文。**この層の外へ出るのは、呼ぶ側が段を上げたときだけ。**
     pub(crate) fn body(&self) -> &Body {
         &self.body
+    }
+
+    /// 添付。本文と同じく、段を上げたときだけ外へ出る。
+    pub(crate) fn attachments(&self) -> &[Attachment] {
+        &self.attachments
     }
 }

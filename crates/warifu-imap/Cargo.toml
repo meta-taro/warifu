@@ -1,0 +1,16 @@
+[package]
+name = "warifu-imap"
+description = "既存のメール（IMAP）を warifu-read の入口に合わせる。MIME を解くのはここ。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+warifu-read.workspace = true
+mail-parser.workspace = true
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
