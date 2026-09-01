@@ -107,3 +107,13 @@ warifu は「もう一つのメッセンジャー」ではなく、**Identity / 
 
 - commit は AI、push は人間（人間確認なしの push 禁止）
 - テスト後回し・削除禁止
+
+## 手元の設定（clone したら 1 回）
+
+```bash
+scripts/setup-hooks.sh
+```
+
+commit 前に**個人情報の混入 → fmt → clippy → test** を回します（`.githooks/pre-commit`）。
+`cargo` が入っていない機械では Rust のゲートを飛ばしますが、**飛ばしたことを黙りません**。
+最終ゲートは CI（`.github/workflows/rust.yml`）です。

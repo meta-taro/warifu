@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# commit 前のゲート（product-baseline §5）。
+#
+# **黙って素通りしない。**cargo が入っていない機械では実行できないが、
+# そのときは「実行できなかった」と大きく言う。
+# 何も言わずに通ると、ゲートが有るように見えて何も見ていない状態になる（decisions.md D17）。
+#
+# 有効にする: scripts/setup-hooks.sh
+set -uo pipefail
+
+# rustup で入れた cargo は PATH に載っていないことがある。
+# **git を起動したのがログインシェルとは限らない**（GUI クライアント・エディタ内の git・
+# 別のツールから呼ばれた git）。ここで補わないと、cargo があるのに「無い」と判定して
+# 黙って素通りする — D17 が言っているのは、まさにこの形の壊れ方である。
+[ -d "$HOME/.cargo/bin" ] && PATH="$HOME/.cargo/bin:$PATH"
+
+赤() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+黄() { printf '\033[33m%s\033[0m\n' "$*" >&2; }
+
+fail=0
+走る() {
+  printf '  %-38s' "$1"; shift
+  if out=$("$@" 2>&1); then
+    printf 'ok\n'
+  else
+    printf 'NG\n'
+    printf '%s\n' "$out" | tail -30 >&2
+    fail=1
+  fi
+}
+
+echo "commit 前のゲート:"
+
+# 1. 個人情報（public リポ・baseline §25）。**cargo が無くても必ず走る**
+走る "個人情報の混入" bash .github/scripts/oss-privacy-check.sh
+
+# 2. Rust のゲート。cargo が無ければ実行できない
+if command -v cargo >/dev/null 2>&1; then
+  走る "cargo fmt --check" cargo fmt --all -- --check
+  走る "cargo clippy -D warnings" cargo clippy --workspace --all-targets -- -D warnings
+  走る "cargo test" cargo test --workspace
+else
+  黄 "  cargo が見つかりません。Rust のゲートを実行できませんでした。"
+  黄 "  → CI（.github/workflows/rust.yml）が最終ゲートです（decisions.md D17）。"
+  黄 "  → 手元でも見たい場合: https://rustup.rs"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  赤 ""
+  赤 "ゲートが通っていないので commit を止めました。"
+  赤 "**--no-verify で回避しないこと。**今回だけ外した手順は、次からの既定になります（baseline §18）。"
+  exit 1
+fi
+echo "  通りました。"

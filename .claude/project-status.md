@@ -197,7 +197,7 @@ AI 側は commit まで進めたが、**ここから先は人にしかできな�
 | `DESIGN.md` | 会議画面の見た目の方向性 | **人が決める領域**（baseline §11）。AI は埋めない |
 | `issues/007` | 低トークン読み取り層（roadmap Phase 3-b） | **R1〜R4 済**（59 件 green）。**残りは R5**（IMAP と添付）と、人が受信箱で測る工程 |
 | 開発機のツールチェーン | rustc / cargo | **入った**（rustc 1.98.0・2026-09-01）。`pnpm` / `gh` は未導入のまま |
-| git hooks | commit 前の fmt / clippy / test | **未。**CI を先に立てた（D17）。ツールチェーンが入ったので、次に足せる |
+| git hooks | commit 前の個人情報 / fmt / clippy / test | **済**（2026-09-02・`.githooks/pre-commit`）。clone ごとに `scripts/setup-hooks.sh` を 1 回 |
 
 ## テスト状況
 
