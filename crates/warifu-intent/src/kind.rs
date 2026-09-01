@@ -14,7 +14,7 @@ pub(crate) const MAX_KIND: usize = 64;
 ///
 /// D11 が warifu の担当と定めたのは **経路 / `file.*` / `meeting.*`** の 3 つだけ。
 /// `invoice.*` `quotation.*` は md-business の領域なので、ここには入れない。
-const KNOWN: [&str; 9] = [
+const KNOWN: [&str; 10] = [
     // 「これを渡したい / 受け取った」。中身はバイト列で、**種類を解釈しない**
     "file.offer",
     "file.accept",
@@ -26,6 +26,8 @@ const KNOWN: [&str; 9] = [
     "meeting.join",
     "meeting.leave",
     "meeting.signal",
+    // 測った回線を渡す。**申告ではなく観測**（warifu-link・D28）
+    "meeting.link",
 ];
 
 /// 口の名前。

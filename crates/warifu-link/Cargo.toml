@@ -1,0 +1,15 @@
+[package]
+name = "warifu-link"
+description = "回線を測って、相手ごとの割り当てを決める。**申告ではなく観測。**"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# **依存を持たない。**割り当てを決めるのに、通信そのものは要らない。
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

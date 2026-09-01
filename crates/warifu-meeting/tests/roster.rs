@@ -284,3 +284,63 @@ fn 会議のものでない口は読まない() {
 
     assert!(matches!(Notice::from_intent(&塊), Err(Error::NotMeeting)));
 }
+
+// ── 測った回線を渡す（`warifu-link` / D28） ──
+
+#[test]
+fn 測った回線が経路の上を往復する() {
+    use warifu_link::{Link, Report};
+
+    let 今 = 1_756_800_000;
+    let 会議 = MeetingId::generate();
+    let 測定 = Link::new(10_000_000, 3_000_000, 今 - 5);
+
+    let 塊 = Notice::Link {
+        meeting: 会議,
+        report: Report::from_link(&測定, 今),
+    }
+    .to_intent()
+    .unwrap();
+
+    match Notice::from_intent(&塊).unwrap() {
+        Notice::Link { meeting, report } => {
+            assert_eq!(meeting, 会議);
+            assert_eq!(report.uplink_bps(), 10_000_000);
+            assert_eq!(report.downlink_bps(), 3_000_000);
+            assert_eq!(report.age_secs(), 5);
+        }
+        その他 => panic!("測定値として読めない: {その他:?}"),
+    }
+}
+
+#[test]
+fn 時計がずれていても経過秒は保たれる() {
+    // **絶対時刻を送らない理由。**相手の時計が 1 時間ずれていても、
+    // 「5 秒前に測った」は 5 秒前のままになる
+    use warifu_link::{Link, Report};
+
+    let 相手の時計 = 1_756_800_000;
+    let 私の時計 = 相手の時計 + 3_600;
+
+    let 渡すもの = Report::from_link(&Link::new(1, 2, 相手の時計 - 5), 相手の時計);
+    let 戻り = 渡すもの.to_link(私の時計);
+
+    assert!(戻り.is_fresh(私の時計), "時計のずれで古い扱いになりました");
+}
+
+#[test]
+fn 壊れた長さの測定値は受け取らない() {
+    let 塊 = warifu_intent::Intent::with_correlation(
+        warifu_intent::Kind::new("meeting.link").unwrap(),
+        MeetingId::generate().into(),
+        vec![0; 19],
+    );
+
+    assert!(matches!(Notice::from_intent(&塊), Err(Error::Malformed)));
+}
+
+#[test]
+fn 測った回線の口は知っている口として扱う() {
+    // 知らない口のままだと、受け取れても `is_known` が false になり読み手が迷う
+    assert!(warifu_intent::Kind::new("meeting.link").unwrap().is_known());
+}

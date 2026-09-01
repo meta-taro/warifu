@@ -3942,6 +3942,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-link"
+version = "0.0.0"
+
+[[package]]
 name = "warifu-mcp"
 version = "0.0.0"
 dependencies = [
@@ -3962,6 +3966,7 @@ dependencies = [
  "tokio",
  "warifu-core",
  "warifu-intent",
+ "warifu-link",
  "warifu-net",
 ]
 

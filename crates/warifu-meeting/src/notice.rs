@@ -2,6 +2,8 @@
 
 use warifu_intent::{Intent, Kind};
 
+use warifu_link::Report;
+
 use crate::{Error, MeetingId, Roster, Signal};
 
 /// 招集。
@@ -12,6 +14,11 @@ const JOIN: &str = "meeting.join";
 const LEAVE: &str = "meeting.leave";
 /// 下ごしらえ。
 const SIGNAL: &str = "meeting.signal";
+/// 測った回線。
+const LINK: &str = "meeting.link";
+
+/// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
+const LINK_LEN: usize = 20;
 
 /// 会議まわりで相手に渡すもの。
 ///
@@ -41,6 +48,17 @@ pub enum Notice {
     },
     /// 映像を張るための下ごしらえ。
     Signal(Signal),
+    /// 測った回線を渡す。
+    ///
+    /// **これは申告ではなく観測**（`warifu-link` の `Meter`）。
+    /// 受け取った側では、**送る量を下げる方向にしか効かない**（`decisions.md` **D28**）。
+    /// 相手が「下り 1 Gbps」と言っても、出せるのは自分の上りまでである。
+    Link {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 測定値。**絶対時刻ではなく経過秒で運ぶ**（時計のずれで壊れないため）。
+        report: Report,
+    },
 }
 
 impl Notice {
@@ -48,9 +66,10 @@ impl Notice {
     #[must_use]
     pub fn meeting(&self) -> MeetingId {
         match self {
-            Self::Invite { meeting, .. } | Self::Join { meeting } | Self::Leave { meeting } => {
-                *meeting
-            }
+            Self::Invite { meeting, .. }
+            | Self::Join { meeting }
+            | Self::Leave { meeting }
+            | Self::Link { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -69,6 +88,13 @@ impl Notice {
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
             Self::Signal(s) => (SIGNAL, s.encode()?),
+            Self::Link { report, .. } => {
+                let mut 塊 = Vec::with_capacity(LINK_LEN);
+                塊.extend_from_slice(&report.uplink_bps().to_be_bytes());
+                塊.extend_from_slice(&report.downlink_bps().to_be_bytes());
+                塊.extend_from_slice(&report.age_secs().to_be_bytes());
+                (LINK, 塊)
+            }
         };
 
         Ok(Intent::with_correlation(
@@ -96,6 +122,23 @@ impl Notice {
             JOIN => Ok(Self::Join { meeting }),
             LEAVE => Ok(Self::Leave { meeting }),
             SIGNAL => Ok(Self::Signal(Signal::decode(meeting, 荷物)?)),
+            LINK => {
+                if 荷物.len() != LINK_LEN {
+                    return Err(Error::Malformed);
+                }
+                // 長さを確かめてあるので、切り出しは必ず成功する
+                let 数 = |a: usize, b: usize| -> u64 {
+                    u64::from_be_bytes(荷物[a..b].try_into().expect("長さは確認済み"))
+                };
+                Ok(Self::Link {
+                    meeting,
+                    report: Report::new(
+                        数(0, 8),
+                        数(8, 16),
+                        u32::from_be_bytes(荷物[16..20].try_into().expect("長さは確認済み")),
+                    ),
+                })
+            }
             // `file.offer` はもちろん、知らない `meeting.*` もここに落ちる。
             // **知らないものを知っているふりはしない**（warifu-intent と同じ構え）
             _ => Err(Error::NotMeeting),
