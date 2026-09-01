@@ -30,9 +30,12 @@ pub enum Source {
 pub struct SenderId(String);
 
 impl SenderId {
-    /// 送信元を作る。空と長すぎるものは受け取らない。
+    /// 送信元を作る。
+    ///
+    /// 空と長すぎるものに加えて、**制御文字を受け取らない**。
+    /// タブや改行が通ると、TSV の会計で 1 行を 2 行に割れる＝**記録を偽造できる**。
     pub fn new(s: &str) -> Result<Self, Error> {
-        if s.is_empty() || s.len() > MAX_SENDER {
+        if s.is_empty() || s.len() > MAX_SENDER || s.chars().any(char::is_control) {
             return Err(Error::Malformed);
         }
         Ok(Self(s.to_owned()))

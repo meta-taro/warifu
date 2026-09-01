@@ -6,7 +6,7 @@
 
 use core::fmt;
 
-use crate::{Field, Kind, Priority, SenderId};
+use crate::{Error, Field, Kind, Priority, SenderId};
 
 /// 抽出の 1 項目。**何を抜くかが人に読める形**になっている。
 ///
@@ -124,6 +124,18 @@ impl RuleDraft {
         self.extracts.push(extract);
         self
     }
+
+    /// 1 行 1 項目の形で保存できるか。
+    ///
+    /// タブや改行が入ると 1 行を 2 行に割れる＝**保存した規則を偽造できる。**
+    fn 保存できる(&self) -> bool {
+        let 無事 = |s: &str| !s.chars().any(char::is_control);
+        self.markers.iter().all(|m| 無事(m))
+            && self
+                .extracts
+                .iter()
+                .all(|e| 無事(&e.name) && 無事(&e.after) && e.until.as_deref().is_none_or(無事))
+    }
 }
 
 /// 承認された規則。
@@ -226,8 +238,90 @@ impl RuleStore {
     /// 候補を承認して棚へ入れる。**人が通す口。**
     ///
     /// ここを自動で呼ぶ実装を書かないこと。書いた時点で D5 が崩れる。
-    pub fn approve(&mut self, draft: RuleDraft) {
+    ///
+    /// # 失敗
+    ///
+    /// 目印や抽出に制御文字が入っていると [`Error::Malformed`]。
+    /// **保存できない規則を棚に入れない** — 入れると、
+    /// 保存した規則を後から読み戻したときに形が変わる。
+    pub fn approve(&mut self, draft: RuleDraft) -> Result<(), Error> {
+        if !draft.保存できる() {
+            return Err(Error::Malformed);
+        }
         self.rules.push(Rule { draft });
+        Ok(())
+    }
+
+    /// 棚を TSV にする。**1 行 1 項目、先頭の列が種類。**
+    ///
+    /// 表計算で開けるので、承認した人が後から中身を確かめられる
+    /// （baseline §19 / `issues/007`「rule は人が見られる形で保存する」）。
+    pub fn to_tsv(&self) -> String {
+        let mut s = String::new();
+        for r in &self.rules {
+            let d = &r.draft;
+            s.push_str(&format!(
+                "規則\t{}\t{}\t{:?}\t{}\n",
+                d.sender.as_str(),
+                d.kind,
+                d.priority,
+                if d.action_required { "要判断" } else { "" }
+            ));
+            for m in &d.markers {
+                s.push_str(&format!("目印\t{m}\n"));
+            }
+            for e in &d.extracts {
+                s.push_str(&format!(
+                    "抽出\t{}\t{}\t{}\n",
+                    e.name,
+                    e.after,
+                    e.until.as_deref().unwrap_or("")
+                ));
+            }
+        }
+        s
+    }
+
+    /// TSV から棚を読む。
+    ///
+    /// **読めない行があれば、そこで失敗する。**黙って捨てると、
+    /// 当たるはずの規則が静かに消え、解釈器を呼び直すことになる。
+    pub fn from_tsv(text: &str) -> Result<Self, Error> {
+        let mut rules: Vec<Rule> = Vec::new();
+        for 行 in text.lines().filter(|l| !l.trim().is_empty()) {
+            let 列: Vec<&str> = 行.split('\t').collect();
+            match (列.first().copied(), 列.len()) {
+                (Some("規則"), 5) => {
+                    let mut d = RuleDraft::new(SenderId::new(列[1])?, Kind::new(列[2])?);
+                    d.priority = match 列[3] {
+                        "Low" => Priority::Low,
+                        "Normal" => Priority::Normal,
+                        "High" => Priority::High,
+                        _ => return Err(Error::Malformed),
+                    };
+                    d.action_required = match 列[4] {
+                        "要判断" => true,
+                        "" => false,
+                        _ => return Err(Error::Malformed),
+                    };
+                    rules.push(Rule { draft: d });
+                }
+                (Some("目印"), 2) => {
+                    let r = rules.last_mut().ok_or(Error::Malformed)?;
+                    r.draft.markers.push(列[1].to_owned());
+                }
+                (Some("抽出"), 4) => {
+                    let r = rules.last_mut().ok_or(Error::Malformed)?;
+                    let mut e = Extract::new(列[1], 列[2]);
+                    if !列[3].is_empty() {
+                        e = e.until(列[3]);
+                    }
+                    r.draft.extracts.push(e);
+                }
+                _ => return Err(Error::Malformed),
+            }
+        }
+        Ok(Self { rules })
     }
 
     /// 承認済みの規則。**人が読むためにそのまま出す。**

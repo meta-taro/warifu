@@ -37,7 +37,7 @@ fn 承認済みの規則() -> RuleStore {
     .extract(Extract::new("期限", "支払期限 "));
 
     let mut 棚 = RuleStore::new();
-    棚.approve(候補);
+    棚.approve(候補).unwrap();
     棚
 }
 
@@ -136,7 +136,8 @@ fn 規則を増やせるのは承認の口だけ() {
     棚.approve(RuleDraft::new(
         SenderId::new("ci@例").unwrap(),
         Kind::new("ci.failed").unwrap(),
-    ));
+    ))
+    .unwrap();
 
     assert_eq!(棚.len(), 1);
 }
@@ -248,4 +249,57 @@ fn 規則が当たっても要約は出せない() {
     let 結果 = 読む人.open_at(&請求書("請求書\n合計 12,000 円\n"), Level::Summary);
 
     assert_eq!(結果.unwrap_err(), Error::NeedsInterpreter(Level::Summary));
+}
+
+#[test]
+fn 規則が書き出して読み戻せる() {
+    // 保存できないと、再起動のたびに解釈器を呼び直すことになる。
+    // **「一度学習した形式は二度と呼ばない」は、残って初めて成立する。**
+    let 棚 = 承認済みの規則();
+    let 戻り = RuleStore::from_tsv(&棚.to_tsv()).unwrap();
+
+    assert_eq!(戻り.len(), 棚.len());
+    assert_eq!(戻り.rules(), 棚.rules());
+    assert_eq!(戻り.to_tsv(), 棚.to_tsv());
+}
+
+#[test]
+fn 読み戻した規則でそのまま読める() {
+    let 戻り = RuleStore::from_tsv(&承認済みの規則().to_tsv()).unwrap();
+    let 読む人 = Reader::with_rules(戻り);
+
+    match 読む人
+        .open_at(
+            &請求書("請求書\n合計 12,000 円\n支払期限 2026-09-30\n"),
+            Level::Structured,
+        )
+        .unwrap()
+    {
+        View::Structured { fields, .. } => {
+            assert_eq!(fields[0].value(), "12,000 円");
+            assert_eq!(fields[1].value(), "2026-09-30");
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn 保存できない規則は承認しない() {
+    // タブや改行が入ると 1 行を 2 行に割れる＝**保存した規則を偽造できる。**
+    let mut 棚 = RuleStore::new();
+    let 危ない = RuleDraft::new(SenderId::new("x@例").unwrap(), Kind::new("x").unwrap())
+        .marker("請求書\n規則\tattacker@例");
+
+    assert!(棚.approve(危ない).is_err());
+    assert_eq!(棚.len(), 0);
+}
+
+#[test]
+fn 壊れた規則は読み取らない() {
+    // 読めない行を黙って捨てると、**当たるはずの規則が静かに消える**。
+    assert!(RuleStore::from_tsv("でたらめ").is_err());
+    assert!(
+        RuleStore::from_tsv("目印\t請求書\n").is_err(),
+        "規則の外に目印がある"
+    );
 }

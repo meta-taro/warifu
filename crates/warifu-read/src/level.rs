@@ -25,6 +25,23 @@ pub enum Level {
     Attachments,
 }
 
+impl Level {
+    /// 数から段に戻す。**知らない数は受け取らない。**
+    ///
+    /// 記録を読み戻すときに使う。知らない段を「たぶん 0」に丸めると、
+    /// 会計の集計が静かにずれる。
+    pub(crate) fn from_number(n: u8) -> Result<Self, crate::Error> {
+        match n {
+            0 => Ok(Self::Metadata),
+            1 => Ok(Self::Summary),
+            2 => Ok(Self::Structured),
+            3 => Ok(Self::Raw),
+            4 => Ok(Self::Attachments),
+            _ => Err(crate::Error::Malformed),
+        }
+    }
+}
+
 impl fmt::Display for Level {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let n = *self as u8;

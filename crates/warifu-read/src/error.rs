@@ -17,6 +17,8 @@ pub enum Error {
     NeedsInterpreter(Level),
     /// **その段はまだ作っていない。**解釈器を呼べば出る、という意味ではない。
     NotBuiltYet(Level),
+    /// 記録を置く場所で落ちた。**下の層の理由を捨てない。**
+    Storage(String),
 }
 
 impl fmt::Display for Error {
@@ -25,6 +27,7 @@ impl fmt::Display for Error {
             Self::Malformed => f.write_str("形が壊れています"),
             Self::NeedsInterpreter(l) => write!(f, "{l} を出すには解釈器が要ります"),
             Self::NotBuiltYet(l) => write!(f, "{l} はまだ作っていません"),
+            Self::Storage(why) => write!(f, "記録を置けませんでした: {why}"),
         }
     }
 }

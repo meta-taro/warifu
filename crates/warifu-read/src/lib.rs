@@ -50,6 +50,7 @@
 //! ```
 
 mod error;
+mod ledger;
 mod level;
 mod metadata;
 mod reader;
@@ -57,6 +58,7 @@ mod received;
 mod rule;
 
 pub use error::Error;
+pub use ledger::{Entry, Interpreter, Ledger};
 pub use level::{Attachment, Field, Level, View};
 pub use metadata::{Kind, Metadata, Priority};
 pub use reader::Reader;
