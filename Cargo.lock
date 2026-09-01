@@ -3981,6 +3981,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-quarantine"
+version = "0.0.0"
+
+[[package]]
 name = "warifu-read"
 version = "0.0.0"
 
