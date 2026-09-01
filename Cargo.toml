@@ -5,6 +5,7 @@ members = [
     "crates/warifu-net",
     "crates/warifu-intent",
     "crates/warifu-meeting",
+    "crates/warifu-read",
 ]
 
 [workspace.package]
@@ -23,6 +24,7 @@ zeroize = { version = "1.8", features = ["derive"] }
 warifu-core = { path = "crates/warifu-core" }
 warifu-net = { path = "crates/warifu-net" }
 warifu-intent = { path = "crates/warifu-intent" }
+warifu-read = { path = "crates/warifu-read" }
 iroh = "1.0"
 tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
 
