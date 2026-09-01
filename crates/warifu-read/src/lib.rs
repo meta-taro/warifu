@@ -54,9 +54,11 @@ mod level;
 mod metadata;
 mod reader;
 mod received;
+mod rule;
 
 pub use error::Error;
 pub use level::{Attachment, Field, Level, View};
 pub use metadata::{Kind, Metadata, Priority};
 pub use reader::Reader;
 pub use received::{Body, Claims, Received, SenderId, Source};
+pub use rule::{Extract, Rule, RuleDraft, RuleStore};
