@@ -8,18 +8,28 @@ use warifu_intent::Correlation;
 
 use crate::Error;
 
-/// 1 つの会議に入れる人数の上限。
+/// フルメッシュとして成立しうる人数の外枠。
 ///
-/// **これを 5 以上にしてはならない。**
+/// **これは法的な線ではなく、帯域から来る線である**（`decisions.md` **D27**）。
 ///
-/// フルメッシュは各自が自分の映像だけを送る形で、誰も他人の映像を運ばない。
-/// 5 人以上にすると誰かの端末が他人の映像を中継することになり、
-/// それは `decisions.md` **D7**（利用者の端末が他人の通信を中継する）そのもので、
-/// 法的な決着が付いていない。
+/// フルメッシュは各自が**自分の映像だけ**を全員へ直接送る。
+/// 5 人でも 6 人でも**誰も他人の通信を中継しない**ので、
+/// **D7（利用者の端末が他人の通信を中継する）は発火しない。**
 ///
-/// **4 人という数字自体は文献値**で、手元の回線で成立するかは M6 で実測する
-/// （`issues/005`）。成立しなければ 3 に下げる。**上げる側には D7 の決着が要る。**
-pub const MAX_PARTICIPANTS: usize = 4;
+/// 効くのは上りの帯域で、参加者ごとに `K×(N−1)`。
+/// 720p を 1.5 Mbps とすると、16 人で上り 22.5 Mbps。
+/// **家庭用の光なら届くが、携帯回線では無理**という辺りがこの数字である。
+///
+/// これを超えたいなら、**誰かが他人の映像を運ぶことになる**（SFU）。
+/// そこで初めて D7 の決着が要る。
+pub const HARD_LIMIT: usize = 16;
+
+/// 定員を指定しなかったときの人数。
+///
+/// **4 という数字は文献値**で、手元の回線で成立するかは M6 で実測する（`issues/005`）。
+/// 既定を控えめに置いてあるだけで、**上限ではない**。
+/// 増やすなら [`Roster::with_capacity`]。
+pub const DEFAULT_CAPACITY: usize = 4;
 
 /// 会議 1 つを指す印。
 ///
@@ -77,15 +87,35 @@ impl FromStr for MeetingId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Roster {
     members: Vec<PublicKey>,
+    capacity: usize,
 }
 
 impl Roster {
-    /// 主催者ひとりから始める。
+    /// 主催者ひとりから始める。定員は [`DEFAULT_CAPACITY`]。
     #[must_use]
     pub fn new(host: PublicKey) -> Self {
         Self {
             members: vec![host],
+            capacity: DEFAULT_CAPACITY,
         }
+    }
+
+    /// 定員を決めて始める。
+    ///
+    /// **上限は [`HARD_LIMIT`]。**これは法的な線ではなく帯域から来る線で、
+    /// 超えたいなら誰かが他人の映像を運ぶことになる（`decisions.md` **D27**）。
+    ///
+    /// # Errors
+    /// 定員が 2 未満、または [`HARD_LIMIT`] を超えるとき [`Error::Full`]。
+    /// **1 人の会議は会議ではない。**
+    pub fn with_capacity(host: PublicKey, capacity: usize) -> Result<Self, Error> {
+        if !(2..=HARD_LIMIT).contains(&capacity) {
+            return Err(Error::Full);
+        }
+        Ok(Self {
+            members: vec![host],
+            capacity,
+        })
     }
 
     /// 主催者。
@@ -115,10 +145,16 @@ impl Roster {
         false
     }
 
+    /// この会議の定員。
+    #[must_use]
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
     /// もう入れないか。
     #[must_use]
     pub fn is_full(&self) -> bool {
-        self.members.len() >= MAX_PARTICIPANTS
+        self.members.len() >= self.capacity
     }
 
     /// 入っているか。**ここに居ない相手は会議に入れない。**
@@ -130,8 +166,8 @@ impl Roster {
     /// 1 人入れる。
     ///
     /// # Errors
-    /// もう 4 人なら [`Error::Full`]。もう載っていれば [`Error::AlreadyIn`]
-    /// （**二重に数えると 4 人の上限が実質 3 人になる**）。
+    /// 定員に達していれば [`Error::Full`]。もう載っていれば [`Error::AlreadyIn`]
+    /// （**二重に数えると定員が実質 1 人減る**）。
     pub fn add(&mut self, key: PublicKey) -> Result<(), Error> {
         if self.contains(&key) {
             return Err(Error::AlreadyIn);
@@ -156,10 +192,15 @@ impl Roster {
         self.members.len() != 前
     }
 
-    /// 塊にする。`[人数 1][鍵 32]*人数`。
+    /// 塊にする。`[定員 1][人数 1][鍵 32]*人数`。
+    ///
+    /// **定員も運ぶ。**運ばないと、受け取った側はその会議が何人までなのかを知らず、
+    /// 外枠でしか数えられなくなる。
     pub(crate) fn encode(&self) -> Vec<u8> {
-        let mut 塊 = Vec::with_capacity(1 + self.members.len() * 32);
-        // 上限が 4 なので u8 に必ず収まる
+        let mut 塊 = Vec::with_capacity(2 + self.members.len() * 32);
+        // 定員も人数も HARD_LIMIT 以下なので u8 に必ず収まる
+        #[allow(clippy::cast_possible_truncation)]
+        塊.push(self.capacity as u8);
         #[allow(clippy::cast_possible_truncation)]
         塊.push(self.members.len() as u8);
         for 鍵 in &self.members {
@@ -170,14 +211,16 @@ impl Roster {
 
     /// 塊から読み戻す。
     pub(crate) fn decode(bytes: &[u8]) -> Result<Self, Error> {
-        let (&人数, 残り) = bytes.split_first().ok_or(Error::Malformed)?;
-        let 人数 = usize::from(人数);
+        let (&定員, 残り) = bytes.split_first().ok_or(Error::Malformed)?;
+        let (&人数, 残り) = 残り.split_first().ok_or(Error::Malformed)?;
+        let (定員, 人数) = (usize::from(定員), usize::from(人数));
 
         if 人数 == 0 {
             return Err(Error::Malformed);
         }
-        // **受け取る側でも数える。**相手が上限を守る保証は無い
-        if 人数 > MAX_PARTICIPANTS {
+        // **受け取る側でも数える。**相手が定員を守る保証は無い。
+        // 外枠を超えた定員を名乗る招待も受け取らない
+        if !(2..=HARD_LIMIT).contains(&定員) || 人数 > 定員 {
             return Err(Error::Full);
         }
         if 残り.len() != 人数 * 32 {
@@ -195,6 +238,9 @@ impl Roster {
             members.push(鍵);
         }
 
-        Ok(Self { members })
+        Ok(Self {
+            members,
+            capacity: 定員,
+        })
     }
 }

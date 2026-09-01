@@ -59,5 +59,5 @@ mod signal;
 
 pub use error::Error;
 pub use notice::Notice;
-pub use roster::{MAX_PARTICIPANTS, MeetingId, Roster};
+pub use roster::{DEFAULT_CAPACITY, HARD_LIMIT, MeetingId, Roster};
 pub use signal::{MAX_SIGNAL, Signal, Step};
