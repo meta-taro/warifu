@@ -1,0 +1,24 @@
+[package]
+name = "warifu-mcp"
+description = "受信箱を MCP の口として出す。**すべての呼び出しが関所を通る。**"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+warifu-read.workspace = true
+warifu-capability.workspace = true
+rmcp.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["io-std"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

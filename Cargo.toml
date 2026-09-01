@@ -8,6 +8,7 @@ members = [
     "crates/warifu-read",
     "crates/warifu-imap",
     "crates/warifu-capability",
+    "crates/warifu-mcp",
 ]
 
 [workspace.package]
@@ -27,6 +28,12 @@ warifu-core = { path = "crates/warifu-core" }
 warifu-net = { path = "crates/warifu-net" }
 warifu-intent = { path = "crates/warifu-intent" }
 warifu-read = { path = "crates/warifu-read" }
+warifu-capability = { path = "crates/warifu-capability" }
+# MCP は動く仕様なので、自前で追わず公式 SDK に寄せる（D25）
+rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 # MIME を解く。Adapter の内側だけで使い、warifu-read には入れない（D18）
 mail-parser = { version = "0.11", default-features = false, features = ["full_encoding"] }
 # IMAP。runtime-tokio を選ぶ（D10 で tokio に決めてある）
