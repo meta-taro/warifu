@@ -26,6 +26,15 @@
 //!
 //! 映像から先に落とす。**声が切れるくらいなら映像を捨てる。**
 //!
+//! # 粗さは自動で動く
+//!
+//! [`plan`] は**その瞬間**の割り当てを出すだけで、回線が変われば合わなくなる。
+//! 時間の経過ごとに段を上げ下げするのが [`Governor`]。
+//!
+//! **素朴に作ると必ず振動する。**「入るなら上げる・入らないなら下げる」を毎回やると、
+//! 境目で 1 秒ごとに段が変わる。見ている側には、
+//! 粗い映像より**粗さが変わり続ける映像のほうが辛い。**
+//!
 //! # 使い方
 //!
 //! ```
@@ -47,11 +56,13 @@
 //! ```
 
 mod error;
+mod governor;
 mod meter;
 mod plan;
 mod quality;
 
 pub use error::Error;
+pub use governor::{Governor, RAISE_AFTER, Sample};
 pub use meter::{FRESH_FOR, Meter};
 pub use plan::{Link, Plan, Report, plan};
 pub use quality::Quality;
