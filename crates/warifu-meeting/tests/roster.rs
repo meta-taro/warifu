@@ -28,27 +28,39 @@ fn 会議は主催者ひとりから始まる() {
 }
 
 #[test]
-fn 四人まで入れる() {
+fn 既定の定員まで入れる() {
+    // **数字を書かない。**既定を変えるたびにテストを書き換えるなら、
+    // それは既定を固定していることになる
     let mut 名簿 = Roster::new(鍵(1));
 
-    名簿.add(鍵(2)).unwrap();
-    名簿.add(鍵(3)).unwrap();
-    名簿.add(鍵(4)).unwrap();
+    for i in 2..=DEFAULT_CAPACITY {
+        名簿.add(鍵(u8::try_from(i).unwrap())).unwrap();
+    }
 
     assert_eq!(名簿.len(), DEFAULT_CAPACITY);
     assert!(名簿.is_full());
 }
 
 #[test]
-fn 既定では五人目が入れない() {
-    // 既定は控えめ（4 人）。**上限ではなく既定**なので、増やしたければ定員を決めて始める
+fn 既定の定員を超えたら入れない() {
+    // **上限ではなく既定**なので、増やしたければ定員を決めて始める
     let mut 名簿 = Roster::new(鍵(1));
-    名簿.add(鍵(2)).unwrap();
-    名簿.add(鍵(3)).unwrap();
-    名簿.add(鍵(4)).unwrap();
+    for i in 2..=DEFAULT_CAPACITY {
+        名簿.add(鍵(u8::try_from(i).unwrap())).unwrap();
+    }
 
-    assert!(matches!(名簿.add(鍵(5)), Err(Error::Full)));
+    let 溢れる = u8::try_from(DEFAULT_CAPACITY + 1).unwrap();
+    assert!(matches!(名簿.add(鍵(溢れる)), Err(Error::Full)));
     assert_eq!(名簿.len(), DEFAULT_CAPACITY, "断った分が混ざっていない");
+}
+
+#[test]
+fn 既定は外枠の内側にある() {
+    // 既定が外枠を超えていたら、Roster::new がその場で壊れた名簿を作ることになる。
+    // **コンパイル時に止める**（実行まで待つ理由が無い）
+    const { assert!(DEFAULT_CAPACITY >= 2) };
+    const { assert!(DEFAULT_CAPACITY <= HARD_LIMIT) };
+    assert!(Roster::with_capacity(鍵(1), DEFAULT_CAPACITY).is_ok());
 }
 
 #[test]
@@ -216,10 +228,10 @@ fn 入ると出るがそのまま往復する() {
 fn 定員より多い名簿は受け取らない() {
     // 相手が上限を守る保証は無い。**受け取る側でも数える**
     let 会議 = MeetingId::generate();
-    let mut 名簿 = Roster::new(鍵(1));
+    // 定員 3 の会議を 3 人ぶんで作り、**人数だけ 4 に書き換える**
+    let mut 名簿 = Roster::with_capacity(鍵(1), 3).unwrap();
     名簿.add(鍵(2)).unwrap();
     名簿.add(鍵(3)).unwrap();
-    名簿.add(鍵(4)).unwrap();
 
     let 正しい = Notice::Invite {
         meeting: 会議,
@@ -228,11 +240,10 @@ fn 定員より多い名簿は受け取らない() {
     .to_intent()
     .unwrap();
 
-    // 定員は 4 のまま、人数だけ 5 に書き換え、鍵を 1 つ足した塊を作る。
     // 塊は `[定員 1][人数 1][鍵 32]*人数`
     let mut 荷物 = 正しい.payload().to_vec();
-    荷物[1] = 5;
-    荷物.extend_from_slice(&鍵(5).to_bytes());
+    荷物[1] = 4;
+    荷物.extend_from_slice(&鍵(4).to_bytes());
     let 偽物 =
         warifu_intent::Intent::with_correlation(正しい.kind().clone(), 正しい.correlation(), 荷物);
 
