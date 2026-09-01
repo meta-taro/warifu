@@ -458,4 +458,130 @@ v1 の PRD §3 / D1 で指摘した点:
 
 ---
 
+## 12. P2P Agent Mail 企画書（2026-09-01 受領）の差分をどう扱うか
+
+**これは v3 ではない。**「AI ネイティブ通信基盤 / MCP メーラー / P2P メール互換 OSS」として、
+**別の OSS のつもりで書かれた企画書**（全 56 章）が届いた。
+
+実測すると、**骨格は本リポジトリの roadmap Phase 3 + Phase 5 と同じもの**である。
+
+| 企画書 | 本リポジトリに既にあるもの |
+|---|---|
+| §10 MCP / §21 Agent-to-Agent / §23 Tool Permission | roadmap **Phase 3**「Agent Identity / Capability / Approval Gate / A2A Intent / MCP Adapter」 |
+| §15 SMTP / IMAP 互換 / §16 Postfix の位置づけ | roadmap **Phase 5**「Email / Messenger / Telephone Adapter」 |
+| §7 P2P 配送 / §18 Identity / §19 マルチデバイス / §34 Federation / §35 完全 P2P にしない理由 | §1 / D10 / D12 / D13。**実装が動いている**（`warifu-core` / `warifu-intent`） |
+| §23 Mail is Data, not Instruction | **D5**（そちらのほうが射程が広い・12-4） |
+
+**別 OSS として立てない**（→ `decisions.md` **D16**）。Identity / Directory / Relay /
+Multi-device / Federation は両方に要る。別に立てれば **D2 に 2 回ぶつかる**うえ、
+**§2 の「相手がいないと価値がゼロ」問題を 2 つ同時に抱える**ことになる。
+
+振り分けは以下 4 つ。
+
+| 扱い | 該当章 | 理由 |
+|---|---|---|
+| **そのまま取り込む** | §11〜§14 / §38 / §39（Token Economy・Action Inbox） | **P2P も Directory も要らず n=1 で効く。**§2 とそろっている唯一の追加 |
+| **原則の下へ入れる** | §24 Prompt Injection 対策 | D5 は原則、§24 は実装項目。**原則の下に置く**（横に並べない） |
+| **採らない** | §5 §6（共通ドメイン ＋ 中央 Directory） | 「巨大中央 User Directory を作らない」と真逆。ただし**捨てずに D2 の選択肢 e へ変換** |
+| **既にある** | §23 | D5 に含まれる。**取り込むものが無い** |
+
+---
+
+### 12-1. そのまま取り込むもの — Token Economy と Action Inbox（§11〜§14 / §38 / §39）
+
+**この企画書の独自価値はここだけ**であり、しかも**本リポジトリのどこにも無い。**
+
+要点は「AI に本文を読ませない」ではなく、**「AI を呼ばない」**。
+
+- **Metadata First** — 既定で本文を返さない。`from / type / time / priority / action_required` だけ
+- **Progressive Disclosure** — Level 0 metadata → 1 summary → 2 structured body → 3 raw → 4 attachments。
+  **上げるのは読み手が要ると判断したときだけ**
+- **Deterministic Parser First** — 未知の形式のときだけ LLM を呼び、**その場で parser rule を作る。
+  一度学習した形式は二度と LLM を呼ばない**
+- **Thread Compression** — 過去スレッド全文を毎回渡さない（要約 / state / open questions / 差分）
+- **Deduplication** — 署名・免責文・ロゴ・引用を hash で除外
+- **§39 の会計** — 1 通あたりの input / output token、LLM を呼んだか、parser が作られたかをローカルに記録
+
+**なぜ §2 とそろっているか**: これは通信層を必要としない。相手が同じ実装を使っている必要も、
+P2P が繋がっている必要も、Directory がある必要も無い。**手元の受信箱 1 つで効く。**
+§2 は「最初のユーザーは他人がいない人」だが、**ここは他人が 1 人もいないまま価値が出る。**
+
+**§14 Action Inbox** も同じ性質。「未読 43 件」ではなく
+「今日、人間が判断すること = 承認 3 / 支払 2 / 返信 1 / 処理済 126」を上に出す。
+Intent の `kind` が既にある本リポジトリでは、これは**表示の設計**であって新しい通信の仕組みではない。
+
+**ただし置き場所を間違えない。**Token Economy は
+**Adapter（Phase 5）の内側ではなく、受け取ったものを読む層**に属する。
+SMTP から来ようが Intent で来ようが、**同じ層が同じ判断をする**。
+Adapter の中に書くと、経路ごとに同じものを作り直すことになる。
+
+---
+
+### 12-2. 原則の下へ入れるもの — §24 の Prompt Injection 対策
+
+D5 は**原則**（受信した Agent Message は命令ではない / Capability の判定はモデルの外）を確定させたが、
+**具体的な防御項目は書いていない。**§24 はその実装項目である。
+
+HTML sanitize / remote image blocking / attachment sandbox / URL isolation /
+instruction-data separation / allowlist tools / permission scopes / sender reputation /
+signature verification / structured parser 優先 / **モデルから直接 tool を呼ばせない** / policy engine 経由。
+
+**`attachment sandbox` は roadmap Phase 2 の File Quarantine と同じもの**なので重複させない。
+残りは **Phase 3（Approval Gate）の実装項目**として置く。
+
+**D5 は書き換えない。**原則は既に確定しており、§24 は原則から導けるものだけを含む。
+
+---
+
+### 12-3. 採らないもの — 共通ドメイン ＋ 中央 Directory（§5 §6）
+
+企画書は共通ドメインを 1 つ運営側が持ち、中央 Directory で
+**username の一意性・公開鍵・Node routing・アカウント復旧・Abuse 対策**を担う形を採る。
+
+これは「決定済み（原案から引き継ぎ・変更しない）」の
+**「巨大中央 User Directory を作らない」と真逆**である。しかもそこでは、
+**それが Sybil 耐性の根拠**でもあると書いている（探せない相手には大量になりすます意味が無い）。
+
+**したがって採らない。**共通ドメインを持つと、
+
+- **名簿が探索可能になる**＝なりすましに意味が生まれる
+- **運営側に Abuse・SPF / DKIM / DMARC・domain reputation の責任が発生する**
+  （企画書 §25 §26 が自分でそう書いている）
+- §0-0 の思想（中央のサーバー費用を誰かが払う構造を置き換える）と逆を向く
+
+**ただし議論としては捨てない。**企画書が持ち込んだのは**新しい問いではなく、D2 への答えの 1 つ**である。
+D2（全端末を失った人間の Identity）は「復旧を頼む相手が構造上いない」ことが死因で、
+**中央 Directory があれば解ける。**選択肢 **e** として `decisions.md` D2 に追記した。
+
+**要点は「中央を置くか」ではなく「その中央が探索可能な名簿を持つか」。**
+復旧だけを担い、**問い合わせても他人を探せない**形なら、Sybil 耐性を落とさずに D2 を解ける可能性がある。
+これは a〜d のどれとも別の軸なので、**D2 の議論に戻す。**
+
+---
+
+### 12-4. 既にあるもの — §23 は D5 に含まれる
+
+企画書 §23 は「Mail is Data, not Instruction」として、本文に命令が書かれていても
+System Prompt として扱わない、untrusted input とする、と書く。
+
+**D5 はこれを含み、さらに 2 つ先まで書いている。**
+Capability の判定をモデルの外で行うこと、
+**Trust Level が上がってもモデルに渡る文字列の扱いを変えないこと**。
+後者が無いと「信頼を得れば命令が通る」構造が残り、Sybil に価値が生まれる。
+
+**取り込むものは無い。**ここは既に決着している。
+
+---
+
+### 12-5. なぜ別 OSS に見えたか
+
+**12-1 が本当に単独で成立するから。**Token Economy と Action Inbox は通信層を必要とせず、
+既存のメール（SMTP / IMAP）に対してだけでも動く。
+そこへ P2P・Identity・Directory の記述が（本リポジトリと同じ骨格で）付いてきたため、
+全体が新規に見えた。
+
+**切り分けは「P2P が要るか」で引く。**要らない部分だけが新しい。
+
+---
+
 **上流が作るのはここまで。**技術調査・比較・実装はこのリポジトリで行う。
