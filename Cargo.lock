@@ -3728,6 +3728,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-capability"
+version = "0.0.0"
+
+[[package]]
 name = "warifu-core"
 version = "0.0.0"
 dependencies = [

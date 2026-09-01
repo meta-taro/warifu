@@ -7,6 +7,7 @@ members = [
     "crates/warifu-meeting",
     "crates/warifu-read",
     "crates/warifu-imap",
+    "crates/warifu-capability",
 ]
 
 [workspace.package]
