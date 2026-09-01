@@ -56,6 +56,7 @@ mod metadata;
 mod reader;
 mod received;
 mod rule;
+mod thread;
 
 pub use error::Error;
 pub use ledger::{Entry, Interpreter, Ledger};
@@ -64,3 +65,4 @@ pub use metadata::{Kind, Metadata, Priority};
 pub use reader::Reader;
 pub use received::{Body, Claims, Received, SenderId, Source};
 pub use rule::{Extract, Rule, RuleDraft, RuleStore};
+pub use thread::Thread;
