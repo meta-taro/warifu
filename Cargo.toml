@@ -13,6 +13,7 @@ members = [
     "crates/warifu-link",
     "crates/warifu-quarantine",
     "crates/warifu-door",
+    "crates/warifu-app",
 ]
 # GUI は別 workspace に置く。**ここへ入れない。**
 # 入れると `cargo test --workspace`（commit 前のゲートと CI）が毎回 Tauri を建てることになり、
@@ -39,6 +40,7 @@ warifu-read = { path = "crates/warifu-read" }
 warifu-capability = { path = "crates/warifu-capability" }
 warifu-calendar = { path = "crates/warifu-calendar" }
 warifu-link = { path = "crates/warifu-link" }
+warifu-app = { path = "crates/warifu-app" }
 # MCP は動く仕様なので、自前で追わず公式 SDK に寄せる（D25）
 rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
 schemars = "1"

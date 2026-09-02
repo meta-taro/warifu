@@ -3900,6 +3900,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-app"
+version = "0.0.0"
+dependencies = [
+ "warifu-core",
+ "warifu-intent",
+ "warifu-meeting",
+]
+
+[[package]]
 name = "warifu-calendar"
 version = "0.0.0"
 
