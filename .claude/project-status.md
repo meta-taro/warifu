@@ -334,7 +334,10 @@ AI 側は commit まで進めたが、**ここから先は人にしかできな�
 | M8〜M9 | md-business との掛け合わせ（`issues/006`） | 未 |
 | `issues/001` | 既存規格との差分調査 | **完了**（2026-09-02・`docs/research/existing-specs.md`）。**結論: 新規格を名乗る根拠は薄い。「該当なし」は 2 つだけ** |
 | `issues/002` | D1 / D2 の決着 | D2 は**着手のブロッカーではなくなった**（決定的鍵導出）が、**人に配る前には決める必要がある** |
-| `DESIGN.md` | 会議画面の見た目の方向性 | **埋めた**（2026-09-02・**D33**）。オーナー指示「dbboard や md-business を参考に」で方向性が与えられたため。値は md-business から引き写し、**warifu 固有は §4 の 3 軸だけ**。**承認は人**（§11 の「止めるべき条件」に列挙） |
+| `DESIGN.md` | 画面の見た目・窓枠・多言語・自動更新 | **埋めた**（2026-09-02・**D33 / D34 / D35 / D36**）。オーナー指示 3 件で方向性が与えられたため。値は md-business から引き写し、**warifu 固有は §4 の 3 軸だけ**。**承認は人**（§14 の「止めるべき条件」に列挙） |
+| 自作タイトルバー（D34） | `decorations: false`・VS Code 型 | **設計のみ。**実装は M5 |
+| 多言語 en/ja/zh/ko（D35） | md-business と同じ 4 言語 | **設計のみ。**辞書はまだ無い |
+| 自動アップデート（D36） | GitHub Releases + minisign | **設計のみ。**minisign の鍵生成は**人**（baseline §14） |
 | `issues/007` | 低トークン読み取り層（roadmap Phase 3-b） | **R1〜R4 済**（59 件 green）。**残りは R5**（IMAP と添付）と、人が受信箱で測る工程 |
 | 開発機のツールチェーン | rustc / cargo / node / pnpm / gh | **全部入った**（rustc 1.98.0 / node v22.23.2 / pnpm 11.1.1 / gh 2.98.0）。**`gh` は未認証**（`gh auth login` は人が行う） |
 | git hooks | commit 前の個人情報 / fmt / clippy / test | **済**（2026-09-02・`.githooks/pre-commit`）。clone ごとに `scripts/setup-hooks.sh` を 1 回 |
