@@ -20,6 +20,16 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 
+# 判定と進行は workspace 側のクレートが持つ。**ここには規則を書かない**（baseline §9）。
+# この crate がやるのは「画面から呼べる形に直す」ことだけである。
+warifu-core = { path = "../../../crates/warifu-core" }
+warifu-net = { path = "../../../crates/warifu-net" }
+warifu-intent = { path = "../../../crates/warifu-intent" }
+warifu-meeting = { path = "../../../crates/warifu-meeting" }
+warifu-app = { path = "../../../crates/warifu-app" }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+
 [profile.release]
 # 鍵を扱う側と同じ姿勢を保つ（root の Cargo.toml と揃える）
 overflow-checks = true

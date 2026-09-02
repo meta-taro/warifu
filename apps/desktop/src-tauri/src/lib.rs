@@ -1,10 +1,363 @@
-//! warifu Desktop の器（M5-a）。
+//! warifu Desktop の橋（M5-c2）。
 //!
-//! **まだ映像も鍵も扱わない。**この段で確かめたのは、
-//! 「OS のタイトルバーを使わずに窓が出せる」ことだけである（DESIGN.md §8 / D34）。
+//! **ここに規則を書かない**（baseline §9）。進行は `warifu-app`、封筒は `warifu-meeting`、
+//! 経路は `warifu-net` が持っている。この crate がやるのは
+//! 「画面から呼べる形に直す」ことと「届いたものを画面へ流す」ことだけである。
+//!
+//! # まだ踏んでいない所
+//!
+//! **鍵を保存しない。**起動のたびに新しい種を作る（`Seed::generate`）。
+//! 保存する形は **`decisions.md` の D2 が未決**であり、
+//! 全端末を失ったときの復旧モデルが決まっていない。
+//! **決まる前に「とりあえずファイルへ置く」をやると、それが既成事実になる**（baseline §15）。
+//!
+//! つまり **今の版はアプリを閉じると別人になる。**これは不具合ではなく、
+//! D2 が決まるまで意図的にそうしてある。
+
+use std::str::FromStr;
+use std::sync::Arc;
+
+use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::sync::{Mutex, mpsc};
+
+use warifu_app::Conference;
+use warifu_core::{Device, PublicKey, Revocations, Seed};
+use warifu_intent::Channel;
+use warifu_meeting::{Notice, Signal, Step};
+use warifu_net::{Address, Node};
+
+/// 画面へ流す出来事。**名前は画面側の `events.ts` と揃える。**
+const EVENT_JOINED: &str = "warifu://joined";
+const EVENT_LEFT: &str = "warifu://left";
+const EVENT_SIGNAL: &str = "warifu://signal";
+const EVENT_CLOSED: &str = "warifu://closed";
+
+/// 画面へ返す失敗。**下の層の理由を捨てない。**
+#[derive(Debug, serde::Serialize)]
+pub struct Failure {
+    message: String,
+}
+
+impl<E: std::fmt::Display> From<E> for Failure {
+    fn from(e: E) -> Self {
+        Self {
+            message: e.to_string(),
+        }
+    }
+}
+
+type Answer<T> = Result<T, Failure>;
+
+/// 下ごしらえ 1 通。画面とのやり取りはこの形だけ。
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct SignalPayload {
+    /// `offer` / `answer` / `candidate` / `end`。
+    pub step: String,
+    /// SDP / ICE そのもの。**この層は読まない。**
+    pub blob: String,
+    /// 誰から（受け取ったときだけ入る）。base32 の公開鍵。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<String>,
+}
+
+fn step_from_str(s: &str) -> Result<Step, Failure> {
+    match s {
+        "offer" => Ok(Step::Offer),
+        "answer" => Ok(Step::Answer),
+        "candidate" => Ok(Step::Candidate),
+        "end" => Ok(Step::End),
+        other => Err(Failure {
+            message: format!("知らない段: {other}"),
+        }),
+    }
+}
+
+fn step_to_str(step: Step) -> &'static str {
+    match step {
+        Step::Offer => "offer",
+        Step::Answer => "answer",
+        Step::Candidate => "candidate",
+        Step::End => "end",
+    }
+}
+
+fn key_to_string(key: PublicKey) -> String {
+    warifu_core::base32::encode(&key.to_bytes())
+}
+
+/// 起動中ずっと持つもの。
+///
+/// 会議と送り口は `Arc` で持つ。**動かしている最中も画面から触れる必要がある**ため
+/// （送り出すのは画面、名簿を動かすのは受信のタスク）。片方へ持ち去ると、
+/// もう片方から「まだ会議がありません」に見える。
+pub struct Bridge {
+    device: Device,
+    node: Mutex<Option<Arc<Node>>>,
+    conference: Arc<Mutex<Option<Conference>>>,
+    /// 経路へ送り出す口。繋がるまでは空。
+    outbound: Arc<Mutex<Option<mpsc::Sender<Notice>>>>,
+}
+
+impl Bridge {
+    fn new() -> Self {
+        // **保存しない。**D2 が決まるまで、起動ごとに使い捨てる
+        let seed = Seed::generate().expect("種を作れない");
+        Self {
+            device: seed.profile("Personal").device("この端末"),
+            node: Mutex::new(None),
+            conference: Arc::new(Mutex::new(None)),
+            outbound: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    async fn node(&self) -> Answer<Arc<Node>> {
+        let mut slot = self.node.lock().await;
+        if let Some(node) = slot.as_ref() {
+            return Ok(Arc::clone(node));
+        }
+        let node = Arc::new(Node::bind_without_relay(&self.device).await?);
+        *slot = Some(Arc::clone(&node));
+        Ok(node)
+    }
+}
+
+/// 自分の宛先。**これを相手へ渡す**（QR・紙・口頭でも成立する・M1）。
+#[tauri::command]
+async fn my_address(bridge: State<'_, Bridge>) -> Answer<String> {
+    let node = bridge.node().await?;
+    Ok(node.address().await?.to_string())
+}
+
+/// 自分の公開鍵。画面が「自分かどうか」を見分けるのに使う。
+#[tauri::command]
+fn my_key(bridge: State<'_, Bridge>) -> String {
+    key_to_string(bridge.device.public_key())
+}
+
+/// 会議を作る。定員は `2..=16`（**D27**）。
+#[tauri::command]
+async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<String> {
+    let conference = Conference::host(bridge.device.public_key(), capacity)?;
+    let id = conference.id().to_string();
+    *bridge.conference.lock().await = Some(conference);
+    Ok(id)
+}
+
+/// 相手の宛先へ繋ぎ、会議に入ると告げる。
+///
+/// **繋がった後は、届いたものを画面へ流し続ける。**
+#[tauri::command]
+async fn connect(app: AppHandle, bridge: State<'_, Bridge>, address: String) -> Answer<()> {
+    let node = bridge.node().await?;
+    let to = Address::from_str(&address)?;
+    let session = node.connect(&to, &Revocations::new()).await?;
+    let peer = session.peer();
+    let mut channel = Channel::new(session);
+
+    // 会議が無ければ、その場で作る（呼ぶ側が主催者になる）
+    let meeting_id = {
+        let mut slot = bridge.conference.lock().await;
+        if slot.is_none() {
+            *slot = Some(Conference::host(
+                bridge.device.public_key(),
+                warifu_app::DEFAULT_CAPACITY,
+            )?);
+        }
+        let conference = slot.as_mut().expect("直前に入れた");
+        // 相手を名簿へ入れる。**受け取る側でも数える**（D15）ので、
+        // ここで通っても相手は自分の側で別に数える
+        conference.on_notice(
+            peer,
+            &Notice::Join {
+                meeting: conference.id(),
+            },
+        )?;
+        conference.id()
+    };
+
+    // 入ると告げる
+    channel
+        .send(
+            &Notice::Join {
+                meeting: meeting_id,
+            }
+            .to_intent()?,
+        )
+        .await?;
+
+    始める(&app, &bridge, channel, peer).await;
+    Ok(())
+}
+
+/// 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。**
+///
+/// 片方が `connect`、もう片方がこれ。宛先を渡した側が待ち、受け取った側が呼ぶ。
+#[tauri::command]
+async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
+    let node = bridge.node().await?;
+    let conference = Arc::clone(&bridge.conference);
+    let outbound = Arc::clone(&bridge.outbound);
+    let me = bridge.device.public_key();
+
+    tokio::spawn(async move {
+        loop {
+            let Ok(session) = node.accept(&Revocations::new()).await else {
+                // **失効した相手は下の層が止める。**ここで理由を分けない
+                continue;
+            };
+            let peer = session.peer();
+            let channel = Channel::new(session);
+
+            {
+                let mut slot = conference.lock().await;
+                if slot.is_none() {
+                    match Conference::host(me, warifu_app::DEFAULT_CAPACITY) {
+                        Ok(c) => *slot = Some(c),
+                        Err(_) => continue,
+                    }
+                }
+            }
+            汲む(
+                app.clone(),
+                Arc::clone(&conference),
+                Arc::clone(&outbound),
+                channel,
+                peer,
+            );
+        }
+    });
+    Ok(())
+}
+
+/// 繋がった口を動かし始める。呼ぶ側・受ける側で同じ形にする。
+async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: PublicKey) {
+    汲む(
+        app.clone(),
+        Arc::clone(&bridge.conference),
+        Arc::clone(&bridge.outbound),
+        channel,
+        peer,
+    );
+}
+
+/// 画面から送るものと相手から届くものを、1 本のタスクで捌く。
+fn 汲む(
+    app: AppHandle,
+    conference: Arc<Mutex<Option<Conference>>>,
+    outbound: Arc<Mutex<Option<mpsc::Sender<Notice>>>>,
+    mut channel: Channel,
+    peer: PublicKey,
+) {
+    let (tx, mut rx) = mpsc::channel::<Notice>(32);
+    tokio::spawn(async move {
+        *outbound.lock().await = Some(tx);
+        loop {
+            tokio::select! {
+                // 画面から送るもの
+                outgoing = rx.recv() => {
+                    let Some(notice) = outgoing else { break };
+                    let Ok(intent) = notice.to_intent() else { continue };
+                    if channel.send(&intent).await.is_err() { break; }
+                }
+                // 相手から届くもの
+                incoming = channel.recv() => {
+                    let Ok(intent) = incoming else { break };
+                    let Ok(notice) = Notice::from_intent(&intent) else {
+                        // 会議のものでない口は、経路としては通る。**会議は受け取らない**
+                        continue;
+                    };
+                    let mut slot = conference.lock().await;
+                    let Some(c) = slot.as_mut() else { continue };
+                    match c.on_notice(peer, &notice) {
+                        Ok(events) => emit_events(&app, &events),
+                        // 断った理由を画面へ広げない（D31 と同じ構え）
+                        Err(_) => continue,
+                    }
+                }
+            }
+        }
+        *outbound.lock().await = None;
+        let _ = app.emit(EVENT_CLOSED, ());
+    });
+}
+
+/// 下ごしらえを 1 通送る。**中身は解釈しない。**
+#[tauri::command]
+async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answer<()> {
+    let step = step_from_str(&payload.step)?;
+    let meeting = {
+        let slot = bridge.conference.lock().await;
+        slot.as_ref().map(Conference::id)
+    };
+    let Some(meeting) = meeting else {
+        return Err(Failure {
+            message: "まだ会議がありません".into(),
+        });
+    };
+    let notice = Notice::Signal(Signal::new(meeting, step, payload.blob.into_bytes()));
+
+    let slot = bridge.outbound.lock().await;
+    let Some(tx) = slot.as_ref() else {
+        return Err(Failure {
+            message: "まだ繋がっていません".into(),
+        });
+    };
+    tx.send(notice).await.map_err(|_| Failure {
+        message: "経路が閉じています".into(),
+    })
+}
+
+/// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。
+#[tauri::command]
+async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool> {
+    // base32 は同じバイト列に複数の表記を許さない。読めない表記はここで止める
+    let bytes = warifu_core::base32::decode(&peer).ok_or_else(|| Failure {
+        message: "公開鍵として読めません".into(),
+    })?;
+    let key = PublicKey::from_bytes(bytes.try_into().map_err(|_| Failure {
+        message: "公開鍵の長さが違います".into(),
+    })?)?;
+    let slot = bridge.conference.lock().await;
+    let Some(conference) = slot.as_ref() else {
+        return Err(Failure {
+            message: "まだ会議がありません".into(),
+        });
+    };
+    Ok(conference.should_offer_to(&key))
+}
+
+fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
+    for event in events {
+        let _ = match event {
+            warifu_app::Event::Joined(key) => app.emit(EVENT_JOINED, key_to_string(*key)),
+            warifu_app::Event::Left(key) => app.emit(EVENT_LEFT, key_to_string(*key)),
+            warifu_app::Event::Signal { from, step, blob } => app.emit(
+                EVENT_SIGNAL,
+                SignalPayload {
+                    step: step_to_str(*step).to_string(),
+                    blob: String::from_utf8_lossy(blob).into_owned(),
+                    from: Some(key_to_string(*from)),
+                },
+            ),
+        };
+    }
+}
 
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            app.manage(Bridge::new());
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            my_address,
+            my_key,
+            host_meeting,
+            connect,
+            listen,
+            send_signal,
+            should_offer_to,
+        ])
         .run(tauri::generate_context!())
         .expect("warifu の窓を開けませんでした");
 }

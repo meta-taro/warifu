@@ -3903,9 +3903,11 @@ dependencies = [
 name = "warifu-app"
 version = "0.0.0"
 dependencies = [
+ "tokio",
  "warifu-core",
  "warifu-intent",
  "warifu-meeting",
+ "warifu-net",
 ]
 
 [[package]]

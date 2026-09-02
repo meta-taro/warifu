@@ -10,3 +10,8 @@ repository.workspace = true
 warifu-core.workspace = true
 warifu-intent.workspace = true
 warifu-meeting = { path = "../warifu-meeting" }
+
+[dev-dependencies]
+# 統合試験だけで使う。**本体は経路を知らないまま**にしておく（baseline §9）
+warifu-net.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
