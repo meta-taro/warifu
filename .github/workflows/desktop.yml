@@ -1,0 +1,53 @@
+name: desktop
+
+# 画面側の品質ゲート（product-baseline §5）。
+# rust.yml と同じ役割を apps/desktop に対して持つ。**落ちたまま放置しない**（§20）。
+#
+# Tauri（Rust 側）はここでは建てない。root の cargo workspace から外してあり
+# （Cargo.toml の exclude）、GUI の依存を毎 push 建てると 10 分単位で伸びる。
+# **建てるのは配布物を作るときだけ**にする。ここで見るのは純ロジックと型と build である。
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # corepack が package.json の packageManager を見て pnpm を揃える。
+      # 第三者の action を足さない（§12）。
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node --version
+          pnpm --version
+
+      # --frozen-lockfile: lock に無いものを勝手に解決させない。
+      # pnpm-workspace.yaml の onlyBuiltDependencies / minimumReleaseAge がここでも効く（§1）。
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: 型
+        run: pnpm --filter @warifu/desktop check
+
+      - name: テスト
+        run: pnpm --filter @warifu/desktop test
+
+      # 参照だけ足して壊れている状態を作らない（§23）。build まで通して初めて緑にする。
+      - name: build
+        run: pnpm --filter @warifu/desktop build

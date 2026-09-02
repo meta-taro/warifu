@@ -1,0 +1,24 @@
+# pnpm のワークスペースと防御設定（product-baseline §1）。
+#
+# pnpm 10 以降、これらの設定は package.json の "pnpm" ではなく**このファイル**が正本になる。
+# baseline §1 の例は package.json の形だが、そこへ書くと pnpm 11 が読まず、
+# **防御が効いていないのに効いているように見える**。置き場所だけ変え、中身は §1 のまま。
+packages:
+  - 'apps/*'
+
+# install script を走らせてよい依存の白名簿。**既定は空。**
+# 足すときは「なぜ必要か」をここと decisions.md に残す（D37）。
+onlyBuiltDependencies:
+  # vite / vitest が中で使う。postinstall は自分の platform 向けバイナリを
+  # 選んで置くだけで、これが走らないと「別の platform 用を入れた」と言って落ちる。
+  # **外部から何も取ってこない**（バイナリは optional dependencies として
+  # 既にレジストリから入っている）。ここを空にしたままだと pnpm 11 は install を
+  # エラーで止めるので、「空に見えて実は無効」という状態にはならない。
+  - esbuild
+
+# 公開から 1440 分（24 時間）経っていないバージョンを使わない。
+# 乗っ取られた直後のパッケージを掴まないための隔離期間。
+minimumReleaseAge: 1440
+
+allowBuilds:
+  esbuild: set this to true or false

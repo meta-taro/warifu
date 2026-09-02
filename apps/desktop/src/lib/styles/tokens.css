@@ -1,0 +1,172 @@
+/*
+ * warifu Desktop — デザイントークン（唯一の出典 = DESIGN.md §3 / §5 / §6）
+ * ------------------------------------------------------------------
+ * - ライトを既定（:root）、ダークは :root[data-theme='dark'] で「値だけ」上書きする。
+ * - @media (prefers-color-scheme) との二重定義を持たない。持つとダーク値の管理が
+ *   二重化して必ずずれる。初期化スクリプトが paint 前に data-theme を必ず立てる。
+ * - **コンポーネントは色をハードコードしない。**必ずこのファイルのトークンを参照する。
+ * - この値は md-business から引き写したもの（D33）。**変えるときは DESIGN.md と同じ commit で。**
+ */
+
+:root {
+  /* WebView のネイティブ UI（スクロールバー・フォーム部品）をテーマへ追従させる */
+  color-scheme: light;
+
+  /* ── §3.1 アクセント ────────────────────────────────────── */
+  --accent: #5b5bd6;
+  --accent-hover: #4f4fc9;
+  --accent-active: #4444b8;
+  --accent-subtle: #eeeefb;
+  --accent-border: #d5d5f5;
+
+  /* ── §3.2 ニュートラル ──────────────────────────────────── */
+  --bg-app: #ffffff;
+  --bg-subtle: #fbfbfd;
+  --bg-sunken: #f4f4f7;
+  --bg-elevated: #ffffff;
+  --bg-hover: #f6f6f9;
+  --border: #e8e8ed;
+  --border-strong: #d4d4dc;
+  --text-primary: #1c1c22;
+  --text-secondary: #63636e;
+  --text-tertiary: #9b9ba5;
+  --text-on-accent: #ffffff;
+
+  /* ── §3.3 セマンティック（地 / 文字） ───────────────────── */
+  --success-bg: #e7f6ec;
+  --success-fg: #1a7f42;
+  --warning-bg: #fdf3e2;
+  --warning-fg: #9a6a00;
+  --neutral-bg: #f0f0f3;
+  --neutral-fg: #63636e;
+  --danger-bg: #fcebec;
+  --danger-fg: #b4232a;
+  --info-bg: #e9f1fd;
+  --info-fg: #1f5fc0;
+
+  /* ── §4 warifu 固有の第 3 軸 ─────────────────────────────
+     「どうなっているか」ではなく「何であるか」。セマンティックから借りない。
+     **色だけで言わない** — 呼び出し側はラベルと形を必ず一緒に出す。 */
+  --link-direct-bg: var(--success-bg);
+  --link-direct-fg: var(--success-fg);
+  --link-relayed-bg: var(--warning-bg);
+  --link-relayed-fg: var(--warning-fg);
+  --link-unknown-bg: var(--neutral-bg);
+  --link-unknown-fg: var(--neutral-fg);
+
+  --key-valid-bg: var(--success-bg);
+  --key-valid-fg: var(--success-fg);
+  --key-revoked-bg: var(--danger-bg);
+  --key-revoked-fg: var(--danger-fg);
+  --key-expired-bg: var(--neutral-bg);
+  --key-expired-fg: var(--neutral-fg);
+  --key-unused-bg: var(--accent-subtle);
+  --key-unused-fg: var(--accent);
+
+  /* ── §5 タイポグラフィ ──────────────────────────────────── */
+  --font-ui: 'Inter', 'Noto Sans JP', system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --text-2xs-size: 11px;
+  --text-2xs-line: 16px;
+  --text-2xs-weight: 500;
+  --text-xs-size: 12px;
+  --text-xs-line: 18px;
+  --text-xs-weight: 400;
+  --text-sm-size: 13px; /* UI 既定 */
+  --text-sm-line: 20px;
+  --text-sm-weight: 400;
+  --text-base-size: 14px; /* 本文既定 */
+  --text-base-line: 22px;
+  --text-base-weight: 400;
+  --text-md-size: 16px;
+  --text-md-line: 24px;
+  --text-md-weight: 500;
+  --text-lg-size: 20px;
+  --text-lg-line: 28px;
+  --text-lg-weight: 600;
+  --text-xl-size: 24px;
+  --text-xl-line: 32px;
+  --text-xl-weight: 600;
+
+  --tracking-tight: -0.01em; /* --text-lg 以上の見出し */
+
+  /* ── §6 スペーシング（4px グリッド） ────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+  --space-10: 64px;
+
+  /* ── §6 角丸 ────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 8px; /* 既定 */
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* ── §6 影（ライト・低アルファ） ────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(20, 20, 30, 0.04);
+  --shadow-sm: 0 1px 3px rgba(20, 20, 30, 0.06), 0 1px 2px rgba(20, 20, 30, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 20, 30, 0.08), 0 2px 4px rgba(20, 20, 30, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 20, 30, 0.14);
+
+  /* ── §6 モーション ──────────────────────────────────────── */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 240ms;
+
+  /* ── §8 レイアウト寸法 ──────────────────────────────────── */
+  --topbar-h: 44px;
+}
+
+/* ── ダーク（同等パリティ・値だけ差し替え） ─────────────────── */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --accent: #7c7cf0;
+  --accent-hover: #8f8ff5;
+  --accent-active: #a0a0f7;
+  --accent-subtle: #1e1e3a;
+  --accent-border: #33335c;
+
+  --bg-app: #0f0f13;
+  --bg-subtle: #141418;
+  --bg-sunken: #1a1a20;
+  --bg-elevated: #1b1b21;
+  --bg-hover: #1f1f26;
+  --border: #26262d;
+  --border-strong: #34343d;
+  --text-primary: #f4f4f6;
+  --text-secondary: #a0a0ab;
+  --text-tertiary: #6b6b76;
+  --text-on-accent: #ffffff;
+
+  --success-bg: #12291b;
+  --success-fg: #4ade80;
+  --warning-bg: #2a2109;
+  --warning-fg: #f5c451;
+  --neutral-bg: #22222a;
+  --neutral-fg: #a0a0ab;
+  --danger-bg: #2a1113;
+  --danger-fg: #f2777c;
+  --info-bg: #0f1d33;
+  --info-fg: #6fa8f5;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── §12 アクセシビリティ：モーション抑制 ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+  }
+}

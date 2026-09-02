@@ -1,0 +1,25 @@
+# **root の cargo workspace には入れない。**
+# 入れると `cargo test --workspace`（commit 前のゲートと CI）が毎回 Tauri を建てる。
+# 判定のコードを直すたびに GUI の依存を建て直すのは、ゲートを遅くして飛ばされる原因になる。
+[package]
+name = "warifu-desktop"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/meta-taro/warifu"
+publish = false
+
+[lib]
+name = "warifu_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+# 鍵を扱う側と同じ姿勢を保つ（root の Cargo.toml と揃える）
+overflow-checks = true

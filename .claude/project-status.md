@@ -3,6 +3,44 @@
 - **現在フェーズ**: **M4 完了 ＋ Phase 3-b の R1〜R5-b ＋ `issues/008` ＋ MCP ＋ 予定表 ＋ 回線と自動調整 ＋ 隔離 ＋ 戸口（テスト 311 件 green・**手元と CI の両方で実測**）**
 - **最終更新**: 2026-09-02
 
+## 2026-09-02（追補 3）— **M5-a：画面の器を作った**
+
+`DESIGN.md` が承認されたので、M5 の**器**だけを作った（**D37**）。**映像はまだ出さない。**
+
+### 手元で実際に走らせた
+
+| ゲート | 結果 |
+|---|---|
+| `pnpm --filter @warifu/desktop test`（vitest） | **26 passed / 0 failed** |
+| `pnpm --filter @warifu/desktop check`（svelte-check） | **318 files / 0 errors / 0 warnings** |
+| `pnpm --filter @warifu/desktop build` | 通過（`build/` を書き出す） |
+| `cargo check`（`apps/desktop/src-tauri`） | 通過 |
+| `cargo test --workspace`（既存） | **311 passed**（GUI は workspace の外なので影響なし） |
+
+**RED → GREEN の順で書いた。**4 本のテストが「モジュールが無い」で落ちるのを確認してから実装した。
+
+### 何を作ったか
+
+| | 中身 | 決定 |
+|---|---|---|
+| `pnpm-workspace.yaml` | 防御設定（`onlyBuiltDependencies` / `minimumReleaseAge`） | baseline §1 / D37 |
+| `apps/desktop` | SvelteKit（`adapter-static` / SSR off）+ Tauri 2 | D10 |
+| `src/lib/styles/tokens.css` | `DESIGN.md` §3 / §5 / §6 の実装。**唯一の出典** | D33 |
+| `src/lib/window/titlebar.ts` | 自作タイトルバーの純ロジック（6 件） | D34 |
+| `src/lib/i18n/` | en / ja / zh / ko（12 件） | D35 |
+| `src/lib/update/version.ts` | **署名が確かめられていない更新は「ある」ことにしない**（8 件） | D36 |
+| `.github/workflows/desktop.yml` | 画面側の CI ゲート | D37 |
+
+### 認めておくこと
+
+1. **`en` / `zh` / `ko` の訳文はレビューされていない。**`ja` が正本で、他は AI の下書き。
+   D35 が「AI が訳文の可否を決めない」と定めている（baseline §19 / §27）
+2. **アイコンは仮である。**Tauri がコンパイルに要求するので置いたが、
+   **意匠を含まない角丸の四角**で、ロゴではない。人が決めたら捨てる
+3. **`onlyBuiltDependencies` を空にできなかった。**`esbuild` だけ通している（理由は D37）
+4. **窓を実際に開いていない。**`cargo check` が通っただけで、`cargo tauri dev` は走らせていない。
+   **画面を見ての確認は人の工程**（baseline §29）
+
 ## 2026-09-02（追補 2）— **push した。CI が初めて走り、1 本落ちた**
 
 `81c3114..798a7ad`（**21 commit**）を人が push した（baseline §6）。

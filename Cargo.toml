@@ -14,6 +14,10 @@ members = [
     "crates/warifu-quarantine",
     "crates/warifu-door",
 ]
+# GUI は別 workspace に置く。**ここへ入れない。**
+# 入れると `cargo test --workspace`（commit 前のゲートと CI）が毎回 Tauri を建てることになり、
+# 判定のコードを 1 行直すたびに GUI の依存が建て直される。**遅いゲートは飛ばされる。**
+exclude = ["apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.0.0"

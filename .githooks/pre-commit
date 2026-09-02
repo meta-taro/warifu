@@ -45,6 +45,15 @@ else
   黄 "  → 手元でも見たい場合: https://rustup.rs"
 fi
 
+# 3. 画面側のゲート。pnpm が無ければ実行できない
+if command -v pnpm >/dev/null 2>&1 && [ -f apps/desktop/package.json ]; then
+  走る "型（svelte-check）" pnpm --filter @warifu/desktop check
+  走る "vitest" pnpm --filter @warifu/desktop test
+else
+  黄 "  pnpm が見つかりません。画面側のゲートを実行できませんでした。"
+  黄 "  → CI（.github/workflows/desktop.yml）が最終ゲートです。"
+fi
+
 if [ "$fail" -ne 0 ]; then
   赤 ""
   赤 "ゲートが通っていないので commit を止めました。"

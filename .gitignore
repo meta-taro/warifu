@@ -13,3 +13,8 @@ SECRETS.local.md
 
 # ベースルール完全版（内部事例を含むため公開しない）— commit 禁止
 .claude/rules/product-baseline.full.md
+
+# --- SvelteKit / Tauri（M5-a で追加）---
+# node_modules / target / build は上で既に無視している。ここは足りないぶんだけ。
+.svelte-kit/
+apps/desktop/src-tauri/gen/
