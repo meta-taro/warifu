@@ -4,6 +4,8 @@
 // 求め方と、断られた理由の読み方だけを持つ。実際に叩く所は `session.ts`。
 // こうしてあるので、**カメラの無い機械でも規則を確かめられる。**
 
+import type { LinkPath } from '../link/path';
+
 /** 何を求めるか。 */
 export function mediaConstraints(options?: { video?: boolean }): MediaStreamConstraints {
   return { audio: true, video: options?.video ?? true };
@@ -21,6 +23,19 @@ export function mediaConstraints(options?: { video?: boolean }): MediaStreamCons
  * 自前 Relay かどうかを D3 と一緒に決める」と書いた所であり、**ここで勝手に足さない。**
  */
 export const ICE_SERVERS: readonly RTCIceServer[] = [];
+
+/**
+ * 映像を流してよいか（**D29「始まりは音声だけ」**）。
+ *
+ * **測る前に映像を出さない。**「測っていない」を「たぶん速い」にしない、というのが
+ * D28 / D29 の構えである（`Meter` が観測ゼロで `0` と答えないのと同じ）。
+ *
+ * 経路が分かった時点で流す。**中継でも流す** — 中継は異常ではない（DESIGN.md §4.1）。
+ * 見ているのは「速いかどうか」ではなく「**測れたかどうか**」である。
+ */
+export function shouldSendVideo(path: LinkPath): boolean {
+  return path !== 'unknown';
+}
 
 /** カメラ・マイクを取れなかった理由。**画面の文言の鍵になる。** */
 export type MediaFailure = 'camera-denied' | 'camera-missing' | 'camera-busy' | 'camera-unknown';

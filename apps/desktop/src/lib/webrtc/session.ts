@@ -14,7 +14,13 @@ import { pathFromStats, type LinkPath, type RtcStatLike } from '../link/path';
 import { initialWatch, observe, type WatchState } from '../link/watch';
 import { sendSignal, type SignalPayload } from '../bridge';
 import { applyAction, type PeerLike } from './apply';
-import { describeMediaFailure, ICE_SERVERS, mediaConstraints, type MediaFailure } from './media';
+import {
+  describeMediaFailure,
+  ICE_SERVERS,
+  mediaConstraints,
+  shouldSendVideo,
+  type MediaFailure,
+} from './media';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
@@ -39,6 +45,7 @@ export class Call {
   private watch: WatchState = initialWatch();
   private timer: ReturnType<typeof setInterval> | null = null;
   private closed = false;
+  private local: MediaStream | null = null;
 
   constructor(
     offering: boolean,
@@ -79,6 +86,10 @@ export class Call {
       return;
     }
     for (const track of stream.getTracks()) this.pc.addTrack(track, stream);
+    // **測る前に映像を出さない**（D29）。枠は最初から張っておき、流すのは測れてから。
+    // こうすると、後から足すための張り直し（再交渉）が要らない
+    this.local = stream;
+    this.setVideoEnabled(false);
     this.handlers.onLocalStream(stream);
 
     const [next, actions] = onLocalMediaReady(this.state);
@@ -106,7 +117,15 @@ export class Call {
     const stats: RtcStatLike[] = [...report.values()] as RtcStatLike[];
     const before = this.watch.shown;
     this.watch = observe(this.watch, pathFromStats(stats));
-    if (this.watch.shown !== before) this.handlers.onPath(this.watch.shown);
+    if (this.watch.shown === before) return;
+    this.handlers.onPath(this.watch.shown);
+    // 測れたら映像を流す。測れなくなったら止める（D29）
+    this.setVideoEnabled(shouldSendVideo(this.watch.shown));
+  }
+
+  /** 映像の枠はそのままに、流すかどうかだけを切り替える。 */
+  private setVideoEnabled(on: boolean): void {
+    for (const track of this.local?.getVideoTracks() ?? []) track.enabled = on;
   }
 
   close(): void {

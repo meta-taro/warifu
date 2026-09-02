@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { describeMediaFailure, ICE_SERVERS, mediaConstraints } from './media';
+import { describeMediaFailure, ICE_SERVERS, mediaConstraints, shouldSendVideo } from './media';
 
 describe('カメラとマイクの求め方（M5-c2）', () => {
   it('映像と音声の両方を求める', () => {
@@ -37,5 +37,17 @@ describe('断られた理由を、人の言葉にする', () => {
   it('**分からない失敗を、分かったことにしない**', () => {
     expect(describeMediaFailure(new Error('なにか'))).toBe('camera-unknown');
     expect(describeMediaFailure(undefined)).toBe('camera-unknown');
+  });
+});
+
+describe('測る前に映像を出さない（D29「始まりは音声だけ」）', () => {
+  it('経路が分かるまで、映像は流さない', () => {
+    expect(shouldSendVideo('unknown')).toBe(false);
+  });
+
+  it('直接でも中継でも、**測れたら**流す', () => {
+    // 中継だから流さない、ではない。中継は異常ではない（DESIGN.md §4.1）
+    expect(shouldSendVideo('direct')).toBe(true);
+    expect(shouldSendVideo('relayed')).toBe(true);
   });
 });
