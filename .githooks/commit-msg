@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# commit message のゲート（product-baseline §25 / decisions.md D32）。
+#
+# **pre-commit ではここを見られない。**message はまだ書かれていないため、
+# pre-commit が呼ぶ範囲検査（BASE..HEAD）にも、これから作る commit は入らない。
+# その結果 message-email は手元を素通りし、**CI で初めて落ちる**（2026-09-02 に実際に落ちた）。
+#
+# 有効にする: scripts/setup-hooks.sh
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+printf '  %-38s' "commit message の個人情報"
+if out=$(bash .github/scripts/oss-privacy-check.sh --message-file "$1" 2>&1); then
+  printf 'ok\n'
+  exit 0
+fi
+printf 'NG\n'
+printf '%s\n' "$out" >&2
+printf '\033[31m%s\033[0m\n' "**--no-verify で回避しないこと。**history に焼き付くと消せません（baseline §18 / §25）。" >&2
+exit 1

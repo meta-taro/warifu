@@ -4,11 +4,14 @@
 # 使い方:
 #   .github/scripts/oss-privacy-check.sh <BASE> <HEAD>   # 範囲の commit + 差分を検査
 #   .github/scripts/oss-privacy-check.sh                 # 未 commit の作業ツリー差分のみ検査
+#   .github/scripts/oss-privacy-check.sh --message-file F # これから書く commit message だけを検査
 #
 # 環境変数（すべて任意）:
 #   OSS_ALLOWED_AUTHOR_EMAIL_REGEX  commit author/committer に許可するメールの ERE
 #                                   既定: @users\.noreply\.github\.com$
 #   OSS_ALLOWED_EMAIL_DOMAINS       追加行・commit message で許可するメールドメイン（空白区切り）
+#   OSS_ALLOWED_EMAILS              同上を**アドレス単位**で許可（空白区切り）。
+#                                   bot の noreply を通すためのもので、ドメインごと開けない（D32）
 #   OSS_DENY_WORDS                  禁止語（実名等）を 1 行 1 語。CI では secrets から渡す
 #
 # 設計上の約束:
@@ -19,6 +22,9 @@ set -uo pipefail
 
 ALLOWED_AUTHOR_RE="${OSS_ALLOWED_AUTHOR_EMAIL_REGEX:-@users\.noreply\.github\.com$}"
 ALLOWED_DOMAINS="${OSS_ALLOWED_EMAIL_DOMAINS:-example.com example.org example.net users.noreply.github.com}"
+# アドレス単位の許可。**ドメインごと開けない** — anthropic.com を丸ごと通すと、
+# そこに属する人のアドレスまで通ってしまう。通したいのは bot の noreply だけである（D32）。
+ALLOWED_EMAILS="${OSS_ALLOWED_EMAILS:-noreply@anthropic.com}"
 DENY_WORDS="${OSS_DENY_WORDS:-}"
 
 EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
@@ -34,13 +40,56 @@ mask_email() {
 }
 
 allowed_email() {
-  local e="$1" d
+  local e="$1" d lower
+  lower="$(printf '%s' "$e" | tr 'A-Z' 'a-z')"
+  for a in $ALLOWED_EMAILS; do
+    [ "$lower" = "$(printf '%s' "$a" | tr 'A-Z' 'a-z')" ] && return 0
+  done
   d="${e##*@}"
   for a in $ALLOWED_DOMAINS; do
     [ "$(printf '%s' "$d" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$a" | tr 'A-Z' 'a-z')" ] && return 0
   done
   return 1
 }
+
+# --- commit message だけを検査するモード -----------------------------------
+# pre-commit フックは **これから書かれる message を見られない**（まだ存在しない）。
+# message-email はそこを素通りし、CI で初めて落ちる。commit-msg フックから呼ぶための口。
+if [ "${1:-}" = "--message-file" ]; then
+  msg_file="${2:-}"
+  if [ -z "$msg_file" ] || [ ! -f "$msg_file" ]; then
+    note "NG [message-file] message のファイルを読めません: ${msg_file:-未指定}"
+    exit 1
+  fi
+  # コメント行（`#` 始まり）は message に残らないので見ない
+  msg="$(grep -v '^#' "$msg_file")"
+  while read -r found; do
+    [ -z "${found:-}" ] && continue
+    allowed_email "$found" && continue
+    note "NG [message-email] （これから書く message）: $(printf '%s' "$found" | mask_email)"
+    fail=1
+  done < <(printf '%s' "$msg" | grep -Eo "$EMAIL_RE" | sort -u)
+
+  if [ -n "$DENY_WORDS" ]; then
+    i=0
+    while IFS= read -r w; do
+      i=$((i + 1))
+      [ -z "$w" ] && continue
+      if printf '%s' "$msg" | grep -qiF -- "$w"; then
+        note "NG [message-denyword] （これから書く message）: 禁止語 #$i に一致"
+        fail=1
+      fi
+    done <<< "$DENY_WORDS"
+  fi
+
+  if [ "$fail" -ne 0 ]; then
+    note ""
+    note "commit message に個人情報の疑いがあります（product-baseline §25）。"
+    note "  **ここで直せば history に焼き付かない。**message を書き直してください。"
+    exit 1
+  fi
+  exit 0
+fi
 
 # --- 範囲の解決 -------------------------------------------------------------
 BASE="${1:-}"

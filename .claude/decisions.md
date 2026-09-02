@@ -1839,3 +1839,68 @@ SimpleX が「利用者 ID を持たず、招待リンク経由でしか繋が�
 - 回数（5 / 20 / 1000）と窓（1 時間）が実測で合わないとき。**外す選択はしない**
 - 「人に聞く」が要ると分かったとき。**これは覆さない。**
   要るなら、それは戸口ではなく**割符を渡す経路**を増やす話である
+
+---
+
+## D32. commit message のゲートは `commit-msg` に置く（**確定・CI が実際に落ちてから直した**）
+
+**状態**: 確定（2026-09-02）/ **決めたのは**: このリポジトリ / **覆せる**: 下記
+
+### 何が起きたか
+
+21 commit を初めて push した所で、**`oss-privacy-check` が落ちた**（run `33583872637`）。
+
+```
+NG [message-email] 798a7ad1 : n***@***.com
+```
+
+原因は commit message の末尾に付けた
+`Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>` である。
+検査は message 中のメールを許可ドメイン
+（`example.com` / `example.org` / `example.net` / `users.noreply.github.com`）
+としか照合しておらず、**bot の noreply がそこに無かった。**
+
+同じ push で **`rust` は success**（311 件が GitHub 上でも green）。
+
+### なぜ手元のゲートが捕まえなかったか — **構造的に見えない**
+
+`.githooks/pre-commit` は `oss-privacy-check.sh` を引数なしで呼ぶ。
+そのとき検査される範囲は `origin/develop..HEAD` であり、
+
+- **これから作る commit は、まだ HEAD に無い**
+- **message はまだ書かれていない**（pre-commit に message は渡らない）
+
+つまり `message-email` は **pre-commit からは原理的に見えない規則**だった。
+「手元にゲートがある」ように見えて、この 1 種類だけ**素通りしていた**。
+
+### 決めたこと
+
+1. **`.githooks/commit-msg` を足す。**`oss-privacy-check.sh --message-file <path>` を呼ぶ。
+   **ここで落とせば history に焼き付かない**（pre-commit では間に合わない）
+2. **`OSS_ALLOWED_EMAILS`（アドレス単位の許可）を足す。**既定 `noreply@anthropic.com`
+
+### なぜドメインごと開けないか
+
+`OSS_ALLOWED_EMAIL_DOMAINS` に `anthropic.com` を足すのが手数としては短い。**採らない。**
+
+ドメインを開けると、**そこに属する個人のアドレスまで通る。**
+§25 が止めたいのは**個人**であって、bot の noreply ではない。
+通したいものだけを**アドレスで**通す。
+**同じドメインの別アドレスは落ちる**ことを実物で確認した（bot の noreply は通り、それ以外は `NG [message-email]` になる）。
+
+### history は書き換えない
+
+`798a7ad` の message は公開済みで、書き換えるには force push が要る。**やらない。**
+
+- 焼き付いたのは **bot の noreply** であって個人のアドレスではない。
+  §25 が守ろうとしている中身は損なわれていない
+- 共有済みの history を書き換えるほうが、この件より破壊的である
+
+**run `33583872637` は赤のまま残る。**次の push からは緑になるが、
+**「一度赤くしたこと」は消さない**（消すと、なぜ規則を足したのかが読めなくなる・baseline §24）。
+
+### 覆してよい条件
+
+- bot の noreply を commit message に入れない運用へ変えるとき → `OSS_ALLOWED_EMAILS` を空にする
+- **個人のアドレスが焼き付いたとき** → これは別件。force push の可否をオーナーへ確認する
+  （検査スクリプト自身がそう案内している）
