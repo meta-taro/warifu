@@ -28,8 +28,16 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
   return call<T>(command, args);
 }
 
-/** 自分の宛先。**これを相手へ渡す。** */
+/** 自分の宛先。**これだけでは繋げない**（割符が要る・D31）。 */
 export const myAddress = () => invoke<string>('my_address');
+
+/**
+ * 招待を出す。**宛先と割符を 1 本にした文字列**が返る。
+ *
+ * 宛先だけを渡す形にしない。それでは受け取った側が誰でも繋げてしまう（D31）。
+ * 出すたびに前の招待は無効になる。
+ */
+export const invite = (ttlSecs: number) => invoke<string>('invite', { ttlSecs });
 
 /** 自分の公開鍵。画面が「自分かどうか」を見分けるのに使う。 */
 export const myKey = () => invoke<string>('my_key');
@@ -37,8 +45,8 @@ export const myKey = () => invoke<string>('my_key');
 /** 会議を作る。定員は `2..=16`（D27）。 */
 export const hostMeeting = (capacity: number) => invoke<string>('host_meeting', { capacity });
 
-/** 相手の宛先へ繋ぐ。 */
-export const connect = (address: string) => invoke<void>('connect', { address });
+/** 招待を使って繋ぐ。**宛先だけでは通らない。** */
+export const connect = (invite: string) => invoke<void>('connect', { invite });
 
 /** 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。** */
 export const listen = () => invoke<void>('listen');

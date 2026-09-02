@@ -12,6 +12,10 @@
 
 #![forbid(unsafe_code)]
 
+mod invite;
+
+pub use invite::{InviteError, format_invite, parse_invite};
+
 use warifu_core::PublicKey;
 use warifu_meeting::{Error as MeetingError, MeetingId, Notice, Roster, Signal, Step};
 

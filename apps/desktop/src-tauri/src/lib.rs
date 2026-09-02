@@ -20,8 +20,9 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{Mutex, mpsc};
 
-use warifu_app::Conference;
-use warifu_core::{Device, PublicKey, Revocations, Seed};
+use warifu_app::{format_invite, parse_invite, Conference};
+use warifu_core::{Acceptance, Device, PublicKey, Revocations, Seed, Tally};
+use warifu_door::{Answer as DoorAnswer, Door, Knock, Subject};
 use warifu_intent::Channel;
 use warifu_meeting::{Notice, Signal, Step};
 use warifu_net::{Address, Node};
@@ -93,6 +94,10 @@ fn key_to_string(key: PublicKey) -> String {
 pub struct Bridge {
     device: Device,
     node: Mutex<Option<Arc<Node>>>,
+    /// 発行した割符の手元の半分。**招待を出すたびに入れ替わる。**
+    tally: Arc<Mutex<Option<Tally>>>,
+    /// 戸口。**割符が合わない相手は、ここで断る**（D31）。
+    door: Arc<Mutex<Door>>,
     conference: Arc<Mutex<Option<Conference>>>,
     /// 経路へ送り出す口。繋がるまでは空。
     outbound: Arc<Mutex<Option<mpsc::Sender<Notice>>>>,
@@ -105,6 +110,8 @@ impl Bridge {
         Self {
             device: seed.profile("Personal").device("この端末"),
             node: Mutex::new(None),
+            tally: Arc::new(Mutex::new(None)),
+            door: Arc::new(Mutex::new(Door::new())),
             conference: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(None)),
         }
@@ -128,6 +135,22 @@ async fn my_address(bridge: State<'_, Bridge>) -> Answer<String> {
     Ok(node.address().await?.to_string())
 }
 
+/// **招待を出す。**宛先と割符を 1 本の文字列にして返す。
+///
+/// 宛先だけを渡す形にはしない。**それでは受け取った側が誰でも繋げてしまう**（D31）。
+/// 割符は人が渡すものであり、渡した時点で人はもう判断している。
+///
+/// 出すたびに前の割符は無効になる（手元の半分を入れ替えるため）。
+/// **一度に有効な招待は 1 つ** — 配った先が分からなくなる状態を作らない。
+#[tauri::command]
+async fn invite(bridge: State<'_, Bridge>, ttl_secs: u64) -> Answer<String> {
+    let node = bridge.node().await?;
+    let address = node.address().await?.to_string();
+    let (tally, token) = bridge.device.issue_tally(now_secs(), ttl_secs)?;
+    *bridge.tally.lock().await = Some(tally);
+    Ok(format_invite(&address, &token))
+}
+
 /// 自分の公開鍵。画面が「自分かどうか」を見分けるのに使う。
 #[tauri::command]
 fn my_key(bridge: State<'_, Bridge>) -> String {
@@ -147,11 +170,20 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
 ///
 /// **繋がった後は、届いたものを画面へ流し続ける。**
 #[tauri::command]
-async fn connect(app: AppHandle, bridge: State<'_, Bridge>, address: String) -> Answer<()> {
+async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> Answer<()> {
+    // **宛先だけでは繋がない。**割符が付いていなければここで止まる（D31）
+    let (address, token) = parse_invite(&invite)?;
     let node = bridge.node().await?;
     let to = Address::from_str(&address)?;
-    let session = node.connect(&to, &Revocations::new()).await?;
+    let mut session = node.connect(&to, &Revocations::new()).await?;
     let peer = session.peer();
+
+    // **最初に割符へ応じる。**会議の話をする前に、通ってよい相手かを相手が決める。
+    // ここは Intent の下（生のバイト列）で済ませる。「何を話すか」ではなく
+    // 「そもそも話してよいか」の段なので、口の語彙を増やさない（D11）
+    let acceptance = bridge.device.accept(&token, now_secs())?;
+    session.send(&acceptance.to_bytes()).await?;
+
     let mut channel = Channel::new(session);
 
     // 会議が無ければ、その場で作る（呼ぶ側が主催者になる）
@@ -199,15 +231,37 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let outbound = Arc::clone(&bridge.outbound);
     let me = bridge.device.public_key();
 
+    let tally = Arc::clone(&bridge.tally);
+    let door = Arc::clone(&bridge.door);
+
     tokio::spawn(async move {
         loop {
-            let Ok(session) = node.accept(&Revocations::new()).await else {
+            let Ok(mut session) = node.accept(&Revocations::new()).await else {
                 // **失効した相手は下の層が止める。**ここで理由を分けない
                 continue;
             };
             let peer = session.peer();
-            let channel = Channel::new(session);
+            let Some(subject) = Subject::new(&key_to_string(peer)) else {
+                continue;
+            };
 
+            // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31）
+            let 合った = 割符を確かめる(&mut session, &tally, &subject).await;
+            let 答え = {
+                let mut door = door.lock().await;
+                let knock = if 合った {
+                    Knock::with_verified_tally(subject.clone(), now_secs())
+                } else {
+                    Knock::new(subject.clone(), now_secs())
+                };
+                door.answer(&knock)
+            };
+            if 答え != DoorAnswer::Open {
+                // **断る理由を相手に返さない**（D31）。黙って落とす
+                continue;
+            }
+
+            let channel = Channel::new(session);
             {
                 let mut slot = conference.lock().await;
                 if slot.is_none() {
@@ -227,6 +281,38 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
         }
     });
     Ok(())
+}
+
+/// 相手が最初に送ってくる片割れを、手元の割符と照らす。
+///
+/// **待ち続けない。**黙って繋いだだけの相手に、待ち受けを塞がせない。
+async fn 割符を確かめる(
+    session: &mut warifu_net::Session,
+    tally: &Arc<Mutex<Option<Tally>>>,
+    _subject: &Subject,
+) -> bool {
+    let Ok(Ok(bytes)) =
+        tokio::time::timeout(std::time::Duration::from_secs(10), session.recv()).await
+    else {
+        return false;
+    };
+    let Ok(acceptance) = Acceptance::from_bytes(&bytes) else {
+        return false;
+    };
+    let mut slot = tally.lock().await;
+    let Some(t) = slot.as_mut() else {
+        return false;
+    };
+    t.match_half(&acceptance, now_secs(), &Revocations::new())
+        .is_ok()
+}
+
+/// 今の時刻（秒）。**割符の期限と戸口の窓に使う。**
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 /// 繋がった口を動かし始める。呼ぶ側・受ける側で同じ形にする。
@@ -355,6 +441,7 @@ pub fn run() {
             host_meeting,
             connect,
             listen,
+            invite,
             send_signal,
             should_offer_to,
         ])

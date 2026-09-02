@@ -5782,10 +5782,15 @@ dependencies = [
  "tokio",
  "warifu-app",
  "warifu-core",
+ "warifu-door",
  "warifu-intent",
  "warifu-meeting",
  "warifu-net",
 ]
+
+[[package]]
+name = "warifu-door"
+version = "0.0.0"
 
 [[package]]
 name = "warifu-intent"

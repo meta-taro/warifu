@@ -17,8 +17,8 @@
     connect,
     hostMeeting,
     inTauri,
+    invite,
     listen,
-    myAddress,
     myKey,
     onEvent,
     shouldOfferTo,
@@ -30,8 +30,11 @@
   );
   const t = MESSAGES[locale];
 
-  let address = $state('');
-  let peerAddress = $state('');
+  /** 招待。**宛先と割符が 1 本になっている**（D31） */
+  let invitation = $state('');
+  let received = $state('');
+  /** 招待の有効期間。既定 10 分。**長く置くほど、渡した先が分からなくなる** */
+  const INVITE_TTL_SECS = 600;
   let path = $state<LinkPath>('unknown');
   let members = $state<Member[]>([]);
   let notice = $state('');
@@ -52,7 +55,6 @@
       return;
     }
     void (async () => {
-      address = (await myAddress()) ?? '';
       await hostMeeting(DEFAULT_CAPACITY);
       await listen();
       const me = (await myKey()) ?? '';
@@ -101,13 +103,28 @@
   /** 鍵は長い。**先頭だけ出して、全桁は選べる所に置く**（§5 は等幅を求めている） */
   const 短く = (key: string) => (key.length > 12 ? `${key.slice(0, 12)}…` : key);
 
+  async function 招く() {
+    notice = '';
+    try {
+      invitation = (await invite(INVITE_TTL_SECS)) ?? '';
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   async function つなぐ() {
     notice = '';
     try {
-      await connect(peerAddress.trim());
+      await connect(received.trim());
     } catch (e) {
-      notice = e instanceof Error ? e.message : String(e);
+      notice = 読める(e);
     }
+  }
+
+  /** Tauri から返る失敗は `{ message }`。**中身を捨てない** */
+  function 読める(e: unknown): string {
+    if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
+    return e instanceof Error ? e.message : String(e);
   }
 </script>
 
@@ -136,16 +153,22 @@
 
   <aside>
     <div class="card">
-      <h2>自分の宛先</h2>
-      <p class="hint">これを相手へ渡す。紙でも口頭でも成立する。</p>
-      <textarea readonly rows="3" value={address}></textarea>
+      <h2>招待を出す</h2>
+      <p class="hint">
+        宛先と割符が 1 本になっている。<strong>これを渡した相手だけが繋げる。</strong>
+        10 分で切れる。紙でも口頭でも成立する。
+      </p>
+      <button type="button" onclick={招く}>招待を出す</button>
+      {#if invitation}
+        <textarea readonly rows="4" value={invitation}></textarea>
+      {/if}
     </div>
 
     <div class="card">
-      <h2>相手の宛先</h2>
+      <h2>招待を使う</h2>
       <p class="hint">受け取った側が繋ぐ。渡した側は待つだけでよい。</p>
-      <textarea bind:value={peerAddress} rows="3" placeholder="WARIFU1-…"></textarea>
-      <button type="button" onclick={つなぐ} disabled={!peerAddress.trim()}>繋ぐ</button>
+      <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
+      <button type="button" onclick={つなぐ} disabled={!received.trim()}>繋ぐ</button>
     </div>
 
     <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
