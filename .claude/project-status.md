@@ -15,6 +15,7 @@
 | `pnpm --filter @warifu/desktop check`（svelte-check） | **318 files / 0 errors / 0 warnings** |
 | `pnpm --filter @warifu/desktop build` | 通過（`build/` を書き出す） |
 | `cargo check`（`apps/desktop/src-tauri`） | 通過 |
+| `cargo build` → 6 秒間の起動 | **プロセスが生きた・標準エラーは空**（画面は見ていない） |
 | `cargo test --workspace`（既存） | **311 passed**（GUI は workspace の外なので影響なし） |
 
 **RED → GREEN の順で書いた。**4 本のテストが「モジュールが無い」で落ちるのを確認してから実装した。
@@ -38,8 +39,11 @@
 2. **アイコンは仮である。**Tauri がコンパイルに要求するので置いたが、
    **意匠を含まない角丸の四角**で、ロゴではない。人が決めたら捨てる
 3. **`onlyBuiltDependencies` を空にできなかった。**`esbuild` だけ通している（理由は D37）
-4. **窓を実際に開いていない。**`cargo check` が通っただけで、`cargo tauri dev` は走らせていない。
-   **画面を見ての確認は人の工程**（baseline §29）
+4. **起動はした。ただし画面は見ていない。**`cargo build`（28 秒 / 29 MB）まで通し、
+   実行ファイルを **6 秒間走らせてプロセスが生きていること**と**標準エラーが空であること**を確認した
+   （窓を開けずに落ちる構成なら、ここで panic して終わる）。
+   **しかし「自作タイトルバーが意図どおり出ているか」は、画面を見ないと分からない。**
+   そこは人の工程である（baseline §29）
 
 ## 2026-09-02（追補 2）— **push した。CI が初めて走り、1 本落ちた**
 
