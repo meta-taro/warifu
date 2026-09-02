@@ -3919,6 +3919,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-door"
+version = "0.0.0"
+
+[[package]]
 name = "warifu-imap"
 version = "0.0.0"
 dependencies = [

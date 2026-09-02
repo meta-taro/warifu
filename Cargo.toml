@@ -12,6 +12,7 @@ members = [
     "crates/warifu-calendar",
     "crates/warifu-link",
     "crates/warifu-quarantine",
+    "crates/warifu-door",
 ]
 
 [workspace.package]

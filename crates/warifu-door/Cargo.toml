@@ -1,0 +1,15 @@
+[package]
+name = "warifu-door"
+description = "戸口。**知らない相手は、人に取り次がずに断る。**"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# **依存を持たない。**戸口の判断に、通信も鍵の検証も要らない（確かめた結果だけを受け取る）。
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
