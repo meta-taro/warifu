@@ -3,6 +3,39 @@
 - **現在フェーズ**: **M4 完了 ＋ Phase 3-b の R1〜R5-b ＋ `issues/008` ＋ MCP ＋ 予定表 ＋ 回線と自動調整 ＋ 隔離 ＋ 戸口（テスト 311 件 green・**手元と CI の両方で実測**）**
 - **最終更新**: 2026-09-02
 
+## 2026-09-02（追補 5）— **CI が落ちた。防御が効いていなかった**
+
+`7d2b959` の push で **`desktop` が落ちた**（run `33599988401`）。`rust` と `oss-privacy-check` は success。
+
+```
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.28.2
+```
+
+**原因は自分の誤った確認である。**`onlyBuiltDependencies: [esbuild]` を書いて
+「install が通った」と判断したが、それは**手元で `pnpm approve-builds` を叩いた後**だった。
+`node_modules` を消して入れ直すと、手元でも同じように落ちる。
+
+**D37 に「効いていないのに効いて見える」と書いた、その形に自分で入った。**
+
+### 実測して分かったこと
+
+pnpm 11 の機構は **2 段**で、`onlyBuiltDependencies` だけでは効かない。
+
+| 設定 | 役割 |
+|---|---|
+| `onlyBuiltDependencies` | build してよい候補を絞る |
+| **`allowBuilds`** | 1 つ 1 つを `true` / `false` で明示する |
+
+挙動も確かめた —— **未決なら install がエラーで止まり、`false` なら黙って飛ばす。**
+「黙って素通り」が無いのは正しい設計である。
+
+直したうえで、**`node_modules` を消してからの `pnpm install --frozen-lockfile` が通る**
+ことを確認した（49 件 green / 型 0 errors / build 通過）。
+
+**baseline §1 の例（`package.json` の `"pnpm"` の形）は pnpm 11 では効かない。**
+§1 をどう直すかは人の判断（`product-baseline.md` は非公開の完全版が優先されるため、
+AI が書き換えない）。
+
 ## 2026-09-02（追補 4）— **M5-b：経路と名簿**
 
 `issues/005` の満たすこと 2「**Relay を経由したらそのことが画面に出る**」の中身を作った。

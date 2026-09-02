@@ -2097,13 +2097,42 @@ baseline §1 の例は `package.json` の `"pnpm"` の形だが、**pnpm 10 以�
 `pnpm-workspace.yaml` が正本**であり、package.json へ書いても pnpm 11 は読まない。
 **「防御が効いていないのに効いているように見える」**のが一番悪いので、置き場所だけ変えた。中身は §1 のまま。
 
-**`onlyBuiltDependencies` は空にできなかった。**`esbuild` だけ通している。
+**白名簿は空にできなかった。**`esbuild` だけ通している。
 
 - vite / vitest が中で使う。postinstall は**自分の platform 向けバイナリを選んで置くだけ**で、
   外部から何も取ってこない（バイナリは optional dependencies として既に入っている）
 - 走らせないと「別の platform 用を入れた」と言って落ちる
-- pnpm 11 は**無視した時点で install をエラーにする**ので、
-  「空に見えて実は無効」という状態にはならない
+
+### **訂正（2026-09-02・CI が落ちて分かった）** — `onlyBuiltDependencies` だけでは効かない
+
+最初 `onlyBuiltDependencies: [esbuild]` だけを書いて「通った」と判断した。**間違いだった。**
+手元で `pnpm approve-builds` を叩いた後だったので通っていただけで、
+**まっさらな環境では通らない。**CI（run `33599988401`）が落ちて分かった。
+
+**この節が「効いていないのに効いて見える」と警告した、その形に自分で入った。**
+
+pnpm 11 の機構は **2 段**である（実測）。
+
+| 設定 | 役割 |
+|---|---|
+| `onlyBuiltDependencies` | そもそも build してよい候補を絞る |
+| **`allowBuilds`** | その 1 つ 1 つを `true` / `false` で**明示する** |
+
+`onlyBuiltDependencies` だけでは pnpm は無視し続ける。**`allowBuilds: { esbuild: true }` が要る。**
+
+挙動も実測した。
+
+- **未決**（どちらにも書かれていない）→ **install がエラーで止まる**
+- `false`（明示的に拒否）→ 止まらない。**決めたことなので黙って飛ばす**
+- `true` → 走る
+
+**未決のときだけ止まる**という設計は正しい。黙って素通りする状態が無い。
+
+**baseline §1 の例は `package.json` の `"pnpm"` の形**だが、pnpm 11 ではそこも
+`onlyBuiltDependencies` も**単独では効かない**。§1 の本文をどう直すかは人の判断に委ねる
+（`product-baseline.md` は非公開の完全版が優先されるため、AI が書き換えない）。
+
+**正本は `pnpm-workspace.yaml` の 1 か所だけにした。**`package.json` の `"pnpm"` は置かない。
 
 ### アイコンは仮である
 

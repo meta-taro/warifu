@@ -6,19 +6,26 @@
 packages:
   - 'apps/*'
 
-# install script を走らせてよい依存の白名簿。**既定は空。**
-# 足すときは「なぜ必要か」をここと decisions.md に残す（D37）。
+# install script を走らせてよい依存。**既定は誰も走らせない。**
+#
+# pnpm 11 では **2 段**になっている。片方だけでは通らない（実測 2026-09-02・D37）。
+#
+#   onlyBuiltDependencies … そもそも build してよい候補を絞る
+#   allowBuilds           … その 1 つ 1 つを true / false で明示する
+#
+# `onlyBuiltDependencies` だけ書いても **pnpm は無視し続ける**。
+# 逆に、無視した時点で install がエラーになるので**黙って素通りはしない** —
+# 「白名簿を書いたので安全」と思い込んだまま進むことはできない。
 onlyBuiltDependencies:
+  - esbuild
+
+allowBuilds:
   # vite / vitest が中で使う。postinstall は自分の platform 向けバイナリを
   # 選んで置くだけで、これが走らないと「別の platform 用を入れた」と言って落ちる。
   # **外部から何も取ってこない**（バイナリは optional dependencies として
-  # 既にレジストリから入っている）。ここを空にしたままだと pnpm 11 は install を
-  # エラーで止めるので、「空に見えて実は無効」という状態にはならない。
-  - esbuild
+  # 既にレジストリから入っている）。
+  esbuild: true
 
 # 公開から 1440 分（24 時間）経っていないバージョンを使わない。
 # 乗っ取られた直後のパッケージを掴まないための隔離期間。
 minimumReleaseAge: 1440
-
-allowBuilds:
-  esbuild: set this to true or false
