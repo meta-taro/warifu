@@ -3,6 +3,38 @@
 - **現在フェーズ**: **M4 完了 ＋ Phase 3-b の R1〜R5-b ＋ `issues/008` ＋ MCP ＋ 予定表 ＋ 回線と自動調整 ＋ 隔離 ＋ 戸口（テスト 311 件 green・**手元と CI の両方で実測**）**
 - **最終更新**: 2026-09-02
 
+## 2026-09-02（追補 6）— **手元の型チェックは信用できない**
+
+`0136ebd` で install は通った（`allowBuilds` の修正は効いた）。次は**型**で落ちた
+（run `33620842427`）。
+
+```
+src/lib/meeting/roster.test.ts:1:30
+Error: Cannot find module 'node:fs' or its corresponding type declarations.
+```
+
+`@types/node` を宣言していなかった。**手元では通っていた。**
+
+### なぜ手元で通ったか（実測）
+
+**`~/node_modules/@types/node` が存在する。**
+TypeScript は `node_modules` を**親方向へ辿る**ので、リポジトリの外にある型を拾っていた。
+CI の runner にはそれが無い。
+
+**つまり手元の `pnpm check` は、リポジトリが自足しているかを確かめていない。**
+これは pnpm の話ではなく、Node の解決規則の話なので、
+**「手元で通った」を根拠にしない**（baseline §3 が言う「手元で完結して動く」は、
+手元の外にあるものを当てにしない、という意味でもある）。
+
+`@types/node` を `apps/desktop` の devDependencies へ足した（MIT / DefinitelyTyped）。
+足した後の型チェックは **345 files / 0 errors**（足す前は 326 files ＝ node の型が入っていなかった）。
+
+### この形の壊れ方を、今後どう捕まえるか
+
+**CI が最終ゲートである**（D17）ことが、今回も 2 回続けて実証された。
+手元のゲートは速い代わりに、**環境の差を見ない。**
+`desktop.yml` を消さない・弱めない（baseline §20）。
+
 ## 2026-09-02（追補 5）— **CI が落ちた。防御が効いていなかった**
 
 `7d2b959` の push で **`desktop` が落ちた**（run `33599988401`）。`rust` と `oss-privacy-check` は success。
