@@ -26,6 +26,10 @@
 
 2 台要る。**同じ Wi-Fi につないでおく。**
 
+> **Windows では建ちません**（2026-09-03 に実測・**D40**）。
+> 上流の Tauri と iroh が別の `windows` crate を要求していて、こちらでは直せません。
+> **2 台とも macOS を用意してください。**
+
 ```bash
 git clone https://github.com/meta-taro/warifu.git
 cd warifu

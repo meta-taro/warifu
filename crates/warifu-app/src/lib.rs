@@ -109,6 +109,14 @@ impl Conference {
         self.roster.capacity()
     }
 
+    /// 名簿へ直接入れる（招待を受けた側が、運ばれてきた名簿を組み直すときに使う）。
+    ///
+    /// # Errors
+    /// 定員を超えるとき。
+    pub fn admit(&mut self, who: PublicKey) -> Result<(), Error> {
+        self.roster.add(who).map_err(Error::Roster)
+    }
+
     /// 知らせを 1 つ受けて、名簿を動かす。
     ///
     /// # Errors
@@ -173,4 +181,29 @@ impl Conference {
             blob: signal.blob().to_vec(),
         }])
     }
+}
+
+/// **どちらが呼びに行くか**（M6）。
+///
+/// フルメッシュでは**組ごとに 1 本だけ**張らないといけない。
+/// 両側から呼びに行くと同じ組に 2 本張られ、どちらを使うかで揉める。
+/// **中央の調停者は居ない**ので、D38 と同じ手で解く — **公開鍵の並び。**
+///
+/// **呼びに行く側が offer も出す**（`should_offer_to` と同じ向き）。
+/// 別々にすると「呼んだのに offer が来ない」を追うことになる。**規則は 1 本にしておく。**
+#[must_use]
+pub fn should_dial(me: PublicKey, peer: PublicKey) -> bool {
+    me.to_bytes() < peer.to_bytes()
+}
+
+/// 名簿のうち、**自分が呼びに行く相手**だけを取り出す。
+///
+/// 全員が同じ名簿を見れば、`n` 人の網は `n(n-1)/2` 本になる — **重複も欠落もない。**
+#[must_use]
+pub fn peers_to_dial(me: PublicKey, roster: &[PublicKey]) -> Vec<PublicKey> {
+    roster
+        .iter()
+        .copied()
+        .filter(|p| should_dial(me, *p))
+        .collect()
 }

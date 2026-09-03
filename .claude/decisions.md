@@ -2256,3 +2256,57 @@ M5-c2 を書き終えた時点で、**アプリは誰でも受け入れていた
 - 招待の有効期間 10 分が短すぎると分かったとき（**試験運用で測る**・`docs/trial.md`）
 - 一度に複数の招待を出したくなったとき → **配った先を追える形とセットで**決める。
   追えないまま増やすと、誰に渡したか分からない招待が残る
+
+---
+
+## D40. Windows では建たない。**上流の衝突で、こちらでは直せない**（**実測・2026-09-03**）
+
+**状態**: 記録（未解決）/ **分かったこと**: 下記 / **こちらで直せる**: いいえ
+
+### 何が起きるか
+
+`bundle.yml` を Windows で走らせると、`cargo build --release` が落ちる（run `33761390536`）。
+**macOS は success。**
+
+```
+error[E0277]: the trait bound `IWbemObjectSink: windows_core::Interface` is not satisfied
+note: there are multiple different versions of crate `windows_core` in the dependency graph
+```
+
+### 原因（Cargo.lock を読んで特定した）
+
+**`windows-core` が 2 つ入っている。**
+
+| どちら側 | 経路 | `windows-core` |
+|---|---|---|
+| **画面** | `tauri` → `tauri-runtime-wry` → `wry` / `tao` / `webview2-com` | **0.61.2** |
+| **経路** | `iroh` → `netwatch` → **`wmi`** | **0.62.2** |
+
+`IWbemObjectSink` は WMI（Windows の管理情報）の口で、
+`netwatch` が**網の変化を検知する**ために使っている。
+
+### こちらで直せない理由（試した）
+
+| 試したこと | 結果 |
+|---|---|
+| `wmi` / `netwatch` を上げる | **どちらも既に最新**（wmi 0.18.4 / netwatch 0.19.3） |
+| `wry` / `tao` を上げる | **`tauri-runtime-wry 2.11.4` が `wry 0.55.x` を固定**。tauri も最新（2.11.5） |
+| GUI だけ MSRV を上げる（1.85 → 1.89） | **効かない。**止めていたのは MSRV ではなかったので**戻した** |
+
+**上流のどちらかが動くまで待つしかない。**
+`tauri` が `windows` 0.62 に移るか、`netwatch` が 0.61 に戻るか。
+
+### いま採る立場
+
+- **アルファは macOS だけ**とする。`README` と `SECURITY.md` にそう書く
+- `bundle.yml` は **Windows も回し続ける**（`fail-fast: false`）。
+  **落ちたまま放置するのではなく、上流が動いた瞬間に緑になるのを待つ**
+- **回避策を自前で作らない。**`[patch.crates-io]` で `wmi` を差し替える手はあるが、
+  **経路の網検知に手を入れることになる。**warifu が自分で書いていない層を
+  書き換えるのは、直す価値に対して危なすぎる
+
+### これを止めるべき条件
+
+- 上流が動いたとき → **`bundle.yml` を回して確かめる。**それだけで済む
+- Windows が先に必要になったとき → **Tauri 以外の器**（WebView2 を直に叩く等）を
+  検討することになるが、**それは D10 の見直しである**。実装ではなく提案を出す
