@@ -53,7 +53,12 @@ export const myKey = () => invoke<string>('my_key');
 /** 会議を作る。定員は `2..=16`（D27）。 */
 export const hostMeeting = (capacity: number) => invoke<string>('host_meeting', { capacity });
 
-/** 招待を使って繋ぐ。**宛先だけでは通らない。** */
+/**
+ * 会議キーで入室する。**宛先だけでは通らない。**
+ *
+ * 自分の会議キーを貼ったときは、Rust 側が `meeting.key.own` を返す。
+ * **下の層（iroh）の英語をそのまま出さない** — 画面が辞書から訳す。
+ */
 export const connect = (invite: string) => invoke<void>('connect', { invite });
 
 /** 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。** */

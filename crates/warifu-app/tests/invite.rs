@@ -69,3 +69,24 @@ fn 書き換わった割符は受け取らない() {
 
     assert!(parse_invite(&壊れた).is_err());
 }
+
+#[test]
+fn 自分が出した招待だと分かる() {
+    // **1 台で 2 窓を開くと必ず踏む。**下の層（iroh）は
+    // "Connecting to ourself is not supported" としか言わないので、ここで気づく
+    let 私 = 端末();
+    let (_t, token) = 私.issue_tally(1000, 3600).unwrap();
+
+    assert!(warifu_app::is_own_invite(私.public_key(), &token));
+}
+
+#[test]
+fn 相手が出した招待は自分のものではない() {
+    let 私 = 端末();
+    let 相手 = Seed::from_bytes([9u8; 32])
+        .profile("Personal")
+        .device("スマホ");
+    let (_t, token) = 相手.issue_tally(1000, 3600).unwrap();
+
+    assert!(!warifu_app::is_own_invite(私.public_key(), &token));
+}

@@ -14,7 +14,7 @@
 
 mod invite;
 
-pub use invite::{InviteError, format_invite, parse_invite};
+pub use invite::{InviteError, format_invite, is_own_invite, parse_invite};
 
 use warifu_core::PublicKey;
 use warifu_meeting::{Error as MeetingError, MeetingId, Notice, Roster, Signal, Step};

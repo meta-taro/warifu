@@ -6,7 +6,7 @@
 //! 割符を一緒に渡すことで、戸口が「**割符があるから開ける**」と言えるようになる。
 //! 割符は人が渡したものであり、渡した時点で人はもう判断している。
 
-use warifu_core::{TallyToken, base32};
+use warifu_core::{PublicKey, TallyToken, base32};
 
 /// 宛先と割符の区切り。**base32 の字（A–Z / 2–7）に無いものを選ぶ。**
 /// 区切りが本文に現れうると、どこで切るかが曖昧になる。
@@ -60,4 +60,14 @@ pub fn parse_invite(text: &str) -> Result<(String, TallyToken), InviteError> {
     let bytes = base32::decode(tally).ok_or(InviteError::BadTally)?;
     let token = TallyToken::from_bytes(&bytes).map_err(|_| InviteError::BadTally)?;
     Ok((address.to_string(), token))
+}
+
+/// **自分が出した招待か。**
+///
+/// 1 台で 2 窓を開いて試すと必ず踏む。下の層（iroh）は
+/// `Connecting to ourself is not supported` としか言わないので、
+/// **繋ぎに行く前にここで気づいて、人の言葉で返す。**
+#[must_use]
+pub fn is_own_invite(me: PublicKey, token: &TallyToken) -> bool {
+    token.issuer() == me
 }

@@ -199,8 +199,16 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
 /// **繋がった後は、届いたものを画面へ流し続ける。**
 #[tauri::command]
 async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> Answer<()> {
-    // **宛先だけでは繋がない。**割符が付いていなければここで止まる（D31）
+    // **宛先だけでは繋がない。**会議キーに割符が付いていなければここで止まる（D31）
     let (address, token) = parse_invite(&invite)?;
+    // **自分の会議キーを貼ったときは、ここで気づく。**
+    // 下の層（iroh）は "Connecting to ourself is not supported" としか言わない。
+    // 画面が訳せるように、文言そのものではなく**鍵**を返す
+    if warifu_app::is_own_invite(bridge.device.public_key(), &token) {
+        return Err(Failure {
+            message: "meeting.key.own".into(),
+        });
+    }
     let node = bridge.node().await?;
     let to = Address::from_str(&address)?;
     let mut session = node.connect(&to, &Revocations::new()).await?;

@@ -14,27 +14,18 @@ import { pathFromStats, type LinkPath, type RtcStatLike } from '../link/path';
 import { initialWatch, observe, type WatchState } from '../link/watch';
 import { sendSignal, type SignalPayload } from '../bridge';
 import { applyAction, type PeerLike } from './apply';
-import {
-  describeMediaFailure,
-  ICE_SERVERS,
-  mediaConstraints,
-  shouldSendVideo,
-  type MediaFailure,
-} from './media';
+import { ICE_SERVERS, shouldSendVideo } from './media';
+import type { Prefs } from './devices';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
 
 export interface CallHandlers {
-  /** 自分の映像。 */
-  onLocalStream(stream: MediaStream): void;
   /** 相手の映像。 */
   onRemoteStream(stream: MediaStream): void;
   /** 表示すべき経路（直接 / 中継 / 不明）。 */
   onPath(path: LinkPath): void;
-  /** カメラ・マイクを取れなかった。**理由を分けて渡す。** */
-  onMediaFailure(reason: MediaFailure): void;
 }
 
 /** 1 本の通話。閉じるまで生きている。 */
@@ -50,6 +41,7 @@ export class Call {
   constructor(
     offering: boolean,
     private handlers: CallHandlers,
+    private prefs: Prefs,
   ) {
     this.state = start(offering);
     this.pc = new RTCPeerConnection({ iceServers: [...ICE_SERVERS] });
@@ -75,22 +67,20 @@ export class Call {
     };
   }
 
-  /** カメラとマイクを取り、要るなら offer を出す。 */
-  async begin(): Promise<void> {
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia(mediaConstraints());
-    } catch (error) {
-      // **握り潰さない。**理由を分けて画面へ渡す
-      this.handlers.onMediaFailure(describeMediaFailure(error));
-      return;
-    }
+  /**
+   * **支度で取った映像をそのまま使う。**
+   *
+   * ここで `getUserMedia` を呼び直さない。同じカメラを二重に掴むと、
+   * 環境によっては後から取ったほうが失敗する（`NotReadableError`）。
+   */
+  async begin(stream: MediaStream): Promise<void> {
     for (const track of stream.getTracks()) this.pc.addTrack(track, stream);
     // **測る前に映像を出さない**（D29）。枠は最初から張っておき、流すのは測れてから。
     // こうすると、後から足すための張り直し（再交渉）が要らない
     this.local = stream;
     this.setVideoEnabled(false);
-    this.handlers.onLocalStream(stream);
+    // 支度で「マイク切」にしていたら、入室してもそのまま切のまま
+    this.setAudioEnabled(this.prefs.micOn);
 
     const [next, actions] = onLocalMediaReady(this.state);
     this.state = next;
@@ -119,13 +109,25 @@ export class Call {
     this.watch = observe(this.watch, pathFromStats(stats));
     if (this.watch.shown === before) return;
     this.handlers.onPath(this.watch.shown);
-    // 測れたら映像を流す。測れなくなったら止める（D29）
-    this.setVideoEnabled(shouldSendVideo(this.watch.shown));
+    // 測れたら映像を流す。測れなくなったら止める（D29）。
+    // **支度で「カメラ切」にしていたら、測れても流さない** — 人の指定が優先する
+    this.setVideoEnabled(this.prefs.cameraOn && shouldSendVideo(this.watch.shown));
   }
 
   /** 映像の枠はそのままに、流すかどうかだけを切り替える。 */
   private setVideoEnabled(on: boolean): void {
     for (const track of this.local?.getVideoTracks() ?? []) track.enabled = on;
+  }
+
+  private setAudioEnabled(on: boolean): void {
+    for (const track of this.local?.getAudioTracks() ?? []) track.enabled = on;
+  }
+
+  /** 会議中に入と切を変える。**支度で決めた値を上書きする。** */
+  setPrefs(prefs: Prefs): void {
+    this.prefs = prefs;
+    this.setAudioEnabled(prefs.micOn);
+    this.setVideoEnabled(prefs.cameraOn && shouldSendVideo(this.watch.shown));
   }
 
   close(): void {

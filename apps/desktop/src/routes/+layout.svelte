@@ -8,7 +8,15 @@
 </div>
 
 <style>
+  /* **窓そのものは動かさない。**帯（タイトルバー）は上に据えたまま、
+     中身だけが動くようにする。ここを開けると帯まで一緒にスクロールする */
+  :global(html) {
+    height: 100%;
+    overflow: hidden;
+  }
   :global(body) {
+    height: 100%;
+    overflow: hidden;
     margin: 0;
     background: var(--bg-app);
     color: var(--text-primary);
@@ -20,6 +28,8 @@
   .app {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100%;
+    /* 子（帯と中身）の側で動かす。ここでは動かさない */
+    overflow: hidden;
   }
 </style>

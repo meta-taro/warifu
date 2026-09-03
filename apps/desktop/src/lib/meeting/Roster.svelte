@@ -1,6 +1,7 @@
 <script lang="ts">
   // 名簿（DESIGN.md §7）。**現在数と定員の両方**を出す（§4.3 / D27）。
   import LinkBadge from '../link/LinkBadge.svelte';
+  import Icon from '../ui/Icon.svelte';
   import { MESSAGES, format } from '../i18n/messages';
   import type { Locale } from '../i18n/locales';
   import type { LinkPath } from '../link/path';
@@ -27,6 +28,7 @@
 
 <section class="roster" aria-label={MESSAGES[locale]['app.name']}>
   <header>
+    <Icon name="people" />
     <span class="count"
       >{format(MESSAGES[locale]['roster.capacity'], {
         current: members.length,
@@ -55,7 +57,9 @@
   }
   header {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--text-tertiary);
     padding: var(--space-2) var(--space-3);
     background: var(--bg-sunken);
     border-bottom: 1px solid var(--border);
