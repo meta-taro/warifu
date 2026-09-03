@@ -1,7 +1,17 @@
 <script lang="ts">
   import '$lib/styles/tokens.css';
+  import ContextMenu from '$lib/ui/ContextMenu.svelte';
+  import { resolveLocale, type Locale } from '$lib/i18n/locales';
+
   let { children } = $props();
+
+  // 右クリックは窓のどこでも出る。**画面ごとに置かない**（置き忘れが英語のまま残る）
+  const locale: Locale = resolveLocale(
+    typeof navigator === 'undefined' ? [] : [...navigator.languages],
+  );
 </script>
+
+<ContextMenu {locale} />
 
 <div class="app">
   {@render children()}
