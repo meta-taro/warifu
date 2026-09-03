@@ -14,13 +14,15 @@
 //! つまり **今の版はアプリを閉じると別人になる。**これは不具合ではなく、
 //! D2 が決まるまで意図的にそうしてある。
 
+mod menu;
+
 use std::str::FromStr;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{Mutex, mpsc};
 
-use warifu_app::{format_invite, parse_invite, Conference};
+use warifu_app::{Conference, format_invite, parse_invite};
 use warifu_core::{Acceptance, Device, PublicKey, Revocations, Seed, Tally};
 use warifu_door::{Answer as DoorAnswer, Door, Knock, Subject};
 use warifu_intent::Channel;
@@ -149,6 +151,32 @@ async fn invite(bridge: State<'_, Bridge>, ttl_secs: u64) -> Answer<String> {
     let (tally, token) = bridge.device.issue_tally(now_secs(), ttl_secs)?;
     *bridge.tally.lock().await = Some(tally);
     Ok(format_invite(&address, &token))
+}
+
+/// **OS のメニューを、画面と同じ言語にする**（D35）。
+///
+/// 画面側が `navigator.languages` から決めた答えをそのまま渡す。
+/// ここで OS へ聞き直すと、**2 か所が別の答えを出しうる。**
+#[tauri::command]
+fn set_menu_locale(app: AppHandle, locale: String) -> Answer<()> {
+    // **メニューはメインスレッドでしか触れない。**macOS では別スレッドから差し替えると
+    // 黙って何も起きない（例外も出ない）。1 回それで「英語のまま」を踏んだ。
+    if !menu::LOCALES.contains(&locale.as_str()) {
+        // 落とす先は英語だが、**黙って落とさない。**画面側と綴りがずれたときに
+        // 「なぜか英語のまま」になるのを、ここで読めるようにしておく
+        eprintln!("知らないロケール '{locale}' が来たので英語にします");
+    }
+    let handle = app.clone();
+    app.run_on_main_thread(move || match menu::build(&handle, &locale) {
+        Ok(m) => {
+            if let Err(e) = handle.set_menu(m) {
+                // **握り潰さない。**差し替えに失敗したこと自体が読めないと、原因を追えない
+                eprintln!("メニューを差し替えられませんでした: {e}");
+            }
+        }
+        Err(e) => eprintln!("メニューを組めませんでした: {e}"),
+    })?;
+    Ok(())
 }
 
 /// 自分の公開鍵。画面が「自分かどうか」を見分けるのに使う。
@@ -444,6 +472,7 @@ pub fn run() {
             invite,
             send_signal,
             should_offer_to,
+            set_menu_locale,
         ])
         .run(tauri::generate_context!())
         .expect("warifu の窓を開けませんでした");

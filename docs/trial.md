@@ -17,7 +17,7 @@
 | **招待は 10 分で切れる** | `招待を出す` を押すたびに、前の招待は無効になる。**一度に有効なのは 1 つ**（D39） |
 | **QR はまだ無い** | 招待は文字列だけ。紙・口頭では運べる形になっている |
 | **3 人以上はまだ** | 橋が持っている経路は 1 本 |
-| **アイコンは仮** | 意匠を含まない角丸の四角。ロゴが決まったら捨てる |
+| **アイコン** | **割符**（二つに割った札）。手で書き起こしたもので、外部の権利関係は無い（`DESIGN.md` §4-A） |
 | **最初は音声だけ** | 経路を測るまで映像を流さない（**D29**「測る前に映像を出さない」）。**映像が一拍遅れて出るのは仕様である。**遅すぎると感じたら、それは報告してほしい所 |
 
 ---
@@ -31,11 +31,16 @@ git clone https://github.com/meta-taro/warifu.git
 cd warifu
 scripts/setup-hooks.sh     # clone ごとに 1 回
 pnpm install
-pnpm --filter @warifu/desktop build
-cd apps/desktop/src-tauri && cargo run
+pnpm --filter @warifu/desktop tauri dev
 ```
 
-初回の `cargo run` は依存を建てるので数分かかる。
+初回は依存を建てるので数分かかる。
+
+> **`cargo run` では動かない**（2026-09-03 に踏んだ）。
+> debug ビルドの Tauri は `devUrl`（`http://localhost:5173`）を読みに行くので、
+> vite を一緒に起動しないと**窓が真っ白になる**。`tauri dev` が両方を面倒みる。
+>
+> 配布物として動かすなら `pnpm --filter @warifu/desktop tauri build`。
 
 ---
 
@@ -121,4 +126,4 @@ cd apps/desktop/src-tauri && cargo run
 | **繋いでも何も起きない** | 招待が切れていないか（10 分）。**割符が合わない相手は黙って落とす**（D31・断る理由を返さない） |
 | **映像が出ない／片方だけ出る** | offer を出すのは一方だけ（**D38**）。両方から出ていたら、それは不具合である |
 | **経路バッジが `不明` のまま** | `RTCStatsReport` の形が想定と違う可能性がある。**`path.ts` は実機で一度も確かめていない** |
-| **窓が真っ白** | フロントの build を忘れていないか（`pnpm --filter @warifu/desktop build`） |
+| **窓が真っ白** | まずフロントの build（`pnpm --filter @warifu/desktop build`）。**それでも白いなら CSP を疑う** — 2026-09-02 に、`script-src` を書き忘れて SvelteKit の起動スクリプトが止まり、真っ白になった実績がある |

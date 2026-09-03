@@ -39,6 +39,14 @@ export const myAddress = () => invoke<string>('my_address');
  */
 export const invite = (ttlSecs: number) => invoke<string>('invite', { ttlSecs });
 
+/**
+ * **OS のメニューを、画面と同じ言語にする**（D35）。
+ *
+ * 画面の中だけを訳しても足りない。macOS では窓の外にメニューが出る。
+ * 言語は画面側が決めた答えを渡す — Rust 側で OS へ聞き直すと、2 か所が別の答えを出しうる。
+ */
+export const setMenuLocale = (locale: string) => invoke<void>('set_menu_locale', { locale });
+
 /** 自分の公開鍵。画面が「自分かどうか」を見分けるのに使う。 */
 export const myKey = () => invoke<string>('my_key');
 

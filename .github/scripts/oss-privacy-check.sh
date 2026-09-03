@@ -39,8 +39,26 @@ mask_email() {
   sed -E 's/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+\.([A-Za-z]{2,})/\1***@***.\2/g'
 }
 
+# ドメインの末尾がファイルの拡張子なら、それはメールではない。
+#
+# **Retina 用の `@2x` が必ず当たる** — `128x128@2x.png` は正規表現の上では
+# 「128x128 という宛先の 2x.png ドメイン」に見える。`icon_512x512@2x.png` も同じ。
+# これは命名の標準なので、当たり続ける。**検査を弱めずに、種類で外す。**
+# `.png` の TLD は存在しないので、本物のメールを取り逃がすことはない。
+NOT_A_TLD="png jpg jpeg gif svg webp ico icns css js mjs cjs ts tsx jsx json md yml yaml toml lock rs html htm txt map woff woff2 ttf otf zip tar gz"
+
+looks_like_file() {
+  local tld
+  tld="$(printf '%s' "${1##*.}" | tr 'A-Z' 'a-z')"
+  for x in $NOT_A_TLD; do
+    [ "$tld" = "$x" ] && return 0
+  done
+  return 1
+}
+
 allowed_email() {
   local e="$1" d lower
+  looks_like_file "$e" && return 0
   lower="$(printf '%s' "$e" | tr 'A-Z' 'a-z')"
   for a in $ALLOWED_EMAILS; do
     [ "$lower" = "$(printf '%s' "$a" | tr 'A-Z' 'a-z')" ] && return 0

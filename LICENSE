@@ -1,0 +1,17 @@
+warifu は **Apache License 2.0** と **MIT License** の**どちらでも**使えます
+（dual license）。好きなほうを選んでください。
+
+- Apache-2.0 … `LICENSE-APACHE`
+- MIT … `LICENSE-MIT`
+
+Rust の生態系で一般的な組み合わせで、依存している iroh / ed25519-dalek も同じ形です。
+どちらか一方しか受け入れられない相手にも渡せるようにするための二本立てです。
+
+---
+
+warifu is dual-licensed under **Apache License 2.0** and the **MIT License**.
+You may choose either one.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this project shall be dual-licensed as above, without any
+additional terms or conditions.

@@ -21,6 +21,7 @@
     listen,
     myKey,
     onEvent,
+    setMenuLocale,
     shouldOfferTo,
     type SignalPayload,
   } from '$lib/bridge';
@@ -55,6 +56,13 @@
       return;
     }
     void (async () => {
+      // 窓の外（OS のメニュー）も同じ言語にする（D35）。
+      // **ここで失敗しても、会議の準備は続ける** — メニューが英語なだけで、繋ぐことはできる
+      try {
+        await setMenuLocale(locale);
+      } catch (e) {
+        notice = `メニューを訳せませんでした: ${読める(e)}`;
+      }
       await hostMeeting(DEFAULT_CAPACITY);
       await listen();
       const me = (await myKey()) ?? '';
