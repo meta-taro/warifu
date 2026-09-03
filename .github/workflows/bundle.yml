@@ -1,0 +1,61 @@
+name: bundle
+
+# **配布物が建つかを確かめる。**Windows / macOS の両方。
+#
+# 毎 push では走らせない（**D37**）。Tauri を建てると 10 分単位で伸び、
+# 判定のコードを 1 行直すたびに GUI の依存が建て直される。**遅いゲートは飛ばされる。**
+#
+# 走らせるのは 2 つのときだけ。
+#   - 人が手で起動したとき（workflow_dispatch）
+#   - タグを打ったとき（配布の直前）
+#
+# **Windows では一度も建てたことがない**（2026-09-03 時点）。
+# 手元に Windows が無いので、ここが最初の確認になる。
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      # **片方が落ちても、もう片方の結果を見る。**
+      # Windows だけ落ちたのか両方なのかで、原因の見当が変わる
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node --version
+          pnpm --version
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: フロントを建てる
+        run: pnpm --filter @warifu/desktop build
+
+      # --no-bundle: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
+      - name: 配布物を建てる
+        working-directory: apps/desktop/src-tauri
+        run: cargo build --release
