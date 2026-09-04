@@ -224,8 +224,31 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, Op
     Ok(o)
 }
 
-#[tokio::main]
-async fn main() -> ExitCode {
+/// **終わるときに、標準入力の読み取りを待たない。**
+///
+/// `tokio::io::stdin` は専用のブロッキングスレッドで `read(2)` を呼ぶ。
+/// `#[tokio::main]` はランタイムを畳むときにブロッキング処理の完了を待つため、
+/// 標準入力が端末や**開いたままのパイプ**だと read が返らず、**プロセスが終わらない**。
+///
+/// 実測 2026-09-04: 相手が落ちて `経路で落ちました` を出した `warifu host` が
+/// **55 分そのまま残り**、標準入力へ 1 行流し込むまで終了しなかった。
+/// 人から見ると「落ちたのに終わっていない」——次の待ち受けを建てたつもりが二重になる。
+fn 走らせる<F: std::future::Future<Output = ExitCode>>(仕事: F) -> ExitCode {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio ランタイムを作れませんでした");
+    let code = runtime.block_on(仕事);
+    // **止まったままのブロッキング処理を待たない。**待つと標準入力に縛られる
+    runtime.shutdown_timeout(std::time::Duration::ZERO);
+    code
+}
+
+fn main() -> ExitCode {
+    走らせる(本体())
+}
+
+async fn 本体() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let 命令 = args.next();
     let result = match 命令.as_deref() {
@@ -548,3 +571,35 @@ fn now_secs() -> u64 {
 /// `MeetingId` を使う所が上にしか無いので、型を持っておく足場。
 #[allow(dead_code)]
 fn _keep(_: MeetingId) {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **相手が落ちたら終わる。**標準入力の read が返らなくても、である。
+    ///
+    /// `warifu host` は標準入力を開いたまま背景で動かす使い方をする
+    /// （`warifu host < パイプ`）。ここが縛られると、経路が落ちて
+    /// 誤りを出したあとも**プロセスが残り続ける**。
+    #[test]
+    fn 標準入力の読み取りが止まっていても終われる() {
+        let (合図, 受け) = std::sync::mpsc::channel::<()>();
+        let 始まり = std::time::Instant::now();
+
+        走らせる(async move {
+            // **返らない read(2) の代わり。**合図が来るまで戻らない
+            tokio::task::spawn_blocking(move || {
+                let _ = 受け.recv_timeout(std::time::Duration::from_secs(10));
+            });
+            tokio::task::yield_now().await;
+            ExitCode::SUCCESS
+        });
+
+        let 掛かった = 始まり.elapsed();
+        drop(合図);
+        assert!(
+            掛かった < std::time::Duration::from_secs(3),
+            "標準入力を待って {掛かった:?} 掛かった。落ちても終わらない"
+        );
+    }
+}
