@@ -31,7 +31,10 @@ use warifu_intent::Channel;
 use warifu_meeting::{MeetingId, Notice, Roster};
 use warifu_net::{Address, Node};
 
-/// 会議キーの有効期間（秒）。画面側と揃える。
+/// 会議キーの既定の有効期間（秒）。画面側と揃えてある。
+///
+/// **`--ttl <秒>` で伸ばせる。**相手が建てている間に切れると、
+/// 渡した鍵が使えなくなって最初からやり直しになる（2026-09-04 に実際に切れた）。
 const KEY_TTL_SECS: u64 = 600;
 /// 相手が割符へ応じるのを待つ限度。**黙って繋いだだけの相手に待ち受けを塞がせない。**
 const HANDSHAKE_SECS: u64 = 10;
@@ -48,27 +51,35 @@ fn 使い方() -> ExitCode {
         "warifu — 画面なしで会議に入る\n\
          \n\
          使い方:\n\
-         \x20 warifu host [--idle <秒>]            待つ。会議キーを標準出力へ出す\n\
+         \x20 warifu host [--ttl <秒>] [--idle <秒>]  待つ。会議キーを標準出力へ出す\n\
          \x20 warifu join <会議キー> [--idle <秒>]  入る\n\
          \n\
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
-         --idle を付けると、何も来ない時間がその秒数を超えた時点で終わります。\n\
-         付けなければ終わりません（会話は黙っている時間のほうが長いため）。\n\
+         --ttl  会議キーの有効期間（既定 600 秒）。相手が建てている間に切れないように\n\
+         --idle 何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
+         \x20      （会話は黙っている時間のほうが長いため）\n\
          **映像は扱いません**（それは画面の担当です）。"
     );
     ExitCode::from(2)
 }
 
-/// `--idle <秒>` を読む。**無ければ終わらない。**
-fn 読む_idle(args: &mut impl Iterator<Item = String>) -> Option<u64> {
+/// `--idle <秒>` と `--ttl <秒>` を読む。**idle は無ければ終わらない。**
+fn 読む_options(args: &mut impl Iterator<Item = String>) -> (Option<u64>, u64) {
     let mut idle = IDLE_DEFAULT;
+    let mut ttl = KEY_TTL_SECS;
     while let Some(a) = args.next() {
-        if a == "--idle" {
-            idle = args.next().and_then(|v| v.parse().ok());
+        match a.as_str() {
+            "--idle" => idle = args.next().and_then(|v| v.parse().ok()),
+            "--ttl" => {
+                if let Some(v) = args.next().and_then(|v| v.parse().ok()) {
+                    ttl = v;
+                }
+            }
+            _ => {}
         }
     }
-    idle
+    (idle, ttl)
 }
 
 #[tokio::main]
@@ -77,12 +88,12 @@ async fn main() -> ExitCode {
     let 命令 = args.next();
     let result = match 命令.as_deref() {
         Some("host") => {
-            let idle = 読む_idle(&mut args);
-            待つ(idle).await
+            let (idle, ttl) = 読む_options(&mut args);
+            待つ(idle, ttl).await
         }
         Some("join") => match args.next() {
             Some(key) => {
-                let idle = 読む_idle(&mut args);
+                let (idle, _) = 読む_options(&mut args);
                 入る(&key, idle).await
             }
             None => return 使い方(),
@@ -107,20 +118,36 @@ fn 身元() -> Result<Device, Box<dyn std::error::Error>> {
     Ok(Seed::generate()?.profile("Personal").device("cli"))
 }
 
-async fn 待つ(idle: Option<u64>) -> Result<(), Box<dyn std::error::Error>> {
+async fn 待つ(idle: Option<u64>, ttl: u64) -> Result<(), Box<dyn std::error::Error>> {
     let device = 身元()?;
     let node = Node::bind_without_relay(&device).await?;
     let address = node.address().await?.to_string();
 
     let mut conference = Conference::host(device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
-    let (mut tally, token) = device.issue_tally(now_secs(), KEY_TTL_SECS)?;
+    let (mut tally, token) = device.issue_tally(now_secs(), ttl)?;
 
     // **会議キーは標準出力へ。**進行の知らせは標準エラーへ分ける。
     // こうしておくと `warifu host | pbcopy` のように使える
-    eprintln!("warifu: 待っています（{KEY_TTL_SECS} 秒で会議キーが切れます）");
+    eprintln!("warifu: 待っています（{ttl} 秒で会議キーが切れます）");
     println!("{}", format_invite(&address, &token, conference.id()));
 
-    let session = node.accept(&Revocations::new()).await?;
+    // **来るまで待ち続ける。**
+    //
+    // `accept` は下の層の都合で時間切れになることがある（実測: timed out）。
+    // 「待っています」と言った以上、**こちらの都合で勝手に諦めない。**
+    // `--idle` は繋がった後の話であって、**繋がる前の待ち時間ではない**。
+    let session = loop {
+        match node.accept(&Revocations::new()).await {
+            Ok(s) => break s,
+            Err(e) => {
+                // 会議キーが切れていたら、待っていても意味が無い
+                if now_secs() > token.not_after() {
+                    return Err("会議キーの期限が切れました。作り直してください".into());
+                }
+                eprintln!("warifu: 待ち直します（{e}）");
+            }
+        }
+    };
     let peer = session.peer();
     let mut session = session;
 
