@@ -278,3 +278,116 @@ fn 割符の秘密が表示に出ない() {
     assert!(!format!("{控え:?}").contains(&秘密));
     assert!(!format!("{渡す半分:?}").contains(&秘密));
 }
+
+// --- 開始のある割符（予定に紐づく会議キー・D43） -----------------------------
+
+/// **予定の前には入れない。**
+///
+/// 週次 MTG の鍵を前もって配ると、いままでは**渡した瞬間から使えた**。
+/// 「10 時から 11 時」の鍵は、9 時に使えてはいけない。
+#[test]
+fn 始まる前は入れない() {
+    let (主催, 客) = 二人();
+
+    let (_tally, token) = 主催.issue_tally_between(1_000, 2_000).expect("割符");
+    assert_eq!(token.not_before(), 1_000);
+    assert_eq!(token.not_after(), 2_000);
+
+    assert!(
+        matches!(客.accept(&token, 999), Err(Error::TooEarly)),
+        "始まる前なのに応じられてしまった"
+    );
+    assert!(
+        客.accept(&token, 1_000).is_ok(),
+        "始まった時刻ちょうどで入れない"
+    );
+    assert!(
+        客.accept(&token, 2_000).is_ok(),
+        "終わる時刻ちょうどで入れない"
+    );
+    assert!(
+        matches!(客.accept(&token, 2_001), Err(Error::Expired)),
+        "終わった後なのに入れてしまった"
+    );
+}
+
+/// 差し出した側も、始まる前の片割れは受け取らない。
+///
+/// **相手の時計を信じない。**受ける側が自分の時計で見直す。
+#[test]
+fn 差し出した側も始まる前は合わせない() {
+    let (主催, 客) = 二人();
+
+    let (mut tally, token) = 主催.issue_tally_between(1_000, 2_000).expect("割符");
+    let acceptance = 客.accept(&token, 1_500).expect("応じる");
+
+    assert!(
+        matches!(
+            tally.match_half(&acceptance, 999, &Revocations::new()),
+            Err(Error::TooEarly)
+        ),
+        "主催の時計ではまだ始まっていないのに合わせた"
+    );
+    assert!(
+        tally
+            .match_half(&acceptance, 1_500, &Revocations::new())
+            .is_ok()
+    );
+}
+
+/// 終わりが始まりより前の窓は作らせない。
+#[test]
+fn 逆さまの窓は作れない() {
+    let (主催, _) = 二人();
+    assert!(matches!(
+        主催.issue_tally_between(2_000, 1_999),
+        Err(Error::BadWindow)
+    ));
+    // 一瞬だけの窓は認める（始まりと終わりが同じ）
+    assert!(主催.issue_tally_between(2_000, 2_000).is_ok());
+}
+
+/// `issue_tally` は「いまから ttl 秒」。**今までどおり動く。**
+#[test]
+fn 期間指定は今から始まる() {
+    let (主催, _) = 二人();
+    let (tally, token) = 主催.issue_tally(1_000, 600).expect("割符");
+    assert_eq!(token.not_before(), 1_000);
+    assert_eq!(token.not_after(), 1_600);
+    assert_eq!(tally.not_before(), 1_000);
+}
+
+/// **開始は署名に入る。**書き換えたら受け取らない。
+#[test]
+fn 開始を書き換えたら受け取らない() {
+    let (主催, _) = 二人();
+    let (_tally, token) = 主催.issue_tally_between(1_000, 2_000).expect("割符");
+
+    let mut bytes = token.to_bytes();
+    // 開始（69..77）を 0 にすると「いつでも入れる」鍵になる
+    for b in &mut bytes[69..77] {
+        *b = 0;
+    }
+    assert!(
+        matches!(TallyToken::from_bytes(&bytes), Err(Error::BadSignature)),
+        "開始を書き換えた鍵を受け取ってしまった"
+    );
+}
+
+/// 開始が入った分、鍵は長くなる。**古い長さのものは受け取らない。**
+#[test]
+fn 開始の無い古い鍵は受け取らない() {
+    let (主催, _) = 二人();
+    let (_tally, token) = 主催.issue_tally_between(1_000, 2_000).expect("割符");
+    let bytes = token.to_bytes();
+
+    // 開始の 8 byte を抜いたもの＝旧版の並び
+    let mut 旧版 = Vec::new();
+    旧版.extend_from_slice(&bytes[..69]);
+    旧版.extend_from_slice(&bytes[77..]);
+
+    assert!(
+        matches!(TallyToken::from_bytes(&旧版), Err(Error::Malformed)),
+        "開始の無い鍵を読めてしまった"
+    );
+}

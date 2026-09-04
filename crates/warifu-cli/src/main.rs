@@ -54,7 +54,8 @@ fn 使い方() -> ExitCode {
         "warifu — 画面なしで会議に入る\n\
          \n\
          使い方:\n\
-         \x20 warifu host [--ttl <秒>] [--idle <秒>] [--remember <呼び名>]\n\
+         \x20 warifu host [--ttl <秒>] [--from <時刻>] [--until <時刻>]\n\
+         \x20            [--idle <秒>] [--remember <呼び名>]\n\
          \x20            待つ。会議キーを標準出力へ出す\n\
          \x20 warifu join <会議キー> [--idle <秒>] [--remember <呼び名>]\n\
          \x20            入る\n\
@@ -66,6 +67,9 @@ fn 使い方() -> ExitCode {
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
          --ttl      会議キーの有効期間（既定 600 秒）。相手が建てている間に切れないように\n\
+         --from     会議の開始。**この時刻までは入れません**（予定に紐づく鍵）\n\
+         --until    会議の終わり。--ttl より優先します\n\
+         \x20          時刻は Unix 秒か `+<秒>`（いまから）。例: --from +3600 --until +7200\n\
          --idle     何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
          \x20          （会話は黙っている時間のほうが長いため）\n\
          --remember つながった相手を、その呼び名で覚える\n\
@@ -82,14 +86,33 @@ struct Options {
     idle: Option<u64>,
     /// 会議キーの有効期間（秒）。
     ttl: u64,
+    /// 会議の開始（Unix 秒）。**無ければ「いま」から。**
+    from: Option<u64>,
+    /// 会議の終わり（Unix 秒）。指定があれば `ttl` より優先する。
+    until: Option<u64>,
     /// つながった相手を、この呼び名で覚える。
     remember: Option<String>,
 }
 
+/// 時刻の指定を読む。**`+<秒>` は「いまから」**、数字だけなら Unix 秒。
+///
+/// 人が打つ日時（`2026-09-11 10:00`）を受けないのは、**時間帯の扱いを間違えると
+/// 「1 時間ずれた鍵」が黙って出る**ためである。予定表の側が秒で渡す形にしてある。
+fn 読む_時刻(text: &str, now: u64) -> Option<u64> {
+    let t = text.trim();
+    if let Some(rest) = t.strip_prefix('+') {
+        return rest.parse::<u64>().ok().map(|d| now.saturating_add(d));
+    }
+    t.parse::<u64>().ok()
+}
+
 fn 読む_options(args: &mut impl Iterator<Item = String>) -> Options {
+    let now = now_secs();
     let mut o = Options {
         idle: IDLE_DEFAULT,
         ttl: KEY_TTL_SECS,
+        from: None,
+        until: None,
         remember: None,
     };
     while let Some(a) = args.next() {
@@ -100,6 +123,8 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Options {
                     o.ttl = v;
                 }
             }
+            "--from" => o.from = args.next().and_then(|v| 読む_時刻(&v, now)),
+            "--until" => o.until = args.next().and_then(|v| 読む_時刻(&v, now)),
             "--remember" => o.remember = args.next(),
             _ => {}
         }
@@ -230,16 +255,26 @@ fn 誰か(vault: &Vault, peer: PublicKey) -> String {
 
 async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     let (vault, device) = 身元()?;
-    let ttl = o.ttl;
+
+    // **開始と終わりを先に決める。**`--from` を付けたときだけ、いまより後ろから始まる
+    let 開始 = o.from.unwrap_or_else(now_secs);
+    let 終わり = o.until.unwrap_or_else(|| 開始.saturating_add(o.ttl));
+    let ttl = 終わり.saturating_sub(now_secs());
     let node = Node::bind_without_relay(&device).await?;
     let address = node.address().await?.to_string();
 
     let mut conference = Conference::host(device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
-    let (mut tally, token) = device.issue_tally(now_secs(), ttl)?;
+    let (mut tally, token) = device.issue_tally_between(開始, 終わり)?;
 
     // **会議キーは標準出力へ。**進行の知らせは標準エラーへ分ける。
     // こうしておくと `warifu host | pbcopy` のように使える
-    eprintln!("warifu: 待っています（{ttl} 秒で会議キーが切れます）");
+    if o.from.is_some() {
+        eprintln!(
+            "warifu: 待っています（{開始} から {終わり} まで有効・**始まる前は入れません**）"
+        );
+    } else {
+        eprintln!("warifu: 待っています（{ttl} 秒で会議キーが切れます）");
+    }
     println!("{}", format_invite(&address, &token, conference.id()));
 
     // **来るまで待ち続ける。**
@@ -247,30 +282,47 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     // `accept` は下の層の都合で時間切れになることがある（実測: timed out）。
     // 「待っています」と言った以上、**こちらの都合で勝手に諦めない。**
     // `--idle` は繋がった後の話であって、**繋がる前の待ち時間ではない**。
-    let session = loop {
-        match node.accept(&Revocations::new()).await {
-            Ok(s) => break s,
+    //
+    // **割符が合わない相手が来ても、そこで終わらない**（実測 2026-09-04）。
+    // 予定に紐づく鍵では、**始まる前に一度叩かれただけで待ち受けが落ちていた。**
+    // 主催は会議が始まるまで待っていなければならない。落ちてよいのは鍵が切れたときだけ。
+    let (session, peer) = loop {
+        // 会議キーが切れていたら、待っていても意味が無い
+        if now_secs() > token.not_after() {
+            return Err("会議キーの期限が切れました。作り直してください".into());
+        }
+
+        let mut session = match node.accept(&Revocations::new()).await {
+            Ok(s) => s,
             Err(e) => {
-                // 会議キーが切れていたら、待っていても意味が無い
-                if now_secs() > token.not_after() {
-                    return Err("会議キーの期限が切れました。作り直してください".into());
-                }
                 eprintln!("warifu: 待ち直します（{e}）");
+                continue;
             }
+        };
+        let peer = session.peer();
+
+        // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31 / D39）
+        let 応答 = tokio::time::timeout(
+            std::time::Duration::from_secs(HANDSHAKE_SECS),
+            session.recv(),
+        )
+        .await;
+
+        let 結果 = match 応答 {
+            Err(_) => Err("相手が割符に応じませんでした".to_owned()),
+            Ok(Err(e)) => Err(e.to_string()),
+            Ok(Ok(bytes)) => warifu_core::Acceptance::from_bytes(&bytes)
+                .and_then(|a| tally.match_half(&a, now_secs(), &Revocations::new()))
+                .map_err(|e| e.to_string()),
+        };
+
+        match 結果 {
+            Ok(_) => break (session, peer),
+            // **理由は主催の手元にだけ出す。**相手には返さない（戸口の構え・D31）
+            Err(why) => eprintln!("warifu: 通しませんでした（{why}）。待ち直します"),
         }
     };
-    let peer = session.peer();
-    let mut session = session;
 
-    // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31 / D39）
-    let bytes = tokio::time::timeout(
-        std::time::Duration::from_secs(HANDSHAKE_SECS),
-        session.recv(),
-    )
-    .await
-    .map_err(|_| "相手が割符に応じませんでした")??;
-    let acceptance = warifu_core::Acceptance::from_bytes(&bytes)?;
-    tally.match_half(&acceptance, now_secs(), &Revocations::new())?;
     eprintln!(
         "warifu: 割符が合いました。つながっています（{}）",
         誰か(&vault, peer)
@@ -288,13 +340,15 @@ async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>
         return Err("自分の会議キーです。相手に渡してください".into());
     }
 
+    // **呼ぶ前に窓を見る。**始まっていない・切れている鍵で相手を叩かない
+    // （叩かれた側は「割符に応じない相手」として待ち直すことになる）
+    let acceptance = device.accept(&token, now_secs())?;
+
     let node = Node::bind_without_relay(&device).await?;
     let to: Address = address.parse()?;
     let mut session = node.connect(&to, &Revocations::new()).await?;
     let peer = session.peer();
 
-    // 割符に応じる（画面側と同じ順序）
-    let acceptance = device.accept(&token, now_secs())?;
     session.send(&acceptance.to_bytes()).await?;
     eprintln!("warifu: つながりました（{}）", 誰か(&vault, peer));
     覚える(&vault, peer, o.remember.as_ref());

@@ -49,8 +49,12 @@ export const myAddress = () => invoke<string>('my_address');
  *
  * 宛先だけを渡す形にしない。それでは受け取った側が誰でも繋げてしまう（D31）。
  * 出すたびに前の招待は無効になる。
+ *
+ * `startsAt`（Unix 秒）を渡すと、**その時刻までは誰も入れない**（D43）。
+ * 予定に紐づく鍵を前もって配るための口。渡さなければ「いまから」。
  */
-export const invite = (ttlSecs: number) => invoke<string>('invite', { ttlSecs });
+export const invite = (ttlSecs: number, startsAt?: number) =>
+  invoke<string>('invite', { ttlSecs, startsAt: startsAt ?? null });
 
 /**
  * **OS のメニューを、画面と同じ言語にする**（D35）。

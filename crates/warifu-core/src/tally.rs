@@ -29,8 +29,11 @@ const MAGIC: &[u8; 4] = b"WRF1";
 const KIND_TOKEN: u8 = 0x01;
 const KIND_ACCEPTANCE: u8 = 0x02;
 
-/// 目印 4 + 種別 1 + 差出人 32 + 秘密 32 + 期限 8 + 署名 64
-const TOKEN_LEN: usize = 4 + 1 + 32 + 32 + 8 + 64;
+/// 目印 4 + 種別 1 + 差出人 32 + 秘密 32 + **開始 8** + 終わり 8 + 署名 64
+///
+/// **開始が入ったぶん、旧版より 8 byte 長い**（D43）。旧版の鍵はここで長さが合わず
+/// [`Error::Malformed`] になる。**黙って「いつでも入れる鍵」として読まない。**
+const TOKEN_LEN: usize = 4 + 1 + 32 + 32 + 8 + 8 + 64;
 /// 目印 4 + 種別 1 + 番号 32 + 応じた鍵 32 + 時刻 8 + 証 32 + 署名 64
 const ACCEPTANCE_LEN: usize = 4 + 1 + 32 + 32 + 8 + 32 + 64;
 
@@ -105,6 +108,7 @@ pub struct Tally {
     id: TallyId,
     secret: [u8; 32],
     issuer: PublicKey,
+    not_before: u64,
     not_after: u64,
     used_by: Option<PublicKey>,
 }
@@ -120,6 +124,12 @@ impl Tally {
     #[must_use]
     pub fn issuer(&self) -> PublicKey {
         self.issuer
+    }
+
+    /// 開始（Unix 秒）。この時刻**から**有効。
+    #[must_use]
+    pub fn not_before(&self) -> u64 {
+        self.not_before
     }
 
     /// 期限（Unix 秒）。この時刻**まで**有効。
@@ -139,6 +149,7 @@ impl Tally {
     /// 合えば相手が確定し、**その割符は使用済みになる。**
     ///
     /// # Errors
+    /// - [`Error::TooEarly`] まだ始まっていない
     /// - [`Error::Expired`] 期限が切れている
     /// - [`Error::AlreadyUsed`] すでに誰かが応じている
     /// - [`Error::WrongTally`] 別の割符に対する片割れ、または証が合わない
@@ -149,6 +160,10 @@ impl Tally {
         now: u64,
         revocations: &Revocations,
     ) -> Result<Peer, Error> {
+        // **相手の時計を信じない。**受ける側が自分の時計で窓を見直す
+        if now < self.not_before {
+            return Err(Error::TooEarly);
+        }
         if now > self.not_after {
             return Err(Error::Expired);
         }
@@ -191,6 +206,7 @@ impl fmt::Debug for Tally {
             .field("id", &self.id)
             .field("secret", &"伏せ字")
             .field("issuer", &self.issuer)
+            .field("not_before", &self.not_before)
             .field("not_after", &self.not_after)
             .field("used_by", &self.used_by)
             .finish()
@@ -202,6 +218,7 @@ impl fmt::Debug for Tally {
 pub struct TallyToken {
     issuer: PublicKey,
     secret: [u8; 32],
+    not_before: u64,
     not_after: u64,
     signature: Signature,
 }
@@ -219,7 +236,16 @@ impl TallyToken {
         tally_id(&self.secret)
     }
 
-    /// 期限（Unix 秒）。
+    /// 開始（Unix 秒）。この時刻**から**有効。
+    ///
+    /// 予定に紐づく会議キーを前もって配れるようにするためにある（**D43**）。
+    /// これが無いと、**渡した瞬間から期限までずっと使える。**
+    #[must_use]
+    pub fn not_before(&self) -> u64 {
+        self.not_before
+    }
+
+    /// 期限（Unix 秒）。この時刻**まで**有効。
     #[must_use]
     pub fn not_after(&self) -> u64 {
         self.not_after
@@ -239,6 +265,7 @@ impl TallyToken {
         out.push(KIND_TOKEN);
         out.extend_from_slice(&self.issuer.to_bytes());
         out.extend_from_slice(&self.secret);
+        out.extend_from_slice(&self.not_before.to_be_bytes());
         out.extend_from_slice(&self.not_after.to_be_bytes());
         out
     }
@@ -255,15 +282,18 @@ impl TallyToken {
 
         let issuer = PublicKey::from_bytes(take32(bytes, 5))?;
         let secret = take32(bytes, 37);
-        let not_after = u64::from_be_bytes(bytes[69..77].try_into().map_err(|_| Error::Malformed)?);
+        let not_before =
+            u64::from_be_bytes(bytes[69..77].try_into().map_err(|_| Error::Malformed)?);
+        let not_after = u64::from_be_bytes(bytes[77..85].try_into().map_err(|_| Error::Malformed)?);
         let signature =
-            Signature::from_bytes(bytes[77..].try_into().map_err(|_| Error::Malformed)?);
+            Signature::from_bytes(bytes[85..].try_into().map_err(|_| Error::Malformed)?);
 
-        issuer.verify(&bytes[..77], &signature)?;
+        issuer.verify(&bytes[..85], &signature)?;
 
         Ok(Self {
             issuer,
             secret,
+            not_before,
             not_after,
             signature,
         })
@@ -296,6 +326,7 @@ impl fmt::Debug for TallyToken {
         f.debug_struct("TallyToken")
             .field("issuer", &self.issuer)
             .field("secret", &"伏せ字")
+            .field("not_before", &self.not_before)
             .field("not_after", &self.not_after)
             .finish()
     }
@@ -438,23 +469,41 @@ fn take32(bytes: &[u8], from: usize) -> [u8; 32] {
 }
 
 impl Device {
-    /// 割符を作る。手元に残す半分と、相手に渡す半分が出る。
-    ///
-    /// `ttl` は有効期間（秒）。期限は `now + ttl` で、**その時刻まで**有効。
+    /// 割符を作る。**いまから `ttl` 秒**。
     ///
     /// # Errors
     /// OS の乱数が取れないとき [`Error::Rng`]。
     pub fn issue_tally(&self, now: u64, ttl: u64) -> Result<(Tally, TallyToken), Error> {
+        self.issue_tally_between(now, now.saturating_add(ttl))
+    }
+
+    /// **始まりと終わりを決めて**割符を作る。
+    ///
+    /// 予定に紐づく会議キー（**D43**）のための口。
+    /// 「10 時から 11 時」の鍵を前もって配っても、**9 時には使えない。**
+    ///
+    /// # Errors
+    /// - [`Error::BadWindow`] 終わりが始まりより前
+    /// - [`Error::Rng`] OS の乱数が取れない
+    pub fn issue_tally_between(
+        &self,
+        not_before: u64,
+        not_after: u64,
+    ) -> Result<(Tally, TallyToken), Error> {
+        if not_after < not_before {
+            return Err(Error::BadWindow);
+        }
+
         let mut secret = [0u8; 32];
         getrandom::fill(&mut secret).map_err(|_| Error::Rng)?;
 
-        let not_after = now.saturating_add(ttl);
         let issuer = self.public_key();
 
         let token = {
             let unsigned = TallyToken {
                 issuer,
                 secret,
+                not_before,
                 not_after,
                 signature: Signature::from_bytes([0u8; 64]),
             };
@@ -462,6 +511,7 @@ impl Device {
             TallyToken {
                 issuer,
                 secret,
+                not_before,
                 not_after,
                 signature,
             }
@@ -471,6 +521,7 @@ impl Device {
             id: tally_id(&secret),
             secret,
             issuer,
+            not_before,
             not_after,
             used_by: None,
         };
@@ -479,13 +530,17 @@ impl Device {
         Ok((tally, token))
     }
 
-    /// 受け取った割符に応じる。**期限と差出人の署名を見てから作る。**
+    /// 受け取った割符に応じる。**時間の窓と差出人の署名を見てから作る。**
     ///
-    /// 署名の検証は [`TallyToken::from_bytes`] で済んでいるので、ここでは期限だけを見る。
+    /// 署名の検証は [`TallyToken::from_bytes`] で済んでいるので、ここでは窓だけを見る。
     ///
     /// # Errors
-    /// [`Error::Expired`] 期限が切れている。
+    /// - [`Error::TooEarly`] まだ始まっていない
+    /// - [`Error::Expired`] 期限が切れている
     pub fn accept(&self, token: &TallyToken, now: u64) -> Result<Acceptance, Error> {
+        if now < token.not_before {
+            return Err(Error::TooEarly);
+        }
         if now > token.not_after {
             return Err(Error::Expired);
         }

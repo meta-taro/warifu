@@ -9,6 +9,10 @@ use core::fmt;
 pub enum Error {
     /// 期限が切れている。
     Expired,
+    /// **まだ始まっていない。**予定に紐づく会議キーを、始まる前に使おうとした。
+    TooEarly,
+    /// 有効な時間の窓になっていない（終わりが始まりより前）。
+    BadWindow,
     /// 署名が合わない。中身が書き換わっているか、差出人が違う。
     BadSignature,
     /// 別の割符に対する片割れだった。
@@ -27,6 +31,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Self::Expired => "期限が切れています",
+            Self::TooEarly => "まだ始まっていません",
+            Self::BadWindow => "終わりが始まりより前になっています",
             Self::BadSignature => "署名が合いません",
             Self::WrongTally => "別の割符に対する片割れです",
             Self::AlreadyUsed => "その割符はすでに使われています",

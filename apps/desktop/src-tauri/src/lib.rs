@@ -212,8 +212,18 @@ async fn my_address(bridge: State<'_, Bridge>) -> Answer<String> {
 ///
 /// 出すたびに前の割符は無効になる（手元の半分を入れ替えるため）。
 /// **一度に有効な招待は 1 つ** — 配った先が分からなくなる状態を作らない。
+/// 会議キーを作る。
+///
+/// `starts_at` を渡すと、**その時刻までは誰も入れない**（**D43**）。
+/// 予定に紐づく鍵（週次 MTG など）を前もって配れるようにするための口で、
+/// これが無いと**渡した瞬間から期限までずっと入れる。**
+/// 画面にまだ予定の UI が無いので、渡さなければ今までどおり「いまから」になる。
 #[tauri::command]
-async fn invite(bridge: State<'_, Bridge>, ttl_secs: u64) -> Answer<String> {
+async fn invite(
+    bridge: State<'_, Bridge>,
+    ttl_secs: u64,
+    starts_at: Option<u64>,
+) -> Answer<String> {
     let node = bridge.node().await?;
     let address = node.address().await?.to_string();
     // **会議 id を鍵に載せる。**載せないと入る側が別の id を名乗り、
@@ -228,9 +238,17 @@ async fn invite(bridge: State<'_, Bridge>, ttl_secs: u64) -> Answer<String> {
         }
         slot.as_ref().expect("直前に入れた").id()
     };
-    let (tally, token) = bridge.device.issue_tally(now_secs(), ttl_secs)?;
+    let 開始 = starts_at.unwrap_or_else(now_secs);
+    let (tally, token) = bridge
+        .device
+        .issue_tally_between(開始, 開始.saturating_add(ttl_secs))?;
     *bridge.tally.lock().await = Some(tally);
-    記録!("会議キーを作った（会議 {}）", 短く(&meeting.to_string()));
+    記録!(
+        "会議キーを作った（会議 {} / {} から {} 秒）",
+        短く(&meeting.to_string()),
+        開始,
+        ttl_secs
+    );
     Ok(format_invite(&address, &token, meeting))
 }
 
