@@ -1,0 +1,88 @@
+name: release
+
+# **配布物（.dmg）を作る。**タグを打ったときだけ。
+#
+# 署名と公証には秘密情報が要る。**AI は作らない・置かない・貼らない**（baseline §14）。
+# 人が GitHub の Secrets へ入れる。名前だけをここに書く。
+#
+#   APPLE_SIGNING_IDENTITY  … "Developer ID Application: …" の文字列
+#   APPLE_CERTIFICATE       … .p12 を base64 にしたもの
+#   APPLE_CERTIFICATE_PASSWORD … その .p12 のパスワード
+#   APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID … 公証に使う（app 用パスワード）
+#
+# **揃っていなければ、署名せずに作る。**ただし**黙って作らない** — 出来たものが
+# 「配れないもの」だと分かる形で出す。署名なしの .dmg を配ると、
+# 受け取った人の Mac は「壊れている」と言って開かない。
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: フロントを建てる
+        run: pnpm --filter @warifu/desktop build
+
+      # **揃っているかを先に言う。**後で「なぜ署名されていないのか」を探さずに済む
+      - name: 署名の材料が揃っているか
+        id: creds
+        env:
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -n "$IDENTITY" ] && [ -n "$APPLE_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "署名と公証を行います"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::署名の材料が無いので、**配れない .dmg** ができます（人の Mac では開けません）"
+          fi
+
+      - name: 配布物を作る
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm --filter @warifu/desktop tauri build --bundles dmg
+
+      # **署名されたかを実物で確かめる。**「署名したつもり」で配らない
+      - name: 署名を検める
+        run: |
+          app=$(find apps/desktop/src-tauri/target/release/bundle/macos -name '*.app' | head -1)
+          codesign -dv "$app" 2>&1 | grep -E 'Signature|TeamIdentifier' || true
+          if [ "${{ steps.creds.outputs.ready }}" = "true" ]; then
+            codesign --verify --deep --strict "$app"
+            # 公証が貼られていること。貼られていないと、落とした人の Mac で開けない
+            xcrun stapler validate "$app"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warifu-macos-dmg
+          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error

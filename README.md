@@ -9,7 +9,7 @@
 > **本当に守りたいものを、この版に載せないでください** — できていないことは [`SECURITY.md`](SECURITY.md) に全部書いてあります。
 >
 > 方向性は [`PRD.md`](PRD.md)、決めたことと未決事項は `.claude/decisions.md`、着手順は `.claude/roadmap.md`。
-> 触ってみる手順は [`docs/trial.md`](docs/trial.md)。
+> 触ってみる手順は [`docs/trial.md`](docs/trial.md)、配る手順は [`docs/release.md`](docs/release.md)。
 
 ## いま何が動くか
 
