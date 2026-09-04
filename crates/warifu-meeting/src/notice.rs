@@ -19,12 +19,17 @@ const SIGNAL: &str = "meeting.signal";
 const LINK: &str = "meeting.link";
 /// 紹介（**D41**）。3 人目が既存の面々の住所を知るための知らせ。
 const INTRODUCE: &str = "meeting.introduce";
+/// 会議の中で文字を送る（チャット）。
+const TEXT: &str = "meeting.text";
 
 /// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
 const LINK_LEN: usize = 20;
 /// 住所の長さの上限。**受け取る側でも数える**（D15）。
 /// `WARIFU1-` + base32 の宛先は数百バイトに収まる。1 KiB あれば足りる。
 const ADDRESS_MAX: usize = 1024;
+/// 文字の長さの上限（バイト）。**受け取る側でも数える**（D15）。
+/// 会議の中の一言に 16 KiB は十分で、これを超えるなら別の手段で渡すべきものである。
+const TEXT_MAX: usize = 16 * 1024;
 
 /// 会議まわりで相手に渡すもの。
 ///
@@ -72,6 +77,19 @@ pub enum Notice {
         /// 住所そのもの。**読まない。**
         address: String,
     },
+    /// **会議の中で文字を送る**（チャット）。
+    ///
+    /// **中身を検めない。**warifu は文字の意味を知らない（SDP を読まないのと同じ）。
+    /// 改行も絵文字もそのまま通る。
+    ///
+    /// **空は送れない。**中身の無い通知で相手の注意を消費できてはいけない
+    /// （D31 が「通知を出せること自体が資源」と書いた筋）。
+    Text {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 中身。
+        body: String,
+    },
     /// 測った回線を渡す。
     ///
     /// **これは申告ではなく観測**（`warifu-link` の `Meter`）。
@@ -94,7 +112,8 @@ impl Notice {
             | Self::Join { meeting }
             | Self::Leave { meeting }
             | Self::Link { meeting, .. }
-            | Self::Introduce { meeting, .. } => *meeting,
+            | Self::Introduce { meeting, .. }
+            | Self::Text { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -113,6 +132,12 @@ impl Notice {
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
             Self::Signal(s) => (SIGNAL, s.encode()?),
+            Self::Text { body, .. } => {
+                if body.is_empty() || body.len() > TEXT_MAX {
+                    return Err(Error::Malformed);
+                }
+                (TEXT, body.as_bytes().to_vec())
+            }
             Self::Introduce { who, address, .. } => {
                 if address.len() > ADDRESS_MAX {
                     return Err(Error::Malformed);
@@ -156,6 +181,16 @@ impl Notice {
             JOIN => Ok(Self::Join { meeting }),
             LEAVE => Ok(Self::Leave { meeting }),
             SIGNAL => Ok(Self::Signal(Signal::decode(meeting, 荷物)?)),
+            TEXT => {
+                if 荷物.is_empty() || 荷物.len() > TEXT_MAX {
+                    return Err(Error::Malformed);
+                }
+                // **中身を検めない。**読めないバイト列でも、そのまま文字にして渡す
+                Ok(Self::Text {
+                    meeting,
+                    body: String::from_utf8_lossy(荷物).into_owned(),
+                })
+            }
             INTRODUCE => {
                 if 荷物.len() < 32 || 荷物.len() > 32 + ADDRESS_MAX {
                     return Err(Error::Malformed);

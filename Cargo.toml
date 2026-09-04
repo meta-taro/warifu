@@ -14,6 +14,7 @@ members = [
     "crates/warifu-quarantine",
     "crates/warifu-door",
     "crates/warifu-app",
+    "crates/warifu-cli",
 ]
 # GUI は別 workspace に置く。**ここへ入れない。**
 # 入れると `cargo test --workspace`（commit 前のゲートと CI）が毎回 Tauri を建てることになり、

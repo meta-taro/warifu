@@ -703,6 +703,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Signal(_) => "下ごしらえ（SDP / ICE）",
         Notice::Link { .. } => "回線の報せ",
         Notice::Introduce { .. } => "紹介",
+        Notice::Text { .. } => "文字",
         _ => "知らない知らせ",
     }
 }

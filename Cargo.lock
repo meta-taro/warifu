@@ -3919,6 +3919,18 @@ name = "warifu-capability"
 version = "0.0.0"
 
 [[package]]
+name = "warifu-cli"
+version = "0.0.0"
+dependencies = [
+ "tokio",
+ "warifu-app",
+ "warifu-core",
+ "warifu-intent",
+ "warifu-meeting",
+ "warifu-net",
+]
+
+[[package]]
 name = "warifu-core"
 version = "0.0.0"
 dependencies = [

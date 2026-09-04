@@ -1,0 +1,19 @@
+[package]
+name = "warifu-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "warifu"
+path = "src/main.rs"
+
+[dependencies]
+warifu-core.workspace = true
+warifu-net.workspace = true
+warifu-intent.workspace = true
+warifu-meeting = { path = "../warifu-meeting" }
+warifu-app.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-std", "io-util"] }
