@@ -74,8 +74,22 @@ export class Call {
    *
    * ここで `getUserMedia` を呼び直さない。同じカメラを二重に掴むと、
    * 環境によっては後から取ったほうが失敗する（`NotReadableError`）。
+   *
+   * **`null` を渡せる。**カメラもマイクも無い機械はある（画面だけの端末、
+   * 会場のモニタ、見るだけの人）。そのときは**受け取る枠だけ張る** —
+   * 何も足さないと、相手から送る先が無くて**何も流れてこない。**
    */
-  async begin(stream: MediaStream): Promise<void> {
+  async begin(stream: MediaStream | null): Promise<void> {
+    if (stream === null) {
+      // 送らないが受け取る。**この 2 行が無いと、相手の映像も音も来ない**
+      this.pc.addTransceiver('audio', { direction: 'recvonly' });
+      this.pc.addTransceiver('video', { direction: 'recvonly' });
+      const [next, actions] = onLocalMediaReady(this.state);
+      this.state = next;
+      for (const action of actions) await applyAction(this.adapter, action, this.送る);
+      this.timer = setInterval(() => void this.pollPath(), STATS_EVERY_MS);
+      return;
+    }
     for (const track of stream.getTracks()) this.pc.addTrack(track, stream);
     // **測る前に映像を出さない**（D29）。枠は最初から張っておき、流すのは測れてから。
     // こうすると、後から足すための張り直し（再交渉）が要らない

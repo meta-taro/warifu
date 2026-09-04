@@ -10,7 +10,7 @@
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
-  import { describeMediaFailure } from '$lib/webrtc/media';
+  import { describeMediaFailure, nextAttempt, sendModeFor, type SendMode } from '$lib/webrtc/media';
   import {
     DEFAULT_PREFS,
     canBlurBackground,
@@ -56,6 +56,10 @@
   let devices = $state<DeviceOptions>({ cameras: [], microphones: [] });
   let blurAvailable = $state(false);
   let localStream: MediaStream | null = $state(null);
+  /** いま何を送れる状態か（**機器が無くても入れる**）。 */
+  let sendMode = $state<SendMode>('none');
+  /** 支度を一度でも試したか。**まだなら「受け取るだけ」と言わない。** */
+  let 支度した = $state(false);
 
   let members = $state<Member[]>([]);
   let notice = $state('');
@@ -78,18 +82,40 @@
   // **入ってから慌てるのが一番困る。**入る前に、自分が何で映って何で喋るかを見せる。
   async function 支度する() {
     notice = '';
-    try {
-      const constraints = withBackground(constraintsFor(prefs), prefs, blurAvailable);
-      localStream?.getTracks().forEach((tr) => tr.stop());
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      localStream = stream;
-      適用する();
-      if (previewVideo) previewVideo.srcObject = stream;
-      // 許可が出た後でないと機器の名前が取れない
-      devices = toOptions(await navigator.mediaDevices.enumerateDevices());
-    } catch (e) {
-      notice = t(CAMERA_MESSAGE[describeMediaFailure(e)]);
+    支度した = true;
+    localStream?.getTracks().forEach((tr) => tr.stop());
+    localStream = null;
+
+    // **段を下げながら試す。**映像と音声 → 音声だけ → 何も送らない。
+    // 1 段目で止めると、カメラの無い機械が会議に入れない
+    let 試す = nextAttempt(null);
+    let 最後の失敗 = '';
+    while (試す) {
+      try {
+        const c = withBackground({ ...試す, ...機器の指定(試す) }, prefs, blurAvailable);
+        localStream = await navigator.mediaDevices.getUserMedia(c);
+        sendMode = sendModeFor(試す);
+        適用する();
+        if (previewVideo) previewVideo.srcObject = localStream;
+        devices = toOptions(await navigator.mediaDevices.enumerateDevices());
+        return;
+      } catch (e) {
+        最後の失敗 = t(CAMERA_MESSAGE[describeMediaFailure(e)]);
+        試す = nextAttempt(試す);
+      }
     }
+    // **何も取れなくても入れる。**ただし理由は伏せない
+    sendMode = 'none';
+    notice = 最後の失敗;
+  }
+
+  /** 選んだ機器を、その段の制約へ重ねる。 */
+  function 機器の指定(attempt: MediaStreamConstraints): MediaStreamConstraints {
+    const base = constraintsFor(prefs);
+    return {
+      audio: attempt.audio === false ? false : base.audio,
+      video: attempt.video === false ? false : base.video,
+    };
   }
 
   /** 支度の値を、いま持っている映像へ反映する。 */
@@ -145,8 +171,9 @@
             key,
           );
           calls.set(key, call);
-          if (!localStream) await 支度する();
-          if (localStream) await call.begin(localStream);
+          if (!支度した) await 支度する();
+          // **null でも入れる**（受け取るだけ・機器が無い機械）
+          await call.begin(localStream);
         }),
       );
       unsubs.push(
@@ -326,6 +353,12 @@
         <p class="hint"><Icon name="blur" />{t('setup.blur.os')}</p>
       {/if}
 
+      {#if 支度した}
+        <p class="hint">
+          <Icon name={sendMode === 'both' ? 'camera' : sendMode === 'audio' ? 'mic' : 'camera-off'} />
+          {t(`setup.mode.${sendMode}`)}
+        </p>
+      {/if}
       <p class="hint"><Icon name="headphones" />{t('setup.headphones')}</p>
     </div>
 

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { describeMediaFailure, ICE_SERVERS, mediaConstraints, shouldSendVideo } from './media';
+import {
+  describeMediaFailure,
+  ICE_SERVERS,
+  mediaConstraints,
+  nextAttempt,
+  sendModeFor,
+  shouldSendVideo,
+} from './media';
 
 describe('カメラとマイクの求め方（M5-c2）', () => {
   it('映像と音声の両方を求める', () => {
@@ -49,5 +56,21 @@ describe('測る前に映像を出さない（D29「始まりは音声だけ」�
     // 中継だから流さない、ではない。中継は異常ではない（DESIGN.md §4.1）
     expect(shouldSendVideo('direct')).toBe(true);
     expect(shouldSendVideo('relayed')).toBe(true);
+  });
+});
+
+describe('機器が無いときの入り方（受け取るだけ）', () => {
+  it('まず映像と音声、次に音声だけ、最後は何も送らない', () => {
+    expect(nextAttempt(null)).toEqual({ audio: true, video: true });
+    expect(nextAttempt({ audio: true, video: true })).toEqual({ audio: true, video: false });
+    expect(nextAttempt({ audio: true, video: false })).toBeNull();
+  });
+
+  it('**何も送らない状態でも会議には入れる**', () => {
+    // カメラもマイクも無い機械（会場の画面・見るだけの人）が入れないと、
+    // 「機器が無い＝参加できない」になる
+    expect(sendModeFor(null)).toBe('none');
+    expect(sendModeFor({ audio: true, video: false })).toBe('audio');
+    expect(sendModeFor({ audio: true, video: true })).toBe('both');
   });
 });

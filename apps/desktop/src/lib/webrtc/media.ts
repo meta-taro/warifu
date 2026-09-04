@@ -37,6 +37,31 @@ export function shouldSendVideo(path: LinkPath): boolean {
   return path !== 'unknown';
 }
 
+/** 何を送っている状態か。 */
+export type SendMode = 'both' | 'audio' | 'none';
+
+/**
+ * **機器が無くても会議に入れるようにする。**
+ *
+ * カメラもマイクも無い機械はある（画面だけの端末、会場のモニタ、
+ * 音を切って見るだけの人）。**`getUserMedia` が失敗した時点で止めると、
+ * 「機器が無い＝参加できない」になる。**
+ *
+ * 段を下げながら試す。`null` を渡すと最初の段、返り値が `null` なら**もう下げない**
+ * （＝何も送らずに入る）。
+ */
+export function nextAttempt(current: MediaStreamConstraints | null): MediaStreamConstraints | null {
+  if (current === null) return { audio: true, video: true };
+  if (current.video !== false) return { audio: true, video: false };
+  return null;
+}
+
+/** いまの段が、何を送っている状態か。 */
+export function sendModeFor(constraints: MediaStreamConstraints | null): SendMode {
+  if (constraints === null) return 'none';
+  return constraints.video === false ? 'audio' : 'both';
+}
+
 /** カメラ・マイクを取れなかった理由。**画面の文言の鍵になる。** */
 export type MediaFailure = 'camera-denied' | 'camera-missing' | 'camera-busy' | 'camera-unknown';
 

@@ -44,6 +44,9 @@ export type MessageKey =
   | 'setup.blur'
   | 'setup.blur.os'
   | 'setup.headphones'
+  | 'setup.mode.both'
+  | 'setup.mode.audio'
+  | 'setup.mode.none'
   | 'meeting.key.copy'
   | 'meeting.key.copied'
   | 'edit.cut'
@@ -96,6 +99,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'edit.paste': '貼り付け',
     'edit.selectAll': 'すべてを選択',
     'edit.pasteHint': '貼り付けは ⌘V を使ってください。',
+    'setup.mode.both': '映像と音声を送ります',
+    'setup.mode.audio': 'カメラが無いので、音声だけ送ります',
+    'setup.mode.none': 'カメラもマイクも無いので、受け取るだけで入ります',
     'setup.title': '入室前のしたく',
     'setup.hint': 'いま自分が何で映って、何で喋るかを、入る前に確かめられます。',
     'setup.action': 'カメラとマイクを確かめる',
@@ -143,6 +149,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'edit.paste': 'Paste',
     'edit.selectAll': 'Select All',
     'edit.pasteHint': 'Use Cmd+V to paste.',
+    'setup.mode.both': 'Sending video and audio',
+    'setup.mode.audio': 'No camera, so sending audio only',
+    'setup.mode.none': 'No camera or microphone, so joining to receive only',
     'setup.title': 'Before you enter',
     'setup.hint': 'Check what you look and sound like before entering.',
     'setup.action': 'Check camera and microphone',
@@ -190,6 +199,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'edit.paste': '粘贴',
     'edit.selectAll': '全选',
     'edit.pasteHint': '请使用 Cmd+V 粘贴。',
+    'setup.mode.both': '将发送视频和音频',
+    'setup.mode.audio': '没有摄像头，只发送音频',
+    'setup.mode.none': '没有摄像头和麦克风，仅接收方式加入',
     'setup.title': '进入前的准备',
     'setup.hint': '进入之前，先确认自己的画面和声音。',
     'setup.action': '检查摄像头和麦克风',
@@ -237,6 +249,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'edit.paste': '붙여넣기',
     'edit.selectAll': '전체 선택',
     'edit.pasteHint': '붙여넣기는 Cmd+V를 사용하세요.',
+    'setup.mode.both': '영상과 음성을 보냅니다',
+    'setup.mode.audio': '카메라가 없어 음성만 보냅니다',
+    'setup.mode.none': '카메라도 마이크도 없어 받기만 하며 참여합니다',
     'setup.title': '입장 전 준비',
     'setup.hint': '들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.',
     'setup.action': '카메라와 마이크 확인',
