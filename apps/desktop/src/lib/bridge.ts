@@ -15,7 +15,16 @@ export const EVENT_CLOSED = 'warifu://closed';
 export interface SignalPayload {
   step: 'offer' | 'answer' | 'candidate' | 'end';
   blob: string;
+  /** 誰から（受け取ったときだけ）。 */
   from?: string;
+  /** 誰へ（送るときだけ）。**3 人以上では省けない**（M6）。 */
+  to?: string;
+}
+
+/** Rust 側が返す失敗。`code` があれば**画面が訳す**（文言を 2 か所に持たない）。 */
+export interface Failure {
+  message: string;
+  code?: string;
 }
 
 export function inTauri(): boolean {
@@ -68,8 +77,8 @@ export const listen = () => invoke<void>('listen');
 export const shouldOfferTo = (peer: string) => invoke<boolean>('should_offer_to', { peer });
 
 /** 下ごしらえを 1 通送る。**中身は解釈しない。** */
-export const sendSignal = (step: SignalPayload['step'], blob: string) =>
-  invoke<void>('send_signal', { payload: { step, blob } });
+export const sendSignal = (step: SignalPayload['step'], blob: string, to?: string) =>
+  invoke<void>('send_signal', { payload: { step, blob, to } });
 
 /** 出来事を受け取る。Tauri の外では何も起きない（購読解除だけ返す）。 */
 export async function onEvent<T>(name: string, handler: (payload: T) => void): Promise<() => void> {

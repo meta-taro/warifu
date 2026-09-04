@@ -56,13 +56,15 @@
   let blurAvailable = $state(false);
   let localStream: MediaStream | null = $state(null);
 
-  let path = $state<LinkPath>('unknown');
   let members = $state<Member[]>([]);
   let notice = $state('');
+  /** 相手ごとの通話（**M6**）。1 本しか持たないと、3 人目で前の相手が切れる。 */
+  const calls = new Map<string, Call>();
+  /** 相手ごとの映像と経路。名簿の並びで出す。 */
+  let remotes = $state<Array<{ key: string; stream: MediaStream | null; path: LinkPath }>>([]);
   let call: Call | null = null;
   let keyField: HTMLTextAreaElement | undefined = $state();
   let previewVideo: HTMLVideoElement | undefined = $state();
-  let remoteVideo: HTMLVideoElement | undefined = $state();
 
   const CAMERA_MESSAGE = {
     'camera-denied': 'camera.denied',
@@ -94,7 +96,7 @@
     for (const tr of localStream?.getAudioTracks() ?? []) tr.enabled = prefs.micOn;
     for (const tr of localStream?.getVideoTracks() ?? []) tr.enabled = prefs.cameraOn;
     writeStored(prefs);
-    call?.setPrefs(prefs);
+    for (const c of calls.values()) c.setPrefs(prefs);
   }
 
   $effect(() => {
@@ -127,36 +129,56 @@
       unsubs.push(
         await onEvent<string>(EVENT_JOINED, async (key) => {
           members = [...members, { name: 短く(key), path: 'unknown' }];
+          remotes = [...remotes, { key, stream: null, path: 'unknown' }];
           const offering = (await shouldOfferTo(key)) ?? false;
-          call = new Call(
+          const call = new Call(
             offering,
             {
-              onRemoteStream: (s) => remoteVideo && (remoteVideo.srcObject = s),
-              onPath: (p) => (path = p),
+              onRemoteStream: (s) => 相手を更新(key, { stream: s }),
+              onPath: (p) => {
+                相手を更新(key, { path: p });
+                members = members.map((m) => (m.name === 短く(key) ? { ...m, path: p } : m));
+              },
             },
             prefs,
+            key,
           );
+          calls.set(key, call);
           if (!localStream) await 支度する();
           if (localStream) await call.begin(localStream);
         }),
       );
       unsubs.push(
-        await onEvent<string>(EVENT_LEFT, (key) => {
-          members = members.filter((m) => m.name !== 短く(key));
+        await onEvent<string>(EVENT_LEFT, (key) => 片付ける(key)),
+      );
+      unsubs.push(
+        await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => {
+          // **誰から来たかで振り分ける。**間違えると別の組の経路が壊れる
+          if (p.from) void calls.get(p.from)?.receive(p);
         }),
       );
-      unsubs.push(await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => void call?.receive(p)));
       unsubs.push(
-        await onEvent<void>(EVENT_CLOSED, () => {
+        await onEvent<string>(EVENT_CLOSED, (key) => {
           notice = t('link.closed');
-          path = 'unknown';
-          call?.close();
-          call = null;
+          片付ける(key);
         }),
       );
     })();
     return () => unsubs.forEach((un) => un());
   });
+
+  /** 1 人ぶんの表示を差し替える。 */
+  function 相手を更新(key: string, patch: { stream?: MediaStream; path?: LinkPath }) {
+    remotes = remotes.map((r) => (r.key === key ? { ...r, ...patch } : r));
+  }
+
+  /** 抜けた相手を片付ける。**ほかの相手との経路には触らない**（M6）。 */
+  function 片付ける(key: string) {
+    calls.get(key)?.close();
+    calls.delete(key);
+    remotes = remotes.filter((r) => r.key !== key);
+    members = members.filter((m) => m.name !== 短く(key));
+  }
 
   /** 鍵は長い。**先頭だけ出す**（全桁は会議キーの欄で選べる） */
   const 短く = (key: string) => (key.length > 12 ? `${key.slice(0, 12)}…` : key);
@@ -229,10 +251,13 @@
           <Icon name={prefs.micOn ? 'mic' : 'mic-off'} />
         </span>
       </div>
-      <div class="tile">
-        <video bind:this={remoteVideo} autoplay playsinline></video>
-        <span class="cap">{t('tile.peer')} <LinkBadge {locale} {path} /></span>
-      </div>
+      {#each remotes as r (r.key)}
+        <div class="tile">
+          <!-- svelte-ignore a11y_media_has_caption -->
+          <video autoplay playsinline {@attach (el) => { (el as HTMLVideoElement).srcObject = r.stream; }}></video>
+          <span class="cap">{短く(r.key)} <LinkBadge {locale} path={r.path} /></span>
+        </div>
+      {/each}
     </div>
     {#if notice}
       <p class="notice">{notice}</p>

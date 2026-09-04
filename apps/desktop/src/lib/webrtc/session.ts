@@ -42,6 +42,8 @@ export class Call {
     offering: boolean,
     private handlers: CallHandlers,
     private prefs: Prefs,
+    /** 相手の公開鍵。**送り先を間違えると経路が壊れる**ので必ず持つ（M6）。 */
+    private peer: string,
   ) {
     this.state = start(offering);
     this.pc = new RTCPeerConnection({ iceServers: [...ICE_SERVERS] });
@@ -56,10 +58,10 @@ export class Call {
 
     this.pc.onicecandidate = (e) => {
       if (!e.candidate) {
-        void sendSignal('candidate', '');
+        void sendSignal('candidate', '', this.peer);
         return;
       }
-      void sendSignal('candidate', JSON.stringify(e.candidate.toJSON()));
+      void sendSignal('candidate', JSON.stringify(e.candidate.toJSON()), this.peer);
     };
     this.pc.ontrack = (e) => {
       const [stream] = e.streams;
@@ -84,7 +86,7 @@ export class Call {
 
     const [next, actions] = onLocalMediaReady(this.state);
     this.state = next;
-    for (const action of actions) await applyAction(this.adapter, action, send);
+    for (const action of actions) await applyAction(this.adapter, action, this.送る);
 
     this.timer = setInterval(() => void this.pollPath(), STATS_EVERY_MS);
   }
@@ -97,7 +99,7 @@ export class Call {
     const step = payload.step === 'candidate' ? 'ice' : payload.step;
     const [next, actions] = onRemote(this.state, step, payload.blob);
     this.state = next;
-    for (const action of actions) await applyAction(this.adapter, action, send);
+    for (const action of actions) await applyAction(this.adapter, action, this.送る);
   }
 
   /** 経路を見に行き、**落ち着かせてから**画面へ渡す。 */
@@ -123,6 +125,11 @@ export class Call {
     for (const track of this.local?.getAudioTracks() ?? []) track.enabled = on;
   }
 
+  /** この通話の相手へ 1 通送る。**中身は解釈しない。** */
+  private 送る = (step: 'offer' | 'answer' | 'candidate', blob: string) => {
+    void sendSignal(step, blob, this.peer);
+  };
+
   /** 会議中に入と切を変える。**支度で決めた値を上書きする。** */
   setPrefs(prefs: Prefs): void {
     this.prefs = prefs;
@@ -137,7 +144,4 @@ export class Call {
   }
 }
 
-/** 相手へ 1 通送る。**中身は解釈しない。** */
-const send = (step: 'offer' | 'answer' | 'candidate', blob: string) => {
-  void sendSignal(step, blob);
-};
+

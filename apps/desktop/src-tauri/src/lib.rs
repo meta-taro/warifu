@@ -16,6 +16,7 @@
 
 mod menu;
 
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -36,15 +37,22 @@ const EVENT_SIGNAL: &str = "warifu://signal";
 const EVENT_CLOSED: &str = "warifu://closed";
 
 /// 画面へ返す失敗。**下の層の理由を捨てない。**
+///
+/// `code` は**画面が訳すための鍵**（`messages.ts` の鍵と同じ文字列）。
+/// 文言そのものをここで作ると、**Rust 側にもう 1 つ辞書ができて必ずずれる**。
+/// 訳しようがないもの（下の層の生の理由）は `code` を持たず、`message` だけで出す。
 #[derive(Debug, serde::Serialize)]
 pub struct Failure {
     message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    code: Option<String>,
 }
 
 impl<E: std::fmt::Display> From<E> for Failure {
     fn from(e: E) -> Self {
         Self {
             message: e.to_string(),
+            code: None,
         }
     }
 }
@@ -61,6 +69,9 @@ pub struct SignalPayload {
     /// 誰から（受け取ったときだけ入る）。base32 の公開鍵。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from: Option<String>,
+    /// 誰へ（送るときだけ入る）。**3 人以上では省けない**（M6）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<String>,
 }
 
 fn step_from_str(s: &str) -> Result<Step, Failure> {
@@ -71,6 +82,7 @@ fn step_from_str(s: &str) -> Result<Step, Failure> {
         "end" => Ok(Step::End),
         other => Err(Failure {
             message: format!("知らない段: {other}"),
+            code: None,
         }),
     }
 }
@@ -101,8 +113,11 @@ pub struct Bridge {
     /// 戸口。**割符が合わない相手は、ここで断る**（D31）。
     door: Arc<Mutex<Door>>,
     conference: Arc<Mutex<Option<Conference>>>,
-    /// 経路へ送り出す口。繋がるまでは空。
-    outbound: Arc<Mutex<Option<mpsc::Sender<Notice>>>>,
+    /// 相手ごとの送り出し口（**M6**）。
+    ///
+    /// 1 本しか持たない形にすると、3 人目が来た時点で**前の相手へ届かなくなる。**
+    /// 鍵をそのまま鍵にする（`PublicKey` は `Hash` を持たないのでバイト列で持つ）。
+    outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
 }
 
 impl Bridge {
@@ -115,7 +130,7 @@ impl Bridge {
             tally: Arc::new(Mutex::new(None)),
             door: Arc::new(Mutex::new(Door::new())),
             conference: Arc::new(Mutex::new(None)),
-            outbound: Arc::new(Mutex::new(None)),
+            outbound: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -206,7 +221,8 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     // 画面が訳せるように、文言そのものではなく**鍵**を返す
     if warifu_app::is_own_invite(bridge.device.public_key(), &token) {
         return Err(Failure {
-            message: "meeting.key.own".into(),
+            message: "自分の会議キーです".into(),
+            code: Some("meeting.key.own".into()),
         });
     }
     let node = bridge.node().await?;
@@ -366,13 +382,13 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
 fn 汲む(
     app: AppHandle,
     conference: Arc<Mutex<Option<Conference>>>,
-    outbound: Arc<Mutex<Option<mpsc::Sender<Notice>>>>,
+    outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     mut channel: Channel,
     peer: PublicKey,
 ) {
     let (tx, mut rx) = mpsc::channel::<Notice>(32);
     tokio::spawn(async move {
-        *outbound.lock().await = Some(tx);
+        outbound.lock().await.insert(peer.to_bytes(), tx);
         loop {
             tokio::select! {
                 // 画面から送るもの
@@ -398,12 +414,17 @@ fn 汲む(
                 }
             }
         }
-        *outbound.lock().await = None;
-        let _ = app.emit(EVENT_CLOSED, ());
+        // **自分の口だけを外す。**ほかの相手との経路は生きている（M6）
+        outbound.lock().await.remove(&peer.to_bytes());
+        let _ = app.emit(EVENT_CLOSED, key_to_string(peer));
     });
 }
 
 /// 下ごしらえを 1 通送る。**中身は解釈しない。**
+///
+/// 宛先（`to`）は**相手が 1 人のときだけ省ける。**
+/// 3 人以上で省かれたら、どこへ送るか決められないので断る —
+/// **黙って全員へ配らない**（SDP は組ごとのもので、他人に配ると経路が壊れる）。
 #[tauri::command]
 async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answer<()> {
     let step = step_from_str(&payload.step)?;
@@ -414,18 +435,41 @@ async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answe
     let Some(meeting) = meeting else {
         return Err(Failure {
             message: "まだ会議がありません".into(),
+            code: None,
         });
     };
     let notice = Notice::Signal(Signal::new(meeting, step, payload.blob.into_bytes()));
 
     let slot = bridge.outbound.lock().await;
-    let Some(tx) = slot.as_ref() else {
+    let tx = match payload.to.as_deref() {
+        Some(to) => {
+            let bytes = warifu_core::base32::decode(to).ok_or_else(|| Failure {
+                message: "宛先を公開鍵として読めません".into(),
+                code: None,
+            })?;
+            let key: [u8; 32] = bytes.try_into().map_err(|_| Failure {
+                message: "公開鍵の長さが違います".into(),
+                code: None,
+            })?;
+            slot.get(&key)
+        }
+        None if slot.len() == 1 => slot.values().next(),
+        None => {
+            return Err(Failure {
+                message: "宛先が要ります（相手が複数います）".into(),
+                code: None,
+            });
+        }
+    };
+    let Some(tx) = tx else {
         return Err(Failure {
             message: "まだ繋がっていません".into(),
+            code: None,
         });
     };
     tx.send(notice).await.map_err(|_| Failure {
         message: "経路が閉じています".into(),
+        code: None,
     })
 }
 
@@ -435,14 +479,17 @@ async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool
     // base32 は同じバイト列に複数の表記を許さない。読めない表記はここで止める
     let bytes = warifu_core::base32::decode(&peer).ok_or_else(|| Failure {
         message: "公開鍵として読めません".into(),
+        code: None,
     })?;
     let key = PublicKey::from_bytes(bytes.try_into().map_err(|_| Failure {
         message: "公開鍵の長さが違います".into(),
+        code: None,
     })?)?;
     let slot = bridge.conference.lock().await;
     let Some(conference) = slot.as_ref() else {
         return Err(Failure {
             message: "まだ会議がありません".into(),
+            code: None,
         });
     };
     Ok(conference.should_offer_to(&key))
@@ -459,6 +506,8 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
                     step: step_to_str(*step).to_string(),
                     blob: String::from_utf8_lossy(blob).into_owned(),
                     from: Some(key_to_string(*from)),
+                    // 受け取ったものに宛先は要らない（自分あてに決まっている）
+                    to: None,
                 },
             ),
         };
