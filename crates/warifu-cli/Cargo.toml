@@ -16,4 +16,5 @@ warifu-net.workspace = true
 warifu-intent.workspace = true
 warifu-meeting = { path = "../warifu-meeting" }
 warifu-app.workspace = true
+warifu-vault.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-std", "io-util"] }

@@ -4,15 +4,14 @@
 //! 経路は `warifu-net` が持っている。この crate がやるのは
 //! 「画面から呼べる形に直す」ことと「届いたものを画面へ流す」ことだけである。
 //!
-//! # まだ踏んでいない所
+//! # 身元
 //!
-//! **鍵を保存しない。**起動のたびに新しい種を作る（`Seed::generate`）。
-//! 保存する形は **`decisions.md` の D2 が未決**であり、
-//! 全端末を失ったときの復旧モデルが決まっていない。
-//! **決まる前に「とりあえずファイルへ置く」をやると、それが既成事実になる**（baseline §15）。
+//! **鍵をこの端末に置く**（`warifu-vault` / **D42**）。閉じても同じ人でいられる。
+//! **CLI（`warifu id`）と同じ身元**を使うので、画面と端末で別人にならない。
 //!
-//! つまり **今の版はアプリを閉じると別人になる。**これは不具合ではなく、
-//! D2 が決まるまで意図的にそうしてある。
+//! 全端末を失ったときの復旧モデル（**D2**）は依然として未決である。
+//! だが**平常時の置き場所と、全部失ったときの戻し方は別の話**で、
+//! D2 がどれを選んでもこの端末が持っていること自体は変わらない（D42 に根拠）。
 
 mod menu;
 
@@ -24,7 +23,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{Mutex, mpsc};
 
 use warifu_app::{Conference, format_invite, introductions_for, parse_invite};
-use warifu_core::{Acceptance, Device, PublicKey, Revocations, Seed, Tally};
+use warifu_core::{Acceptance, Device, PublicKey, Revocations, Tally};
 use warifu_door::{Answer as DoorAnswer, Door, Knock, Subject};
 use warifu_intent::Channel;
 use warifu_meeting::{Notice, Signal, Step};
@@ -160,12 +159,25 @@ pub struct Bridge {
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
 }
 
+/// この端末の身元。**CLI と同じものを使う。**
+///
+/// 画面と端末で別の身元になると、`warifu id` で見せた鍵と、
+/// 画面が名乗る鍵が食い違う。**同じ人が 2 人居るように見える。**
+fn 身元() -> Result<Device, warifu_vault::Error> {
+    let vault = warifu_vault::Vault::default_location()?;
+    Ok(vault.open_seed()?.profile("Personal").device("この端末"))
+}
+
 impl Bridge {
     fn new() -> Self {
-        // **保存しない。**D2 が決まるまで、起動ごとに使い捨てる
-        let seed = Seed::generate().expect("種を作れない");
+        // **この端末に置いたシードから導く**（D42）。閉じても同じ人でいられる。
+        //
+        // ここで落とすのは、**別人として動き出すよりましだから**である。
+        // 身元が毎回変われば相手は「同じ人」だと分からず、覚えた相手が全部無駄になる。
+        // 落ちる理由（権限が緩い・中身が壊れている）は `warifu-vault` が文言で言う。
+        let device = 身元().unwrap_or_else(|e| panic!("身元を開けません: {e}"));
         Self {
-            device: seed.profile("Personal").device("この端末"),
+            device,
             node: Mutex::new(None),
             tally: Arc::new(Mutex::new(None)),
             door: Arc::new(Mutex::new(Door::new())),
@@ -659,8 +671,8 @@ fn log(message: String) {
 /// **会議に入っている全員へ送る。**下ごしらえ（SDP）と違って、
 /// 文字は組ごとのものではないので、宛先を指定しない。
 ///
-/// **残さない。**送ったものも届いたものも、閉じれば消える。
-/// 保存するには身元が続く必要があり、それは **D2 が未決**である（`issues/010`）。
+/// **まだ残さない。**送ったものも届いたものも、閉じれば消える。
+/// 身元は続くようになった（**D42**）ので、次は履歴を置く形を決める（`issues/010`）。
 #[tauri::command]
 async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
     let meeting = {

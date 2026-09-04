@@ -28,6 +28,7 @@ warifu-intent = { path = "../../../crates/warifu-intent" }
 warifu-meeting = { path = "../../../crates/warifu-meeting" }
 warifu-app = { path = "../../../crates/warifu-app" }
 warifu-door = { path = "../../../crates/warifu-door" }
+warifu-vault = { path = "../../../crates/warifu-vault" }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 

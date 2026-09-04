@@ -1,0 +1,17 @@
+[package]
+name = "warifu-vault"
+description = "この端末に置いておくもの。**シードと、覚えた相手。**"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# 通信もモデルも要らない。置く場所と、置き方だけ。
+[dependencies]
+warifu-core = { workspace = true }
+zeroize = { workspace = true }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

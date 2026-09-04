@@ -26,10 +26,13 @@ use std::process::ExitCode;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
 use warifu_app::{Conference, format_invite, is_own_invite, parse_invite};
-use warifu_core::{Device, Revocations, Seed};
+use warifu_core::{Device, PublicKey, Revocations};
 use warifu_intent::Channel;
 use warifu_meeting::{MeetingId, Notice, Roster};
 use warifu_net::{Address, Node};
+use warifu_vault::Vault;
+
+mod identity;
 
 /// 会議キーの既定の有効期間（秒）。画面側と揃えてある。
 ///
@@ -51,35 +54,57 @@ fn 使い方() -> ExitCode {
         "warifu — 画面なしで会議に入る\n\
          \n\
          使い方:\n\
-         \x20 warifu host [--ttl <秒>] [--idle <秒>]  待つ。会議キーを標準出力へ出す\n\
-         \x20 warifu join <会議キー> [--idle <秒>]  入る\n\
+         \x20 warifu host [--ttl <秒>] [--idle <秒>] [--remember <呼び名>]\n\
+         \x20            待つ。会議キーを標準出力へ出す\n\
+         \x20 warifu join <会議キー> [--idle <秒>] [--remember <呼び名>]\n\
+         \x20            入る\n\
+         \x20 warifu id  自分の公開鍵と、身元の置き場所を出す\n\
+         \x20 warifu contacts                       覚えた相手を並べる\n\
+         \x20 warifu contacts add <公開鍵> <呼び名>  覚える\n\
+         \x20 warifu contacts forget <呼び名|公開鍵> 忘れる\n\
          \n\
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
-         --ttl  会議キーの有効期間（既定 600 秒）。相手が建てている間に切れないように\n\
-         --idle 何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
-         \x20      （会話は黙っている時間のほうが長いため）\n\
+         --ttl      会議キーの有効期間（既定 600 秒）。相手が建てている間に切れないように\n\
+         --idle     何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
+         \x20          （会話は黙っている時間のほうが長いため）\n\
+         --remember つながった相手を、その呼び名で覚える\n\
+         \n\
+         **身元はこの端末に残ります。**閉じても同じ人でいられます（`warifu id` で確認）。\n\
          **映像は扱いません**（それは画面の担当です）。"
     );
     ExitCode::from(2)
 }
 
-/// `--idle <秒>` と `--ttl <秒>` を読む。**idle は無ければ終わらない。**
-fn 読む_options(args: &mut impl Iterator<Item = String>) -> (Option<u64>, u64) {
-    let mut idle = IDLE_DEFAULT;
-    let mut ttl = KEY_TTL_SECS;
+/// 呼び出しに付いてきた指定。
+struct Options {
+    /// 何も来ない時間がこれを超えたら終わる。**無ければ終わらない。**
+    idle: Option<u64>,
+    /// 会議キーの有効期間（秒）。
+    ttl: u64,
+    /// つながった相手を、この呼び名で覚える。
+    remember: Option<String>,
+}
+
+fn 読む_options(args: &mut impl Iterator<Item = String>) -> Options {
+    let mut o = Options {
+        idle: IDLE_DEFAULT,
+        ttl: KEY_TTL_SECS,
+        remember: None,
+    };
     while let Some(a) = args.next() {
         match a.as_str() {
-            "--idle" => idle = args.next().and_then(|v| v.parse().ok()),
+            "--idle" => o.idle = args.next().and_then(|v| v.parse().ok()),
             "--ttl" => {
                 if let Some(v) = args.next().and_then(|v| v.parse().ok()) {
-                    ttl = v;
+                    o.ttl = v;
                 }
             }
+            "--remember" => o.remember = args.next(),
             _ => {}
         }
     }
-    (idle, ttl)
+    o
 }
 
 #[tokio::main]
@@ -88,16 +113,18 @@ async fn main() -> ExitCode {
     let 命令 = args.next();
     let result = match 命令.as_deref() {
         Some("host") => {
-            let (idle, ttl) = 読む_options(&mut args);
-            待つ(idle, ttl).await
+            let o = 読む_options(&mut args);
+            待つ(&o).await
         }
         Some("join") => match args.next() {
             Some(key) => {
-                let (idle, _) = 読む_options(&mut args);
-                入る(&key, idle).await
+                let o = 読む_options(&mut args);
+                入る(&key, &o).await
             }
             None => return 使い方(),
         },
+        Some("id") => 名乗る(),
+        Some("contacts") => 名簿の口(&mut args),
         _ => return 使い方(),
     };
     match result {
@@ -109,17 +136,101 @@ async fn main() -> ExitCode {
     }
 }
 
-/// **起動のたびに新しい身元を作る。**
+/// **閉じても同じ身元でいる。**
 ///
-/// 鍵を保存する形は `decisions.md` の **D2** が未決で、
-/// 決める前に「とりあえずファイルへ置く」をやると、それが既成事実になる。
-/// 画面側（`src-tauri`）と同じ扱いにしてある。
-fn 身元() -> Result<Device, Box<dyn std::error::Error>> {
-    Ok(Seed::generate()?.profile("Personal").device("cli"))
+/// 以前は起動のたびに作り直していた（D2 が未決のため）。
+/// だが**平常時の置き場所は、全部失ったときの戻し方とは別の話**である（D42）。
+/// 毎回別人になると、相手は「同じ人」だと分からず、連絡先が成立しない。
+fn 身元() -> Result<(Vault, Device), Box<dyn std::error::Error>> {
+    Ok(identity::開く()?)
 }
 
-async fn 待つ(idle: Option<u64>, ttl: u64) -> Result<(), Box<dyn std::error::Error>> {
-    let device = 身元()?;
+/// 自分の公開鍵と、身元の置き場所を出す。**相手に渡すのはこの鍵。**
+fn 名乗る() -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+    // 鍵は標準出力へ（`warifu id | pbcopy` が使えるように）。説明は標準エラーへ
+    eprintln!("warifu: 身元の置き場所 {}", vault.dir().display());
+    println!("{}", device.public_key());
+    Ok(())
+}
+
+/// 覚えた相手を扱う口。
+fn 名簿の口(args: &mut impl Iterator<Item = String>) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, _) = 身元()?;
+    let mut contacts = vault.contacts()?;
+    if contacts.skipped() > 0 {
+        eprintln!("warifu: 読めない行を {} 行とばしました", contacts.skipped());
+    }
+
+    match args.next().as_deref() {
+        None | Some("list") => {
+            if contacts.is_empty() {
+                eprintln!(
+                    "warifu: まだ誰も覚えていません（`warifu host --remember <呼び名>` で覚えます）"
+                );
+                return Ok(());
+            }
+            for c in contacts.iter() {
+                println!("{}\t{}", c.label(), c.key());
+            }
+            Ok(())
+        }
+        Some("add") => {
+            let (Some(鍵), Some(呼び名)) = (args.next(), args.next()) else {
+                return Err("使い方: warifu contacts add <公開鍵> <呼び名>".into());
+            };
+            let key: PublicKey = 鍵.trim().parse().map_err(|_| "公開鍵として読めません")?;
+            contacts.add(key, &呼び名, now_secs())?;
+            vault.save_contacts(&contacts)?;
+            eprintln!("warifu: 覚えました: {呼び名}");
+            Ok(())
+        }
+        Some("forget") => {
+            let Some(言葉) = args.next() else {
+                return Err("使い方: warifu contacts forget <呼び名|公開鍵>".into());
+            };
+            let Some(key) = identity::相手を引く(&contacts, &言葉) else {
+                return Err(format!("覚えていません: {言葉}").into());
+            };
+            if !contacts.remove(key) {
+                return Err(format!("覚えていません: {言葉}").into());
+            }
+            vault.save_contacts(&contacts)?;
+            eprintln!("warifu: 忘れました: {言葉}");
+            Ok(())
+        }
+        Some(other) => Err(format!("知らない指定です: {other}").into()),
+    }
+}
+
+/// つながった相手を覚える。**呼び名を指定されたときだけ。**
+///
+/// 黙って覚えると、一度きりのつもりだった相手が名簿に残る。
+fn 覚える(vault: &Vault, peer: PublicKey, 呼び名: Option<&String>) {
+    let Some(呼び名) = 呼び名 else { return };
+    let 結果 = vault.contacts().and_then(|mut c| {
+        c.add(peer, 呼び名, now_secs())?;
+        vault.save_contacts(&c)?;
+        Ok(())
+    });
+    match 結果 {
+        Ok(()) => eprintln!("warifu: 覚えました: {呼び名}"),
+        // 覚えられなくても会話は続く。**黙って落とさない**
+        Err(e) => eprintln!("warifu: 覚えられませんでした（会話は続きます）: {e}"),
+    }
+}
+
+/// 相手が誰かを言う。覚えていれば呼び名で。
+fn 誰か(vault: &Vault, peer: PublicKey) -> String {
+    match vault.contacts() {
+        Ok(c) => identity::呼び名(&c, peer),
+        Err(_) => peer.to_string(),
+    }
+}
+
+async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+    let ttl = o.ttl;
     let node = Node::bind_without_relay(&device).await?;
     let address = node.address().await?.to_string();
 
@@ -160,14 +271,18 @@ async fn 待つ(idle: Option<u64>, ttl: u64) -> Result<(), Box<dyn std::error::E
     .map_err(|_| "相手が割符に応じませんでした")??;
     let acceptance = warifu_core::Acceptance::from_bytes(&bytes)?;
     tally.match_half(&acceptance, now_secs(), &Revocations::new())?;
-    eprintln!("warifu: 割符が合いました。つながっています");
+    eprintln!(
+        "warifu: 割符が合いました。つながっています（{}）",
+        誰か(&vault, peer)
+    );
+    覚える(&vault, peer, o.remember.as_ref());
 
     let channel = Channel::new(session);
-    やり取り(channel, &mut conference, peer, idle).await
+    やり取り(channel, &mut conference, peer, o.idle).await
 }
 
-async fn 入る(key: &str, idle: Option<u64>) -> Result<(), Box<dyn std::error::Error>> {
-    let device = 身元()?;
+async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
     let (address, token, meeting) = parse_invite(key)?;
     if is_own_invite(device.public_key(), &token) {
         return Err("自分の会議キーです。相手に渡してください".into());
@@ -181,7 +296,8 @@ async fn 入る(key: &str, idle: Option<u64>) -> Result<(), Box<dyn std::error::
     // 割符に応じる（画面側と同じ順序）
     let acceptance = device.accept(&token, now_secs())?;
     session.send(&acceptance.to_bytes()).await?;
-    eprintln!("warifu: つながりました");
+    eprintln!("warifu: つながりました（{}）", 誰か(&vault, peer));
+    覚える(&vault, peer, o.remember.as_ref());
 
     let mut channel = Channel::new(session);
     channel.send(&Notice::Join { meeting }.to_intent()?).await?;
@@ -191,7 +307,7 @@ async fn 入る(key: &str, idle: Option<u64>) -> Result<(), Box<dyn std::error::
     roster.add(peer)?;
     let mut conference = Conference::joined(device.public_key(), meeting, roster);
 
-    やり取り(channel, &mut conference, peer, idle).await
+    やり取り(channel, &mut conference, peer, o.idle).await
 }
 
 /// 打った行を相手へ、届いた行を標準出力へ。

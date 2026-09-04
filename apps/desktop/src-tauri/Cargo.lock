@@ -5786,6 +5786,7 @@ dependencies = [
  "warifu-intent",
  "warifu-meeting",
  "warifu-net",
+ "warifu-vault",
 ]
 
 [[package]]
@@ -5820,6 +5821,14 @@ version = "0.0.0"
 dependencies = [
  "iroh",
  "tokio",
+ "warifu-core",
+ "zeroize",
+]
+
+[[package]]
+name = "warifu-vault"
+version = "0.0.0"
+dependencies = [
  "warifu-core",
  "zeroize",
 ]

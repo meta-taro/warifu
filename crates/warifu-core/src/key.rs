@@ -72,6 +72,21 @@ impl Seed {
         Self(bytes)
     }
 
+    /// シードの**中身そのもの**を 32 byte で取り出す。
+    ///
+    /// **この 32 byte が身元のすべてである。**戻れば全部戻り、漏れれば全部漏れる。
+    ///
+    /// 開けてあるのは、**この端末に置いておく**（`warifu-vault`）ためと、
+    /// 復旧の口（復旧フレーズ・分割・預け先）が、どれもこの 32 byte を対象にするため。
+    /// D2 がどの方式を既定に選んでも、**扱う対象はここで変わらない。**
+    ///
+    /// 呼ぶ側は、使い終わったら [`zeroize`](https://docs.rs/zeroize) で消すこと。
+    /// **ログ・画面・通信に出さない。**
+    #[must_use]
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0
+    }
+
     /// Profile を導く。`label` は `"Personal"` `"Work"` のような呼び名。
     #[must_use]
     pub fn profile(&self, label: &str) -> Profile {

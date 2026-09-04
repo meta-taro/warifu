@@ -13,6 +13,7 @@ members = [
     "crates/warifu-link",
     "crates/warifu-quarantine",
     "crates/warifu-door",
+    "crates/warifu-vault",
     "crates/warifu-app",
     "crates/warifu-cli",
 ]
@@ -35,6 +36,7 @@ sha2 = "0.10"
 getrandom = "0.3"
 zeroize = { version = "1.8", features = ["derive"] }
 warifu-core = { path = "crates/warifu-core" }
+warifu-vault = { path = "crates/warifu-vault" }
 warifu-net = { path = "crates/warifu-net" }
 warifu-intent = { path = "crates/warifu-intent" }
 warifu-read = { path = "crates/warifu-read" }

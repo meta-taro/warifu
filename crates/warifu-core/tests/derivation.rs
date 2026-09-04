@@ -156,3 +156,20 @@ fn 端末の秘密鍵は取り出せて同じ公開鍵に戻る() {
     use zeroize::Zeroize as _;
     secret.zeroize();
 }
+
+/// **保存して読み直したシードは、同じ身元を導く。**
+///
+/// これが成り立たないと「閉じても同じ人でいられる」が作れない（`issues/010` の前提）。
+#[test]
+fn シードは_32byte_で出し入れできる() {
+    let seed = Seed::from_bytes(SEED_A);
+    let bytes = seed.to_bytes();
+    assert_eq!(bytes, SEED_A, "出した 32 byte が、入れた 32 byte と違う");
+
+    let 戻した = Seed::from_bytes(bytes);
+    assert_eq!(
+        seed.profile("Personal").device("PC").public_key(),
+        戻した.profile("Personal").device("PC").public_key(),
+        "同じ 32 byte から、違う身元が出てきた"
+    );
+}
