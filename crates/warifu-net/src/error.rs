@@ -13,6 +13,13 @@ pub enum Error {
     Malformed,
     /// 一度に送るには大きすぎる。
     TooLarge,
+    /// **相手が正しく閉じた。**落ちたのではない。
+    ///
+    /// 上の層は、この 2 つで振る舞いを変える必要がある。
+    /// 主催は「挨拶して帰った相手」では終わってよいが、
+    /// **「回線が切れて消えた相手」では待ち直さないと会議が終わってしまう**
+    /// （予定に紐づく会議キー・D43）。
+    Closed,
     /// 下の層で落ちた。`doing` は何をしている最中だったか。
     Network {
         /// 何をしている最中だったか（`"結ぶ"` `"呼ぶ"` `"受ける"` …）。
@@ -41,6 +48,7 @@ impl fmt::Display for Error {
             Self::Revoked => f.write_str("失効しています"),
             Self::Malformed => f.write_str("宛先の形が壊れています"),
             Self::TooLarge => f.write_str("一度に送るには大きすぎます"),
+            Self::Closed => f.write_str("相手が閉じました"),
             Self::Network { doing, cause } => write!(f, "{doing}途中で落ちました: {cause}"),
         }
     }

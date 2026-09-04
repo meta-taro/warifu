@@ -303,3 +303,64 @@ async fn 結び目を落としても経路は生きている() {
     let 届いた = 時間を切る(あちら.recv()).await.expect("届かない");
     assert_eq!(届いた, b"warifu", "結び目を落とした後も往復する");
 }
+
+/// **「正しく閉じた」と「落ちた」を混ぜない。**
+///
+/// 主催は、相手が挨拶して帰ったのか、回線が切れて消えたのかで、
+/// **待ち直すべきかどうかが変わる**（予定に紐づく会議キー・D43）。
+/// どちらも `Network` にしてしまうと、上の層には区別する手がかりが残らない。
+#[tokio::test]
+async fn 相手が正しく閉じたのは_落ちたのとは別の誤りになる() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let mut あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **挨拶して帰る**（送る側を閉じて、相手が受け取り切るのを待つ）
+    時間を切る(こちら.finish()).await.expect("閉じられない");
+
+    let 誤り = 時間を切る(あちら.recv())
+        .await
+        .expect_err("閉じた後も届いてしまった");
+    assert!(
+        matches!(誤り, Error::Closed),
+        "正しく閉じたのに「落ちた」と言っている: {誤り}"
+    );
+}
+
+#[tokio::test]
+async fn 相手が黙って消えたら_落ちたと分かる() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let mut あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **挨拶せずに消える。**結び目は生かしたまま経路だけ手放す
+    // （結び目ごと落とすと閉じる合図すら飛ばず、相手が気づくのは QUIC の
+    // idle timeout まで待った後になる——実測 33 秒。テストで待つには長い）
+    drop(こちら);
+
+    let 誤り = 時間を切る(あちら.recv())
+        .await
+        .expect_err("消えた後も届いてしまった");
+    assert!(
+        matches!(誤り, Error::Network { .. }),
+        "落ちたのに「正しく閉じた」と言っている: {誤り}"
+    );
+}

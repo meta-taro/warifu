@@ -2,7 +2,7 @@
 
 use core::time::Duration;
 
-use iroh::endpoint::{Connection, RecvStream, SendStream, presets};
+use iroh::endpoint::{Connection, ReadExactError, RecvStream, SendStream, presets};
 use iroh::{Endpoint, EndpointAddr, EndpointId, RelayMode, SecretKey, TransportAddr, Watcher as _};
 use warifu_core::{Device, PublicKey, Revocations};
 use zeroize::Zeroize as _;
@@ -271,6 +271,7 @@ impl Session {
     /// バイト列を 1 つ受け取る。
     ///
     /// # Errors
+    /// 相手が挨拶して閉じたら [`Error::Closed`]。
     /// 宣言された長さが [`MAX_MESSAGE`] を超えたら [`Error::TooLarge`]。
     /// 経路が切れたら [`Error::Network`]。
     pub async fn recv(&mut self) -> Result<Vec<u8>, Error> {
@@ -278,7 +279,12 @@ impl Session {
         self.recv
             .read_exact(&mut len)
             .await
-            .map_err(Error::network("受け取る"))?;
+            // **荷物の切れ目で終わったなら、それは「閉じた」であって「落ちた」ではない。**
+            // 途中（`FinishedEarly(1..)`）で終わったのは荷物が千切れているので落ちた扱い
+            .map_err(|e| match e {
+                ReadExactError::FinishedEarly(0) => Error::Closed,
+                other => Error::network("受け取る")(other),
+            })?;
 
         let len = u32::from_be_bytes(len) as usize;
         if len > MAX_MESSAGE {

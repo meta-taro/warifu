@@ -11,6 +11,8 @@ pub enum Error {
     Malformed,
     /// 一度に運ぶには大きすぎる。
     TooLarge,
+    /// **相手が挨拶して閉じた。**落ちたのではない。
+    Closed,
     /// 下の経路で落ちた。
     Route(warifu_net::Error),
 }
@@ -20,6 +22,7 @@ impl fmt::Display for Error {
         match self {
             Self::Malformed => f.write_str("口の形が壊れています"),
             Self::TooLarge => f.write_str("一度に運ぶには大きすぎます"),
+            Self::Closed => f.write_str("相手が閉じました"),
             Self::Route(e) => write!(f, "経路で落ちました: {e}"),
         }
     }
@@ -36,6 +39,10 @@ impl core::error::Error for Error {
 
 impl From<warifu_net::Error> for Error {
     fn from(e: warifu_net::Error) -> Self {
-        Self::Route(e)
+        // **「閉じた」を「落ちた」に混ぜない。**下で分けた区別をここで潰さない
+        match e {
+            warifu_net::Error::Closed => Self::Closed,
+            other => Self::Route(other),
+        }
     }
 }

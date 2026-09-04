@@ -456,7 +456,9 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     覚える(&vault, peer, o.remember.as_ref());
 
     let channel = Channel::new(session);
-    やり取り(channel, &mut conference, peer, o.idle).await
+    let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
+    知らせる(&訳);
+    Ok(())
 }
 
 async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>> {
@@ -487,7 +489,48 @@ async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>
     roster.add(peer)?;
     let mut conference = Conference::joined(device.public_key(), meeting, roster);
 
-    やり取り(channel, &mut conference, peer, o.idle).await
+    let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
+    知らせる(&訳);
+    Ok(())
+}
+
+/// 会議が終わった訳。**「帰った」と「落ちた」を混ぜない。**
+///
+/// 混ぜると、人は待てばよいのか鍵を作り直すべきかが分からない。
+/// 実測 2026-09-04: 相手を `kill -9` した主催の手元に出たのは
+/// `経路で落ちました: 送り終わる途中で落ちました: connection lost` で、
+/// これは**挨拶して帰った相手にも同じ文言が出る**作りだった。
+#[derive(Debug, PartialEq, Eq)]
+enum 終わり方 {
+    /// 相手が挨拶して閉じた。**こちらから言うことは無い**
+    帰った,
+    /// `--idle` の静かな時間が過ぎた
+    静かだった,
+    /// 相手が落ちた。**理由は主催の手元に出す**
+    落ちた(String),
+}
+
+/// 受け取りの誤りを、終わり方に読み替える。
+fn 終わり方を見る(e: &warifu_intent::Error) -> 終わり方 {
+    match e {
+        warifu_intent::Error::Closed => 終わり方::帰った,
+        other => 終わり方::落ちた(other.to_string()),
+    }
+}
+
+/// 終わり方を人へ伝える。**「もう一度やれる」のか「作り直す」のかまで言う。**
+fn 知らせる(訳: &終わり方) {
+    match 訳 {
+        終わり方::帰った => eprintln!("warifu: 相手が帰りました"),
+        // 静かだった の文言は やり取り の中で出している（秒数を持っているのがそちら）
+        終わり方::静かだった => {}
+        終わり方::落ちた(why) => {
+            eprintln!("warifu: 相手が落ちました（{why}）");
+            // **入り直せない。**割符は一度しか使えない（D12）。
+            // これを黙っていると、人は「待てば戻ってくる」と思って待ち続ける
+            eprintln!("warifu: この会議キーはもう使えません。入り直すには新しい鍵が要ります");
+        }
+    }
 }
 
 /// 打った行を相手へ、届いた行を標準出力へ。
@@ -499,7 +542,7 @@ async fn やり取り(
     conference: &mut Conference,
     peer: warifu_core::PublicKey,
     idle: Option<u64>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<終わり方, Box<dyn std::error::Error>> {
     let meeting = conference.id();
     let mut 入力 = BufReader::new(tokio::io::stdin()).lines();
     // **入力が尽きても会議は終わらない。**
@@ -513,12 +556,12 @@ async fn やり取り(
     // **既定では待ち続ける。**`--idle` を付けたときだけ、静かな時間で切り上げる
     let 限度 = idle.map(std::time::Duration::from_secs);
 
-    loop {
+    let 訳 = loop {
         let 待つ限度 = 限度.unwrap_or(std::time::Duration::from_secs(60 * 60 * 24));
         tokio::select! {
             _ = tokio::time::sleep(待つ限度), if 限度.is_some() => {
                 eprintln!("warifu: {} 秒なにも来なかったので終わります", 待つ限度.as_secs());
-                break;
+                break 終わり方::静かだった;
             }
             行 = 入力.next_line(), if !送信終わり => {
                 match 行? {
@@ -528,15 +571,23 @@ async fn やり取り(
                     }
                     Some(text) if text.is_empty() => continue,
                     Some(text) => {
-                        channel
+                        // **送れないのは経路が落ちたということ。**打ち込みの失敗ではない
+                        if let Err(e) = channel
                             .send(&Notice::Text { meeting, body: text }.to_intent()?)
-                            .await?;
+                            .await
+                        {
+                            break 終わり方を見る(&e);
+                        }
                     }
                 }
             }
             届いた = channel.recv() => {
-                // **相手が閉じたのは失敗ではない。**終わりとして扱う
-                let Ok(intent) = 届いた else { break };
+                // **相手が閉じたのは失敗ではない。**終わりとして扱う。
+                // ただし**落ちたのとは分けて持ち帰る**
+                let intent = match 届いた {
+                    Ok(i) => i,
+                    Err(e) => break 終わり方を見る(&e),
+                };
                 let Ok(notice) = Notice::from_intent(&intent) else {
                     // 会議のものでない口は、経路としては通る。**会議は受け取らない**
                     continue;
@@ -554,11 +605,15 @@ async fn やり取り(
                 }
             }
         }
-    }
+    };
 
-    // **締めてから終わる。**送ったものが相手へ流れきるのを待つ
+    // **締めてから終わる。**送ったものが相手へ流れきるのを待つ。
+    // **落ちた相手には締めに行かない。**そこで出る誤りは落ちた理由を覆い隠すだけである
+    if matches!(訳, 終わり方::落ちた(_)) {
+        return Ok(訳);
+    }
     channel.finish().await?;
-    Ok(())
+    Ok(訳)
 }
 
 fn now_secs() -> u64 {
@@ -601,5 +656,36 @@ mod tests {
             掛かった < std::time::Duration::from_secs(3),
             "標準入力を待って {掛かった:?} 掛かった。落ちても終わらない"
         );
+    }
+
+    /// **挨拶して帰った相手を「落ちた」と言わない。**
+    ///
+    /// 人はこの 2 つで次の手が変わる。帰ったなら会議は終わり、
+    /// 落ちたなら**鍵を作り直して渡し直す**必要がある（割符は一度きり・D12）。
+    #[test]
+    fn 帰ったのと落ちたのを見分ける() {
+        assert_eq!(
+            終わり方を見る(&warifu_intent::Error::Closed),
+            終わり方::帰った
+        );
+
+        let 落ちた =
+            終わり方を見る(&warifu_intent::Error::Route(warifu_net::Error::Malformed));
+        let 終わり方::落ちた(理由) = 落ちた else {
+            panic!("経路の失敗を「帰った」と読んでいる: {落ちた:?}");
+        };
+        assert!(
+            理由.contains("経路で落ちました"),
+            "理由が主催の手元に残っていない: {理由}"
+        );
+    }
+
+    /// 形が壊れているのも「帰った」ではない。**黙って終わらせない**
+    #[test]
+    fn 壊れた口が来ても帰ったとは言わない() {
+        assert!(matches!(
+            終わり方を見る(&warifu_intent::Error::Malformed),
+            終わり方::落ちた(_)
+        ));
     }
 }
