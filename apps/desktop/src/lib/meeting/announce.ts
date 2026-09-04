@@ -15,8 +15,16 @@ export type 会話行 = {
   system?: true;
 };
 
-/** 知らせの種類。 */
-export type 出来事 = '入室' | '退室';
+/**
+ * 知らせの種類。
+ *
+ * **`退室` と `切断` を混ぜない。**退室は本人の意思、切断は事故である。
+ * 人は前者を待たないが、後者は待つ —— そして**この会議キーでは戻れない**（割符は一度きり・D12）。
+ * 2026-09-04 に実物で食い違っていた（帯は「経路が切れました」、チャット欄は「退室しました」）。
+ */
+export type 出来事 = '入室' | '退室' | '切断';
+
+const 文言の鍵 = { 入室: 'joined', 退室: 'left', 切断: 'lost' } as const;
 
 /**
  * 入退室を、チャット欄の 1 行にする。
@@ -26,11 +34,11 @@ export type 出来事 = '入室' | '退室';
 export function 入退室の知らせ(
   種類: 出来事,
   who: string,
-  t: (key: 'joined' | 'left', values: { who: string }) => string,
+  t: (key: 'joined' | 'left' | 'lost', values: { who: string }) => string,
 ): 会話行 {
   return {
     who: '',
-    body: t(種類 === '入室' ? 'joined' : 'left', { who }),
+    body: t(文言の鍵[種類], { who }),
     mine: false,
     system: true,
   };

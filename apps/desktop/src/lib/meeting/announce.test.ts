@@ -11,6 +11,19 @@ describe('入退室の知らせ', () => {
     expect(行.body).toContain('入室');
   });
 
+  it('落ちた相手を「退室しました」と書かない', () => {
+    // **実物で食い違っていた**（2026-09-04・画面を見て出た）。
+    // 知らせの帯は「経路が切れました」と出しているのに、
+    // チャット欄の同じ相手が「退室しました」になっていた。
+    // 退室は本人の意思、切断は事故 —— **人は前者を待たないが、後者は待つ。**
+    const 鍵 = { joined: 'j', left: 'l', lost: 'x' } as const;
+    const 退室 = 入退室の知らせ('退室', 'ABCDEFGH…', (k, v) => `${v.who}:${鍵[k]}`);
+    const 切断 = 入退室の知らせ('切断', 'ABCDEFGH…', (k, v) => `${v.who}:${鍵[k]}`);
+    expect(切断.body).not.toBe(退室.body);
+    expect(切断.body).toContain('x');
+    expect(切断.system).toBe(true);
+  });
+
   it('知らせは自分の発言ではない', () => {
     const 行 = 入退室の知らせ('入室', 'X', () => 'X が入室しました');
     expect(行.mine).toBe(false);

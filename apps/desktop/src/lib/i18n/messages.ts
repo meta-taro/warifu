@@ -43,6 +43,7 @@ export type MessageKey =
   | 'chat.empty'
   | 'chat.joined'
   | 'chat.left'
+  | 'chat.lost'
   | 'call.mic'
   | 'call.camera'
   | 'call.controls'
@@ -123,6 +124,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.empty': 'まだ何もありません',
     'chat.joined': '{who} が入室しました',
     'chat.left': '{who} が退室しました',
+    'chat.lost': '{who} との経路が切れました',
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
     'call.controls': '会議中の入切。支度の確認とは別で、いま送っているものを止めます。',
@@ -185,6 +187,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.empty': 'Nothing yet',
     'chat.joined': '{who} joined',
     'chat.left': '{who} left',
+    'chat.lost': 'The connection to {who} was lost',
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
     'call.controls': 'Turn off what you are sending right now. Separate from the pre-join check.',
@@ -247,6 +250,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.empty': '还没有内容',
     'chat.joined': '{who} 已加入',
     'chat.left': '{who} 已离开',
+    'chat.lost': '与 {who} 的连接已中断',
     'call.mic': '麦克风',
     'call.camera': '摄像头',
     'call.controls': '关闭当前正在发送的内容。与入会前的确认不同。',
@@ -309,6 +313,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.empty': '아직 아무것도 없습니다',
     'chat.joined': '{who} 님이 입장했습니다',
     'chat.left': '{who} 님이 퇴장했습니다',
+    'chat.lost': '{who} 님과의 연결이 끊어졌습니다',
     'call.mic': '마이크',
     'call.camera': '카메라',
     'call.controls': '지금 보내고 있는 것을 끕니다. 입장 전 확인과는 별개입니다.',

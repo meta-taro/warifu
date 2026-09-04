@@ -533,6 +533,43 @@ fn 知らせる(訳: &終わり方) {
     }
 }
 
+/// 会議の出来事を、人が読める 1 行にする。
+///
+/// **下ごしらえ（SDP / ICE）の中身は出さない。**出すのは段と相手と長さだけ。
+/// `{:?}` をそのまま出していた頃は、画面と繋いだ手元へ
+/// **SDP が 10 進のバイト列で数千文字**流れていた（2026-09-04 に実測）。
+/// 読めないうえに、**会議の下ごしらえが端末とログに残る。**
+fn 出来事を言う(e: &warifu_app::Event) -> String {
+    use warifu_app::Event;
+    match e {
+        Event::Joined(who) => format!("{} が入りました", 鍵の頭(*who)),
+        Event::Left(who) => format!("{} が抜けました", 鍵の頭(*who)),
+        Event::Signal { from, step, blob } => format!(
+            "下ごしらえ {} が {} から（{} バイト）",
+            段の名(*step),
+            鍵の頭(*from),
+            blob.len()
+        ),
+    }
+}
+
+/// 鍵の頭だけ。**全部並べても人には読めない。**
+fn 鍵の頭(key: PublicKey) -> String {
+    let text = key.to_string();
+    format!("{}…", &text[..12.min(text.len())])
+}
+
+/// 下ごしらえの段。**画面（`SignalPayload`）と同じ綴りにする。**
+fn 段の名(step: warifu_meeting::Step) -> &'static str {
+    use warifu_meeting::Step;
+    match step {
+        Step::Offer => "offer",
+        Step::Answer => "answer",
+        Step::Candidate => "candidate",
+        Step::End => "end",
+    }
+}
+
 /// 打った行を相手へ、届いた行を標準出力へ。
 ///
 /// **どちらかが閉じたら終わる。**片方だけ生かしておくと、
@@ -598,7 +635,7 @@ async fn やり取り(
                         // 名簿は動かす。**中身は出さない**（文字だけを標準出力へ）
                         if let Ok(events) = conference.on_notice(peer, &other) {
                             for e in events {
-                                eprintln!("warifu: {e:?}");
+                                eprintln!("warifu: {}", 出来事を言う(&e));
                             }
                         }
                     }
@@ -687,5 +724,59 @@ mod tests {
             終わり方を見る(&warifu_intent::Error::Malformed),
             終わり方::落ちた(_)
         ));
+    }
+
+    /// **下ごしらえ（SDP / ICE）の中身を出さない。**
+    ///
+    /// 2026-09-04 に実物で踏んだ。`{e:?}` をそのまま出していたため、
+    /// 画面と繋いだ CLI の手元へ **SDP が 10 進のバイト列で数千文字**流れた。
+    /// 読めないだけでなく、**会議の下ごしらえが端末とログに残る**。
+    /// 画面側は同じ理由で「長さと相手だけ」に留めている（`announce.ts` の `話の記録`）。
+    #[test]
+    fn 下ごしらえの中身を出さない() {
+        use warifu_app::Event;
+        use warifu_meeting::Step;
+
+        let 相手 = warifu_core::Seed::from_bytes([7u8; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key();
+        let 中身 = b"v=0\r\no=- 123 2 IN IP4 127.0.0.1\r\n".to_vec();
+        let 言い方 = 出来事を言う(&Event::Signal {
+            from: 相手,
+            step: Step::Offer,
+            blob: 中身.clone(),
+        });
+
+        assert!(
+            !言い方.contains("v=0") && !言い方.contains("127.0.0.1"),
+            "SDP の中身が出ている: {言い方}"
+        );
+        assert!(!言い方.contains("118"), "バイト列が出ている: {言い方}");
+        assert!(
+            言い方.contains(&中身.len().to_string()),
+            "長さが出ていない: {言い方}"
+        );
+        assert!(言い方.contains("offer"), "どの段かが出ていない: {言い方}");
+    }
+
+    /// 出入りは、そのまま読める 1 行にする。
+    #[test]
+    fn 出入りは人が読める行になる() {
+        use warifu_app::Event;
+
+        let 相手 = warifu_core::Seed::from_bytes([8u8; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key();
+        let 入った = 出来事を言う(&Event::Joined(相手));
+        let 抜けた = 出来事を言う(&Event::Left(相手));
+
+        assert!(
+            !入った.contains("Joined("),
+            "Debug のまま出ている: {入った}"
+        );
+        assert!(!抜けた.contains("Left("), "Debug のまま出ている: {抜けた}");
+        assert_ne!(入った, 抜けた);
     }
 }

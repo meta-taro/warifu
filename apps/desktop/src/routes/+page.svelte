@@ -10,7 +10,7 @@
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
-  import { 入退室の知らせ, 話の記録, type 会話行 } from '$lib/meeting/announce';
+  import { 入退室の知らせ, 話の記録, type 会話行, type 出来事 } from '$lib/meeting/announce';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
     describeMediaFailure,
@@ -265,7 +265,7 @@
         await onEvent<[string, ClosedReason]>(EVENT_CLOSED, ([key, 訳]) => {
           // **落ちたのを「退出しました」と言わない。**待てば戻ると誤解させる
           notice = t(訳 === 'lost' ? 'link.lost' : 'link.closed');
-          片付ける(key);
+          片付ける(key, 訳 === 'lost' ? '切断' : '退室');
         }),
       );
     })();
@@ -321,13 +321,17 @@
     remotes = remotes.map((r) => (r.key === key ? { ...r, ...patch } : r));
   }
 
-  /** 抜けた相手を片付ける。**ほかの相手との経路には触らない**（M6）。 */
-  function 片付ける(key: string) {
+  /**
+   * 抜けた相手を片付ける。**ほかの相手との経路には触らない**（M6）。
+   *
+   * **なぜ抜けたかで文言を変える。**退室は本人の意思、切断は事故である。
+   */
+  function 片付ける(key: string, 種類: 出来事 = '退室') {
     calls.get(key)?.close();
     calls.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
     members = members.filter((m) => m.name !== 短く(key));
-    会話 = [...会話, 入退室の知らせ('退室', 短く(key), (k, v) => format(t(`chat.${k}`), v))];
+    会話 = [...会話, 入退室の知らせ(種類, 短く(key), (k, v) => format(t(`chat.${k}`), v))];
     音を出す(退室の音);
   }
 
