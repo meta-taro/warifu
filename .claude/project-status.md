@@ -118,6 +118,23 @@ macOS は**署名でアプリを見分けて**許可を覚える。ad-hoc は毎
 **証明書の名前はリポジトリに書かない**（public に個人名を残さない・baseline §25）。
 `APPLE_SIGNING_IDENTITY` で渡す形にし、`docs/trial.md` に手順を書いた。
 
+### 3. 配布のための証明書が無い
+
+**手元で使うのと、人に渡すのは別である。**
+
+| 配り方 | 要るもの | 持っているか |
+|---|---|---|
+| 自分の Mac で使う | 何でもよい | ✅ |
+| **人に `.app` を渡す** | **Developer ID Application** ＋ 公証 | ❌ **無い**（実測 0 件） |
+| App Store / TestFlight | Apple Distribution | ✅ |
+
+**Developer ID が無いと、受け取った側は Gatekeeper に止められる。**
+発行は Apple の開発者アカウントでの作業で、**人にしかできない**（baseline §29）。
+
+`Entitlements.plist` は用意して `tauri.conf.json` へ登録した。
+**いまは ad-hoc（linker-signed）なので付かない** — 証明書で署名した時点で初めて効く。
+**配ろうとした日に気づく形の壊れ方**を避けるために先に置いてある。
+
 ### M6 の下ごしらえ — **誰が呼びに行くか**（6 件）
 
 3 人以上のフルメッシュでは、**組ごとに 1 本だけ**張らないといけない。
