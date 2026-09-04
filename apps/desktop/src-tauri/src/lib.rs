@@ -464,12 +464,25 @@ async fn 割符を確かめる(
     let Ok(acceptance) = Acceptance::from_bytes(&bytes) else {
         return false;
     };
+    // **署名した本人と、経路で確定した相手が同じか。**
+    // `Acceptance` は本人の鍵で署名されているが、**どこで署名されたかまでは言っていない。**
+    // 突き合わせないと、写し取った片割れを別の経路で出せてしまう
+    if acceptance.accepter() != session.peer() {
+        return false;
+    }
     let mut slot = tally.lock().await;
     let Some(t) = slot.as_mut() else {
         return false;
     };
-    t.match_half(&acceptance, now_secs(), &Revocations::new())
-        .is_ok()
+    // **まだ誰も入っていなければ初回、一度入った相手が戻ってきたなら再入場**（D44）。
+    // 回線が一瞬切れただけで、10 時から 11 時の会議が終わってはいけない
+    let now = now_secs();
+    let 名簿 = Revocations::new();
+    if t.used_by().is_none() {
+        t.match_half(&acceptance, now, &名簿).is_ok()
+    } else {
+        t.rematch_half(&acceptance, now, &名簿).is_ok()
+    }
 }
 
 /// 今の時刻（秒）。**割符の期限と戸口の窓に使う。**

@@ -412,7 +412,52 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     // **割符が合わない相手が来ても、そこで終わらない**（実測 2026-09-04）。
     // 予定に紐づく鍵では、**始まる前に一度叩かれただけで待ち受けが落ちていた。**
     // 主催は会議が始まるまで待っていなければならない。落ちてよいのは鍵が切れたときだけ。
-    let (session, peer) = loop {
+    // **落ちた相手は、鍵が生きている間は戻ってこられる**（**D44**）。
+    // 相手の回線が一瞬切れただけで、10 時から 11 時の会議が終わってはいけない。
+    // **帰った相手では待ち直さない** —— `echo … | warifu join` の一発使いで
+    // 主催が鍵の期限まで居残ることになるため。
+    loop {
+        let (session, peer) = 迎える(&node, &mut tally, &token).await?;
+
+        eprintln!(
+            "warifu: 割符が合いました。つながっています（{}）",
+            誰か(&vault, peer)
+        );
+        覚える(&vault, peer, o.remember.as_ref());
+
+        let channel = Channel::new(session);
+        let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
+        知らせる(&訳);
+
+        if !matches!(訳, 終わり方::落ちた(_)) {
+            return Ok(());
+        }
+        if now_secs() > token.not_after() {
+            eprintln!("warifu: 会議キーも切れました。終わります");
+            return Ok(());
+        }
+        eprintln!(
+            "warifu: 待ち直します。同じ相手だけが、{}のあいだ戻ってこられます",
+            間隔を言う(token.not_after().saturating_sub(now_secs()))
+        );
+    }
+}
+
+/// 割符の合う相手が来るまで待つ。
+///
+/// **来るまで待ち続ける。**`accept` は下の層の都合で時間切れになることがある
+/// （実測: timed out）。「待っています」と言った以上、**こちらの都合で勝手に諦めない。**
+/// `--idle` は繋がった後の話であって、**繋がる前の待ち時間ではない**。
+///
+/// **割符が合わない相手が来ても、そこで終わらない**（実測 2026-09-04）。
+/// 予定に紐づく鍵では、**始まる前に一度叩かれただけで待ち受けが落ちていた。**
+/// 落ちてよいのは鍵が切れたときだけ。
+async fn 迎える(
+    node: &Node,
+    tally: &mut warifu_core::Tally,
+    token: &warifu_core::TallyToken,
+) -> Result<(warifu_net::Session, PublicKey), Box<dyn std::error::Error>> {
+    loop {
         // 会議キーが切れていたら、待っていても意味が無い
         if now_secs() > token.not_after() {
             return Err("会議キーの期限が切れました。作り直してください".into());
@@ -438,27 +483,41 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
             Err(_) => Err("相手が割符に応じませんでした".to_owned()),
             Ok(Err(e)) => Err(e.to_string()),
             Ok(Ok(bytes)) => warifu_core::Acceptance::from_bytes(&bytes)
-                .and_then(|a| tally.match_half(&a, now_secs(), &Revocations::new()))
-                .map_err(|e| e.to_string()),
+                .map_err(|e| e.to_string())
+                .and_then(|a| 通してよいか(tally, &a, peer)),
         };
 
         match 結果 {
-            Ok(_) => break (session, peer),
+            Ok(()) => return Ok((session, peer)),
             // **理由は主催の手元にだけ出す。**相手には返さない（戸口の構え・D31）
             Err(why) => eprintln!("warifu: 通しませんでした（{why}）。待ち直します"),
         }
+    }
+}
+
+/// 片割れを見て、通してよいかを決める。
+///
+/// **まだ誰も入っていなければ初回**（`match_half`）、
+/// **一度入った相手が戻ってきたなら再入場**（`rematch_half`・**D44**）。
+///
+/// 併せて、**署名した本人と、経路で確定した相手が同じ**であることを見る。
+/// `Acceptance` は本人の鍵で署名されているが、**どこで署名されたかまでは言っていない。**
+/// 突き合わせないと、写し取った片割れを別の経路で出せてしまう。
+fn 通してよいか(
+    tally: &mut warifu_core::Tally,
+    acceptance: &warifu_core::Acceptance,
+    peer: PublicKey,
+) -> Result<(), String> {
+    if acceptance.accepter() != peer {
+        return Err("署名した相手と、繋いできた相手が違います".to_owned());
+    }
+    let 初回 = tally.used_by().is_none();
+    let 結果 = if 初回 {
+        tally.match_half(acceptance, now_secs(), &Revocations::new())
+    } else {
+        tally.rematch_half(acceptance, now_secs(), &Revocations::new())
     };
-
-    eprintln!(
-        "warifu: 割符が合いました。つながっています（{}）",
-        誰か(&vault, peer)
-    );
-    覚える(&vault, peer, o.remember.as_ref());
-
-    let channel = Channel::new(session);
-    let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
-    知らせる(&訳);
-    Ok(())
+    結果.map(|_| ()).map_err(|e| e.to_string())
 }
 
 async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>> {
@@ -491,6 +550,20 @@ async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>
 
     let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
     知らせる(&訳);
+
+    // **同じ会議キーで入り直せる**（**D44**）。戻れるのは一度入ったこの端末だけで、
+    // 鍵が別人に渡っても意味は無い。**これを黙っていると、人は鍵を作り直させに行く**
+    if matches!(訳, 終わり方::落ちた(_)) {
+        let 残り = token.not_after().saturating_sub(now_secs());
+        if 残り > 0 {
+            eprintln!(
+                "warifu: 同じ会議キーで入り直せます（あと {}）",
+                間隔を言う(残り)
+            );
+        } else {
+            eprintln!("warifu: 会議キーが切れています。新しい鍵をもらってください");
+        }
+    }
     Ok(())
 }
 
@@ -518,18 +591,16 @@ fn 終わり方を見る(e: &warifu_intent::Error) -> 終わり方 {
     }
 }
 
-/// 終わり方を人へ伝える。**「もう一度やれる」のか「作り直す」のかまで言う。**
+/// 終わり方を人へ伝える。
+///
+/// **次に何ができるかは、ここでは言わない。**主催と入る側で違うためである
+/// （主催は待ち直し、入る側は同じ鍵で入り直す）。それぞれの呼ぶ側が続けて出す。
 fn 知らせる(訳: &終わり方) {
     match 訳 {
         終わり方::帰った => eprintln!("warifu: 相手が帰りました"),
         // 静かだった の文言は やり取り の中で出している（秒数を持っているのがそちら）
         終わり方::静かだった => {}
-        終わり方::落ちた(why) => {
-            eprintln!("warifu: 相手が落ちました（{why}）");
-            // **入り直せない。**割符は一度しか使えない（D12）。
-            // これを黙っていると、人は「待てば戻ってくる」と思って待ち続ける
-            eprintln!("warifu: この会議キーはもう使えません。入り直すには新しい鍵が要ります");
-        }
+        終わり方::落ちた(why) => eprintln!("warifu: 相手が落ちました（{why}）"),
     }
 }
 

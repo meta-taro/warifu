@@ -192,6 +192,64 @@ impl Tally {
             at: acceptance.at,
         })
     }
+
+    /// **一度応じた相手が、戻ってくるのを受ける。**別人は通さない。
+    ///
+    /// 会議中に回線が切れた相手は、割符が生きている間は戻れなければならない。
+    /// 予定に紐づく会議キー（**D43**）を入れた以上、
+    /// **10 時から 11 時の会議で、相手の Wi-Fi が一瞬切れただけで会議が終わる**のは実害である
+    /// （2026-09-04 に実測。会議キーが 10 分残っていても、主催は終わっていた）。
+    ///
+    /// # 一回性（D12）は崩していない
+    ///
+    /// 通すのは [`Tally::used_by`] と**同じ相手だけ**である。
+    /// [`Acceptance`] は**応じた本人の鍵で署名されている**ので、
+    /// 片割れが漏れても、別人がその名前で応じることはできない。
+    /// **割符が公開できるようになるわけではない**（公開する鍵＝会場鍵は別物・`issues/009`）。
+    ///
+    /// 窓（`not_before` / `not_after`）は伸びない。**会議が終われば戻れない。**
+    ///
+    /// # Errors
+    /// - [`Error::NotTheHolder`] まだ誰も応じていないか、**別人**
+    /// - ほかは [`Tally::match_half`] と同じ
+    pub fn rematch_half(
+        &mut self,
+        acceptance: &Acceptance,
+        now: u64,
+        revocations: &Revocations,
+    ) -> Result<Peer, Error> {
+        if now < self.not_before {
+            return Err(Error::TooEarly);
+        }
+        if now > self.not_after {
+            return Err(Error::Expired);
+        }
+        // **戻れるのは、その割符で入っていた本人だけ。**
+        // まだ誰も応じていない割符は、こちらではなく `match_half` の担当である
+        if self.used_by != Some(acceptance.accepter) {
+            return Err(Error::NotTheHolder);
+        }
+        if acceptance.tally != self.id {
+            return Err(Error::WrongTally);
+        }
+        if revocations.is_revoked_tally(&self.id)
+            || revocations.is_revoked_device(&acceptance.accepter)
+        {
+            return Err(Error::Revoked);
+        }
+        if !same(
+            &acceptance.proof,
+            &proof(&self.secret, acceptance.accepter, acceptance.at),
+        ) {
+            return Err(Error::WrongTally);
+        }
+
+        Ok(Peer {
+            public_key: acceptance.accepter,
+            tally: self.id,
+            at: acceptance.at,
+        })
+    }
 }
 
 impl Drop for Tally {

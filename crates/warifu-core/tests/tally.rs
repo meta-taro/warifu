@@ -391,3 +391,80 @@ fn 開始の無い古い鍵は受け取らない() {
         "開始の無い鍵を読めてしまった"
     );
 }
+
+/// **一度切れた相手が、戻ってこられる。**
+///
+/// 予定に紐づく会議キー（**D43**）を入れた以上、10 時から 11 時の会議で
+/// 相手の Wi-Fi が一瞬切れただけで会議が終わるのは実害である
+/// （2026-09-04 に実測。会議キーが 10 分残っていても、主催は終わっていた）。
+///
+/// **`match_half` の一回性（D12）は崩さない。**戻れるのは `used_by` と同じ相手だけで、
+/// **割符が公開できるようになるわけではない**（会場鍵は別物・`issues/009`）。
+#[test]
+fn 一度応じた相手は_同じ割符で戻ってこられる() {
+    let (alice, bob) = 二人();
+    let 失効なし = Revocations::new();
+
+    let (mut 控え, 渡す半分) = alice.issue_tally(発行時刻, 一時間).unwrap();
+    let 受諾 = bob.accept(&渡す半分, 発行時刻 + 10).unwrap();
+    控え.match_half(&受諾, 発行時刻 + 20, &失効なし).unwrap();
+
+    // ここで回線が切れた。**同じ相手が、同じ片割れで戻ってくる**
+    let 戻り = 控え
+        .rematch_half(&受諾, 発行時刻 + 30, &失効なし)
+        .expect("切れた相手が戻れない");
+
+    assert_eq!(戻り.public_key(), bob.public_key());
+    assert_eq!(戻り.tally(), 控え.id());
+}
+
+#[test]
+fn 戻れるのは_同じ相手だけ() {
+    let (alice, bob) = 二人();
+    let carol = Seed::from_bytes([3u8; 32]).profile("Personal").device("PC");
+    let 失効なし = Revocations::new();
+
+    let (mut 控え, 渡す半分) = alice.issue_tally(発行時刻, 一時間).unwrap();
+    let 受諾_b = bob.accept(&渡す半分, 発行時刻 + 10).unwrap();
+    控え.match_half(&受諾_b, 発行時刻 + 20, &失効なし).unwrap();
+
+    // **片割れが漏れた。**別人が「戻ってきた」と言って入ろうとする
+    let 受諾_c = carol.accept(&渡す半分, 発行時刻 + 30).unwrap();
+
+    assert!(matches!(
+        控え.rematch_half(&受諾_c, 発行時刻 + 40, &失効なし),
+        Err(Error::NotTheHolder)
+    ));
+}
+
+#[test]
+fn 誰も応じていない割符には_戻る相手が居ない() {
+    // **`match_half` の代わりに使えてしまわないこと。**
+    // ここが通ると、一度も使われていない割符が二重の口を持つことになる
+    let (alice, bob) = 二人();
+    let 失効なし = Revocations::new();
+
+    let (mut 控え, 渡す半分) = alice.issue_tally(発行時刻, 一時間).unwrap();
+    let 受諾 = bob.accept(&渡す半分, 発行時刻 + 10).unwrap();
+
+    assert!(matches!(
+        控え.rematch_half(&受諾, 発行時刻 + 20, &失効なし),
+        Err(Error::NotTheHolder)
+    ));
+}
+
+#[test]
+fn 期限が切れたら_戻ってこられない() {
+    // **会議が終われば戻れない。**窓は伸びない
+    let (alice, bob) = 二人();
+    let 失効なし = Revocations::new();
+
+    let (mut 控え, 渡す半分) = alice.issue_tally(発行時刻, 一時間).unwrap();
+    let 受諾 = bob.accept(&渡す半分, 発行時刻 + 10).unwrap();
+    控え.match_half(&受諾, 発行時刻 + 20, &失効なし).unwrap();
+
+    assert!(matches!(
+        控え.rematch_half(&受諾, 発行時刻 + 一時間 + 1, &失効なし),
+        Err(Error::Expired)
+    ));
+}

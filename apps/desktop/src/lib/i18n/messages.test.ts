@@ -55,6 +55,13 @@ describe('文言辞書（DESIGN.md §9 / D35）', () => {
     }
   });
 
+  it('切れた相手が「もう入れない」と読める文言を残さない（D44）', () => {
+    // **戻ってこられる。**2026-09-04 に D44 でそうなった。
+    // 「新しい鍵を作り直して」と書いたままだと、人は要らない作り直しをする
+    expect(MESSAGES.ja['link.lost']).not.toContain('作り直');
+    expect(MESSAGES.en['link.lost'].toLowerCase()).not.toContain('create a new');
+  });
+
   it('注記は辞書にある鍵にしか付けられない', () => {
     const base = keysOf('en');
     for (const key of Object.keys(TRANSLATOR_NOTES)) {

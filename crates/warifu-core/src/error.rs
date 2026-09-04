@@ -19,6 +19,13 @@ pub enum Error {
     WrongTally,
     /// その割符はもう使われている。
     AlreadyUsed,
+    /// **その割符で入っていた相手ではない。**
+    ///
+    /// 一度切れた相手が戻るときにだけ使う（[`crate::Tally::rematch_half`]）。
+    /// **`AlreadyUsed` と混ぜない** —— あちらは「もう誰かが使った」で、
+    /// こちらは「使ったのはあなたではない」である。混ぜると、
+    /// **戻ってきた本人まで断られたのか、別人を断ったのかが分からなくなる。**
+    NotTheHolder,
     /// 失効している端末・割符だった。
     Revoked,
     /// 形が壊れている。長さ・目印・文字が合わない。
@@ -36,6 +43,7 @@ impl fmt::Display for Error {
             Self::BadSignature => "署名が合いません",
             Self::WrongTally => "別の割符に対する片割れです",
             Self::AlreadyUsed => "その割符はすでに使われています",
+            Self::NotTheHolder => "その会議キーで入っていた相手ではありません",
             Self::Revoked => "失効しています",
             Self::Malformed => "形が壊れています",
             Self::Rng => "乱数が取れませんでした",
