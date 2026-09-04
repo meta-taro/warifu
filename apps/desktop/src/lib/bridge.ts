@@ -10,6 +10,8 @@ export const EVENT_JOINED = 'warifu://joined';
 export const EVENT_LEFT = 'warifu://left';
 export const EVENT_SIGNAL = 'warifu://signal';
 export const EVENT_CLOSED = 'warifu://closed';
+/** 誰かの住所を教わった（**D41**）。`[公開鍵, 住所]` で届く。 */
+export const EVENT_INTRODUCED = 'warifu://introduced';
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {
@@ -72,6 +74,15 @@ export const connect = (invite: string) => invoke<void>('connect', { invite });
 
 /** 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。** */
 export const listen = () => invoke<void>('listen');
+
+/**
+ * **入った人を、既に居る面々へ紹介する**（D41）。
+ *
+ * 名簿は公開鍵しか運ばないので、3 人目は既存の面々の住所を知る手段が無い。
+ * **主催者だけが配る** — 主催者でなければ何も起きない（断りではない）。
+ */
+export const introduce = (newcomer: string, address: string) =>
+  invoke<void>('introduce', { newcomer, address });
 
 /** 相手に対して自分が offer を出す側か（D38）。 */
 export const shouldOfferTo = (peer: string) => invoke<boolean>('should_offer_to', { peer });

@@ -81,3 +81,63 @@ fn 呼ぶ側とofferを出す側を混ぜない() {
     let ca = Conference::host(a, 12).unwrap();
     assert_eq!(should_dial(a, b), ca.should_offer_to(&b));
 }
+
+// ── 紹介（D41） ────────────────────────────────────────────
+
+#[test]
+fn 主催者は入った人を既存の面々へ紹介する() {
+    let 主催 = 鍵(5);
+    let mut c = Conference::host(主催, 12).unwrap();
+    c.admit(鍵(2)).unwrap();
+    c.admit(鍵(8)).unwrap();
+
+    // 3 人目が入った
+    let 新入り = 鍵(11);
+    let 配り先 = warifu_app::introductions_for(&c, 新入り, 主催).unwrap();
+
+    // 既存の 2 人へ「新入りの住所」を配る
+    assert!(配り先.tell_existing.contains(&鍵(2)));
+    assert!(配り先.tell_existing.contains(&鍵(8)));
+    // **主催者自身と新入りには配らない**
+    assert!(!配り先.tell_existing.contains(&主催));
+    assert!(!配り先.tell_existing.contains(&新入り));
+
+    // 新入りへは「既存の面々」を教える。**主催者は既に知っている**（会議キーで繋いだ）
+    assert!(配り先.tell_newcomer.contains(&鍵(2)));
+    assert!(配り先.tell_newcomer.contains(&鍵(8)));
+    assert!(!配り先.tell_newcomer.contains(&主催));
+    assert!(!配り先.tell_newcomer.contains(&新入り));
+}
+
+#[test]
+fn 二人目のときは紹介する相手が居ない() {
+    let 主催 = 鍵(5);
+    let mut c = Conference::host(主催, 12).unwrap();
+    let 新入り = 鍵(2);
+    c.admit(新入り).unwrap();
+
+    let 配り先 = warifu_app::introductions_for(&c, 新入り, 主催).unwrap();
+
+    assert!(配り先.tell_existing.is_empty());
+    assert!(配り先.tell_newcomer.is_empty());
+}
+
+#[test]
+fn 主催者でなければ紹介しない() {
+    // **紹介役は主催者だけ**（D41）。誰でも配ると、同じ紹介が何度も飛ぶ
+    let 主催 = 鍵(5);
+    let mut c = Conference::host(主催, 12).unwrap();
+    c.admit(鍵(2)).unwrap();
+
+    assert!(warifu_app::introductions_for(&c, 鍵(11), 鍵(2)).is_none());
+}
+
+#[test]
+fn 名簿に居ない人は紹介しない() {
+    let 主催 = 鍵(5);
+    let c = Conference::host(主催, 12).unwrap();
+    // 入っていない相手を紹介しようとしても、配り先は空
+    let 配り先 = warifu_app::introductions_for(&c, 鍵(9), 主催).unwrap();
+    assert!(配り先.tell_existing.is_empty());
+    assert!(配り先.tell_newcomer.is_empty());
+}

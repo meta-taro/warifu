@@ -1,5 +1,6 @@
 //! 会議の知らせ。[`Intent`] との行き来だけを持つ。
 
+use warifu_core::PublicKey;
 use warifu_intent::{Intent, Kind};
 
 use warifu_link::Report;
@@ -16,9 +17,14 @@ const LEAVE: &str = "meeting.leave";
 const SIGNAL: &str = "meeting.signal";
 /// 測った回線。
 const LINK: &str = "meeting.link";
+/// 紹介（**D41**）。3 人目が既存の面々の住所を知るための知らせ。
+const INTRODUCE: &str = "meeting.introduce";
 
 /// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
 const LINK_LEN: usize = 20;
+/// 住所の長さの上限。**受け取る側でも数える**（D15）。
+/// `WARIFU1-` + base32 の宛先は数百バイトに収まる。1 KiB あれば足りる。
+const ADDRESS_MAX: usize = 1024;
 
 /// 会議まわりで相手に渡すもの。
 ///
@@ -48,6 +54,24 @@ pub enum Notice {
     },
     /// 映像を張るための下ごしらえ。
     Signal(Signal),
+    /// **誰かの住所を紹介する**（**D41**）。
+    ///
+    /// 3 人目が入ったとき、**既に居る人の住所を知る手段が無い**（名簿は公開鍵しか運ばない）。
+    /// 主催者がこれを配る。
+    ///
+    /// **住所の中身は解釈しない。**この層は経路（`warifu-net`）を知らないので、
+    /// そのまま渡す文字列として持つ（SDP を読まないのと同じ構え）。
+    ///
+    /// **これは中継ではない。**流れるのは住所だけで、
+    /// 繋がった後の映像は当人どうしを直接流れる（D7 に触れない・D41）。
+    Introduce {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰の住所か。
+        who: PublicKey,
+        /// 住所そのもの。**読まない。**
+        address: String,
+    },
     /// 測った回線を渡す。
     ///
     /// **これは申告ではなく観測**（`warifu-link` の `Meter`）。
@@ -69,7 +93,8 @@ impl Notice {
             Self::Invite { meeting, .. }
             | Self::Join { meeting }
             | Self::Leave { meeting }
-            | Self::Link { meeting, .. } => *meeting,
+            | Self::Link { meeting, .. }
+            | Self::Introduce { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -88,6 +113,15 @@ impl Notice {
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
             Self::Signal(s) => (SIGNAL, s.encode()?),
+            Self::Introduce { who, address, .. } => {
+                if address.len() > ADDRESS_MAX {
+                    return Err(Error::Malformed);
+                }
+                let mut 塊 = Vec::with_capacity(32 + address.len());
+                塊.extend_from_slice(&who.to_bytes());
+                塊.extend_from_slice(address.as_bytes());
+                (INTRODUCE, 塊)
+            }
             Self::Link { report, .. } => {
                 let mut 塊 = Vec::with_capacity(LINK_LEN);
                 塊.extend_from_slice(&report.uplink_bps().to_be_bytes());
@@ -122,6 +156,20 @@ impl Notice {
             JOIN => Ok(Self::Join { meeting }),
             LEAVE => Ok(Self::Leave { meeting }),
             SIGNAL => Ok(Self::Signal(Signal::decode(meeting, 荷物)?)),
+            INTRODUCE => {
+                if 荷物.len() < 32 || 荷物.len() > 32 + ADDRESS_MAX {
+                    return Err(Error::Malformed);
+                }
+                let 鍵: [u8; 32] = 荷物[..32].try_into().expect("長さは確認済み");
+                let who = PublicKey::from_bytes(鍵).map_err(|_| Error::Malformed)?;
+                // **住所は解釈しない。**読めないバイト列でも、そのまま文字列にして渡す
+                let address = String::from_utf8_lossy(&荷物[32..]).into_owned();
+                Ok(Self::Introduce {
+                    meeting,
+                    who,
+                    address,
+                })
+            }
             LINK => {
                 if 荷物.len() != LINK_LEN {
                     return Err(Error::Malformed);

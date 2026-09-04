@@ -23,7 +23,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::{Mutex, mpsc};
 
-use warifu_app::{Conference, format_invite, parse_invite};
+use warifu_app::{Conference, format_invite, introductions_for, parse_invite};
 use warifu_core::{Acceptance, Device, PublicKey, Revocations, Seed, Tally};
 use warifu_door::{Answer as DoorAnswer, Door, Knock, Subject};
 use warifu_intent::Channel;
@@ -35,6 +35,8 @@ const EVENT_JOINED: &str = "warifu://joined";
 const EVENT_LEFT: &str = "warifu://left";
 const EVENT_SIGNAL: &str = "warifu://signal";
 const EVENT_CLOSED: &str = "warifu://closed";
+/// 誰かの住所を教わった（**D41**）。画面はこれを見て、自分から呼びに行く。
+const EVENT_INTRODUCED: &str = "warifu://introduced";
 
 /// 画面へ返す失敗。**下の層の理由を捨てない。**
 ///
@@ -112,6 +114,11 @@ pub struct Bridge {
     tally: Arc<Mutex<Option<Tally>>>,
     /// 戸口。**割符が合わない相手は、ここで断る**（D31）。
     door: Arc<Mutex<Door>>,
+    /// 相手ごとの住所（**D41**）。
+    ///
+    /// **主催者は、繋がれた相手の住所を知らない**（相手から来たので）。
+    /// だから**入る側が自分で名乗る。**それをここに覚えて、次の人へ紹介する。
+    addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
     conference: Arc<Mutex<Option<Conference>>>,
     /// 相手ごとの送り出し口（**M6**）。
     ///
@@ -129,6 +136,7 @@ impl Bridge {
             node: Mutex::new(None),
             tally: Arc::new(Mutex::new(None)),
             door: Arc::new(Mutex::new(Door::new())),
+            addresses: Arc::new(Mutex::new(HashMap::new())),
             conference: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -285,6 +293,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 
     let tally = Arc::clone(&bridge.tally);
     let door = Arc::clone(&bridge.door);
+    let addresses = Arc::clone(&bridge.addresses);
 
     tokio::spawn(async move {
         loop {
@@ -327,6 +336,8 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 app.clone(),
                 Arc::clone(&conference),
                 Arc::clone(&outbound),
+                Arc::clone(&addresses),
+                me,
                 channel,
                 peer,
             );
@@ -373,16 +384,21 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
         app.clone(),
         Arc::clone(&bridge.conference),
         Arc::clone(&bridge.outbound),
+        Arc::clone(&bridge.addresses),
+        bridge.device.public_key(),
         channel,
         peer,
     );
 }
 
 /// 画面から送るものと相手から届くものを、1 本のタスクで捌く。
+#[allow(clippy::too_many_arguments)]
 fn 汲む(
     app: AppHandle,
     conference: Arc<Mutex<Option<Conference>>>,
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
+    me: PublicKey,
     mut channel: Channel,
     peer: PublicKey,
 ) {
@@ -404,6 +420,24 @@ fn 汲む(
                         // 会議のものでない口は、経路としては通る。**会議は受け取らない**
                         continue;
                     };
+                    // **紹介は名簿を動かさない**（D41）
+                    if let Notice::Introduce { meeting, who, address } = &notice {
+                        addresses.lock().await.insert(who.to_bytes(), address.clone());
+                        // 自分が主催者なら、**入った人を既存の面々へ配り、
+                        // 入った人へ既存の面々を教える**
+                        let 主催 = {
+                            let slot = conference.lock().await;
+                            slot.as_ref().map(|c| c.members().first() == Some(&me))
+                        };
+                        if 主催 == Some(true) {
+                            紹介を配る(&conference, &outbound, &addresses, me, *who, *meeting).await;
+                        } else {
+                            // 主催者でなければ、教わった住所を画面へ渡して呼びに行かせる
+                            let _ =
+                                app.emit(EVENT_INTRODUCED, (key_to_string(*who), address.clone()));
+                        }
+                        continue;
+                    }
                     let mut slot = conference.lock().await;
                     let Some(c) = slot.as_mut() else { continue };
                     match c.on_notice(peer, &notice) {
@@ -471,6 +505,54 @@ async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answe
         message: "経路が閉じています".into(),
         code: None,
     })
+}
+
+/// 紹介を配る（**D41**）。**主催者だけが呼ぶ。**
+///
+/// 既存の面々へ「入った人の住所」を、入った人へ「既存の面々の住所」を送る。
+/// **住所を知らない相手は飛ばす** — まだ名乗っていないだけなので、断りではない。
+async fn 紹介を配る(
+    conference: &Arc<Mutex<Option<Conference>>>,
+    outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    addresses: &Arc<Mutex<HashMap<[u8; 32], String>>>,
+    me: PublicKey,
+    newcomer: PublicKey,
+    meeting: warifu_meeting::MeetingId,
+) {
+    let 配り先 = {
+        let slot = conference.lock().await;
+        let Some(c) = slot.as_ref() else { return };
+        let Some(plan) = introductions_for(c, newcomer, me) else {
+            return;
+        };
+        plan
+    };
+    let book = addresses.lock().await;
+    let out = outbound.lock().await;
+
+    let 送る = |to: PublicKey, who: PublicKey| {
+        let (Some(tx), Some(address)) = (out.get(&to.to_bytes()), book.get(&who.to_bytes())) else {
+            return None;
+        };
+        Some(tx.send(Notice::Introduce {
+            meeting,
+            who,
+            address: address.clone(),
+        }))
+    };
+
+    // 既存の面々へ「入った人」を
+    for p in &配り先.tell_existing {
+        if let Some(f) = 送る(*p, newcomer) {
+            let _ = f.await;
+        }
+    }
+    // 入った人へ「既存の面々」を
+    for p in &配り先.tell_newcomer {
+        if let Some(f) = 送る(newcomer, *p) {
+            let _ = f.await;
+        }
+    }
 }
 
 /// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。

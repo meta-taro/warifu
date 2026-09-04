@@ -207,3 +207,48 @@ pub fn peers_to_dial(me: PublicKey, roster: &[PublicKey]) -> Vec<PublicKey> {
         .filter(|p| should_dial(me, *p))
         .collect()
 }
+
+/// 紹介の配り先（**D41**）。
+///
+/// **主催者が入った人を紹介する。**名簿は公開鍵しか運ばないので、
+/// 3 人目は既に居る人の住所を知る手段が無い。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Introductions {
+    /// 既に居る人たち。**「新しく入った人の住所」を伝える先。**
+    pub tell_existing: Vec<PublicKey>,
+    /// 新しく入った人へ伝える、**既に居る人たち。**
+    pub tell_newcomer: Vec<PublicKey>,
+}
+
+/// 誰へ何を紹介するかを決める。
+///
+/// **紹介役は主催者だけ**（D41）。誰でも配ると同じ紹介が何度も飛び、
+/// 受け取った側は「もう繋がっている相手」に何度も呼びに行くことになる。
+///
+/// 主催者と新入り自身は、どちらの側からも外す —
+/// **主催者は会議キーで既に繋がっており、自分を自分に紹介する意味は無い。**
+///
+/// 主催者でなければ `None`。
+#[must_use]
+pub fn introductions_for(
+    conference: &Conference,
+    newcomer: PublicKey,
+    me: PublicKey,
+) -> Option<Introductions> {
+    if conference.members().first() != Some(&me) {
+        // 名簿の先頭が主催者（`Roster::new` がそう作る）
+        return None;
+    }
+    let 他 = |exclude: PublicKey| -> Vec<PublicKey> {
+        conference
+            .members()
+            .iter()
+            .copied()
+            .filter(|p| *p != me && *p != exclude)
+            .collect()
+    };
+    Some(Introductions {
+        tell_existing: 他(newcomer),
+        tell_newcomer: 他(newcomer),
+    })
+}

@@ -25,6 +25,7 @@
   import { Call } from '$lib/webrtc/session';
   import {
     EVENT_CLOSED,
+    EVENT_INTRODUCED,
     EVENT_JOINED,
     EVENT_LEFT,
     EVENT_SIGNAL,
@@ -146,6 +147,15 @@
           calls.set(key, call);
           if (!localStream) await 支度する();
           if (localStream) await call.begin(localStream);
+        }),
+      );
+      unsubs.push(
+        // **教わった住所へ、自分から呼びに行く**（D41）。
+        // どちらが呼ぶかは D38 と同じ規則で決まっているので、
+        // 両側から呼んで 2 本張られることは無い
+        await onEvent<[string, string]>(EVENT_INTRODUCED, ([key, address]) => {
+          if (!address || calls.has(key)) return;
+          void connect(address).catch((e) => (notice = 読める(e)));
         }),
       );
       unsubs.push(
