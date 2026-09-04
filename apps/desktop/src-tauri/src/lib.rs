@@ -37,6 +37,8 @@ const EVENT_SIGNAL: &str = "warifu://signal";
 const EVENT_CLOSED: &str = "warifu://closed";
 /// 誰かの住所を教わった（**D41**）。画面はこれを見て、自分から呼びに行く。
 const EVENT_INTRODUCED: &str = "warifu://introduced";
+/// 文字が届いた。`[誰から, 中身]` で渡す。
+const EVENT_TEXT: &str = "warifu://text";
 
 /// 経路の要所を書き出す。
 ///
@@ -490,6 +492,11 @@ fn 汲む(
                         // 会議のものでない口は、経路としては通る。**会議は受け取らない**
                         continue;
                     };
+                    // **文字は名簿を動かさない。**そのまま画面へ渡す
+                    if let Notice::Text { body, .. } = &notice {
+                        let _ = app.emit(EVENT_TEXT, (key_to_string(peer), body.clone()));
+                        continue;
+                    }
                     // **紹介は名簿を動かさない**（D41）
                     記録!("受信: {}", 知らせの名(&notice));
                     if let Notice::Introduce { meeting, who, address } = &notice {
@@ -647,6 +654,45 @@ fn log(message: String) {
     記録!("画面: {message}");
 }
 
+/// **文字を送る**（チャット）。
+///
+/// **会議に入っている全員へ送る。**下ごしらえ（SDP）と違って、
+/// 文字は組ごとのものではないので、宛先を指定しない。
+///
+/// **残さない。**送ったものも届いたものも、閉じれば消える。
+/// 保存するには身元が続く必要があり、それは **D2 が未決**である（`issues/010`）。
+#[tauri::command]
+async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
+    let meeting = {
+        let slot = bridge.conference.lock().await;
+        slot.as_ref().map(Conference::id)
+    };
+    let Some(meeting) = meeting else {
+        return Err(Failure {
+            message: "まだ会議がありません".into(),
+            code: None,
+        });
+    };
+    let out = bridge.outbound.lock().await;
+    if out.is_empty() {
+        return Err(Failure {
+            message: "まだ誰も居ません".into(),
+            code: None,
+        });
+    }
+    記録!("送信: 文字（{} バイト）を {} 人へ", body.len(), out.len());
+    for tx in out.values() {
+        // 届かない相手が居ても止めない。**送る側を待たせない**
+        let _ = tx
+            .send(Notice::Text {
+                meeting,
+                body: body.clone(),
+            })
+            .await;
+    }
+    Ok(())
+}
+
 /// **会議から抜けると告げる。**
 ///
 /// 告げないと、相手の名簿からは**経路が切れたときにしか**消えない。
@@ -746,6 +792,7 @@ pub fn run() {
             send_signal,
             should_offer_to,
             leave,
+            send_text,
             log,
             set_menu_locale,
         ])

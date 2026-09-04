@@ -29,6 +29,7 @@
     EVENT_JOINED,
     EVENT_LEFT,
     EVENT_SIGNAL,
+    EVENT_TEXT,
     connect,
     hostMeeting,
     inTauri,
@@ -38,6 +39,7 @@
     log,
     myKey,
     onEvent,
+    sendText,
     setMenuLocale,
     shouldOfferTo,
     type SignalPayload,
@@ -77,6 +79,9 @@
   const calls = new Map<string, Call>();
   /** 相手ごとの映像と経路。名簿の並びで出す。 */
   let remotes = $state<Array<{ key: string; stream: MediaStream | null; path: LinkPath }>>([]);
+  /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
+  let 会話 = $state<Array<{ who: string; body: string; mine: boolean }>>([]);
+  let 下書き = $state('');
   let call: Call | null = null;
   let keyField: HTMLTextAreaElement | undefined = $state();
   let previewVideo: HTMLVideoElement | undefined = $state();
@@ -203,6 +208,11 @@
         }),
       );
       unsubs.push(
+        await onEvent<[string, string]>(EVENT_TEXT, ([key, body]) => {
+          会話 = [...会話, { who: 短く(key), body, mine: false }];
+        }),
+      );
+      unsubs.push(
         await onEvent<string>(EVENT_LEFT, (key) => 片付ける(key)),
       );
       unsubs.push(
@@ -295,6 +305,19 @@
     }
     copied = true;
     setTimeout(() => (copied = false), COPIED_FOR_MS);
+  }
+
+  async function 話す() {
+    const body = 下書き.trim();
+    if (!body) return;
+    try {
+      await sendText(body);
+      // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
+      会話 = [...会話, { who: t('tile.me'), body, mine: true }];
+      下書き = '';
+    } catch (e) {
+      notice = 読める(e);
+    }
   }
 
   async function 入室する() {
@@ -430,6 +453,28 @@
     </div>
 
     <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
+
+    <div class="card">
+      <h2><Icon name="people" size={18} />{t('chat.title')}</h2>
+      <p class="hint">{t('chat.hint')}</p>
+      <div class="talk">
+        {#if 会話.length === 0}
+          <p class="hint">{t('chat.empty')}</p>
+        {/if}
+        {#each 会話 as line, i (i)}
+          <p class="line" class:mine={line.mine}><b>{line.who}</b>{line.body}</p>
+        {/each}
+      </div>
+      <div class="say">
+        <input
+          type="text"
+          bind:value={下書き}
+          placeholder={t('chat.placeholder')}
+          onkeydown={(e) => e.key === 'Enter' && 話す()}
+        />
+        <button type="button" onclick={話す} disabled={!下書き.trim()}>{t('chat.send')}</button>
+      </div>
+    </div>
   </aside>
 </main>
 
@@ -532,6 +577,47 @@
     font-size: var(--text-xs-size);
     line-height: var(--text-xs-line);
     color: var(--text-tertiary);
+  }
+  .talk {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* **溢れたら中で動く。**外側（画面全体）を伸ばさない */
+    max-height: 220px;
+    overflow-y: auto;
+    padding: var(--space-2);
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .line {
+    margin: 0;
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+    word-break: break-word;
+  }
+  .line b {
+    margin-right: 6px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+  }
+  .line.mine b {
+    color: var(--accent);
+  }
+  .say {
+    display: flex;
+    gap: var(--space-2);
+  }
+  .say input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: var(--text-sm-size);
+    color: var(--text-primary);
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 5px var(--space-2);
   }
   .row {
     display: flex;

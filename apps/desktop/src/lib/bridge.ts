@@ -12,6 +12,8 @@ export const EVENT_SIGNAL = 'warifu://signal';
 export const EVENT_CLOSED = 'warifu://closed';
 /** 誰かの住所を教わった（**D41**）。`[公開鍵, 住所]` で届く。 */
 export const EVENT_INTRODUCED = 'warifu://introduced';
+/** 文字が届いた。`[誰から, 中身]` で届く。 */
+export const EVENT_TEXT = 'warifu://text';
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {
@@ -79,6 +81,14 @@ export const connect = (invite: string) => invoke<void>('connect', { invite });
  * 2 人なら経路が切れれば分かるが、**3 人以上では他の人の名簿に残り続ける。**
  */
 export const leave = () => invoke<void>('leave');
+
+/**
+ * 文字を送る（チャット）。**会議に入っている全員へ。**
+ *
+ * 下ごしらえ（SDP）と違って、文字は組ごとのものではないので宛先を指定しない。
+ * **残らない。**閉じれば消える（保存には身元が続く必要があり、D2 が未決）。
+ */
+export const sendText = (body: string) => invoke<void>('send_text', { body });
 
 /**
  * 画面の出来事を、Rust と同じログへ流す。
