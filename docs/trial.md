@@ -129,6 +129,33 @@ tail -n +2 /tmp/warifu.key
 
 **通れば、割符・戸口・会議・Intent の全部が通ったことになる。**映像はその上に載るだけ。
 
+### 相手を覚える
+
+```bash
+warifu id                              # 自分の公開鍵（閉じても変わらない）
+warifu host --remember "Mac Air"       # つながった相手を、その呼び名で覚える
+warifu contacts                        # 覚えた相手を並べる
+warifu contacts forget "Mac Air"       # 忘れる
+```
+
+2 回目からは「知らない相手（BJTFT46R…）」ではなく**呼び名で出る。**
+
+**覚えても、会議キーは要る。**覚えているのは**誰か**であって、**いまどこに居るか**では
+ないため（住所は会議キーに入っている）。ここは `issues/009` の会場鍵で埋める予定。
+
+### **1 台で 2 人を試すとき**
+
+**身元がこの端末に 1 つになった**（D42）ので、同じ機械で `host` と `join` を
+そのまま動かすと**自分自身を招くことになり、断られる。**
+`WARIFU_HOME` で置き場所を分ける。
+
+```bash
+WARIFU_HOME=/tmp/warifu-a warifu host --ttl 300 > /tmp/a.key &
+WARIFU_HOME=/tmp/warifu-b warifu join "$(head -1 /tmp/a.key)"
+```
+
+**画面（`warifu.app`）と CLI は同じ身元になる。**別人として試したいときも同じように分ける。
+
 > **映像は扱わない。**CLI が運ぶのは文字だけである。
 
 ---
