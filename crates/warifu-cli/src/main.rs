@@ -59,7 +59,8 @@ fn 使い方() -> ExitCode {
          \x20            待つ。会議キーを標準出力へ出す\n\
          \x20 warifu join <会議キー> [--idle <秒>] [--remember <呼び名>]\n\
          \x20            入る\n\
-         \x20 warifu id  自分の公開鍵と、身元の置き場所を出す\n\
+         \x20 warifu id   自分の公開鍵と、身元の置き場所を出す\n\
+         \x20 warifu help この使い方を出す\n\
          \x20 warifu contacts                       覚えた相手を並べる\n\
          \x20 warifu contacts add <公開鍵> <呼び名>  覚える\n\
          \x20 warifu contacts forget <呼び名|公開鍵> 忘れる\n\
@@ -67,20 +68,21 @@ fn 使い方() -> ExitCode {
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
          --ttl      会議キーの有効期間（既定 600 秒）。相手が建てている間に切れないように\n\
-         --from     会議の開始。**この時刻までは入れません**（予定に紐づく鍵）\n\
+         --from     会議の開始。この時刻までは誰も入れません（予定に紐づく鍵）\n\
          --until    会議の終わり。--ttl より優先します\n\
-         \x20          時刻は Unix 秒か `+<秒>`（いまから）。例: --from +3600 --until +7200\n\
+         \x20          時刻は Unix 秒か +<秒>（いまから）。例: --from +3600 --until +7200\n\
          --idle     何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
          \x20          （会話は黙っている時間のほうが長いため）\n\
          --remember つながった相手を、その呼び名で覚える\n\
          \n\
-         **身元はこの端末に残ります。**閉じても同じ人でいられます（`warifu id` で確認）。\n\
-         **映像は扱いません**（それは画面の担当です）。"
+         身元はこの端末に残ります。閉じても同じ人でいられます（warifu id で確認）。\n\
+         映像は扱いません（それは画面の担当です）。"
     );
     ExitCode::from(2)
 }
 
 /// 呼び出しに付いてきた指定。
+#[derive(Debug)]
 struct Options {
     /// 何も来ない時間がこれを超えたら終わる。**無ければ終わらない。**
     idle: Option<u64>,
@@ -94,10 +96,66 @@ struct Options {
     remember: Option<String>,
 }
 
-/// 時刻の指定を読む。**`+<秒>` は「いまから」**、数字だけなら Unix 秒。
+/// 秒数を人が読める形にする。
 ///
-/// 人が打つ日時（`2026-09-11 10:00`）を受けないのは、**時間帯の扱いを間違えると
-/// 「1 時間ずれた鍵」が黙って出る**ためである。予定表の側が秒で渡す形にしてある。
+/// **unix 秒をそのまま人に見せない。**`1788506979` と出しても、いつなのか分からない
+/// （2026-09-04 に別の機械の担当から指摘された）。
+///
+/// 日時（`2026-09-11 10:00`）に直さないのは、**時間帯の変換をここでやると
+/// 「1 時間ずれた表示」が黙って出る**ため。相対なら時間帯が要らない。
+fn 間隔を言う(secs: u64) -> String {
+    if secs == 0 {
+        return "いま".to_owned();
+    }
+    let (h, m, s) = (secs / 3600, (secs % 3600) / 60, secs % 60);
+    let mut parts = Vec::new();
+    if h > 0 {
+        parts.push(format!("{h} 時間"));
+    }
+    if m > 0 {
+        parts.push(format!("{m} 分"));
+    }
+    if s > 0 || parts.is_empty() {
+        parts.push(format!("{s} 秒"));
+    }
+    parts.join(" ")
+}
+
+/// 時刻の指定を読む。`+<秒>` は「いまから」、数字だけなら Unix 秒。
+///
+/// 人が打つ日時（`2026-09-11 10:00`）を受けないのは、時間帯の扱いを間違えると
+/// 「1 時間ずれた鍵」が黙って出るためである。予定表の側が秒で渡す形にしてある。
+/// 引数の読み取りで起きること。**黙って捨てない。**
+#[derive(Debug)]
+pub enum OptionError {
+    /// 知らない引数。打ち間違いをここで止める。
+    Unknown(String),
+    /// 値の要る引数に値が付いていない。
+    Missing(&'static str),
+    /// 値が読めない。**既定に落とさない**（指定したつもりと違う鍵が出る）。
+    BadValue {
+        /// どの引数か。
+        arg: &'static str,
+        /// 何が来たか。
+        got: String,
+    },
+    /// 使い方を求められた。
+    WantsHelp,
+}
+
+impl std::fmt::Display for OptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unknown(a) => write!(f, "知らない引数です: {a}"),
+            Self::Missing(a) => write!(f, "{a} に値が付いていません"),
+            Self::BadValue { arg, got } => write!(f, "{arg} の値を読めません: {got}"),
+            Self::WantsHelp => f.write_str("使い方"),
+        }
+    }
+}
+
+impl std::error::Error for OptionError {}
+
 fn 読む_時刻(text: &str, now: u64) -> Option<u64> {
     let t = text.trim();
     if let Some(rest) = t.strip_prefix('+') {
@@ -106,7 +164,11 @@ fn 読む_時刻(text: &str, now: u64) -> Option<u64> {
     t.parse::<u64>().ok()
 }
 
-fn 読む_options(args: &mut impl Iterator<Item = String>) -> Options {
+/// 引数を読む。
+///
+/// **知らない引数を黙って捨てない。**捨てると `--form +60` のような打ち間違いが
+/// そのまま通り、**指定したつもりの窓が付いていない鍵**が出る（2026-09-04 に指摘）。
+fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, OptionError> {
     let now = now_secs();
     let mut o = Options {
         idle: IDLE_DEFAULT,
@@ -115,21 +177,51 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Options {
         until: None,
         remember: None,
     };
+
+    /// 値を 1 つ取り出す。無ければ断る。
+    fn 値(
+        args: &mut impl Iterator<Item = String>,
+        arg: &'static str,
+    ) -> Result<String, OptionError> {
+        args.next().ok_or(OptionError::Missing(arg))
+    }
+
     while let Some(a) = args.next() {
         match a.as_str() {
-            "--idle" => o.idle = args.next().and_then(|v| v.parse().ok()),
-            "--ttl" => {
-                if let Some(v) = args.next().and_then(|v| v.parse().ok()) {
-                    o.ttl = v;
-                }
+            "--help" | "-h" | "help" => return Err(OptionError::WantsHelp),
+            "--idle" => {
+                let v = 値(args, "--idle")?;
+                o.idle = Some(v.parse().map_err(|_| OptionError::BadValue {
+                    arg: "--idle",
+                    got: v.clone(),
+                })?);
             }
-            "--from" => o.from = args.next().and_then(|v| 読む_時刻(&v, now)),
-            "--until" => o.until = args.next().and_then(|v| 読む_時刻(&v, now)),
-            "--remember" => o.remember = args.next(),
-            _ => {}
+            "--ttl" => {
+                let v = 値(args, "--ttl")?;
+                o.ttl = v.parse().map_err(|_| OptionError::BadValue {
+                    arg: "--ttl",
+                    got: v.clone(),
+                })?;
+            }
+            "--from" => {
+                let v = 値(args, "--from")?;
+                o.from = Some(読む_時刻(&v, now).ok_or(OptionError::BadValue {
+                    arg: "--from",
+                    got: v.clone(),
+                })?);
+            }
+            "--until" => {
+                let v = 値(args, "--until")?;
+                o.until = Some(読む_時刻(&v, now).ok_or(OptionError::BadValue {
+                    arg: "--until",
+                    got: v.clone(),
+                })?);
+            }
+            "--remember" => o.remember = Some(値(args, "--remember")?),
+            other => return Err(OptionError::Unknown(other.to_owned())),
         }
     }
-    o
+    Ok(o)
 }
 
 #[tokio::main]
@@ -137,15 +229,19 @@ async fn main() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let 命令 = args.next();
     let result = match 命令.as_deref() {
-        Some("host") => {
-            let o = 読む_options(&mut args);
-            待つ(&o).await
-        }
+        Some("host") => match 読む_options(&mut args) {
+            Ok(o) => 待つ(&o).await,
+            Err(OptionError::WantsHelp) => return 使い方(),
+            Err(e) => Err(e.into()),
+        },
         Some("join") => match args.next() {
-            Some(key) => {
-                let o = 読む_options(&mut args);
-                入る(&key, &o).await
-            }
+            // **鍵の位置に --help が来たら使い方を出す。**鍵として読もうとしない
+            Some(k) if matches!(k.as_str(), "--help" | "-h" | "help") => return 使い方(),
+            Some(key) => match 読む_options(&mut args) {
+                Ok(o) => 入る(&key, &o).await,
+                Err(OptionError::WantsHelp) => return 使い方(),
+                Err(e) => Err(e.into()),
+            },
             None => return 使い方(),
         },
         Some("id") => 名乗る(),
@@ -268,12 +364,19 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
 
     // **会議キーは標準出力へ。**進行の知らせは標準エラーへ分ける。
     // こうしておくと `warifu host | pbcopy` のように使える
+    let いま = now_secs();
     if o.from.is_some() {
         eprintln!(
-            "warifu: 待っています（{開始} から {終わり} まで有効・**始まる前は入れません**）"
+            "warifu: 待っています。開始まで {}（{開始}）／終わりまで {}（{終わり}）",
+            間隔を言う(開始.saturating_sub(いま)),
+            間隔を言う(終わり.saturating_sub(いま))
         );
+        eprintln!("warifu: 始まるまでは、鍵を渡した相手でも入れません");
     } else {
-        eprintln!("warifu: 待っています（{ttl} 秒で会議キーが切れます）");
+        eprintln!(
+            "warifu: 待っています。{}で会議キーが切れます（{終わり}）",
+            間隔を言う(ttl)
+        );
     }
     println!("{}", format_invite(&address, &token, conference.id()));
 

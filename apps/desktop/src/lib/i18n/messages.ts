@@ -41,6 +41,11 @@ export type MessageKey =
   | 'chat.placeholder'
   | 'chat.send'
   | 'chat.empty'
+  | 'chat.joined'
+  | 'chat.left'
+  | 'call.mic'
+  | 'call.camera'
+  | 'call.controls'
   | 'meeting.key.own'
   | 'setup.title'
   | 'setup.hint'
@@ -110,10 +115,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.none': 'カメラもマイクも無いので、受け取るだけで入ります',
     'meeting.join.working': '入室しています…',
     'chat.title': '文字で話す',
-    'chat.hint': '会議に入っている人へ届きます。**残りません** — 閉じると消えます。\n',
+    'chat.hint': '会議に入っている人へ届きます。残りません — 閉じると消えます。\n',
     'chat.placeholder': '書いて Enter',
     'chat.send': '送る',
     'chat.empty': 'まだ何もありません',
+    'chat.joined': '{who} が入室しました',
+    'chat.left': '{who} が退室しました',
+    'call.mic': 'マイク',
+    'call.camera': 'カメラ',
+    'call.controls': '会議中の入切。支度の確認とは別で、いま送っているものを止めます。',
     'setup.title': '入室前のしたく',
     'setup.hint': 'いま自分が何で映って、何で喋るかを、入る前に確かめられます。',
     'setup.action': 'カメラとマイクを確かめる',
@@ -166,10 +176,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.none': 'No camera or microphone, so joining to receive only',
     'meeting.join.working': 'Entering…',
     'chat.title': 'Chat',
-    'chat.hint': 'Goes to everyone in the meeting. **Not saved** — it disappears when you close.\n',
+    'chat.hint': 'Goes to everyone in the meeting. Not saved — it disappears when you close.\n',
     'chat.placeholder': 'Type and press Enter',
     'chat.send': 'Send',
     'chat.empty': 'Nothing yet',
+    'chat.joined': '{who} joined',
+    'chat.left': '{who} left',
+    'call.mic': 'Microphone',
+    'call.camera': 'Camera',
+    'call.controls': 'Turn off what you are sending right now. Separate from the pre-join check.',
     'setup.title': 'Before you enter',
     'setup.hint': 'Check what you look and sound like before entering.',
     'setup.action': 'Check camera and microphone',
@@ -222,10 +237,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.none': '没有摄像头和麦克风，仅接收方式加入',
     'meeting.join.working': '正在进入…',
     'chat.title': '文字聊天',
-    'chat.hint': '发送给会议中的所有人。**不会保存** — 关闭后消失。\n',
+    'chat.hint': '发送给会议中的所有人。不会保存 — 关闭后消失。\n',
     'chat.placeholder': '输入后按 Enter',
     'chat.send': '发送',
     'chat.empty': '还没有内容',
+    'chat.joined': '{who} 已加入',
+    'chat.left': '{who} 已离开',
+    'call.mic': '麦克风',
+    'call.camera': '摄像头',
+    'call.controls': '关闭当前正在发送的内容。与入会前的确认不同。',
     'setup.title': '进入前的准备',
     'setup.hint': '进入之前，先确认自己的画面和声音。',
     'setup.action': '检查摄像头和麦克风',
@@ -278,10 +298,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.none': '카메라도 마이크도 없어 받기만 하며 참여합니다',
     'meeting.join.working': '입장 중…',
     'chat.title': '문자로 대화',
-    'chat.hint': '회의에 있는 사람에게 전달됩니다. **남지 않습니다** — 닫으면 사라집니다.\n',
+    'chat.hint': '회의에 있는 사람에게 전달됩니다. 남지 않습니다 — 닫으면 사라집니다.\n',
     'chat.placeholder': '입력 후 Enter',
     'chat.send': '보내기',
     'chat.empty': '아직 아무것도 없습니다',
+    'chat.joined': '{who} 님이 입장했습니다',
+    'chat.left': '{who} 님이 퇴장했습니다',
+    'call.mic': '마이크',
+    'call.camera': '카메라',
+    'call.controls': '지금 보내고 있는 것을 끕니다. 입장 전 확인과는 별개입니다.',
     'setup.title': '입장 전 준비',
     'setup.hint': '들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.',
     'setup.action': '카메라와 마이크 확인',

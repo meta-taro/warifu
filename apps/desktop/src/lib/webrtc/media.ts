@@ -6,9 +6,22 @@
 
 import type { LinkPath } from '../link/path';
 
-/** 何を求めるか。 */
+/**
+ * 何を求めるか。
+ *
+ * **音の処理をはっきり頼む。**`audio: true` だけだと既定任せになる。
+ * 同じ部屋で 2 台鳴らすと音が回り込む（ハウリング）ので、
+ * エコー除去・雑音抑制・自動音量を明示する。
+ *
+ * **これで必ず消えるわけではない。**同じ部屋の 2 台は、片方のスピーカーの音が
+ * もう片方のマイクへ「別の音源」として入るので、エコー除去の想定外になる。
+ * 画面がヘッドフォンを勧めているのはそのため。**頼んだうえで、消えないことも言う。**
+ */
 export function mediaConstraints(options?: { video?: boolean }): MediaStreamConstraints {
-  return { audio: true, video: options?.video ?? true };
+  return {
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    video: options?.video ?? true,
+  };
 }
 
 /**
@@ -41,6 +54,19 @@ export function shouldSendVideo(path: LinkPath): boolean {
 export type SendMode = 'both' | 'audio' | 'none';
 
 /**
+ * ログに書くときの言い方。
+ *
+ * **`none` をそのまま書かない。**ログの他の行は全部日本語なので、そこだけ浮く
+ * （2026-09-04 に別の機械の担当から指摘された）。
+ * 画面の表示は `t()` が訳すので、ここはログ専用。
+ */
+export function 送るものを言う(mode: SendMode): string {
+  if (mode === 'both') return '映像と音';
+  if (mode === 'audio') return '音だけ';
+  return 'なし';
+}
+
+/**
  * **機器が無くても会議に入れるようにする。**
  *
  * カメラもマイクも無い機械はある（画面だけの端末、会場のモニタ、
@@ -51,8 +77,8 @@ export type SendMode = 'both' | 'audio' | 'none';
  * （＝何も送らずに入る）。
  */
 export function nextAttempt(current: MediaStreamConstraints | null): MediaStreamConstraints | null {
-  if (current === null) return { audio: true, video: true };
-  if (current.video !== false) return { audio: true, video: false };
+  if (current === null) return mediaConstraints();
+  if (current.video !== false) return mediaConstraints({ video: false });
   return null;
 }
 

@@ -98,3 +98,71 @@ mod tests {
         assert!(知らない.contains("知らない相手"), "{知らない}");
     }
 }
+
+#[cfg(test)]
+mod 引数の試験 {
+    use crate::{OptionError, 読む_options, 読む_時刻, 間隔を言う};
+
+    fn 読む(args: &[&str]) -> Result<crate::Options, OptionError> {
+        読む_options(&mut args.iter().map(|s| (*s).to_owned()))
+    }
+
+    #[test]
+    fn 知らない引数は黙って捨てない() {
+        // **打ち間違いが黙殺されると、指定したつもりの窓が付かない鍵が出る**
+        // （別の機械の担当から 2026-09-04 に指摘された）
+        let err = 読む(&["--form", "+60"]).expect_err("知らない引数を通した");
+        assert!(
+            matches!(err, OptionError::Unknown(ref a) if a == "--form"),
+            "{err:?}"
+        );
+    }
+
+    #[test]
+    fn 値の要る引数に値が無ければ断る() {
+        for arg in ["--ttl", "--from", "--until", "--idle", "--remember"] {
+            let err = 読む(&[arg]).expect_err("値が無いのに通した");
+            assert!(matches!(err, OptionError::Missing(_)), "{arg}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn 値が読めなければ断る() {
+        // **黙って既定に落とさない。**落とすと、指定したつもりの値と違う鍵が出る
+        let err = 読む(&["--ttl", "きのう"]).expect_err("読めない値を通した");
+        assert!(matches!(err, OptionError::BadValue { .. }), "{err:?}");
+    }
+
+    #[test]
+    fn help_は使い方を求める() {
+        for arg in ["--help", "-h", "help"] {
+            assert!(matches!(読む(&[arg]), Err(OptionError::WantsHelp)), "{arg}");
+        }
+    }
+
+    #[test]
+    fn ちゃんとした指定は通る() {
+        let o = 読む(&["--from", "+60", "--until", "+120", "--remember", "air"]).expect("通らない");
+        assert_eq!(o.remember.as_deref(), Some("air"));
+        assert!(o.from.is_some() && o.until.is_some());
+    }
+
+    #[test]
+    fn 時刻は_unix_秒でも_いまから_でも読める() {
+        assert_eq!(読む_時刻("1788506979", 100), Some(1_788_506_979));
+        assert_eq!(読む_時刻("+60", 100), Some(160));
+        assert_eq!(読む_時刻("きのう", 100), None);
+        assert_eq!(読む_時刻("", 100), None);
+    }
+
+    #[test]
+    fn 間隔は人が読める形で出る() {
+        // unix 秒をそのまま見せないための口
+        assert_eq!(間隔を言う(0), "いま");
+        assert_eq!(間隔を言う(45), "45 秒");
+        assert_eq!(間隔を言う(60), "1 分");
+        assert_eq!(間隔を言う(90), "1 分 30 秒");
+        assert_eq!(間隔を言う(3600), "1 時間");
+        assert_eq!(間隔を言う(3661), "1 時間 1 分 1 秒");
+    }
+}

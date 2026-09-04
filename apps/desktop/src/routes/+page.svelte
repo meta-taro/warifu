@@ -10,7 +10,15 @@
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
-  import { describeMediaFailure, nextAttempt, sendModeFor, type SendMode } from '$lib/webrtc/media';
+  import { 入退室の知らせ, 話の記録, type 会話行 } from '$lib/meeting/announce';
+  import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
+  import {
+    describeMediaFailure,
+    nextAttempt,
+    sendModeFor,
+    送るものを言う,
+    type SendMode,
+  } from '$lib/webrtc/media';
   import {
     DEFAULT_PREFS,
     canBlurBackground,
@@ -79,8 +87,26 @@
   const calls = new Map<string, Call>();
   /** 相手ごとの映像と経路。名簿の並びで出す。 */
   let remotes = $state<Array<{ key: string; stream: MediaStream | null; path: LinkPath }>>([]);
+  /**
+   * 会議が始まっているか。
+   *
+   * **始まったら、会議キーの発行と入室の欄は出さない。**出したままだと、
+   * 入っているのに「会議をはじめる」を押せてしまい、**二重に主催になる**
+   * （2026-09-04 に実機で踏んだ）。
+   */
+  const 会議中 = $derived(remotes.length > 0);
   /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
-  let 会話 = $state<Array<{ who: string; body: string; mine: boolean }>>([]);
+  let 会話 = $state<会話行[]>([]);
+  /** 知らせ音を出す口。**要るときだけ作る**（作った時点で音の許可を使う環境がある）。 */
+  let 音の口: AudioContext | null = null;
+  function 音を出す(chime: Parameters<typeof 鳴らす>[1]) {
+    try {
+      音の口 ??= new AudioContext();
+      鳴らす(音の口, chime);
+    } catch {
+      // 握り潰す理由: 音が鳴らないことを会議の失敗にしない
+    }
+  }
   let 下書き = $state('');
   let call: Call | null = null;
   let keyField: HTMLTextAreaElement | undefined = $state();
@@ -98,7 +124,9 @@
   async function 支度する() {
     notice = '';
     支度した = true;
-    localStream?.getTracks().forEach((tr) => tr.stop());
+    // **止めるのは、入れ替えたあと。**先に止めると、通話中の相手には
+    // 静止画のあと真っ黒が映る（2026-09-04 に実機で踏んだ）
+    const 前のもの = localStream;
     localStream = null;
 
     // **段を下げながら試す。**映像と音声 → 音声だけ → 何も送らない。
@@ -111,6 +139,9 @@
         localStream = await navigator.mediaDevices.getUserMedia(c);
         sendMode = sendModeFor(試す);
         適用する();
+        // **会議中なら、いま流れている経路の中身を入れ替える。**張り直さない
+        for (const call of calls.values()) await call.replaceTracks(localStream);
+        前のもの?.getTracks().forEach((tr) => tr.stop());
         if (previewVideo) previewVideo.srcObject = localStream;
         devices = toOptions(await navigator.mediaDevices.enumerateDevices());
         return;
@@ -120,6 +151,8 @@
       }
     }
     // **何も取れなくても入れる。**ただし理由は伏せない
+    for (const call of calls.values()) await call.replaceTracks(null);
+    前のもの?.getTracks().forEach((tr) => tr.stop());
     sendMode = 'none';
     notice = 最後の失敗;
   }
@@ -172,6 +205,9 @@
         await onEvent<string>(EVENT_JOINED, async (key) => {
           log(`入った人がいる（${短く(key)}）。通話を作る`);
           members = [...members, { name: 短く(key), path: 'unknown' }];
+          // **見ていない間に誰が来たかを残す。**名簿は動くが、目を離すと分からない
+          会話 = [...会話, 入退室の知らせ('入室', 短く(key), (k, v) => format(t(`chat.${k}`), v))];
+          音を出す(入室の音);
           remotes = [...remotes, { key, stream: null, path: 'unknown' }];
           const offering = (await shouldOfferTo(key)) ?? false;
           const call = new Call(
@@ -209,6 +245,7 @@
       );
       unsubs.push(
         await onEvent<[string, string]>(EVENT_TEXT, ([key, body]) => {
+          log(話の記録('受信', 短く(key), body));
           会話 = [...会話, { who: 短く(key), body, mine: false }];
         }),
       );
@@ -219,7 +256,7 @@
         await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => {
           // **誰から来たかで振り分ける。**間違えると別の組の経路が壊れる
           const 宛先 = p.from ? calls.get(p.from) : undefined;
-          log(`下ごしらえが来た: ${p.step}（${p.from ? 短く(p.from) : '差出人なし'}）${宛先 ? '' : ' ← **通話が無い**'}`);
+          log(`下ごしらえが来た: ${p.step}（${p.from ? 短く(p.from) : '差出人なし'}）${宛先 ? '' : ' ← 通話が無い'}`);
           void 宛先?.receive(p);
         }),
       );
@@ -253,17 +290,28 @@
   //
   // 画面を押せない相手（別の機械のエージェント・CI）からは、
   // **絵は見えないがログは読める。**「押して確かめる」の代わりになる。
-  // 変わったときだけ書く —— 毎秒書くと、肝心の行が埋もれる
+  //
+  // **落ち着いてから 1 行だけ書く。**起動直後は初期化が数段に分かれるので、
+  // そのまま書くと 10 ミリ秒差で同じような行が並ぶ（2026-09-04 に指摘された）。
+  // 会議中も、人が 1 人入るたびに何行も出ると肝心の行が埋もれる。
+  let 直前の状態 = '';
   $effect(() => {
     const 状態 = [
       `名簿 ${members.length}/${DEFAULT_CAPACITY}`,
       `相手 ${remotes.length} 人`,
-      `送るもの ${sendMode}`,
+      `送るもの ${送るものを言う(sendMode)}`,
       `会議キー ${meetingKey ? 'あり' : 'なし'}`,
       `経路 ${remotes.map((r) => r.path).join(',') || 'なし'}`,
       notice ? `知らせ「${notice}」` : '知らせなし',
     ].join(' / ');
-    log(`いまの画面: ${状態}`);
+
+    const 待つ = setTimeout(() => {
+      // 落ち着いた結果が前と同じなら、書かない
+      if (状態 === 直前の状態) return;
+      直前の状態 = 状態;
+      log(`いまの画面: ${状態}`);
+    }, 250);
+    return () => clearTimeout(待つ);
   });
 
   /** 1 人ぶんの表示を差し替える。 */
@@ -277,6 +325,8 @@
     calls.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
     members = members.filter((m) => m.name !== 短く(key));
+    会話 = [...会話, 入退室の知らせ('退室', 短く(key), (k, v) => format(t(`chat.${k}`), v))];
+    音を出す(退室の音);
   }
 
   /** 鍵は長い。**先頭だけ出す**（全桁は会議キーの欄で選べる） */
@@ -329,6 +379,8 @@
     if (!body) return;
     try {
       await sendText(body);
+      // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
+      log(話の記録('送信', `${remotes.length} 人`, body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
       会話 = [...会話, { who: t('tile.me'), body, mine: true }];
       下書き = '';
@@ -375,12 +427,38 @@
         </div>
       {/each}
     </div>
+    {#if 会議中}
+      <!--
+        **会議中の入切。**「カメラとマイクを確かめる」（支度）とは別物にしてある。
+        支度は機器を取り直すので、会議中に押すと相手には静止画のあと真っ黒が映る
+        （2026-09-04 に実機で踏んだ）。ここは track の入切だけを触る。
+      -->
+      <div class="controls">
+        <button
+          type="button"
+          class:off={!prefs.micOn}
+          aria-pressed={prefs.micOn}
+          onclick={() => { prefs.micOn = !prefs.micOn; 適用する(); }}
+        >
+          <Icon name={prefs.micOn ? 'mic' : 'mic-off'} />{t('call.mic')}
+        </button>
+        <button
+          type="button"
+          class:off={!prefs.cameraOn}
+          aria-pressed={prefs.cameraOn}
+          onclick={() => { prefs.cameraOn = !prefs.cameraOn; 適用する(); }}
+        >
+          <Icon name={prefs.cameraOn ? 'camera' : 'camera-off'} />{t('call.camera')}
+        </button>
+      </div>
+    {/if}
     {#if notice}
       <p class="notice">{notice}</p>
     {/if}
   </section>
 
   <aside>
+    {#if !会議中}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('setup.title')}</h2>
       <p class="hint">{t('setup.hint')}</p>
@@ -468,10 +546,13 @@
         <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
       </button>
     </div>
+    {/if}
 
-    <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
-
-    <div class="card">
+    <!--
+      **会議中はここが一番上に来る。**下に置くと気づかれない
+      （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された）。
+    -->
+    <div class="card chat" class:live={会議中}>
       <h2><Icon name="people" size={18} />{t('chat.title')}</h2>
       <p class="hint">{t('chat.hint')}</p>
       <div class="talk">
@@ -479,7 +560,9 @@
           <p class="hint">{t('chat.empty')}</p>
         {/if}
         {#each 会話 as line, i (i)}
-          <p class="line" class:mine={line.mine}><b>{line.who}</b>{line.body}</p>
+          <p class="line" class:mine={line.mine} class:system={line.system}>
+            {#if !line.system}<b>{line.who}</b>{/if}{line.body}
+          </p>
         {/each}
       </div>
       <div class="say">
@@ -492,6 +575,9 @@
         <button type="button" onclick={話す} disabled={!下書き.trim()}>{t('chat.send')}</button>
       </div>
     </div>
+
+    <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
+
   </aside>
 </main>
 
@@ -612,6 +698,26 @@
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
     word-break: break-word;
+  }
+  /* **会議からの知らせ。**人の発言と見分けが付く形にする */
+  .line.system {
+    color: var(--text-tertiary);
+    font-style: italic;
+    text-align: center;
+  }
+  /* 会議中はチャットを広く取る。**下に小さく置くと気づかれない** */
+  .chat.live .talk {
+    max-height: 420px;
+  }
+  /* **会議中の入切。**映像のすぐ下に置く（探させない） */
+  .controls {
+    display: flex;
+    gap: var(--space-2);
+    justify-content: center;
+    padding: var(--space-2) 0 0;
+  }
+  .controls button.off {
+    opacity: 0.55;
   }
   .line b {
     margin-right: 6px;

@@ -5,17 +5,18 @@ import {
   mediaConstraints,
   nextAttempt,
   sendModeFor,
+  送るものを言う,
   shouldSendVideo,
 } from './media';
 
 describe('カメラとマイクの求め方（M5-c2）', () => {
   it('映像と音声の両方を求める', () => {
-    expect(mediaConstraints()).toEqual({ audio: true, video: true });
+    expect(mediaConstraints()).toMatchObject({ video: true });
   });
 
   it('音声だけで始められる（映像は後から足す）', () => {
     // D29「始まりは音声だけ」と同じ構え。測る前に映像を出さない
-    expect(mediaConstraints({ video: false })).toEqual({ audio: true, video: false });
+    expect(mediaConstraints({ video: false })).toMatchObject({ video: false });
   });
 
   it('**外部の STUN / TURN を既定で使わない**', () => {
@@ -61,8 +62,8 @@ describe('測る前に映像を出さない（D29「始まりは音声だけ」�
 
 describe('機器が無いときの入り方（受け取るだけ）', () => {
   it('まず映像と音声、次に音声だけ、最後は何も送らない', () => {
-    expect(nextAttempt(null)).toEqual({ audio: true, video: true });
-    expect(nextAttempt({ audio: true, video: true })).toEqual({ audio: true, video: false });
+    expect(nextAttempt(null)).toMatchObject({ video: true });
+    expect(nextAttempt({ audio: true, video: true })).toMatchObject({ video: false });
     expect(nextAttempt({ audio: true, video: false })).toBeNull();
   });
 
@@ -72,5 +73,35 @@ describe('機器が無いときの入り方（受け取るだけ）', () => {
     expect(sendModeFor(null)).toBe('none');
     expect(sendModeFor({ audio: true, video: false })).toBe('audio');
     expect(sendModeFor({ audio: true, video: true })).toBe('both');
+  });
+});
+
+describe('送るものを言う', () => {
+  it('ログの中で英語が混ざらない', () => {
+    // **他が全部日本語なのに、ここだけ `none` と出ていた**
+    // （別の機械の担当から 2026-09-04 に指摘された）
+    expect(送るものを言う('both')).toBe('映像と音');
+    expect(送るものを言う('audio')).toBe('音だけ');
+    expect(送るものを言う('none')).toBe('なし');
+  });
+});
+
+describe('mediaConstraints', () => {
+  it('エコー除去・雑音抑制・自動音量をはっきり頼む', () => {
+    // **既定に任せない。**同じ部屋で 2 台鳴らすと回り込む（ハウリング）。
+    // 消しきれない場合があることは画面が注意しているが、
+    // **頼んでいないのに「消えない」と言うのは筋が違う**
+    const c = mediaConstraints();
+    expect(c.audio).toEqual({
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    });
+  });
+
+  it('映像を切っても、音の設定は変わらない', () => {
+    const c = mediaConstraints({ video: false });
+    expect(c.video).toBe(false);
+    expect(c.audio).toMatchObject({ echoCancellation: true });
   });
 });

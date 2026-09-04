@@ -144,6 +144,31 @@ export class Call {
     void sendSignal(step, blob, this.peer);
   };
 
+  /**
+   * 送っているものを入れ替える。**通話を張り直さない。**
+   *
+   * 会議中に支度をやり直すと、前のトラックは `stop()` されている。
+   * 入れ替えないまま放っておくと、**相手には静止画のあと真っ黒が映る**
+   * （2026-09-04 に実機で踏んだ）。
+   */
+  async replaceTracks(stream: MediaStream | null): Promise<void> {
+    if (this.closed) return;
+    this.local = stream;
+    for (const tr of this.pc.getTransceivers()) {
+      const kind = tr.sender.track?.kind ?? tr.receiver.track?.kind;
+      if (kind !== 'audio' && kind !== 'video') continue;
+      const 次 = kind === 'audio' ? (stream?.getAudioTracks()[0] ?? null) : (stream?.getVideoTracks()[0] ?? null);
+      try {
+        await tr.sender.replaceTrack(次);
+      } catch {
+        // 握り潰す理由: 1 本の入れ替えに失敗しても、残りは入れ替える。
+        // ここで止めると、音だけ古いまま・映像だけ新しい、という半端な状態で固まる
+      }
+    }
+    this.setAudioEnabled(this.prefs.micOn);
+    this.setVideoEnabled(this.prefs.cameraOn && shouldSendVideo(this.watch.shown));
+  }
+
   /** 会議中に入と切を変える。**支度で決めた値を上書きする。** */
   setPrefs(prefs: Prefs): void {
     this.prefs = prefs;
