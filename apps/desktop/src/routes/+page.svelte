@@ -60,6 +60,14 @@
   let sendMode = $state<SendMode>('none');
   /** 支度を一度でも試したか。**まだなら「受け取るだけ」と言わない。** */
   let 支度した = $state(false);
+  /**
+   * 入室の最中か。
+   *
+   * **押した手応えが無いと、人は二度押す。**二度押すと 2 本目の経路が
+   * 1 本目を置き換え、1 本目が閉じて「経路が閉じました」になる
+   * （2026-09-04 に実機で踏んだ）。**押せなくするだけでなく、動いていると見せる。**
+   */
+  let 入室中 = $state(false);
 
   let members = $state<Member[]>([]);
   let notice = $state('');
@@ -271,11 +279,15 @@
   }
 
   async function 入室する() {
+    if (入室中) return;
     notice = '';
+    入室中 = true;
     try {
       await connect(received.trim());
     } catch (e) {
       notice = 読める(e);
+    } finally {
+      入室中 = false;
     }
   }
 </script>
@@ -393,8 +405,8 @@
       <h2><Icon name="enter" size={18} />{t('meeting.join.title')}</h2>
       <p class="hint">{t('meeting.join.hint')}</p>
       <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
-      <button type="button" onclick={入室する} disabled={!received.trim()}>
-        <Icon name="enter" />{t('meeting.join.action')}
+      <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
+        <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
       </button>
     </div>
 

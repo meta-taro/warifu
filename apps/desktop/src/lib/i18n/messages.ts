@@ -35,6 +35,7 @@ export type MessageKey =
   | 'meeting.join.title'
   | 'meeting.join.hint'
   | 'meeting.join.action'
+  | 'meeting.join.working'
   | 'meeting.key.own'
   | 'setup.title'
   | 'setup.hint'
@@ -102,6 +103,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.both': '映像と音声を送ります',
     'setup.mode.audio': 'カメラが無いので、音声だけ送ります',
     'setup.mode.none': 'カメラもマイクも無いので、受け取るだけで入ります',
+    'meeting.join.working': '入室しています…',
     'setup.title': '入室前のしたく',
     'setup.hint': 'いま自分が何で映って、何で喋るかを、入る前に確かめられます。',
     'setup.action': 'カメラとマイクを確かめる',
@@ -152,6 +154,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.both': 'Sending video and audio',
     'setup.mode.audio': 'No camera, so sending audio only',
     'setup.mode.none': 'No camera or microphone, so joining to receive only',
+    'meeting.join.working': 'Entering…',
     'setup.title': 'Before you enter',
     'setup.hint': 'Check what you look and sound like before entering.',
     'setup.action': 'Check camera and microphone',
@@ -202,6 +205,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.both': '将发送视频和音频',
     'setup.mode.audio': '没有摄像头，只发送音频',
     'setup.mode.none': '没有摄像头和麦克风，仅接收方式加入',
+    'meeting.join.working': '正在进入…',
     'setup.title': '进入前的准备',
     'setup.hint': '进入之前，先确认自己的画面和声音。',
     'setup.action': '检查摄像头和麦克风',
@@ -252,6 +256,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.mode.both': '영상과 음성을 보냅니다',
     'setup.mode.audio': '카메라가 없어 음성만 보냅니다',
     'setup.mode.none': '카메라도 마이크도 없어 받기만 하며 참여합니다',
+    'meeting.join.working': '입장 중…',
     'setup.title': '입장 전 준비',
     'setup.hint': '들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.',
     'setup.action': '카메라와 마이크 확인',

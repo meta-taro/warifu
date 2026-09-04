@@ -247,7 +247,7 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     let mut channel = Channel::new(session);
 
     // 会議が無ければ、その場で作る（呼ぶ側が主催者になる）
-    let meeting_id = {
+    let (meeting_id, events) = {
         let mut slot = bridge.conference.lock().await;
         if slot.is_none() {
             *slot = Some(Conference::host(
@@ -258,14 +258,18 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         let conference = slot.as_mut().expect("直前に入れた");
         // 相手を名簿へ入れる。**受け取る側でも数える**（D15）ので、
         // ここで通っても相手は自分の側で別に数える
-        conference.on_notice(
+        let events = conference.on_notice(
             peer,
             &Notice::Join {
                 meeting: conference.id(),
             },
         )?;
-        conference.id()
+        (conference.id(), events)
     };
+    // **呼んだ側にも「入った」を流す。**
+    // ここを落としていたので、**呼んだ側は通話を作らず、相手の映像が来なかった**
+    // （2026-09-04 に実機で判明）。受けた側だけが Call を持っている状態になる
+    emit_events(&app, &events);
 
     // 入ると告げる
     channel
