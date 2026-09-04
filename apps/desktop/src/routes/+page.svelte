@@ -167,6 +167,14 @@
     return () => unsubs.forEach((un) => un());
   });
 
+  /**
+   * タイルの並べ方を決めるための人数（自分 ＋ 相手）。
+   *
+   * **10 人以上をひとまとめにする。**`data-count` を人数ぶん書くと、
+   * 外枠（16）まで CSS が伸びる。**そこまで細かく分ける意味は無い**（4 列で足りる）。
+   */
+  const タイルの数 = $derived(remotes.length + 1 >= 10 ? 'many' : String(remotes.length + 1));
+
   /** 1 人ぶんの表示を差し替える。 */
   function 相手を更新(key: string, patch: { stream?: MediaStream; path?: LinkPath }) {
     remotes = remotes.map((r) => (r.key === key ? { ...r, ...patch } : r));
@@ -242,7 +250,7 @@
 
 <main>
   <section class="stage">
-    <div class="tiles">
+    <div class="tiles" data-count={タイルの数}>
       <div class="tile">
         <!-- 自分の映像は音を出さない（**回り込む**） -->
         <video bind:this={previewVideo} autoplay playsinline muted></video>
@@ -369,10 +377,26 @@
     flex-direction: column;
     gap: var(--space-3);
   }
+  /* 人数で列を変える。**1 対 1 は大きく、増えたら小さく**。
+     auto-fit だけに任せると、3 人のときに 1 人だけ次の行で大きく残る */
   .tiles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--space-3);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  .tiles[data-count='3'],
+  .tiles[data-count='4'] {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .tiles[data-count='5'],
+  .tiles[data-count='6'],
+  .tiles[data-count='7'],
+  .tiles[data-count='8'],
+  .tiles[data-count='9'] {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .tiles[data-count='many'] {
+    grid-template-columns: repeat(4, 1fr);
   }
   .tile {
     display: flex;
