@@ -33,6 +33,7 @@
     hostMeeting,
     inTauri,
     invite,
+    leave,
     listen,
     myKey,
     onEvent,
@@ -219,6 +220,14 @@
    * 外枠（16）まで CSS が伸びる。**そこまで細かく分ける意味は無い**（4 列で足りる）。
    */
   const タイルの数 = $derived(remotes.length + 1 >= 10 ? 'many' : String(remotes.length + 1));
+
+  // 窓を閉じるときに「抜けます」と告げる（相手の名簿から消えるように）。
+  // **閉じる側を待たせない** — 届かなくても閉じる
+  $effect(() => {
+    const 閉じる前に = () => void leave();
+    window.addEventListener('beforeunload', 閉じる前に);
+    return () => window.removeEventListener('beforeunload', 閉じる前に);
+  });
 
   /** 1 人ぶんの表示を差し替える。 */
   function 相手を更新(key: string, patch: { stream?: MediaStream; path?: LinkPath }) {

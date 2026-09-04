@@ -72,6 +72,14 @@ export const hostMeeting = (capacity: number) => invoke<string>('host_meeting', 
  */
 export const connect = (invite: string) => invoke<void>('connect', { invite });
 
+/**
+ * **会議から抜けると告げる。**
+ *
+ * 告げないと、相手の名簿からは経路が切れたときにしか消えない。
+ * 2 人なら経路が切れれば分かるが、**3 人以上では他の人の名簿に残り続ける。**
+ */
+export const leave = () => invoke<void>('leave');
+
 /** 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。** */
 export const listen = () => invoke<void>('listen');
 

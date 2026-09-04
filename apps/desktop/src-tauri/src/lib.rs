@@ -559,6 +559,31 @@ async fn 紹介を配る(
     }
 }
 
+/// **会議から抜けると告げる。**
+///
+/// 告げないと、相手の名簿からは**経路が切れたときにしか**消えない。
+/// 2 人なら経路が切れれば分かるが、**3 人以上では他の人の名簿に残り続ける**
+/// （その人との経路は生きているため）。
+///
+/// **全員へ送る。**抜けたことは、繋がっている全員に関係がある。
+#[tauri::command]
+async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
+    let meeting = {
+        let slot = bridge.conference.lock().await;
+        slot.as_ref().map(Conference::id)
+    };
+    let Some(meeting) = meeting else {
+        // まだ会議が無い。**断りではない**ので黙って戻る
+        return Ok(());
+    };
+    let out = bridge.outbound.lock().await;
+    for tx in out.values() {
+        // 届かない相手が居ても止めない。**抜ける側を待たせない**
+        let _ = tx.send(Notice::Leave { meeting }).await;
+    }
+    Ok(())
+}
+
 /// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。
 #[tauri::command]
 async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool> {
@@ -615,6 +640,7 @@ pub fn run() {
             invite,
             send_signal,
             should_offer_to,
+            leave,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())
