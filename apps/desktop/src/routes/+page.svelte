@@ -32,6 +32,7 @@
   } from '$lib/webrtc/devices';
   import { Call } from '$lib/webrtc/session';
   import {
+    type ClosedReason,
     EVENT_CLOSED,
     EVENT_INTRODUCED,
     EVENT_JOINED,
@@ -261,8 +262,9 @@
         }),
       );
       unsubs.push(
-        await onEvent<string>(EVENT_CLOSED, (key) => {
-          notice = t('link.closed');
+        await onEvent<[string, ClosedReason]>(EVENT_CLOSED, ([key, 訳]) => {
+          // **落ちたのを「退出しました」と言わない。**待てば戻ると誤解させる
+          notice = t(訳 === 'lost' ? 'link.lost' : 'link.closed');
           片付ける(key);
         }),
       );

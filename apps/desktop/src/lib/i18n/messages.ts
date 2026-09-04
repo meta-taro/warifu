@@ -66,6 +66,7 @@ export type MessageKey =
   | 'edit.selectAll'
   | 'edit.pasteHint'
   | 'link.closed'
+  | 'link.lost'
   | 'browser.only'
   | 'camera.denied'
   | 'camera.missing'
@@ -98,7 +99,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': 'もらった側が入室します。渡した側は待つだけです。',
     'meeting.join.action': '入室する',
     'meeting.key.own': 'これは自分の会議キーです。参加者に渡してください。',
-    'link.closed': '経路が閉じました。',
+    'link.closed': '相手が退出しました。',
+    'link.lost': '相手との経路が切れました。この会議キーではもう入室できません。新しい会議キーを作り直してください。',
     'browser.only': 'ブラウザで開いています。会議は warifu の窓でだけ動きます。',
     'camera.denied': 'カメラとマイクが許可されていません。OS の設定で許可してください。',
     'camera.missing': 'カメラかマイクが見つかりません。',
@@ -159,7 +161,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': 'Whoever received the key enters. Whoever gave it just waits.',
     'meeting.join.action': 'Enter the meeting',
     'meeting.key.own': 'That is your own meeting key. Hand it to the people joining.',
-    'link.closed': 'The connection closed.',
+    'link.closed': 'The other person left.',
+    'link.lost': 'The connection to the other person was lost. This meeting key can no longer be used — create a new one.',
     'browser.only': 'Opened in a browser. Meetings only work inside the warifu window.',
     'camera.denied': 'Camera and microphone are not allowed. Allow them in your OS settings.',
     'camera.missing': 'No camera or microphone found.',
@@ -220,7 +223,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': '收到密钥的一方进入，交出的一方等待即可。',
     'meeting.join.action': '进入会议',
     'meeting.key.own': '这是你自己的会议密钥。请交给参加者。',
-    'link.closed': '连接已关闭。',
+    'link.closed': '对方已离开。',
+    'link.lost': '与对方的连接已中断。此会议密钥已无法再次使用，请重新创建。',
     'browser.only': '正在浏览器中打开。会议只能在 warifu 窗口里进行。',
     'camera.denied': '未允许使用摄像头和麦克风。请在系统设置中允许。',
     'camera.missing': '找不到摄像头或麦克风。',
@@ -281,7 +285,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': '받은 쪽이 입장합니다. 건넨 쪽은 기다리기만 하면 됩니다.',
     'meeting.join.action': '입장하기',
     'meeting.key.own': '자신의 회의 키입니다. 참가자에게 건네주세요.',
-    'link.closed': '연결이 끊겼습니다.',
+    'link.closed': '상대방이 나갔습니다.',
+    'link.lost': '상대방과의 연결이 끊어졌습니다. 이 회의 키는 다시 사용할 수 없으니 새로 만들어 주세요.',
     'browser.only': '브라우저에서 열렸습니다. 회의는 warifu 창에서만 동작합니다.',
     'camera.denied': '카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.',
     'camera.missing': '카메라나 마이크를 찾을 수 없습니다.',
@@ -330,6 +335,7 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'revoke.confirm',
   'door.refused',
   'meeting.key.hint',
+  'link.lost',
 ] as const;
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
@@ -346,6 +352,9 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
   'meeting.key.hint':
     '「渡した相手だけが入室できる」は仕組みの説明であって、安全の保証ではない。' +
     '「安全です」と読める訳にしないこと — **会議キーを他人に見られたら、その人が入室できる。**',
+  'link.lost':
+    '**戻ってこない**という意味。「再接続しています」「復旧を試みています」と読める訳にしないこと。' +
+    '待てば戻ると誤解すると、人は待ち続ける — **同じ会議キーでは二度と入室できない**（割符は一度きり・D12）。',
 };
 
 /** 差し込み口を埋める。無い鍵はそのまま残す（黙って空にしない）。 */

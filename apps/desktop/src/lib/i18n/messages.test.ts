@@ -43,6 +43,18 @@ describe('文言辞書（DESIGN.md §9 / D35）', () => {
     expect(CRITICAL_KEYS).toContain('door.refused');
   });
 
+  it('相手が帰ったのと落ちたのを、同じ文言にしない', () => {
+    // 人はこの 2 つで次の手が変わる。帰ったなら会議は終わり、
+    // 落ちたなら**会議キーを作り直して渡し直す**（割符は一度きり・D12）。
+    // CLI 側は 2026-09-04 に分けた（`相手が帰りました` / `相手が落ちました`）。
+    for (const locale of LOCALES) {
+      expect(MESSAGES[locale]['link.closed'], `${locale} で分かれていない`).not.toBe(
+        MESSAGES[locale]['link.lost'],
+      );
+      expect(MESSAGES[locale]['link.lost'].trim(), `${locale}.link.lost が空`).not.toBe('');
+    }
+  });
+
   it('注記は辞書にある鍵にしか付けられない', () => {
     const base = keysOf('en');
     for (const key of Object.keys(TRANSLATOR_NOTES)) {

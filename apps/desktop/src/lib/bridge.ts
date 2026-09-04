@@ -9,7 +9,16 @@
 export const EVENT_JOINED = 'warifu://joined';
 export const EVENT_LEFT = 'warifu://left';
 export const EVENT_SIGNAL = 'warifu://signal';
+/**
+ * 経路が終わった。`[公開鍵, 訳]` で届く。
+ *
+ * **訳を混ぜない。**人はこの 2 つで次の手が変わる —— `left` なら会議は終わり、
+ * `lost` なら**会議キーを作り直して渡し直す**（割符は一度きり・**D12**）。
+ */
 export const EVENT_CLOSED = 'warifu://closed';
+
+/** 経路が終わった訳。Rust 側（`lib.rs`）と同じ文字列を持つ。 */
+export type ClosedReason = 'left' | 'lost';
 /** 誰かの住所を教わった（**D41**）。`[公開鍵, 住所]` で届く。 */
 export const EVENT_INTRODUCED = 'warifu://introduced';
 /** 文字が届いた。`[誰から, 中身]` で届く。 */

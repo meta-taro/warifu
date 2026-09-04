@@ -507,17 +507,25 @@ fn 汲む(
     let (tx, mut rx) = mpsc::channel::<Notice>(32);
     tokio::spawn(async move {
         outbound.lock().await.insert(peer.to_bytes(), tx);
-        loop {
+        let 訳 = loop {
             tokio::select! {
                 // 画面から送るもの
                 outgoing = rx.recv() => {
-                    let Some(notice) = outgoing else { break };
+                    // 画面が口を閉じた（会議を降りた）。**落ちたのではない**
+                    let Some(notice) = outgoing else { break "left" };
                     let Ok(intent) = notice.to_intent() else { continue };
-                    if channel.send(&intent).await.is_err() { break; }
+                    // **送れないのは経路が落ちたということ**
+                    if channel.send(&intent).await.is_err() { break "lost"; }
                 }
                 // 相手から届くもの
                 incoming = channel.recv() => {
-                    let Ok(intent) = incoming else { break };
+                    // **「帰った」と「落ちた」を混ぜない。**人はこの 2 つで次の手が変わる
+                    // （帰ったなら会議は終わり、落ちたなら**会議キーを作り直す**・D12）
+                    let intent = match incoming {
+                        Ok(i) => i,
+                        Err(warifu_intent::Error::Closed) => break "left",
+                        Err(_) => break "lost",
+                    };
                     let Ok(notice) = Notice::from_intent(&intent) else {
                         // 会議のものでない口は、経路としては通る。**会議は受け取らない**
                         continue;
@@ -559,10 +567,11 @@ fn 汲む(
                     }
                 }
             }
-        }
+        };
         // **自分の口だけを外す。**ほかの相手との経路は生きている（M6）
         outbound.lock().await.remove(&peer.to_bytes());
-        let _ = app.emit(EVENT_CLOSED, key_to_string(peer));
+        記録!("経路が終わった: {}（{訳}）", 短く(&key_to_string(peer)));
+        let _ = app.emit(EVENT_CLOSED, (key_to_string(peer), 訳));
     });
 }
 
