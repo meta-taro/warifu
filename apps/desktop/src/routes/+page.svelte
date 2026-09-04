@@ -249,6 +249,23 @@
     return () => window.removeEventListener('beforeunload', 閉じる前に);
   });
 
+  // **画面がいま何を出しているかを、ログへ書く。**
+  //
+  // 画面を押せない相手（別の機械のエージェント・CI）からは、
+  // **絵は見えないがログは読める。**「押して確かめる」の代わりになる。
+  // 変わったときだけ書く —— 毎秒書くと、肝心の行が埋もれる
+  $effect(() => {
+    const 状態 = [
+      `名簿 ${members.length}/${DEFAULT_CAPACITY}`,
+      `相手 ${remotes.length} 人`,
+      `送るもの ${sendMode}`,
+      `会議キー ${meetingKey ? 'あり' : 'なし'}`,
+      `経路 ${remotes.map((r) => r.path).join(',') || 'なし'}`,
+      notice ? `知らせ「${notice}」` : '知らせなし',
+    ].join(' / ');
+    log(`いまの画面: ${状態}`);
+  });
+
   /** 1 人ぶんの表示を差し替える。 */
   function 相手を更新(key: string, patch: { stream?: MediaStream; path?: LinkPath }) {
     remotes = remotes.map((r) => (r.key === key ? { ...r, ...patch } : r));
