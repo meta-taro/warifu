@@ -35,6 +35,7 @@
     invite,
     leave,
     listen,
+    log,
     myKey,
     onEvent,
     setMenuLocale,
@@ -164,14 +165,19 @@
     void (async () => {
       unsubs.push(
         await onEvent<string>(EVENT_JOINED, async (key) => {
+          log(`入った人がいる（${短く(key)}）。通話を作る`);
           members = [...members, { name: 短く(key), path: 'unknown' }];
           remotes = [...remotes, { key, stream: null, path: 'unknown' }];
           const offering = (await shouldOfferTo(key)) ?? false;
           const call = new Call(
             offering,
             {
-              onRemoteStream: (s) => 相手を更新(key, { stream: s }),
+              onRemoteStream: (s) => {
+                log(`相手の映像が届いた（${短く(key)}）`);
+                相手を更新(key, { stream: s });
+              },
               onPath: (p) => {
+                log(`経路が変わった: ${p}（${短く(key)}）`);
                 相手を更新(key, { path: p });
                 members = members.map((m) => (m.name === 短く(key) ? { ...m, path: p } : m));
               },
@@ -180,8 +186,10 @@
             key,
           );
           calls.set(key, call);
+          log(`offer を出す側か: ${offering}`);
           if (!支度した) await 支度する();
           // **null でも入れる**（受け取るだけ・機器が無い機械）
+          log(`通話を始める（送るもの: ${sendMode}）`);
           await call.begin(localStream);
         }),
       );
@@ -200,7 +208,9 @@
       unsubs.push(
         await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => {
           // **誰から来たかで振り分ける。**間違えると別の組の経路が壊れる
-          if (p.from) void calls.get(p.from)?.receive(p);
+          const 宛先 = p.from ? calls.get(p.from) : undefined;
+          log(`下ごしらえが来た: ${p.step}（${p.from ? 短く(p.from) : '差出人なし'}）${宛先 ? '' : ' ← **通話が無い**'}`);
+          void 宛先?.receive(p);
         }),
       );
       unsubs.push(

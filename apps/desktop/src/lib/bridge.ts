@@ -80,6 +80,16 @@ export const connect = (invite: string) => invoke<void>('connect', { invite });
  */
 export const leave = () => invoke<void>('leave');
 
+/**
+ * 画面の出来事を、Rust と同じログへ流す。
+ *
+ * WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、
+ * 切り分けが「Rust までは来ていた」で止まる。**
+ *
+ * **短い一言だけ**を渡す。中身（SDP・鍵・住所）は渡さない。
+ */
+export const log = (message: string) => void invoke<void>('log', { message });
+
 /** 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。** */
 export const listen = () => invoke<void>('listen');
 

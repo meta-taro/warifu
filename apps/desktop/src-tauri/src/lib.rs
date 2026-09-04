@@ -38,6 +38,24 @@ const EVENT_CLOSED: &str = "warifu://closed";
 /// 誰かの住所を教わった（**D41**）。画面はこれを見て、自分から呼びに行く。
 const EVENT_INTRODUCED: &str = "warifu://introduced";
 
+/// 経路の要所を書き出す。
+///
+/// **繋がらなかったときに「どこまで進んだか」が分かる**ようにするためだけのもの。
+/// ターミナルから起動したときだけ人の目に入る（`open` では消える）。
+///
+/// **秘密情報を書かない**（baseline §14）。割符の中身・SDP の中身・
+/// 公開鍵の全桁は出さない。**長さと種類だけ**を出す。
+macro_rules! 記録 {
+    ($($arg:tt)*) => {
+        eprintln!("[warifu] {}", format!($($arg)*))
+    };
+}
+
+/// 鍵や住所を、追える範囲で短く。**全桁は出さない。**
+fn 短く(s: &str) -> String {
+    s.chars().take(12).collect::<String>() + "…"
+}
+
 /// 画面へ返す失敗。**下の層の理由を捨てない。**
 ///
 /// `code` は**画面が訳すための鍵**（`messages.ts` の鍵と同じ文字列）。
@@ -233,16 +251,22 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
             code: Some("meeting.key.own".into()),
         });
     }
+    記録!("入室: 会議キーを読んだ（宛先 {}）", 短く(&address));
     let node = bridge.node().await?;
     let to = Address::from_str(&address)?;
     let mut session = node.connect(&to, &Revocations::new()).await?;
     let peer = session.peer();
+    記録!(
+        "入室: 経路がつながった（相手 {}）",
+        短く(&key_to_string(peer))
+    );
 
     // **最初に割符へ応じる。**会議の話をする前に、通ってよい相手かを相手が決める。
     // ここは Intent の下（生のバイト列）で済ませる。「何を話すか」ではなく
     // 「そもそも話してよいか」の段なので、口の語彙を増やさない（D11）
     let acceptance = bridge.device.accept(&token, now_secs())?;
     session.send(&acceptance.to_bytes()).await?;
+    記録!("入室: 割符に応じた");
 
     let mut channel = Channel::new(session);
 
@@ -269,6 +293,7 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     // **呼んだ側にも「入った」を流す。**
     // ここを落としていたので、**呼んだ側は通話を作らず、相手の映像が来なかった**
     // （2026-09-04 に実機で判明）。受けた側だけが Call を持っている状態になる
+    記録!("入室: 名簿に入れた（{} 件の出来事を画面へ）", events.len());
     emit_events(&app, &events);
 
     // 入ると告げる
@@ -311,7 +336,16 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             };
 
             // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31）
+            記録!("待受: 誰かが来た（{}）", 短く(&key_to_string(peer)));
             let 合った = 割符を確かめる(&mut session, &tally, &subject).await;
+            記録!(
+                "待受: 割符は{}",
+                if 合った {
+                    "合った"
+                } else {
+                    "合わなかった"
+                }
+            );
             let 答え = {
                 let mut door = door.lock().await;
                 let knock = if 合った {
@@ -321,6 +355,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 };
                 door.answer(&knock)
             };
+            記録!("待受: 戸口の答えは {答え:?}");
             if 答え != DoorAnswer::Open {
                 // **断る理由を相手に返さない**（D31）。黙って落とす
                 continue;
@@ -425,6 +460,7 @@ fn 汲む(
                         continue;
                     };
                     // **紹介は名簿を動かさない**（D41）
+                    記録!("受信: {}", 知らせの名(&notice));
                     if let Notice::Introduce { meeting, who, address } = &notice {
                         addresses.lock().await.insert(who.to_bytes(), address.clone());
                         // 自分が主催者なら、**入った人を既存の面々へ配り、
@@ -476,6 +512,12 @@ async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answe
             code: None,
         });
     };
+    記録!(
+        "送信: 下ごしらえ {} を {} へ（{} バイト）",
+        payload.step,
+        payload.to.as_deref().map_or("（唯一の相手）".into(), 短く),
+        payload.blob.len()
+    );
     let notice = Notice::Signal(Signal::new(meeting, step, payload.blob.into_bytes()));
 
     let slot = bridge.outbound.lock().await;
@@ -559,6 +601,17 @@ async fn 紹介を配る(
     }
 }
 
+/// **画面の出来事を、同じログへ流す。**
+///
+/// WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、
+/// 切り分けが「Rust までは来ていた」で止まる。**
+///
+/// 画面が渡すのは**短い一言だけ**にしてある。中身（SDP・鍵・住所）は渡さない。
+#[tauri::command]
+fn log(message: String) {
+    記録!("画面: {message}");
+}
+
 /// **会議から抜けると告げる。**
 ///
 /// 告げないと、相手の名簿からは**経路が切れたときにしか**消えない。
@@ -606,6 +659,19 @@ async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool
     Ok(conference.should_offer_to(&key))
 }
 
+/// 知らせの種類だけを言う。**中身は出さない。**
+fn 知らせの名(n: &Notice) -> &'static str {
+    match n {
+        Notice::Invite { .. } => "招待",
+        Notice::Join { .. } => "参加",
+        Notice::Leave { .. } => "退出",
+        Notice::Signal(_) => "下ごしらえ（SDP / ICE）",
+        Notice::Link { .. } => "回線の報せ",
+        Notice::Introduce { .. } => "紹介",
+        _ => "知らない知らせ",
+    }
+}
+
 fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
     for event in events {
         let _ = match event {
@@ -628,6 +694,7 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            記録!("起動しました。ここから経路の要所を書き出します");
             app.manage(Bridge::new());
             Ok(())
         })
@@ -641,6 +708,7 @@ pub fn run() {
             send_signal,
             should_offer_to,
             leave,
+            log,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())
