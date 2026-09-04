@@ -47,8 +47,21 @@ const EVENT_INTRODUCED: &str = "warifu://introduced";
 /// 公開鍵の全桁は出さない。**長さと種類だけ**を出す。
 macro_rules! 記録 {
     ($($arg:tt)*) => {
-        eprintln!("[warifu] {}", format!($($arg)*))
+        eprintln!("[warifu +{:.3}s] {}", 起動からの秒(), format!($($arg)*))
     };
+}
+
+/// 起動してから何秒経ったか。
+///
+/// **時刻ではなく経過秒にする。**知りたいのは「何時か」ではなく
+/// **「押してから何秒で映ったか」**であり、経過秒ならその場で引き算せずに読める。
+/// 時差も夏時間も関係しない。
+fn 起動からの秒() -> f64 {
+    static 起動: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    起動
+        .get_or_init(std::time::Instant::now)
+        .elapsed()
+        .as_secs_f64()
 }
 
 /// 鍵や住所を、追える範囲で短く。**全桁は出さない。**
@@ -189,9 +202,22 @@ async fn my_address(bridge: State<'_, Bridge>) -> Answer<String> {
 async fn invite(bridge: State<'_, Bridge>, ttl_secs: u64) -> Answer<String> {
     let node = bridge.node().await?;
     let address = node.address().await?.to_string();
+    // **会議 id を鍵に載せる。**載せないと入る側が別の id を名乗り、
+    // こちらが「別の会議あて」として捨てる（2026-09-04 に実機で踏んだ）
+    let meeting = {
+        let mut slot = bridge.conference.lock().await;
+        if slot.is_none() {
+            *slot = Some(Conference::host(
+                bridge.device.public_key(),
+                warifu_app::DEFAULT_CAPACITY,
+            )?);
+        }
+        slot.as_ref().expect("直前に入れた").id()
+    };
     let (tally, token) = bridge.device.issue_tally(now_secs(), ttl_secs)?;
     *bridge.tally.lock().await = Some(tally);
-    Ok(format_invite(&address, &token))
+    記録!("会議キーを作った（会議 {}）", 短く(&meeting.to_string()));
+    Ok(format_invite(&address, &token, meeting))
 }
 
 /// **OS のメニューを、画面と同じ言語にする**（D35）。
@@ -241,7 +267,7 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
 #[tauri::command]
 async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> Answer<()> {
     // **宛先だけでは繋がない。**会議キーに割符が付いていなければここで止まる（D31）
-    let (address, token) = parse_invite(&invite)?;
+    let (address, token, meeting) = parse_invite(&invite)?;
     // **自分の会議キーを貼ったときは、ここで気づく。**
     // 下の層（iroh）は "Connecting to ourself is not supported" としか言わない。
     // 画面が訳せるように、文言そのものではなく**鍵**を返す
@@ -270,26 +296,31 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
 
     let mut channel = Channel::new(session);
 
-    // 会議が無ければ、その場で作る（呼ぶ側が主催者になる）
-    let (meeting_id, events) = {
+    // **会議キーに書かれた会議へ入る。**自分で id を作らない。
+    // 作ると相手の会議と別物になり、送った知らせが「別の会議あて」として捨てられる
+    let events = {
         let mut slot = bridge.conference.lock().await;
-        if slot.is_none() {
-            *slot = Some(Conference::host(
-                bridge.device.public_key(),
-                warifu_app::DEFAULT_CAPACITY,
-            )?);
-        }
-        let conference = slot.as_mut().expect("直前に入れた");
-        // 相手を名簿へ入れる。**受け取る側でも数える**（D15）ので、
-        // ここで通っても相手は自分の側で別に数える
-        let events = conference.on_notice(
-            peer,
-            &Notice::Join {
-                meeting: conference.id(),
-            },
-        )?;
-        (conference.id(), events)
+        let mut roster = warifu_meeting::Roster::with_capacity(
+            bridge.device.public_key(),
+            warifu_app::DEFAULT_CAPACITY,
+        )
+        .map_err(|e| Failure {
+            message: e.to_string(),
+            code: None,
+        })?;
+        roster.add(peer).map_err(|e| Failure {
+            message: e.to_string(),
+            code: None,
+        })?;
+        *slot = Some(Conference::joined(
+            bridge.device.public_key(),
+            meeting,
+            roster,
+        ));
+        vec![warifu_app::Event::Joined(peer)]
     };
+    let meeting_id = meeting;
+    記録!("入室: 会議 {} に入る", 短く(&meeting.to_string()));
     // **呼んだ側にも「入った」を流す。**
     // ここを落としていたので、**呼んだ側は通話を作らず、相手の映像が来なかった**
     // （2026-09-04 に実機で判明）。受けた側だけが Call を持っている状態になる
@@ -482,8 +513,12 @@ fn 汲む(
                     let Some(c) = slot.as_mut() else { continue };
                     match c.on_notice(peer, &notice) {
                         Ok(events) => emit_events(&app, &events),
-                        // 断った理由を画面へ広げない（D31 と同じ構え）
-                        Err(_) => continue,
+                        Err(e) => {
+                            // 相手へは理由を返さない（D31）。**手元のログには出す** —
+                            // 黙って捨てると、無言の不通の原因が追えない
+                            記録!("受信: 受け取らなかった（{e}）");
+                            continue;
+                        }
                     }
                 }
             }
@@ -694,7 +729,9 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            記録!("起動しました。ここから経路の要所を書き出します");
+            // 最初に呼んで、起点をここに固定する
+            起動からの秒();
+            記録!("起動しました。ここから経路の要所を書き出します（+秒 は起動からの経過）");
             app.manage(Bridge::new());
             Ok(())
         })
