@@ -60,7 +60,17 @@ jobs:
             echo "::warning::署名の材料が無いので、**配れない .dmg** ができます（人の Mac では開けません）"
           fi
 
-      - name: 配布物を作る
+      # **署名するときだけ APPLE_* を渡す。**
+      #
+      # 未設定の secret は「空文字で設定済み」になる。Tauri はそれを証明書として
+      # 読み込もうとして落ちる（2026-09-06 の v0.1.0-alpha.1 で実際に落ちた）——
+      #
+      #   security: SecKeychainItemImport: One or more parameters passed to a function were not valid.
+      #   failed codesign application: failed to import keychain certificate
+      #
+      # **渡さなければ adhoc で建つ**（手元で確認済み: Signature=adhoc, linker-signed）。
+      - name: 配布物を作る（署名あり）
+        if: steps.creds.outputs.ready == 'true'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -68,6 +78,10 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm --filter @warifu/desktop tauri build --bundles dmg
+
+      - name: 配布物を作る（署名なし）
+        if: steps.creds.outputs.ready != 'true'
         run: pnpm --filter @warifu/desktop tauri build --bundles dmg
 
       # **署名されたかを実物で確かめる。**「署名したつもり」で配らない

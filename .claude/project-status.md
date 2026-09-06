@@ -81,6 +81,23 @@ $ cargo check -p wmi --target x86_64-pc-windows-msvc
 `bundle.yml` は Windows で CLI を建てるようにし、`release.yml` に `windows-cli` を足した。
 **2026-09-06 の空打ち（run 34018240651）で、Windows / macOS とも初めて success。**
 
+### `v0.1.0-alpha.1` の `release` が落ちた —— **署名の材料が無いのに署名しようとした**
+
+```
+security: SecKeychainItemImport: One or more parameters passed to a function were not valid.
+failed codesign application: failed to import keychain certificate
+```
+
+**未設定の secret は「空文字で設定済み」になる。**Tauri はそれを証明書として読み込もうとする。
+`windows-cli` は success、`macos` だけ失敗した。
+
+**渡さなければ adhoc で建つ**（手元で確認済み・`Signature=adhoc, linker-signed`）。
+`release.yml` を「署名あり／署名なし」の 2 ステップに分け、
+**材料が揃っているときだけ `APPLE_*` を渡す**ようにした。
+
+**タグは打ち直しになる。**ワークフローの内容はタグの commit のものが使われるため、
+`v0.1.0-alpha.1` を再実行しても直らない。
+
 ### 3 台の実情
 
 | | 画面 | CLI | 映像 |
@@ -96,7 +113,7 @@ $ cargo check -p wmi --target x86_64-pc-windows-msvc
 | | |
 |---|---|
 | ~~**push**~~ | **済**（2026-09-06） |
-| ~~**タグ打ち**~~ | **済**（2026-09-06・`v0.1.0-alpha.1`）。CI の結果は追記する |
+| ~~**タグ打ち**~~ | **済**（2026-09-06・`v0.1.0-alpha.1`）。**`release` が落ちた**（下記）。直したので**タグを打ち直す** |
 | **3 台での実機テスト** | カメラ付きのノート PC がある、とオーナー申告 |
 | **訳文レビュー** | 4 言語ぶんが AI の下書き。今日また 6 鍵増えた |
 
