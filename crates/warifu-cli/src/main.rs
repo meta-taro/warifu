@@ -494,13 +494,33 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 打った行を、**会議に居る全員へ**。
+    //
+    // **`/key` だけは送らずに、会議キーをもう 1 本出す。**
+    // 建てた後に足せないと、**遅れて来た人を入れられない**
+    // （2026-09-06 に実際に詰まった。画面には「もう 1 本出す」があるのに CLI に無かった）。
+    // `/key` そのものを送りたいときは、頭に空白を 1 つ足す。
     let 打つ = {
         let 送り口 = Arc::clone(&送り口);
+        let 割符 = Arc::clone(&割符);
+        let device = device.clone();
+        let address = address.clone();
         let 私 = device.public_key();
         tokio::spawn(async move {
             let mut 入力 = BufReader::new(tokio::io::stdin()).lines();
             while let Ok(Some(text)) = 入力.next_line().await {
                 if text.trim().is_empty() {
+                    continue;
+                }
+                if text == "/key" {
+                    match device.issue_tally_between(開始, 終わり) {
+                        Ok((t, token)) => {
+                            println!("{}", format_invite(&address, &token, 会議id));
+                            割符.lock().await.push(t);
+                            eprintln!("warifu: 会議キーをもう 1 本出しました。1 本につき 1 人です");
+                        }
+                        // **握り潰さない。**出せなかったなら、そう言う
+                        Err(e) => eprintln!("warifu: 会議キーを作れませんでした（{e}）"),
+                    }
                     continue;
                 }
                 let 知らせ = Notice::Text {
