@@ -21,9 +21,12 @@
 
 #![forbid(unsafe_code)]
 
+use std::collections::HashMap;
 use std::process::ExitCode;
+use std::sync::Arc;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::{Mutex, mpsc};
 
 use warifu_app::{Conference, format_invite, is_own_invite, parse_invite};
 use warifu_core::{Device, PublicKey, Revocations};
@@ -94,6 +97,8 @@ struct Options {
     until: Option<u64>,
     /// つながった相手を、この呼び名で覚える。
     remember: Option<String>,
+    /// **出す会議キーの本数**（＝入れる人数）。**1 本につき 1 人**（割符は D12 / D47）。
+    keys: usize,
 }
 
 /// 秒数を人が読める形にする。
@@ -176,6 +181,7 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, Op
         from: None,
         until: None,
         remember: None,
+        keys: 1,
     };
 
     /// 値を 1 つ取り出す。無ければ断る。
@@ -195,6 +201,18 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, Op
                     arg: "--idle",
                     got: v.clone(),
                 })?);
+            }
+            "--keys" => {
+                let v = 値(args, "--keys")?;
+                let n: usize = v.parse().unwrap_or(0);
+                // **0 本では誰も入れない。**定員より多く出しても入れない
+                if n == 0 || n > warifu_app::DEFAULT_CAPACITY - 1 {
+                    return Err(OptionError::BadValue {
+                        arg: "--keys",
+                        got: v.clone(),
+                    });
+                }
+                o.keys = n;
             }
             "--ttl" => {
                 let v = 値(args, "--ttl")?;
@@ -379,11 +397,25 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     let 開始 = o.from.unwrap_or_else(now_secs);
     let 終わり = o.until.unwrap_or_else(|| 開始.saturating_add(o.ttl));
     let ttl = 終わり.saturating_sub(now_secs());
-    let node = Node::bind_without_relay(&device).await?;
+    let node = Arc::new(Node::bind_without_relay(&device).await?);
     let address = node.address().await?.to_string();
 
-    let mut conference = Conference::host(device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
-    let (mut tally, token) = device.issue_tally_between(開始, 終わり)?;
+    let 会議 = Arc::new(Mutex::new(Conference::host(
+        device.public_key(),
+        warifu_app::DEFAULT_CAPACITY,
+    )?));
+    let 会議id = 会議.lock().await.id();
+
+    // **1 本につき 1 人**（割符は「1 つの鍵 = 1 人」・D12 / D47）。
+    // 人数ぶん出す。**前の鍵は死なない。**
+    let mut 割符 = Vec::with_capacity(o.keys);
+    let mut 鍵たち = Vec::with_capacity(o.keys);
+    for _ in 0..o.keys {
+        let (t, token) = device.issue_tally_between(開始, 終わり)?;
+        鍵たち.push(token);
+        割符.push(t);
+    }
+    let 期限 = 割符[0].not_after();
 
     // **会議キーは標準出力へ。**進行の知らせは標準エラーへ分ける。
     // こうしておくと `warifu host | pbcopy` のように使える
@@ -401,46 +433,197 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
             間隔を言う(ttl)
         );
     }
-    println!("{}", format_invite(&address, &token, conference.id()));
+    if o.keys > 1 {
+        eprintln!(
+            "warifu: 会議キーを {} 本出します。1 本につき 1 人です",
+            o.keys
+        );
+    }
+    for token in &鍵たち {
+        println!("{}", format_invite(&address, token, 会議id));
+    }
+
+    let 送り口: 送り口たち = Arc::new(Mutex::new(HashMap::new()));
+    let 割符 = Arc::new(Mutex::new(割符));
+    let (終わり送, mut 終わり受) = mpsc::channel::<(PublicKey, 終わり方)>(16);
 
     // **来るまで待ち続ける。**
     //
     // `accept` は下の層の都合で時間切れになることがある（実測: timed out）。
     // 「待っています」と言った以上、**こちらの都合で勝手に諦めない。**
-    // `--idle` は繋がった後の話であって、**繋がる前の待ち時間ではない**。
     //
     // **割符が合わない相手が来ても、そこで終わらない**（実測 2026-09-04）。
-    // 予定に紐づく鍵では、**始まる前に一度叩かれただけで待ち受けが落ちていた。**
-    // 主催は会議が始まるまで待っていなければならない。落ちてよいのは鍵が切れたときだけ。
+    // 落ちてよいのは鍵が切れたときだけ。
     // **落ちた相手は、鍵が生きている間は戻ってこられる**（**D44**）。
-    // 相手の回線が一瞬切れただけで、10 時から 11 時の会議が終わってはいけない。
-    // **帰った相手では待ち直さない** —— `echo … | warifu join` の一発使いで
-    // 主催が鍵の期限まで居残ることになるため。
+    {
+        let node = Arc::clone(&node);
+        let 会議 = Arc::clone(&会議);
+        let 送り口 = Arc::clone(&送り口);
+        let 割符 = Arc::clone(&割符);
+        let vault = vault.clone();
+        let 呼び名 = o.remember.clone();
+        let 私 = device.public_key();
+        tokio::spawn(async move {
+            loop {
+                if now_secs() > 期限 {
+                    eprintln!("warifu: 会議キーの期限が切れました。もう誰も入れません");
+                    return;
+                }
+                let Some((session, peer)) = 迎える(&node, &割符, 期限).await else {
+                    return;
+                };
+                eprintln!(
+                    "warifu: 割符が合いました。つながっています（{}）",
+                    誰か(&vault, peer)
+                );
+                覚える(&vault, peer, 呼び名.as_ref());
+
+                let (送, 受) = mpsc::channel::<Notice>(32);
+                送り口.lock().await.insert(peer.to_bytes(), 送);
+                汲む(
+                    Channel::new(session),
+                    受,
+                    Arc::clone(&会議),
+                    Arc::clone(&送り口),
+                    peer,
+                    私,
+                    終わり送.clone(),
+                );
+            }
+        });
+    }
+
+    // 打った行を、**会議に居る全員へ**。
+    let 打つ = {
+        let 送り口 = Arc::clone(&送り口);
+        let 私 = device.public_key();
+        tokio::spawn(async move {
+            let mut 入力 = BufReader::new(tokio::io::stdin()).lines();
+            while let Ok(Some(text)) = 入力.next_line().await {
+                if text.trim().is_empty() {
+                    continue;
+                }
+                let 知らせ = Notice::Text {
+                    meeting: 会議id,
+                    from: 私,
+                    body: text,
+                };
+                配る(&送り口, None, &知らせ).await;
+            }
+            // **入力が尽きても会議は終わらない。**送るのを止めるだけ（2026-09-04 の実測）
+        })
+    };
+
+    // 誰かが抜けるたびに数え直す。**全員が帰ったら終わる。落ちたなら待ち直す。**
     loop {
-        let (session, peer) = 迎える(&node, &mut tally, &token).await?;
-
-        eprintln!(
-            "warifu: 割符が合いました。つながっています（{}）",
-            誰か(&vault, peer)
-        );
-        覚える(&vault, peer, o.remember.as_ref());
-
-        let channel = Channel::new(session);
-        let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
+        let 静か = o.idle.map(std::time::Duration::from_secs);
+        let 待つ限度 = 静か.unwrap_or(std::time::Duration::from_secs(60 * 60 * 24));
+        let 来た = tokio::select! {
+            _ = tokio::time::sleep(待つ限度), if 静か.is_some() => None,
+            v = 終わり受.recv() => v,
+        };
+        let Some((peer, 訳)) = 来た else {
+            eprintln!(
+                "warifu: {} 秒なにも来なかったので終わります",
+                待つ限度.as_secs()
+            );
+            break;
+        };
+        送り口.lock().await.remove(&peer.to_bytes());
+        eprintln!("warifu: {} が抜けました", 鍵の頭(peer));
         知らせる(&訳);
 
-        if !matches!(訳, 終わり方::落ちた(_)) {
-            return Ok(());
+        let 残り = 送り口.lock().await.len();
+        if 残り > 0 {
+            eprintln!("warifu: あと {残り} 人います");
+            continue;
         }
-        if now_secs() > token.not_after() {
-            eprintln!("warifu: 会議キーも切れました。終わります");
-            return Ok(());
+        if matches!(訳, 終わり方::落ちた(_)) && now_secs() <= 期限 {
+            eprintln!(
+                "warifu: 待ち直します。同じ相手だけが、{}のあいだ戻ってこられます",
+                間隔を言う(期限.saturating_sub(now_secs()))
+            );
+            continue;
         }
-        eprintln!(
-            "warifu: 待ち直します。同じ相手だけが、{}のあいだ戻ってこられます",
-            間隔を言う(token.not_after().saturating_sub(now_secs()))
-        );
+        // ここまで来たのは「誰かが帰って、残りが 0 人」のとき。**会議は終わり**
+        break;
     }
+    打つ.abort();
+    Ok(())
+}
+
+/// 相手ごとの送り口。**1 本しか持たない形にすると、3 人目が来た時点で前の相手へ届かなくなる。**
+type 送り口たち = Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>;
+
+/// 知らせを配る。`除く` に指定した相手には送らない（**言った本人へ返さない**）。
+async fn 配る(送り口: &送り口たち, 除く: Option<PublicKey>, 知らせ: &Notice) {
+    let 口 = 送り口.lock().await;
+    for (鍵, tx) in 口.iter() {
+        if 除く.is_some_and(|p| p.to_bytes() == *鍵) {
+            continue;
+        }
+        // **届かない相手で止めない。**1 人が落ちていても、ほかへは配る
+        let _ = tx.send(知らせ.clone()).await;
+    }
+}
+
+/// 相手 1 人ぶんの汲み口。**画面（`apps/desktop`）と同じ構え。**
+///
+/// 打った行はここへ流れてきて、届いた行は標準出力へ出る。
+/// **主催なので、聞いた文字はほかの人へ配る**（**D48**）——
+/// 三者会議は星形で、参加者どうしは繋がっていない。
+fn 汲む(
+    mut channel: Channel,
+    mut 受: mpsc::Receiver<Notice>,
+    会議: Arc<Mutex<Conference>>,
+    送り口: 送り口たち,
+    peer: PublicKey,
+    私: PublicKey,
+    終わり送: mpsc::Sender<(PublicKey, 終わり方)>,
+) {
+    tokio::spawn(async move {
+        let 訳 = loop {
+            tokio::select! {
+                出す = 受.recv() => {
+                    let Some(知らせ) = 出す else { break 終わり方::帰った };
+                    let Ok(intent) = 知らせ.to_intent() else { continue };
+                    if let Err(e) = channel.send(&intent).await {
+                        break 終わり方を見る(&e);
+                    }
+                }
+                届いた = channel.recv() => {
+                    let intent = match 届いた {
+                        Ok(i) => i,
+                        Err(e) => break 終わり方を見る(&e),
+                    };
+                    let Ok(notice) = Notice::from_intent(&intent) else { continue };
+                    if let Notice::Text { from, body, .. } = &notice {
+                        // **名乗った差出人と、繋いできた相手が違うなら通さない**（D48）
+                        if *from != peer {
+                            eprintln!("warifu: 差出人が経路の相手と違います。捨てました");
+                            continue;
+                        }
+                        println!("{}: {body}", 鍵の頭(*from));
+                        // **主催が配る。**参加者どうしは繋がっていない
+                        配る(&送り口, Some(peer), &notice).await;
+                        continue;
+                    }
+                    let mut c = 会議.lock().await;
+                    if let Ok(events) = c.on_notice(peer, &notice) {
+                        for e in events {
+                            eprintln!("warifu: {}", 出来事を言う(&e));
+                        }
+                    }
+                }
+            }
+        };
+        // **落ちた相手には締めに行かない。**そこで出る誤りは落ちた理由を覆い隠す
+        if !matches!(訳, 終わり方::落ちた(_)) {
+            let _ = channel.finish().await;
+        }
+        let _ = 私; // 私 は将来の紹介（D41）で使う
+        let _ = 終わり送.send((peer, 訳)).await;
+    });
 }
 
 /// 割符の合う相手が来るまで待つ。
@@ -454,13 +637,13 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
 /// 落ちてよいのは鍵が切れたときだけ。
 async fn 迎える(
     node: &Node,
-    tally: &mut warifu_core::Tally,
-    token: &warifu_core::TallyToken,
-) -> Result<(warifu_net::Session, PublicKey), Box<dyn std::error::Error>> {
+    割符: &Arc<Mutex<Vec<warifu_core::Tally>>>,
+    期限: u64,
+) -> Option<(warifu_net::Session, PublicKey)> {
     loop {
         // 会議キーが切れていたら、待っていても意味が無い
-        if now_secs() > token.not_after() {
-            return Err("会議キーの期限が切れました。作り直してください".into());
+        if now_secs() > 期限 {
+            return None;
         }
 
         let mut session = match node.accept(&Revocations::new()).await {
@@ -482,13 +665,14 @@ async fn 迎える(
         let 結果 = match 応答 {
             Err(_) => Err("相手が割符に応じませんでした".to_owned()),
             Ok(Err(e)) => Err(e.to_string()),
-            Ok(Ok(bytes)) => warifu_core::Acceptance::from_bytes(&bytes)
-                .map_err(|e| e.to_string())
-                .and_then(|a| 通してよいか(tally, &a, peer)),
+            Ok(Ok(bytes)) => match warifu_core::Acceptance::from_bytes(&bytes) {
+                Err(e) => Err(e.to_string()),
+                Ok(a) => 通してよいか(&mut 割符.lock().await, &a, peer),
+            },
         };
 
         match 結果 {
-            Ok(()) => return Ok((session, peer)),
+            Ok(()) => return Some((session, peer)),
             // **理由は主催の手元にだけ出す。**相手には返さない（戸口の構え・D31）
             Err(why) => eprintln!("warifu: 通しませんでした（{why}）。待ち直します"),
         }
@@ -504,18 +688,23 @@ async fn 迎える(
 /// `Acceptance` は本人の鍵で署名されているが、**どこで署名されたかまでは言っていない。**
 /// 突き合わせないと、写し取った片割れを別の経路で出せてしまう。
 fn 通してよいか(
-    tally: &mut warifu_core::Tally,
+    割符: &mut [warifu_core::Tally],
     acceptance: &warifu_core::Acceptance,
     peer: PublicKey,
 ) -> Result<(), String> {
     if acceptance.accepter() != peer {
         return Err("署名した相手と、繋いできた相手が違います".to_owned());
     }
-    let 初回 = tally.used_by().is_none();
+    // **どの招待に対する片割れかは、相手が名乗っている。**総当たりで試さない ——
+    // 試すと、別の招待の窓（`not_before` / `not_after`）で通ってしまう（D47）
+    let Some(t) = 割符.iter_mut().find(|t| t.id() == acceptance.tally()) else {
+        return Err("別の会議キーに対する片割れです".to_owned());
+    };
+    let 初回 = t.used_by().is_none();
     let 結果 = if 初回 {
-        tally.match_half(acceptance, now_secs(), &Revocations::new())
+        t.match_half(acceptance, now_secs(), &Revocations::new())
     } else {
-        tally.rematch_half(acceptance, now_secs(), &Revocations::new())
+        t.rematch_half(acceptance, now_secs(), &Revocations::new())
     };
     結果.map(|_| ()).map_err(|e| e.to_string())
 }
