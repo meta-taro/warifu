@@ -44,6 +44,8 @@ export type MessageKey =
   | 'chat.joined'
   | 'chat.left'
   | 'chat.lost'
+  | 'chat.nobody'
+  | 'chat.placeholder.nobody'
   | 'call.mic'
   | 'call.camera'
   | 'call.controls'
@@ -145,6 +147,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.joined': '{who} が入室しました',
     'chat.left': '{who} が退室しました',
     'chat.lost': '{who} との経路が切れました',
+    'chat.nobody': 'まだ誰も居ません。会議キーを渡して、入ってもらうと送れます。',
+    'chat.placeholder.nobody': '入ってきたら送れます',
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
     'call.controls': '会議中の入切。支度の確認とは別で、いま送っているものを止めます。',
@@ -218,6 +222,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.joined': '{who} joined',
     'chat.left': '{who} left',
     'chat.lost': 'The connection to {who} was lost',
+    'chat.nobody': 'Nobody is here yet. Share a meeting key and wait for someone to join.',
+    'chat.placeholder.nobody': 'You can send once someone joins',
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
     'call.controls': 'Turn off what you are sending right now. Separate from the pre-join check.',
@@ -291,6 +297,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.joined': '{who} 已加入',
     'chat.left': '{who} 已离开',
     'chat.lost': '与 {who} 的连接已中断',
+    'chat.nobody': '还没有人加入。把会议密钥交给对方，等对方进入后即可发送。',
+    'chat.placeholder.nobody': '有人进入后即可发送',
     'call.mic': '麦克风',
     'call.camera': '摄像头',
     'call.controls': '关闭当前正在发送的内容。与入会前的确认不同。',
@@ -364,6 +372,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.joined': '{who} 님이 입장했습니다',
     'chat.left': '{who} 님이 퇴장했습니다',
     'chat.lost': '{who} 님과의 연결이 끊어졌습니다',
+    'chat.nobody': '아직 아무도 없습니다. 회의 키를 건네고 상대가 들어오면 보낼 수 있습니다.',
+    'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
     'call.mic': '마이크',
     'call.camera': '카메라',
     'call.controls': '지금 보내고 있는 것을 끕니다. 입장 전 확인과는 별개입니다.',

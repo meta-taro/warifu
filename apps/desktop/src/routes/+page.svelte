@@ -685,14 +685,25 @@
           </p>
         {/each}
       </div>
+      <!--
+        **相手が居ないときは押させない。**押せる形にしておいて「まだ誰も居ません」と
+        返すのは、**押した人には「効かない」としか見えない**
+        （2026-09-06 にオーナーから「チャット送るボタンきかないよ」と報告された）。
+        **打ち込みは残す** —— 先に書いておいて、入ってきたら送りたいことがある。
+      -->
+      {#if !会議中}
+        <p class="hint">{t('chat.nobody')}</p>
+      {/if}
       <div class="say">
         <input
           type="text"
           bind:value={下書き}
-          placeholder={t('chat.placeholder')}
+          placeholder={会議中 ? t('chat.placeholder') : t('chat.placeholder.nobody')}
           onkeydown={(e) => e.key === 'Enter' && 話す()}
         />
-        <button type="button" onclick={話す} disabled={!下書き.trim()}>{t('chat.send')}</button>
+        <button type="button" onclick={話す} disabled={!会議中 || !下書き.trim()}>
+          {t('chat.send')}
+        </button>
       </div>
     </div>
   </aside>
