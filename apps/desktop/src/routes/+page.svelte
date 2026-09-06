@@ -506,22 +506,34 @@
         支度は機器を取り直すので、会議中に押すと相手には静止画のあと真っ黒が映る
         （2026-09-04 に実機で踏んだ）。ここは track の入切だけを触る。
       -->
+      <!--
+        **無い機器の入切を押させない。**押せる形にしておいて何も起きないのは、
+        押した人には「効かない」としか見えない
+        （2026-09-06 にチャットの「送る」で同じことを言われた）。
+        なぜ押せないかは、押す前に読める所へ出す。
+      -->
       <div class="controls">
         <button
           type="button"
-          class:off={!prefs.micOn}
-          aria-pressed={prefs.micOn}
+          class:off={!prefs.micOn || (支度した && !マイクあり)}
+          aria-pressed={prefs.micOn && (!支度した || マイクあり)}
+          disabled={支度した && !マイクあり}
+          title={支度した && !マイクあり ? t('setup.mic.none') : ''}
           onclick={() => { prefs.micOn = !prefs.micOn; 適用する(); }}
         >
-          <Icon name={prefs.micOn ? 'mic' : 'mic-off'} />{t('call.mic')}
+          <Icon name={prefs.micOn && (!支度した || マイクあり) ? 'mic' : 'mic-off'} />
+          {支度した && !マイクあり ? t('setup.mic.none') : t('call.mic')}
         </button>
         <button
           type="button"
-          class:off={!prefs.cameraOn}
-          aria-pressed={prefs.cameraOn}
+          class:off={!prefs.cameraOn || (支度した && !カメラあり)}
+          aria-pressed={prefs.cameraOn && (!支度した || カメラあり)}
+          disabled={支度した && !カメラあり}
+          title={支度した && !カメラあり ? t('setup.camera.none') : ''}
           onclick={() => { prefs.cameraOn = !prefs.cameraOn; 適用する(); }}
         >
-          <Icon name={prefs.cameraOn ? 'camera' : 'camera-off'} />{t('call.camera')}
+          <Icon name={prefs.cameraOn && (!支度した || カメラあり) ? 'camera' : 'camera-off'} />
+          {支度した && !カメラあり ? t('setup.camera.none') : t('call.camera')}
         </button>
       </div>
     {/if}
@@ -870,6 +882,12 @@
   }
   .controls button.off {
     opacity: 0.55;
+  }
+  /* **押せないものは、押せないように見せる。**見た目が押せるままだと、
+     押して何も起きない側に「効かない」と受け取られる */
+  .controls button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
   .line b {
     margin-right: 6px;
