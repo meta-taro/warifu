@@ -101,31 +101,56 @@ jobs:
           path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
 
-  # **Windows 機には CLI を届ける。**
+  # **Windows 版を建てる。**画面（`.msi` / `.exe`）と CLI の両方。
   #
-  # 画面（Tauri）は Windows で建たない —— tauri 2.11.5 が windows "^0.61" を、
-  # netwatch（iroh 1.1.0）が "^0.62.2" を要求するため、wmi 0.18.4 が
-  # windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組を掴んで落ちる。
-  # **上流の manifest の問題で、こちらでは直せない**（`bundle.yml` の先頭に詳細）。
+  # 2026-09-03 から「Windows では一度も建てたことがない」状態が続いていた。
+  # 原因は**ロックの慣性**で、`wmi 0.18.4` が
+  # `windows 0.61.3` ＋ `windows-core 0.62.2` という食い違った組を掴んでいた。
+  # `wmi` はどちらも `">=0.59, <0.63"` で要求しているので、
+  # **`cargo update -p wmi` で解決し直したら揃った**（2026-09-06・3 行の差分）。
   #
-  # CLI はルートの lock で windows が 0.62.2 の 1 本になるので、組が揃う。
-  # **文字のやり取りは CLI で足りる**（三者会議・D48）。
-  windows-cli:
+  # **署名していない。**受け取った Windows は「WindowsによってPCが保護されました」を出す。
+  # 手順は `docs/install.md` に書く（macOS の右クリックと同じ位置づけ）。
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
 
       - name: rust
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
 
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: フロントを建てる
+        run: pnpm --filter @warifu/desktop build
+
+      - name: 画面を建てる
+        run: pnpm --filter @warifu/desktop tauri build
+
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
+      # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
+      - name: できたものを並べる
+        shell: bash
+        run: |
+          find apps/desktop/src-tauri/target/release/bundle -type f \
+            \( -name '*.msi' -o -name '*.exe' \) -exec ls -l {} \;
+          ls -l target/release/warifu.exe
+
       - uses: actions/upload-artifact@v4
         with:
-          name: warifu-windows-cli
-          path: target/release/warifu.exe
+          name: warifu-windows
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/**/*.msi
+            apps/desktop/src-tauri/target/release/bundle/**/*.exe
+            target/release/warifu.exe
           if-no-files-found: error
-
