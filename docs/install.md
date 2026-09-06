@@ -12,34 +12,48 @@
 |---|---|
 | **macOS / Apple Silicon（M1 以降）** | **動きます**。配布物は `aarch64` です |
 | **macOS / Intel** | **動きません。**別に建てる必要があります（下記） |
-| **Windows** | **画面は建ちません**（下記）。**CLI（`warifu.exe`）は使えます** |
+| **Windows（x64）** | **動きます。**`.msi` か `.exe` で入れます（下記）。**映像も音声も使えます** |
 | **Linux** | **確かめていません** |
 
-### Windows —— **画面は建たない。CLI を使う**
+### Windows —— **`.msi` で入れる**
 
-上流の依存が食い違っており、**こちらでは直せません。**
+**画面が建ちます**（2026-09-06 に初めて通った）。Artifacts に 3 つ入っています。
 
-```
-tauri 2.11.5      が windows "^0.61" を要求
-netwatch (iroh)   が windows "^0.62.2" を要求
-  → wmi 0.18.4 が windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組を掴む
-  → error[E0277]: the trait bound `IWbemObjectSink: windows_core::Interface` is not satisfied
-```
+| | 大きさ | |
+|---|---|---|
+| `warifu_0.1.0_x64_en-US.msi` | 8.2 MB | **これを入れるのがいちばん簡単** |
+| `warifu_0.1.0_x64-setup.exe` | 5.5 MB | 同じもの。インストーラの形が違うだけ |
+| `warifu.exe` | 14.8 MB | **CLI。入れずにその場で使える** |
 
-`cargo update --precise` は**両方向とも拒否されます**（tauri が下げさせず、netwatch が上げさせない）。
+#### 入れるときに出るもの（**署名していないため**）
 
-**CLI は建ちます。**タグを打つと `warifu.exe` が Artifacts に出ます（`warifu-windows-cli`）。
-**文字のやり取りは CLI で足ります**（三者会議・**D48**）。映像は使えません。
+`.msi` を開くと、Windows がこう出します。
 
 ```
-warifu.exe join <会議キー>
+WindowsによってPCが保護されました
 ```
 
-**打ち込んだ行がそのまま相手へ飛び、届いた行がそのまま出ます。**
-会議を建てる側になるなら `warifu.exe host`。三者会議のときは、
-**主催が「会議キーをもう 1 本出す」を押して、それぞれに別の鍵を渡します**（**D47**）。
+**壊れてはいません。**署名していないだけです。
 
-**Intel の Mac で使うなら**、その機械の上で建ててください。
+1. **「詳細情報」**を押す
+2. 出てくる **「実行」**を押す
+
+**1 回やれば、次からは普通に開きます。**macOS の「右クリック →『開く』」と同じ位置づけです。
+
+#### CLI だけ使う
+
+入れずに `warifu.exe` をそのまま置いても使えます。
+
+```
+warifu.exe host --keys 2      会議キーが 2 本出る（1 本につき 1 人）
+warifu.exe join <会議キー>    もらった鍵で入る
+```
+
+**打った行がそのまま相手へ飛び、届いた行がそのまま出ます。**
+足りなくなったら、そのまま `/key` と打てばもう 1 本出ます。
+（`/key` そのものを送りたいときは、頭に空白を 1 つ。）
+
+**Intel の Mac で使うなら****Intel の Mac で使うなら**、その機械の上で建ててください。
 
 ```bash
 git clone https://github.com/meta-taro/warifu.git
@@ -59,9 +73,9 @@ pnpm tauri build --bundles app
 | Artifact | 中身 | 誰が使うか |
 |---|---|---|
 | **`warifu-macos-dmg`** | `warifu_0.1.0_aarch64.dmg`（約 8.5 MB） | **Apple Silicon の Mac** |
-| **`warifu-windows-cli`** | `warifu.exe`（約 5.8 MB） | **Windows**（文字のみ・映像なし） |
+| **`warifu-windows`** | `.msi` / `.exe`（画面）＋ `warifu.exe`（CLI） | **Windows（x64）** |
 
-**Windows に画面はありません。**理由は下の「Windows」を見てください。
+**Windows も画面が使えます**（2026-09-06 から）。
 
 いま出ているのは **`v0.1.0-alpha.2`** です。
 （`v0.1.0-alpha.1` は `release` が落ちたタグです。**なぜ alpha.2 なのかを辿れるように残してあります。**）
@@ -122,7 +136,7 @@ xattr -d com.apple.quarantine /Applications/warifu.app
 
 **アルファです。**動く範囲は `README.md` に書いてあります。いま分かっている限界は ——
 
-- **Apple Silicon の Mac だけ**確かめています
+- **Apple Silicon の Mac と Windows（x64）**で確かめています
 - **署名も公証もしていません**（上の手順が要ります）
 - **自動更新はありません。**新しい版が出たら入れ直してください
 - **チャットは残りません。**閉じると消えます
