@@ -3901,7 +3901,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-app"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "tokio",
  "warifu-core",
@@ -3912,15 +3912,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-calendar"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-capability"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-cli"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "tokio",
  "warifu-app",
@@ -3933,7 +3933,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ed25519-dalek 2.2.0",
  "getrandom 0.3.4",
@@ -3944,11 +3944,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-door"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-imap"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "async-imap",
  "futures",
@@ -3961,7 +3961,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-intent"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "tokio",
@@ -3971,11 +3971,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-link"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-mcp"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "rmcp",
  "schemars",
@@ -3989,7 +3989,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-meeting"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "tokio",
  "warifu-core",
@@ -4000,7 +4000,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-net"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "iroh",
  "tokio",
@@ -4010,15 +4010,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-quarantine"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-read"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-vault"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "warifu-core",
  "zeroize",

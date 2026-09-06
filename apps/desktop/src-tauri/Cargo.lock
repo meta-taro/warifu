@@ -5754,7 +5754,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-app"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "warifu-core",
  "warifu-intent",
@@ -5763,7 +5763,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ed25519-dalek 2.2.0",
  "getrandom 0.3.4",
@@ -5774,7 +5774,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-desktop"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "serde",
  "tauri",
@@ -5791,11 +5791,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-door"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-intent"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "warifu-core",
@@ -5804,11 +5804,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-link"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "warifu-meeting"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "warifu-core",
  "warifu-intent",
@@ -5817,7 +5817,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-net"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "iroh",
  "tokio",
@@ -5827,7 +5827,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-vault"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "warifu-core",
  "zeroize",

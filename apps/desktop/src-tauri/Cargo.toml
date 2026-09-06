@@ -3,7 +3,7 @@
 # 判定のコードを直すたびに GUI の依存を建て直すのは、ゲートを遅くして飛ばされる原因になる。
 [package]
 name = "warifu-desktop"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "Apache-2.0 OR MIT"
