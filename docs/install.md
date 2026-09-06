@@ -35,6 +35,10 @@ netwatch (iroh)   が windows "^0.62.2" を要求
 warifu.exe join <会議キー>
 ```
 
+**打ち込んだ行がそのまま相手へ飛び、届いた行がそのまま出ます。**
+会議を建てる側になるなら `warifu.exe host`。三者会議のときは、
+**主催が「会議キーをもう 1 本出す」を押して、それぞれに別の鍵を渡します**（**D47**）。
+
 **Intel の Mac で使うなら**、その機械の上で建ててください。
 
 ```bash
@@ -48,11 +52,19 @@ pnpm tauri build --bundles app
 
 ## 1. 落とす
 
-タグ（`v0.1.0-alpha.1` など）を打つと、GitHub Actions の `release` が
-**`warifu_0.1.0_aarch64.dmg`** を作ります。
-
+タグを打つと、GitHub Actions の `release` が配布物を作ります。
 **Actions の実行結果ページの「Artifacts」から落とします**（Releases には出しません）。
 リポジトリを見られる人だけが落とせます。
+
+| Artifact | 中身 | 誰が使うか |
+|---|---|---|
+| **`warifu-macos-dmg`** | `warifu_0.1.0_aarch64.dmg`（約 8.5 MB） | **Apple Silicon の Mac** |
+| **`warifu-windows-cli`** | `warifu.exe`（約 5.8 MB） | **Windows**（文字のみ・映像なし） |
+
+**Windows に画面はありません。**理由は下の「Windows」を見てください。
+
+いま出ているのは **`v0.1.0-alpha.2`** です。
+（`v0.1.0-alpha.1` は `release` が落ちたタグです。**なぜ alpha.2 なのかを辿れるように残してあります。**）
 
 ---
 
