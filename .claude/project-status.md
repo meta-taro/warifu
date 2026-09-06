@@ -52,12 +52,51 @@
 `file` で確かめた —— `Mach-O 64-bit executable arm64`。
 **Intel の Mac では動かない。**その機械の上で建てる手順を `install.md` に書いた。
 
+### 3 台目は Windows だった —— **画面が建たない**
+
+オーナー申告（2026-09-06）: 「3 台というのは、ここと、この前の Mac Air ですが、**もう一台は Win** ですよ。」
+
+**`bundle.yml` が 2026-09-03 の空打ちで Windows だけ落ちたまま放置されていた**（baseline §20 違反）。
+タグを打つ前に確かめて、原因を特定した。
+
+```
+tauri 2.11.5    が windows "^0.61"    を要求
+netwatch (iroh) が windows "^0.62.2"  を要求
+  → 画面側の lock に windows が 2 本入り、wmi 0.18.4 が
+    windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組を掴む
+  → error[E0277]: IWbemObjectSink: windows_core::Interface is not satisfied
+```
+
+**`wmi` が windows と windows-core の要求を揃えていない**（上流の manifest の問題）。
+`cargo update --precise` は**両方向とも拒否される** —— tauri が下げさせず、netwatch が上げさせない。
+**こちらでは直せない。**
+
+**CLI は建つ。**ルートの lock には windows が 0.62.2 の 1 本しか入らないので組が揃う。
+
+```
+$ cargo check -p wmi --target x86_64-pc-windows-msvc
+    Finished
+```
+
+`bundle.yml` は Windows で CLI を建てるようにし、`release.yml` に `windows-cli` を足した。
+**2026-09-06 の空打ち（run 34018240651）で、Windows / macOS とも初めて success。**
+
+### 3 台の実情
+
+| | 画面 | CLI | 映像 |
+|---|---|---|---|
+| Mac mini（この機械） | ○ | ○ | **カメラ無し** |
+| Mac Air | ○ | ○ | ○ |
+| **Windows** | **×**（上流の依存） | **○** | × |
+
+**三者会議のテストはできる。**Windows は CLI で入って文字で参加する。
+
 ### 人にしかできない（**ここで止まる**）
 
 | | |
 |---|---|
-| **push** | 未 push 1 本。オーナーが「リモートでコマンドが打てない」と申告（2026-09-06） |
-| **タグ打ち**（`v0.1.0-alpha.1`） | これも push。**リリースはここで止まる** |
+| ~~**push**~~ | **済**（2026-09-06） |
+| ~~**タグ打ち**~~ | **済**（2026-09-06・`v0.1.0-alpha.1`）。CI の結果は追記する |
 | **3 台での実機テスト** | カメラ付きのノート PC がある、とオーナー申告 |
 | **訳文レビュー** | 4 言語ぶんが AI の下書き。今日また 6 鍵増えた |
 
