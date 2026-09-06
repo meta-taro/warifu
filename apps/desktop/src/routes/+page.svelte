@@ -643,6 +643,18 @@
             onfocus={(e) => e.currentTarget.select()}
           ></textarea>
         </details>
+        <!--
+          **1 本の会議キーで入れるのは 1 人だけ**（割符は「1 つの鍵 = 1 人」・D12）。
+          3 人目を呼ぶなら、**もう 1 本出して、その人に渡す**（D47）。
+          前の鍵は死なない —— 出した本数だけ、別々の人が入れる。
+
+          この口を出していなかったため、**鍵を出した後は作り直せなかった**
+          （2026-09-06 に D45 で入れてしまった不具合）。
+        -->
+        <button type="button" class="quiet" onclick={はじめる}>
+          <Icon name="key" />{t('meeting.key.more')}
+        </button>
+        <p class="hint">{t('meeting.key.more.hint')}</p>
       </div>
     {/if}
 

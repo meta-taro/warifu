@@ -99,6 +99,12 @@ impl Conference {
         self.id
     }
 
+    /// 自分の公開鍵。**送る文字に差出人として載せる**（D48）。
+    #[must_use]
+    pub fn me(&self) -> PublicKey {
+        self.me
+    }
+
     #[must_use]
     pub fn members(&self) -> &[PublicKey] {
         self.roster.members()

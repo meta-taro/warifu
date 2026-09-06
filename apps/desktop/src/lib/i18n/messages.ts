@@ -62,6 +62,8 @@ export type MessageKey =
   | 'meeting.key.copy'
   | 'meeting.key.copied'
   | 'meeting.key.reveal'
+  | 'meeting.key.more'
+  | 'meeting.key.more.hint'
   | 'roster.name.action'
   | 'roster.name.save'
   | 'roster.name.placeholder'
@@ -117,6 +119,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': 'コピーする',
     'meeting.key.copied': 'コピーしました',
     'meeting.key.reveal': '会議キーの全文を見る',
+    'meeting.key.more': '会議キーをもう 1 本出す',
+    'meeting.key.more.hint': '1 本の会議キーで入れるのは 1 人だけです。3 人目を呼ぶなら、もう 1 本出してその人に渡します。前の鍵は使えたままです。',
     'roster.name.action': '名前を付ける',
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
@@ -188,6 +192,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': 'Copy',
     'meeting.key.copied': 'Copied',
     'meeting.key.reveal': 'Show the full meeting key',
+    'meeting.key.more': 'Create another meeting key',
+    'meeting.key.more.hint': 'One meeting key lets one person in. To invite a third person, create another key and give it to them. The earlier keys keep working.',
     'roster.name.action': 'Name',
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
@@ -259,6 +265,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': '复制',
     'meeting.key.copied': '已复制',
     'meeting.key.reveal': '查看完整会议密钥',
+    'meeting.key.more': '再生成一个会议密钥',
+    'meeting.key.more.hint': '一个会议密钥只能让一个人进入。要邀请第三个人，请再生成一个并交给对方。之前的密钥仍然可用。',
     'roster.name.action': '命名',
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
@@ -330,6 +338,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': '복사하기',
     'meeting.key.copied': '복사했습니다',
     'meeting.key.reveal': '회의 키 전문 보기',
+    'meeting.key.more': '회의 키를 하나 더 만들기',
+    'meeting.key.more.hint': '회의 키 하나로 들어올 수 있는 사람은 한 명입니다. 세 번째 사람을 부르려면 하나 더 만들어 건네주세요. 이전 키는 그대로 쓸 수 있습니다.',
     'roster.name.action': '이름 붙이기',
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',

@@ -652,6 +652,7 @@ async fn やり取り(
     idle: Option<u64>,
 ) -> Result<終わり方, Box<dyn std::error::Error>> {
     let meeting = conference.id();
+    let 自分 = conference.me();
     let mut 入力 = BufReader::new(tokio::io::stdin()).lines();
     // **入力が尽きても会議は終わらない。**
     //
@@ -681,7 +682,14 @@ async fn やり取り(
                     Some(text) => {
                         // **送れないのは経路が落ちたということ。**打ち込みの失敗ではない
                         if let Err(e) = channel
-                            .send(&Notice::Text { meeting, body: text }.to_intent()?)
+                            .send(
+                                &Notice::Text {
+                                    meeting,
+                                    from: 自分,
+                                    body: text,
+                                }
+                                .to_intent()?,
+                            )
                             .await
                         {
                             break 終わり方を見る(&e);
@@ -701,7 +709,15 @@ async fn やり取り(
                     continue;
                 };
                 match notice {
-                    Notice::Text { body, .. } => println!("{body}"),
+                    // **誰が言ったかを出す**（D48）。主催が配った文字は、
+                    // 経路の相手（主催）と差出人が違う —— 三者会議ではそれが普通である
+                    Notice::Text { from, body, .. } => {
+                        if from == peer {
+                            println!("{body}");
+                        } else {
+                            println!("{}: {body}", 鍵の頭(from));
+                        }
+                    }
                     other => {
                         // 名簿は動かす。**中身は出さない**（文字だけを標準出力へ）
                         if let Ok(events) = conference.on_notice(peer, &other) {

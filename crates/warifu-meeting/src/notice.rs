@@ -87,6 +87,15 @@ pub enum Notice {
     Text {
         /// どの会議か。
         meeting: MeetingId,
+        /// **誰が言ったか**（**D48**）。
+        ///
+        /// 三者会議は星形である —— 参加者どうしは繋がっておらず、
+        /// **主催だけが全員と繋がっている。**主催が聞いた文字をほかの人へ配るとき、
+        /// **これが載っていないと、配られた側には全部が主催の発言に見える。**
+        ///
+        /// **直接届いた文字では、経路で確定した相手と一致するはず**である。
+        /// 一致しないものを通すかは、受け取る側が決める（この層は運ぶだけ）。
+        from: PublicKey,
         /// 中身。
         body: String,
     },
@@ -132,11 +141,15 @@ impl Notice {
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
             Self::Signal(s) => (SIGNAL, s.encode()?),
-            Self::Text { body, .. } => {
+            Self::Text { from, body, .. } => {
                 if body.is_empty() || body.len() > TEXT_MAX {
                     return Err(Error::Malformed);
                 }
-                (TEXT, body.as_bytes().to_vec())
+                // **差出人を先頭に固定長で置く。**後ろに置くと、中身との境目が要る
+                let mut 荷物 = Vec::with_capacity(32 + body.len());
+                荷物.extend_from_slice(&from.to_bytes());
+                荷物.extend_from_slice(body.as_bytes());
+                (TEXT, 荷物)
             }
             Self::Introduce { who, address, .. } => {
                 if address.len() > ADDRESS_MAX {
@@ -182,13 +195,18 @@ impl Notice {
             LEAVE => Ok(Self::Leave { meeting }),
             SIGNAL => Ok(Self::Signal(Signal::decode(meeting, 荷物)?)),
             TEXT => {
-                if 荷物.is_empty() || 荷物.len() > TEXT_MAX {
+                // 差出人 32 byte ＋ 中身。**中身が空のものは通さない**
+                if 荷物.len() <= 32 || 荷物.len() > 32 + TEXT_MAX {
                     return Err(Error::Malformed);
                 }
+                let from =
+                    PublicKey::from_bytes(荷物[..32].try_into().map_err(|_| Error::Malformed)?)
+                        .map_err(|_| Error::Malformed)?;
                 // **中身を検めない。**読めないバイト列でも、そのまま文字にして渡す
                 Ok(Self::Text {
                     meeting,
-                    body: String::from_utf8_lossy(荷物).into_owned(),
+                    from,
+                    body: String::from_utf8_lossy(&荷物[32..]).into_owned(),
                 })
             }
             INTRODUCE => {

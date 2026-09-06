@@ -142,8 +142,12 @@ fn key_to_string(key: PublicKey) -> String {
 pub struct Bridge {
     device: Device,
     node: Mutex<Option<Arc<Node>>>,
-    /// 発行した割符の手元の半分。**招待を出すたびに入れ替わる。**
-    tally: Arc<Mutex<Option<Tally>>>,
+    /// 発行した割符の手元の半分。**招待 1 本につき 1 つ持つ**（**D47**）。
+    ///
+    /// 1 本しか持たない形にしていたため、**2 本目を出すと 1 本目が死に、
+    /// 三者会議が成り立たなかった。**割符は「1 つの鍵 = 1 人」（D12）なので、
+    /// **人数ぶん出すのが正しい形**である。会場鍵（何度でも使える鍵・`issues/009`）とは別の話。
+    tally: Arc<Mutex<Vec<Tally>>>,
     /// 戸口。**割符が合わない相手は、ここで断る**（D31）。
     door: Arc<Mutex<Door>>,
     /// 相手ごとの住所（**D41**）。
@@ -179,7 +183,7 @@ impl Bridge {
         Self {
             device,
             node: Mutex::new(None),
-            tally: Arc::new(Mutex::new(None)),
+            tally: Arc::new(Mutex::new(Vec::new())),
             door: Arc::new(Mutex::new(Door::new())),
             addresses: Arc::new(Mutex::new(HashMap::new())),
             conference: Arc::new(Mutex::new(None)),
@@ -242,7 +246,8 @@ async fn invite(
     let (tally, token) = bridge
         .device
         .issue_tally_between(開始, 開始.saturating_add(ttl_secs))?;
-    *bridge.tally.lock().await = Some(tally);
+    // **前の招待を殺さない。**足していく（D47）
+    bridge.tally.lock().await.push(tally);
     記録!(
         "会議キーを作った（会議 {} / {} から {} 秒）",
         短く(&meeting.to_string()),
@@ -453,7 +458,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 /// **待ち続けない。**黙って繋いだだけの相手に、待ち受けを塞がせない。
 async fn 割符を確かめる(
     session: &mut warifu_net::Session,
-    tally: &Arc<Mutex<Option<Tally>>>,
+    tally: &Arc<Mutex<Vec<Tally>>>,
     _subject: &Subject,
 ) -> bool {
     let Ok(Ok(bytes)) =
@@ -470,8 +475,10 @@ async fn 割符を確かめる(
     if acceptance.accepter() != session.peer() {
         return false;
     }
-    let mut slot = tally.lock().await;
-    let Some(t) = slot.as_mut() else {
+    let mut list = tally.lock().await;
+    // **どの招待に対する片割れかは、相手が名乗っている。**総当たりで試さない ——
+    // 試すと、別の招待の窓（`not_before` / `not_after`）で通ってしまう
+    let Some(t) = list.iter_mut().find(|t| t.id() == acceptance.tally()) else {
         return false;
     };
     // **まだ誰も入っていなければ初回、一度入った相手が戻ってきたなら再入場**（D44）。
@@ -544,8 +551,28 @@ fn 汲む(
                         continue;
                     };
                     // **文字は名簿を動かさない。**そのまま画面へ渡す
-                    if let Notice::Text { body, .. } = &notice {
+                    if let Notice::Text { from, body, .. } = &notice {
+                        // **名乗った差出人と、繋いできた相手が違うなら通さない。**
+                        // 主催から配られた文字（三者会議）はここへ来ない ——
+                        // こちらが主催であり、配るのはこちらだからである
+                        if *from != peer {
+                            記録!("受信: 差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
                         let _ = app.emit(EVENT_TEXT, (key_to_string(peer), body.clone()));
+                        // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
+                        //
+                        // 三者会議は星形である —— 参加者どうしは繋がっていないので、
+                        // **配らないと B と C はお互いの発言を 1 通も受け取らない**
+                        // （2026-09-06 に実測）。**言った人はそのまま載っている**ので、
+                        // 配られた側にも誰の発言かが分かる。
+                        let 主催 = {
+                            let slot = conference.lock().await;
+                            slot.as_ref().map(|c| c.members().first() == Some(&me))
+                        };
+                        if 主催 == Some(true) {
+                            他へ配る(&outbound, peer, &notice).await;
+                        }
                         continue;
                     }
                     // **紹介は名簿を動かさない**（D41）
@@ -645,6 +672,28 @@ async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answe
         message: "経路が閉じています".into(),
         code: None,
     })
+}
+
+/// 聞いた知らせを、**言った人以外の全員へ配る**（**D48**）。**主催者だけが呼ぶ。**
+///
+/// 三者会議は星形で、参加者どうしは繋がっていない。主催が配らないと、
+/// **B と C はお互いの発言を 1 通も受け取らない**（2026-09-06 に実測）。
+///
+/// 配るのは**そのままの知らせ**である。差出人（`Notice::Text::from`）を書き換えない ——
+/// 書き換えると、受け取った側には**全部が主催の発言に見える。**
+async fn 他へ配る(
+    outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    言った人: PublicKey,
+    notice: &Notice,
+) {
+    let 送り口 = outbound.lock().await;
+    for (鍵, tx) in 送り口.iter() {
+        if *鍵 == 言った人.to_bytes() {
+            continue;
+        }
+        // **届かない相手で止めない。**1 人が落ちていても、ほかへは配る
+        let _ = tx.send(notice.clone()).await;
+    }
 }
 
 /// 紹介を配る（**D41**）。**主催者だけが呼ぶ。**
@@ -785,6 +834,8 @@ async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
         let _ = tx
             .send(Notice::Text {
                 meeting,
+                // **自分が言ったと載せる**（D48）。相手はこれで誰の発言かが分かる
+                from: bridge.device.public_key(),
                 body: body.clone(),
             })
             .await;
