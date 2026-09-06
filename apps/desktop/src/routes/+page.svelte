@@ -725,12 +725,22 @@
         <p class="hint">{t('chat.nobody')}</p>
       {/if}
       <div class="say">
-        <input
-          type="text"
+        <!--
+          **改行できる**（2026-09-06 のオーナー要望）。Shift+Enter / Option+Enter で改行、
+          Enter で送る。`preventDefault` を忘れると、**送ったうえに改行が残る。**
+          `input` ではなく `textarea` にしたのは、**改行を持てる欄が要る**ため。
+        -->
+        <textarea
+          rows="1"
           bind:value={下書き}
           placeholder={会議中 ? t('chat.placeholder') : t('chat.placeholder.nobody')}
-          onkeydown={(e) => 送ってよい(e) && 話す()}
-        />
+          onkeydown={(e) => {
+            if (送ってよい(e)) {
+              e.preventDefault();
+              void 話す();
+            }
+          }}
+        ></textarea>
         <button type="button" onclick={話す} disabled={!会議中 || !下書き.trim()}>
           {t('chat.send')}
         </button>
@@ -877,6 +887,9 @@
   }
   .line {
     margin: 0;
+    /* **打った改行を、そのまま見せる。**折り返しも効かせる */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
     word-break: break-word;
@@ -923,20 +936,25 @@
   .line.mine b {
     color: var(--accent);
   }
-  .say {
-    display: flex;
-    gap: var(--space-2);
-  }
-  .say input {
+  /* **1 行から始めて、打った分だけ伸びる。**伸びすぎない（会話が見えなくなる） */
+  .say textarea {
     flex: 1;
     min-width: 0;
-    font: inherit;
+    min-height: 34px;
+    max-height: 120px;
+    resize: none;
+    font-family: var(--font-ui);
     font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
     color: var(--text-primary);
     background: var(--bg-app);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 5px var(--space-2);
+    padding: 6px var(--space-2);
+  }
+  .say {
+    display: flex;
+    gap: var(--space-2);
   }
   .row {
     display: flex;
@@ -1004,8 +1022,7 @@
      右の列が窓ごとスクロールしていた頃は隠れていたが、列の中だけを動かすようにしたら
      横スクロールバーになって出てきた（2026-09-06 の実測） */
   textarea,
-  select,
-  input[type='text'] {
+  select {
     box-sizing: border-box;
   }
   select {

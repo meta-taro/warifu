@@ -14,7 +14,7 @@ chat.joined	{who} joined	{who} が入室しました	{who} 已加入	{who} 님�
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.nobody	Nobody is here yet. Share a meeting key and wait for someone to join.	まだ誰も居ません。会議キーを渡して、入ってもらうと送れます。	还没有人加入。把会议密钥交给对方，等对方进入后即可发送。	아직 아무도 없습니다. 회의 키를 건네고 상대가 들어오면 보낼 수 있습니다.				
-chat.placeholder	Type and press Enter	書いて Enter	输入后按 Enter	입력 후 Enter				
+chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
 chat.send	Send	送る	发送	보내기				
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				

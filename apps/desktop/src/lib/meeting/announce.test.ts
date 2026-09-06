@@ -82,3 +82,23 @@ describe('いま時刻', () => {
     expect(いま時刻(new Date(2026, 8, 6, 23, 59))).toBe('23:59');
   });
 });
+
+describe('改行と送信を分ける', () => {
+  it('Shift+Enter では送らない（改行にする）', () => {
+    // **2026-09-06 のオーナー要望**「改行できたらもっといいかな。シフトエンターとか？」
+    expect(送ってよい({ key: 'Enter', shiftKey: true })).toBe(false);
+  });
+
+  it('Option（Alt）+Enter でも送らない', () => {
+    // **人によって指が覚えている組み合わせが違う。**どちらも受ける
+    expect(送ってよい({ key: 'Enter', altKey: true })).toBe(false);
+  });
+
+  it('修飾なしの Enter は送る', () => {
+    expect(送ってよい({ key: 'Enter', shiftKey: false, altKey: false })).toBe(true);
+  });
+
+  it('変換中は、Shift を押していても送らない', () => {
+    expect(送ってよい({ key: 'Enter', isComposing: true, shiftKey: true })).toBe(false);
+  });
+});

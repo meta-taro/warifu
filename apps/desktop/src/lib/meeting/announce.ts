@@ -12,14 +12,22 @@
  *
  * `isComposing` は変換中に true になる。`keyCode === 229` は、
  * 古い WebView が `isComposing` を出さないときの保険である。
+ *
+ * **Shift / Option（Alt）を押しながらの Enter は改行**（2026-09-06 のオーナー要望
+ * 「**改行できたらもっといいかな。シフトエンターとか？オルトエンターとか？**」）。
+ * どちらも受けるのは、**人によって指が覚えている組み合わせが違う**ためである。
  */
 export function 送ってよい(e: {
   key: string;
   isComposing?: boolean;
   keyCode?: number;
+  shiftKey?: boolean;
+  altKey?: boolean;
 }): boolean {
   if (e.key !== 'Enter') return false;
-  return !e.isComposing && e.keyCode !== 229;
+  if (e.isComposing || e.keyCode === 229) return false;
+  // **改行したいときは送らない**
+  return !e.shiftKey && !e.altKey;
 }
 
 /** チャット欄に並ぶ 1 行。 */
