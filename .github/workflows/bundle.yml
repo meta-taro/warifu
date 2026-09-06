@@ -9,8 +9,22 @@ name: bundle
 #   - 人が手で起動したとき（workflow_dispatch）
 #   - タグを打ったとき（配布の直前）
 #
-# **Windows では一度も建てたことがない**（2026-09-03 時点）。
-# 手元に Windows が無いので、ここが最初の確認になる。
+# **Windows で画面は建たない**（2026-09-03 に実測・2026-09-06 に原因を特定）。
+#
+#   tauri 2.11.5 が windows "^0.61" を要求するため、画面側の lock には
+#   windows が 0.61.3 と 0.62.2 の 2 本入る。そこで wmi 0.18.4 が
+#   **windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組**を掴み、
+#   `IWbemObjectSink: windows_core::Interface is not satisfied` で落ちる。
+#
+#   wmi は windows と windows-core の要求を揃えていない（上流の manifest の問題）。
+#   `cargo update --precise` は両方向とも拒否される —— tauri が ^0.61 を、
+#   netwatch（iroh 1.1.0）が ^0.62.2 を要求しており、**こちらでは直せない。**
+#
+# **CLI は建つ。**ルートの lock には windows が 0.62.2 の 1 本しか入らないので、
+# wmi の組が揃う。**Windows 機には CLI を届ける**（`release.yml`）。
+#
+# **落ちたまま放置しない**（baseline §20）。Windows は CLI を建てて、
+# 画面が建つようになったかは macOS だけで見る。
 
 on:
   workflow_dispatch:
@@ -52,10 +66,17 @@ jobs:
       - name: install
         run: pnpm install --frozen-lockfile
 
+      # **Windows は CLI を建てる。**画面は上流の依存が食い違っていて建たない（先頭の注記）
+      - name: CLI を建てる（Windows）
+        if: matrix.os == 'windows-latest'
+        run: cargo build --release -p warifu-cli
+
       - name: フロントを建てる
+        if: matrix.os != 'windows-latest'
         run: pnpm --filter @warifu/desktop build
 
       # --no-bundle: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
-      - name: 配布物を建てる
+      - name: 画面を建てる
+        if: matrix.os != 'windows-latest'
         working-directory: apps/desktop/src-tauri
         run: cargo build --release

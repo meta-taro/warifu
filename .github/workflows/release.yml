@@ -86,3 +86,32 @@ jobs:
           name: warifu-macos-dmg
           path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
+
+  # **Windows 機には CLI を届ける。**
+  #
+  # 画面（Tauri）は Windows で建たない —— tauri 2.11.5 が windows "^0.61" を、
+  # netwatch（iroh 1.1.0）が "^0.62.2" を要求するため、wmi 0.18.4 が
+  # windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組を掴んで落ちる。
+  # **上流の manifest の問題で、こちらでは直せない**（`bundle.yml` の先頭に詳細）。
+  #
+  # CLI はルートの lock で windows が 0.62.2 の 1 本になるので、組が揃う。
+  # **文字のやり取りは CLI で足りる**（三者会議・D48）。
+  windows-cli:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: CLI を建てる
+        run: cargo build --release -p warifu-cli
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warifu-windows-cli
+          path: target/release/warifu.exe
+          if-no-files-found: error
+

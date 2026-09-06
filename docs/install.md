@@ -12,7 +12,28 @@
 |---|---|
 | **macOS / Apple Silicon（M1 以降）** | **動きます**。配布物は `aarch64` です |
 | **macOS / Intel** | **動きません。**別に建てる必要があります（下記） |
-| **Windows / Linux** | **確かめていません。**建ちますが、誰も動かしていません |
+| **Windows** | **画面は建ちません**（下記）。**CLI（`warifu.exe`）は使えます** |
+| **Linux** | **確かめていません** |
+
+### Windows —— **画面は建たない。CLI を使う**
+
+上流の依存が食い違っており、**こちらでは直せません。**
+
+```
+tauri 2.11.5      が windows "^0.61" を要求
+netwatch (iroh)   が windows "^0.62.2" を要求
+  → wmi 0.18.4 が windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組を掴む
+  → error[E0277]: the trait bound `IWbemObjectSink: windows_core::Interface` is not satisfied
+```
+
+`cargo update --precise` は**両方向とも拒否されます**（tauri が下げさせず、netwatch が上げさせない）。
+
+**CLI は建ちます。**タグを打つと `warifu.exe` が Artifacts に出ます（`warifu-windows-cli`）。
+**文字のやり取りは CLI で足ります**（三者会議・**D48**）。映像は使えません。
+
+```
+warifu.exe join <会議キー>
+```
 
 **Intel の Mac で使うなら**、その機械の上で建ててください。
 
