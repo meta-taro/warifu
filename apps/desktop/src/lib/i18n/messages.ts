@@ -62,6 +62,9 @@ export type MessageKey =
   | 'meeting.key.copy'
   | 'meeting.key.copied'
   | 'meeting.key.reveal'
+  | 'roster.name.action'
+  | 'roster.name.save'
+  | 'roster.name.placeholder'
   | 'meeting.status.waiting'
   | 'meeting.status.live'
   | 'setup.mic.none'
@@ -114,6 +117,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': 'コピーする',
     'meeting.key.copied': 'コピーしました',
     'meeting.key.reveal': '会議キーの全文を見る',
+    'roster.name.action': '名前を付ける',
+    'roster.name.save': '決める',
+    'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
     'meeting.status.live': '会議中',
     'setup.mic.none': 'マイクが見つかりません',
@@ -182,6 +188,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': 'Copy',
     'meeting.key.copied': 'Copied',
     'meeting.key.reveal': 'Show the full meeting key',
+    'roster.name.action': 'Name',
+    'roster.name.save': 'Save',
+    'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
     'meeting.status.live': 'In a meeting',
     'setup.mic.none': 'No microphone found',
@@ -250,6 +259,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': '复制',
     'meeting.key.copied': '已复制',
     'meeting.key.reveal': '查看完整会议密钥',
+    'roster.name.action': '命名',
+    'roster.name.save': '保存',
+    'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
     'meeting.status.live': '会议中',
     'setup.mic.none': '未找到麦克风',
@@ -318,6 +330,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.copy': '복사하기',
     'meeting.key.copied': '복사했습니다',
     'meeting.key.reveal': '회의 키 전문 보기',
+    'roster.name.action': '이름 붙이기',
+    'roster.name.save': '저장',
+    'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',
     'meeting.status.live': '회의 중',
     'setup.mic.none': '마이크를 찾을 수 없습니다',

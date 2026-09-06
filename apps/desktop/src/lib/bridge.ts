@@ -125,6 +125,26 @@ export const listen = () => invoke<void>('listen');
 export const introduce = (newcomer: string, address: string) =>
   invoke<void>('introduce', { newcomer, address });
 
+/** 覚えている相手 1 人。**呼び名と鍵の組だけ。** */
+export interface ContactRow {
+  /** 公開鍵（base32・全桁）。 */
+  key: string;
+  /** 人が付けた呼び名。 */
+  label: string;
+}
+
+/**
+ * 覚えている相手を並べる。
+ *
+ * **CLI（`warifu contacts`）と同じ置き場所を読む。**別の機械のエージェントに
+ * 名前を付けておけば、画面のチャットにもその名前で出る。
+ */
+export const contacts = () => invoke<ContactRow[]>('contacts');
+
+/** 相手を覚える。**呼び名を空にすると忘れる。** */
+export const remember = (key: string, label: string) =>
+  invoke<void>('remember', { key, label });
+
 /** 相手に対して自分が offer を出す側か（D38）。 */
 export const shouldOfferTo = (peer: string) => invoke<boolean>('should_offer_to', { peer });
 

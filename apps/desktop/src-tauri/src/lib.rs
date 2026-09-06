@@ -697,6 +697,53 @@ async fn 紹介を配る(
 
 /// **画面の出来事を、同じログへ流す。**
 ///
+/// 覚えている相手 1 人。**呼び名と鍵の組だけ**を画面へ渡す。
+#[derive(Debug, serde::Serialize)]
+pub struct ContactRow {
+    /// 公開鍵（base32・全桁）。画面は**これで引く**。
+    key: String,
+    /// 人が付けた呼び名。
+    label: String,
+}
+
+/// 覚えている相手を並べる。
+///
+/// **CLI（`warifu contacts`）と同じ置き場所を読む。**別の機械で動いているエージェントに
+/// `warifu contacts add` で名前を付けておけば、画面のチャットにもその名前で出る。
+/// **鍵の頭 12 文字だけでは、人にもエージェントにも見分けが付かない。**
+#[tauri::command]
+fn contacts() -> Answer<Vec<ContactRow>> {
+    let vault = warifu_vault::Vault::default_location()?;
+    let list = vault.contacts()?;
+    Ok(list
+        .iter()
+        .map(|c| ContactRow {
+            key: c.key().to_string(),
+            label: c.label().to_owned(),
+        })
+        .collect())
+}
+
+/// 相手を覚える（呼び名を付ける）。**同じ鍵に付け直せる。**
+///
+/// 覚えるのは**呼び名と鍵だけ**で、住所（いまどこに居るか）は入らない。
+/// 住所は会議キーが運ぶ（`issues/010` の会場鍵で埋める予定）。
+#[tauri::command]
+fn remember(key: String, label: String) -> Answer<()> {
+    let who = key.parse::<PublicKey>()?;
+    let vault = warifu_vault::Vault::default_location()?;
+    let mut list = vault.contacts()?;
+    let 名 = label.trim();
+    if 名.is_empty() {
+        list.remove(who);
+    } else {
+        list.add(who, 名, now_secs())?;
+    }
+    vault.save_contacts(&list)?;
+    記録!("名簿: 覚えた（{}）", 短く(&key));
+    Ok(())
+}
+
 /// WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、
 /// 切り分けが「Rust までは来ていた」で止まる。**
 ///
@@ -846,6 +893,8 @@ pub fn run() {
             leave,
             send_text,
             log,
+            contacts,
+            remember,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())

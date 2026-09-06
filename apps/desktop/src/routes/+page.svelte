@@ -12,6 +12,7 @@
   import type { LinkPath } from '$lib/link/path';
   import { 入退室の知らせ, 話の記録, type 会話行, type 出来事 } from '$lib/meeting/announce';
   import { 準備を出す, 画面の状態を決める } from '$lib/meeting/stage';
+  import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
     describeMediaFailure,
@@ -41,6 +42,7 @@
     EVENT_SIGNAL,
     EVENT_TEXT,
     connect,
+    contacts,
     hostMeeting,
     inTauri,
     invite,
@@ -49,6 +51,7 @@
     log,
     myKey,
     onEvent,
+    remember,
     sendText,
     setMenuLocale,
     shouldOfferTo,
@@ -112,6 +115,33 @@
     画面の状態を決める({ 相手: remotes.length, 会議キー: !!meetingKey, 会話: 会話.length }),
   );
   const 支度の口を出す = $derived(準備を出す(状態));
+
+  /**
+   * 公開鍵 → 呼び名。**CLI（`warifu contacts`）と同じ置き場所を読む。**
+   *
+   * 鍵の頭 12 文字だけでは、人にもエージェントにも見分けが付かない ——
+   * 2026-09-06 に画面のチャットで実際に困った（`67R54JO7ND6P…` が誰なのか分からない）。
+   */
+  let 名簿 = $state<Record<string, string>>({});
+  async function 名簿を読む() {
+    if (!inTauri()) return;
+    try {
+      // ブラウザで開いたときは null が返る（Tauri の外）。**そこで落ちない**
+      const rows = (await contacts()) ?? [];
+      名簿 = Object.fromEntries(rows.map((r) => [r.key, r.label]));
+    } catch (e) {
+      // **握り潰さない。**名前が出ないだけで会議は続けられる
+      log(`名簿を読めなかった（${読める(e)}）`);
+    }
+  }
+  async function 名前を付ける(key: string, label: string) {
+    try {
+      await remember(key, label);
+      await 名簿を読む();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
 
   /** 確かめた結果、その機器が実際にあるか。**無いものに入を出さない** */
   const カメラあり = $derived(devices.cameras.length > 0);
@@ -213,7 +243,8 @@
       await hostMeeting(DEFAULT_CAPACITY);
       await listen();
       const me = (await myKey()) ?? '';
-      members = [{ name: `${短く(me)}（${t('tile.me')}）`, host: true, path: 'unknown' }];
+      members = [{ key: me, me: true, host: true, path: 'unknown' }];
+      void 名簿を読む();
     })();
   });
 
@@ -223,9 +254,15 @@
       unsubs.push(
         await onEvent<string>(EVENT_JOINED, async (key) => {
           log(`入った人がいる（${短く(key)}）。通話を作る`);
-          members = [...members, { name: 短く(key), path: 'unknown' }];
+          // **入ってきた時に読み直す。**起動時に 1 回だけだと、
+          // その後 `warifu contacts add` で付けた名前が反映されない（2026-09-06 に実測）
+          void 名簿を読む();
+          members = [...members, { key, path: 'unknown' }];
           // **見ていない間に誰が来たかを残す。**名簿は動くが、目を離すと分からない
-          会話 = [...会話, 入退室の知らせ('入室', 短く(key), (k, v) => format(t(`chat.${k}`), v))];
+          会話 = [
+            ...会話,
+            入退室の知らせ('入室', 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v)),
+          ];
           音を出す(入室の音);
           remotes = [...remotes, { key, stream: null, path: 'unknown' }];
           const offering = (await shouldOfferTo(key)) ?? false;
@@ -239,7 +276,7 @@
               onPath: (p) => {
                 log(`経路が変わった: ${p}（${短く(key)}）`);
                 相手を更新(key, { path: p });
-                members = members.map((m) => (m.name === 短く(key) ? { ...m, path: p } : m));
+                members = members.map((m) => (m.key === key ? { ...m, path: p } : m));
               },
             },
             prefs,
@@ -265,7 +302,7 @@
       unsubs.push(
         await onEvent<[string, string]>(EVENT_TEXT, ([key, body]) => {
           log(話の記録('受信', 短く(key), body));
-          会話 = [...会話, { who: 短く(key), body, mine: false }];
+          会話 = [...会話, { who: 呼び名(名簿, key), body, mine: false }];
         }),
       );
       unsubs.push(
@@ -348,8 +385,8 @@
     calls.get(key)?.close();
     calls.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
-    members = members.filter((m) => m.name !== 短く(key));
-    会話 = [...会話, 入退室の知らせ(種類, 短く(key), (k, v) => format(t(`chat.${k}`), v))];
+    members = members.filter((m) => m.key !== key);
+    会話 = [...会話, 入退室の知らせ(種類, 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v))];
     音を出す(退室の音);
   }
 
@@ -459,7 +496,7 @@
         <div class="tile">
           <!-- svelte-ignore a11y_media_has_caption -->
           <video autoplay playsinline {@attach (el) => { (el as HTMLVideoElement).srcObject = r.stream; }}></video>
-          <span class="cap">{短く(r.key)} <LinkBadge {locale} path={r.path} /></span>
+          <span class="cap">{呼び名(名簿, r.key)} <LinkBadge {locale} path={r.path} /></span>
         </div>
       {/each}
     </div>
@@ -615,7 +652,13 @@
       名簿は数行しかないので、チャットの始まりを押し下げない。
       （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された所である）
     -->
-    <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
+    <Roster
+      {locale}
+      {members}
+      capacity={DEFAULT_CAPACITY}
+      names={名簿}
+      onRename={(key, label) => void 名前を付ける(key, label)}
+    />
 
     <div class="card chat" class:live={状態 !== '会議前'}>
       <h2><Icon name="people" size={18} />{t('chat.title')}</h2>

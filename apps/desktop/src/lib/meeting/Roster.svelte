@@ -6,10 +6,13 @@
   import type { Locale } from '../i18n/locales';
   import type { LinkPath } from '../link/path';
   import { clampCapacity } from './roster';
+  import { 呼び名 } from './names';
 
   export interface Member {
-    /** 表示名。**公開鍵そのものは出さない**（出すなら等幅で全桁・§5） */
-    name: string;
+    /** 公開鍵（base32・全桁）。**名前ではなくこれで数える**（呼び名は変わる） */
+    key: string;
+    /** 自分か */
+    me?: boolean;
     /** 主催者はひとりだけ */
     host?: boolean;
     path: LinkPath;
@@ -19,8 +22,27 @@
     locale: Locale;
     members: readonly Member[];
     capacity: number;
+    /** 公開鍵 → 呼び名。覚えていない相手は鍵の頭で出す */
+    names?: Readonly<Record<string, string>>;
+    /** 呼び名を付ける。**空にすると忘れる** */
+    onRename?: (key: string, label: string) => void;
   }
-  let { locale, members, capacity }: Props = $props();
+  let { locale, members, capacity, names = {}, onRename }: Props = $props();
+
+  const t = (key: keyof (typeof MESSAGES)[Locale]) => MESSAGES[locale][key];
+
+  /** いま名前を付けている相手（公開鍵）。**1 人ずつ** */
+  let 書き換え中 = $state<string | null>(null);
+  let 下書き = $state('');
+
+  function 始める(key: string) {
+    書き換え中 = key;
+    下書き = names[key] ?? '';
+  }
+  function 決める(key: string) {
+    onRename?.(key, 下書き);
+    書き換え中 = null;
+  }
 
   // 招待に書かれた定員をそのまま信じない（D27）
   const shown = $derived(clampCapacity(capacity));
@@ -37,11 +59,37 @@
     >
   </header>
   <ul>
-    {#each members as m (m.name)}
+    {#each members as m (m.key)}
       <li>
-        <span class="name">{m.name}</span>
-        {#if m.host}<span class="host">主催</span>{/if}
-        <LinkBadge {locale} path={m.path} />
+        {#if 書き換え中 === m.key}
+          <!-- **その場で付ける。**別の画面へ行かせない -->
+          <input
+            type="text"
+            bind:value={下書き}
+            placeholder={t('roster.name.placeholder')}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') 決める(m.key);
+              if (e.key === 'Escape') 書き換え中 = null;
+            }}
+          />
+          <button type="button" class="quiet" onclick={() => 決める(m.key)}>
+            {t('roster.name.save')}
+          </button>
+        {:else}
+          <span class="name">{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
+          {#if m.host}<span class="host">主催</span>{/if}
+          <LinkBadge {locale} path={m.path} />
+          {#if onRename && !m.me}
+            <!-- **鍵の頭では、人もエージェントも見分けが付かない。**呼び名を付けられるようにする -->
+            <button
+              type="button"
+              class="quiet"
+              title={t('roster.name.action')}
+              aria-label={t('roster.name.action')}
+              onclick={() => 始める(m.key)}>{t('roster.name.action')}</button
+            >
+          {/if}
+        {/if}
       </li>
     {/each}
   </ul>
@@ -103,5 +151,30 @@
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-sm);
     padding: 1px 6px;
+  }
+  .roster li input[type='text'] {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    font-size: var(--text-xs-size);
+    color: var(--text-primary);
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px var(--space-2);
+  }
+  .roster li button.quiet {
+    flex: none;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-sm);
+    padding: 2px var(--space-2);
+    font-size: var(--text-2xs-size);
+    cursor: pointer;
+  }
+  .roster li button.quiet:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 </style>
