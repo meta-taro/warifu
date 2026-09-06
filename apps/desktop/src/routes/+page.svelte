@@ -11,6 +11,7 @@
   import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
   import { 入退室の知らせ, 話の記録, type 会話行, type 出来事 } from '$lib/meeting/announce';
+  import { 準備を出す, 画面の状態を決める } from '$lib/meeting/stage';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
     describeMediaFailure,
@@ -98,6 +99,23 @@
   const 会議中 = $derived(remotes.length > 0);
   /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
   let 会話 = $state<会話行[]>([]);
+
+  /**
+   * 画面の状態（`$lib/meeting/stage`）。**会議中かどうかだけでは足りない。**
+   *
+   * 鍵を出して待っている間と、相手が落ちた直後は `会議中` が false になる。
+   * そこで準備の口を丸ごと出し直していたため、**チャットと名簿が窓の外
+   * （下へ 442px）へ押し出されていた**（2026-09-06 に実測）。
+   * 落ちた知らせがチャットに出るのは、まさにその瞬間である。
+   */
+  const 状態 = $derived(
+    画面の状態を決める({ 相手: remotes.length, 会議キー: !!meetingKey, 会話: 会話.length }),
+  );
+  const 支度の口を出す = $derived(準備を出す(状態));
+
+  /** 確かめた結果、その機器が実際にあるか。**無いものに入を出さない** */
+  const カメラあり = $derived(devices.cameras.length > 0);
+  const マイクあり = $derived(devices.microphones.length > 0);
   /** 知らせ音を出す口。**要るときだけ作る**（作った時点で音の許可を使う環境がある）。 */
   let 音の口: AudioContext | null = null;
   function 音を出す(chime: Parameters<typeof 鳴らす>[1]) {
@@ -411,11 +429,23 @@
 
 <TitleBar
   {locale}
-  status={format(t('roster.capacity'), { current: members.length, capacity: DEFAULT_CAPACITY })}
+  status={状態 === '会議中'
+    ? t('meeting.status.live')
+    : 状態 === '待っている'
+      ? t('meeting.status.waiting')
+      : ''}
 />
 
 <main>
   <section class="stage">
+    <!--
+      **知らせは映像の上。**下に置くと目に入らない —— 会議中の目線は
+      帯の直下か映像の中にある（2026-09-06 の実測でここへ上げた）。
+      「相手との経路が切れました」は、いちばん見落としてはいけない 1 行である。
+    -->
+    {#if notice}
+      <p class="notice">{notice}</p>
+    {/if}
     <div class="tiles" data-count={タイルの数}>
       <div class="tile">
         <!-- 自分の映像は音を出さない（**回り込む**） -->
@@ -458,13 +488,10 @@
         </button>
       </div>
     {/if}
-    {#if notice}
-      <p class="notice">{notice}</p>
-    {/if}
   </section>
 
   <aside>
-    {#if !会議中}
+    {#if 支度の口を出す}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('setup.title')}</h2>
       <p class="hint">{t('setup.hint')}</p>
@@ -472,13 +499,32 @@
         <Icon name="camera" />{t('setup.action')}
       </button>
 
-      <label class="row">
-        <input type="checkbox" bind:checked={prefs.micOn} onchange={適用する} />
-        <Icon name={prefs.micOn ? 'mic' : 'mic-off'} />{t('setup.mic')}
+      <!--
+        **無い機器のチェックを入のままにしない。**確かめた後にカメラもマイクも
+        見つからない機械で、両方に ☑ が付いたまま「カメラもマイクも無いので、
+        受け取るだけで入ります」と出ていた（2026-09-05 の実測）。
+        **画面が自分と食い違っている。**
+        好みそのもの（`prefs`）は消さない —— 後で挿せば戻る。
+      -->
+      <label class="row" class:dim={支度した && !マイクあり}>
+        <input
+          type="checkbox"
+          checked={prefs.micOn && (!支度した || マイクあり)}
+          disabled={支度した && !マイクあり}
+          onchange={(e) => { prefs.micOn = e.currentTarget.checked; void 適用する(); }}
+        />
+        <Icon name={prefs.micOn && (!支度した || マイクあり) ? 'mic' : 'mic-off'} />
+        {支度した && !マイクあり ? t('setup.mic.none') : t('setup.mic')}
       </label>
-      <label class="row">
-        <input type="checkbox" bind:checked={prefs.cameraOn} onchange={適用する} />
-        <Icon name={prefs.cameraOn ? 'camera' : 'camera-off'} />{t('setup.camera')}
+      <label class="row" class:dim={支度した && !カメラあり}>
+        <input
+          type="checkbox"
+          checked={prefs.cameraOn && (!支度した || カメラあり)}
+          disabled={支度した && !カメラあり}
+          onchange={(e) => { prefs.cameraOn = e.currentTarget.checked; void 適用する(); }}
+        />
+        <Icon name={prefs.cameraOn && (!支度した || カメラあり) ? 'camera' : 'camera-off'} />
+        {支度した && !カメラあり ? t('setup.camera.none') : t('setup.camera')}
       </label>
 
       {#if devices.cameras.length}
@@ -523,25 +569,6 @@
       <button type="button" onclick={はじめる}>
         <Icon name="people" />{t('meeting.start.action')}
       </button>
-      {#if meetingKey}
-        <div class="field">
-          <div class="field-head">
-            <span class="with-icon"><Icon name="key" />{t('meeting.key.label')}</span>
-            <button type="button" class="quiet" onclick={写す}>
-              <Icon name={copied ? 'check' : 'copy'} />
-              {copied ? t('meeting.key.copied') : t('meeting.key.copy')}
-            </button>
-          </div>
-          <!-- 触れた時点で全部選ぶ。**手で端から端まで引かせない** -->
-          <textarea
-            bind:this={keyField}
-            readonly
-            rows="4"
-            value={meetingKey}
-            onfocus={(e) => e.currentTarget.select()}
-          ></textarea>
-        </div>
-      {/if}
     </div>
 
     <div class="card">
@@ -555,10 +582,42 @@
     {/if}
 
     <!--
-      **会議中はここが一番上に来る。**下に置くと気づかれない
-      （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された）。
+      **会議キーは畳んで置く。**全文は 346〜357 文字で、開いたままだと 177px を占める。
+      渡した後は要らない —— ただし **消さない**（DESIGN.md §7「QR と文字列を必ず両方出す」）。
+      畳んだ状態でも **コピーする** は押せる。渡すのに全文を見る必要は無い。
     -->
-    <div class="card chat" class:live={会議中}>
+    {#if meetingKey}
+      <div class="card key">
+        <div class="field-head">
+          <span class="with-icon"><Icon name="key" />{t('meeting.key.label')}</span>
+          <button type="button" class="quiet" onclick={写す}>
+            <Icon name={copied ? 'check' : 'copy'} />
+            {copied ? t('meeting.key.copied') : t('meeting.key.copy')}
+          </button>
+        </div>
+        <details>
+          <summary>{t('meeting.key.reveal')}</summary>
+          <!-- 触れた時点で全部選ぶ。**手で端から端まで引かせない** -->
+          <textarea
+            bind:this={keyField}
+            readonly
+            rows="4"
+            value={meetingKey}
+            onfocus={(e) => e.currentTarget.select()}
+          ></textarea>
+        </details>
+      </div>
+    {/if}
+
+    <!--
+      **名簿とチャットは、会議前でも畳まない。**この 2 つが窓の外にあると、
+      相手が落ちた知らせを目で見つけられない（2026-09-05 に実際に見つけられなかった）。
+      名簿は数行しかないので、チャットの始まりを押し下げない。
+      （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された所である）
+    -->
+    <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
+
+    <div class="card chat" class:live={状態 !== '会議前'}>
       <h2><Icon name="people" size={18} />{t('chat.title')}</h2>
       <p class="hint">{t('chat.hint')}</p>
       <div class="talk">
@@ -581,9 +640,6 @@
         <button type="button" onclick={話す} disabled={!下書き.trim()}>{t('chat.send')}</button>
       </div>
     </div>
-
-    <Roster {locale} {members} capacity={DEFAULT_CAPACITY} />
-
   </aside>
 </main>
 
@@ -594,16 +650,21 @@
     grid-template-columns: 1fr 340px;
     gap: var(--space-4);
     padding: var(--space-4);
-    align-items: start;
-    /* **ここだけが動く。**min-height: 0 が無いと grid の子が縮まず、
-       窓ごとはみ出して帯まで一緒に動く */
+    /* **窓ごと動かさない。**動いてよいのは右の列の中だけである。
+       ここを `overflow-y: auto` にしていたため、右の列が 1101px まで伸びて
+       **チャットと名簿が窓の下端から 442px はみ出していた**（2026-09-06 の実測）。
+       映像まで一緒に流れるので、探しに行くと相手が見えなくなる。
+       min-height: 0 が無いと grid の子が縮まない */
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
   }
   .stage {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    /* **映像を内容領域いっぱいに。**左に 266px 余っていた（2026-09-06 の実測）。
+       会議中の主役は映像である。min-height:0 が無いと子が縮まない */
+    min-height: 0;
   }
   /* 人数で列を変える。**1 対 1 は大きく、増えたら小さく**。
      auto-fit だけに任せると、3 人のときに 1 人だけ次の行で大きく残る */
@@ -611,6 +672,14 @@
     display: grid;
     gap: var(--space-3);
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    /* **残りを取って、その中で縦中央に置く。**
+       下に 266px 余っていた（2026-09-06 の実測）が、**映像を縦に伸ばすことはできない** ——
+       幅 699px の列で 16:9 を保つと高さは 393px に決まる。伸ばせば顔が切れる。
+       **余りは下に溜めず、上下へ振り分ける。**
+       枠に動きは付けない（DESIGN.md §6）—— ここは置き方であって、出入りで跳ねない */
+    flex: 1;
+    min-height: 0;
+    align-content: center;
   }
   .tiles[data-count='3'],
   .tiles[data-count='4'] {
@@ -630,9 +699,11 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+    min-height: 0;
   }
   video {
     width: 100%;
+    max-height: 100%;
     aspect-ratio: 16 / 9;
     background: var(--bg-sunken);
     border: 1px solid var(--border);
@@ -659,6 +730,9 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    /* **窓の外へ出さない。**溢れるならここの中だけで動く（映像は動かない） */
+    min-height: 0;
+    overflow-y: auto;
   }
   .card {
     display: flex;
@@ -687,12 +761,18 @@
     line-height: var(--text-xs-line);
     color: var(--text-tertiary);
   }
+  .card.chat {
+    /* **残りを取る。**打ち込み欄は底に固定され、行が増えても動かない */
+    flex: 1;
+    min-height: 160px;
+  }
   .talk {
     display: flex;
     flex-direction: column;
     gap: 4px;
     /* **溢れたら中で動く。**外側（画面全体）を伸ばさない */
-    max-height: 220px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: var(--space-2);
     background: var(--bg-app);
@@ -759,12 +839,23 @@
     align-items: center;
     gap: 6px;
   }
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  /* **会議キーは畳んで置く。**全文は 346〜357 文字で 177px を占める（DESIGN.md §7 で消せない） */
+  .card.key summary {
+    cursor: pointer;
     font-size: var(--text-xs-size);
-    color: var(--text-secondary);
+    color: var(--accent);
+  }
+  .card.key summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+  .card.key textarea {
+    margin-top: var(--space-2);
+  }
+  /* 無い機器は、あることを示さない */
+  .row.dim {
+    color: var(--text-tertiary);
   }
   .field-head {
     display: flex;
@@ -798,6 +889,14 @@
   }
   textarea {
     resize: vertical;
+  }
+  /* **`width: 100%` に padding と枠を足すと、その分だけ横へ溢れる。**
+     右の列が窓ごとスクロールしていた頃は隠れていたが、列の中だけを動かすようにしたら
+     横スクロールバーになって出てきた（2026-09-06 の実測） */
+  textarea,
+  select,
+  input[type='text'] {
+    box-sizing: border-box;
   }
   select {
     font-family: var(--font-ui);

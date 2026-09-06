@@ -61,6 +61,11 @@ export type MessageKey =
   | 'setup.mode.none'
   | 'meeting.key.copy'
   | 'meeting.key.copied'
+  | 'meeting.key.reveal'
+  | 'meeting.status.waiting'
+  | 'meeting.status.live'
+  | 'setup.mic.none'
+  | 'setup.camera.none'
   | 'edit.cut'
   | 'edit.copy'
   | 'edit.paste'
@@ -108,6 +113,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.busy': 'ほかのアプリがカメラを使っています。',
     'meeting.key.copy': 'コピーする',
     'meeting.key.copied': 'コピーしました',
+    'meeting.key.reveal': '会議キーの全文を見る',
+    'meeting.status.waiting': '相手を待っています',
+    'meeting.status.live': '会議中',
+    'setup.mic.none': 'マイクが見つかりません',
+    'setup.camera.none': 'カメラが見つかりません',
     'edit.cut': '切り取る',
     'edit.copy': 'コピー',
     'edit.paste': '貼り付け',
@@ -171,6 +181,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.busy': 'Another app is using the camera.',
     'meeting.key.copy': 'Copy',
     'meeting.key.copied': 'Copied',
+    'meeting.key.reveal': 'Show the full meeting key',
+    'meeting.status.waiting': 'Waiting for the other person',
+    'meeting.status.live': 'In a meeting',
+    'setup.mic.none': 'No microphone found',
+    'setup.camera.none': 'No camera found',
     'edit.cut': 'Cut',
     'edit.copy': 'Copy',
     'edit.paste': 'Paste',
@@ -234,6 +249,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.busy': '其他应用正在使用摄像头。',
     'meeting.key.copy': '复制',
     'meeting.key.copied': '已复制',
+    'meeting.key.reveal': '查看完整会议密钥',
+    'meeting.status.waiting': '正在等待对方',
+    'meeting.status.live': '会议中',
+    'setup.mic.none': '未找到麦克风',
+    'setup.camera.none': '未找到摄像头',
     'edit.cut': '剪切',
     'edit.copy': '复制',
     'edit.paste': '粘贴',
@@ -297,6 +317,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.busy': '다른 앱이 카메라를 사용 중입니다.',
     'meeting.key.copy': '복사하기',
     'meeting.key.copied': '복사했습니다',
+    'meeting.key.reveal': '회의 키 전문 보기',
+    'meeting.status.waiting': '상대방을 기다리는 중',
+    'meeting.status.live': '회의 중',
+    'setup.mic.none': '마이크를 찾을 수 없습니다',
+    'setup.camera.none': '카메라를 찾을 수 없습니다',
     'edit.cut': '오려두기',
     'edit.copy': '복사하기',
     'edit.paste': '붙여넣기',
