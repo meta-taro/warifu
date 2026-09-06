@@ -3,6 +3,25 @@
 // **名簿が動くだけでは足りない。**画面を見ていない間に誰が来たのかが分からない。
 // チャット欄は人が見ている所なので、そこへ 1 行残す。
 
+/**
+ * 打ち込みを送ってよいか（Enter が押されたとき）。
+ *
+ * **日本語入力の変換確定の Enter で送らない。**
+ * 2026-09-06 にオーナーが実際に踏んだ ——「まって、」「あと」「エンターで」が
+ * **変換のたびに別々の発言として飛んだ。**
+ *
+ * `isComposing` は変換中に true になる。`keyCode === 229` は、
+ * 古い WebView が `isComposing` を出さないときの保険である。
+ */
+export function 送ってよい(e: {
+  key: string;
+  isComposing?: boolean;
+  keyCode?: number;
+}): boolean {
+  if (e.key !== 'Enter') return false;
+  return !e.isComposing && e.keyCode !== 229;
+}
+
 /** チャット欄に並ぶ 1 行。 */
 export type 会話行 = {
   /** 誰の発言か。 */
@@ -13,7 +32,20 @@ export type 会話行 = {
   mine: boolean;
   /** 人の発言ではなく、会議からの知らせか。 */
   system?: true;
+  /**
+   * いつの発言か（`HH:MM`）。
+   *
+   * **無いと、あとから読み返せない。**2026-09-06 にオーナーが
+   * 「**何時に投稿したかわからないです**」と言った所である。
+   */
+  at?: string;
 };
+
+/** いまの時刻を `HH:MM` で。**秒は出さない** —— 会話に秒の精度は要らない。 */
+export function いま時刻(now: Date = new Date()): string {
+  const 二桁 = (n: number) => String(n).padStart(2, '0');
+  return `${二桁(now.getHours())}:${二桁(now.getMinutes())}`;
+}
 
 /**
  * 知らせの種類。

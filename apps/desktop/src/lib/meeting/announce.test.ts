@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { 入退室の知らせ, 話の記録, type 会話行 } from './announce';
+import { 入退室の知らせ, 話の記録, 送ってよい, いま時刻, type 会話行 } from './announce';
 
 describe('入退室の知らせ', () => {
   it('入った人を、チャット欄に出す行にする', () => {
@@ -51,5 +51,34 @@ describe('会話行', () => {
   it('人の発言と、知らせを見分けられる', () => {
     const 発言: 会話行 = { who: '自分', body: 'やあ', mine: true };
     expect(発言.system).toBeUndefined();
+  });
+});
+
+describe('Enter で送ってよいか', () => {
+  it('変換確定の Enter では送らない', () => {
+    // **2026-09-06 にオーナーが実際に踏んだ。**
+    // 「まって、」「あと」「エンターで」が変換のたびに別々の発言として飛んだ
+    expect(送ってよい({ key: 'Enter', isComposing: true })).toBe(false);
+  });
+
+  it('isComposing を出さない WebView でも、229 で分かる', () => {
+    // 古い WebView は isComposing を出さない。**保険を外さない**
+    expect(送ってよい({ key: 'Enter', keyCode: 229 })).toBe(false);
+  });
+
+  it('変換していない Enter では送る', () => {
+    expect(送ってよい({ key: 'Enter', isComposing: false, keyCode: 13 })).toBe(true);
+  });
+
+  it('Enter 以外では送らない', () => {
+    expect(送ってよい({ key: 'a' })).toBe(false);
+  });
+});
+
+describe('いま時刻', () => {
+  it('HH:MM で出す。秒は出さない', () => {
+    // **無いと、あとから読み返せない**（2026-09-06 の「何時に投稿したかわからないです」）
+    expect(いま時刻(new Date(2026, 8, 6, 9, 5))).toBe('09:05');
+    expect(いま時刻(new Date(2026, 8, 6, 23, 59))).toBe('23:59');
   });
 });

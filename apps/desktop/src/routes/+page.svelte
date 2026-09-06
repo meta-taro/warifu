@@ -10,7 +10,14 @@
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
-  import { 入退室の知らせ, 話の記録, type 会話行, type 出来事 } from '$lib/meeting/announce';
+  import {
+    入退室の知らせ,
+    話の記録,
+    送ってよい,
+    いま時刻,
+    type 会話行,
+    type 出来事,
+  } from '$lib/meeting/announce';
   import { 準備を出す, 画面の状態を決める } from '$lib/meeting/stage';
   import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
@@ -261,7 +268,10 @@
           // **見ていない間に誰が来たかを残す。**名簿は動くが、目を離すと分からない
           会話 = [
             ...会話,
-            入退室の知らせ('入室', 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v)),
+            {
+              ...入退室の知らせ('入室', 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v)),
+              at: いま時刻(),
+            },
           ];
           音を出す(入室の音);
           remotes = [...remotes, { key, stream: null, path: 'unknown' }];
@@ -302,7 +312,7 @@
       unsubs.push(
         await onEvent<[string, string]>(EVENT_TEXT, ([key, body]) => {
           log(話の記録('受信', 短く(key), body));
-          会話 = [...会話, { who: 呼び名(名簿, key), body, mine: false }];
+          会話 = [...会話, { who: 呼び名(名簿, key), body, mine: false, at: いま時刻() }];
         }),
       );
       unsubs.push(
@@ -386,7 +396,13 @@
     calls.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
     members = members.filter((m) => m.key !== key);
-    会話 = [...会話, 入退室の知らせ(種類, 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v))];
+    会話 = [
+      ...会話,
+      {
+        ...入退室の知らせ(種類, 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v)),
+        at: いま時刻(),
+      },
+    ];
     音を出す(退室の音);
   }
 
@@ -443,7 +459,7 @@
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
       log(話の記録('送信', `${remotes.length} 人`, body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
-      会話 = [...会話, { who: t('tile.me'), body, mine: true }];
+      会話 = [...会話, { who: t('tile.me'), body, mine: true, at: いま時刻() }];
       下書き = '';
     } catch (e) {
       notice = 読める(e);
@@ -692,8 +708,10 @@
           <p class="hint">{t('chat.empty')}</p>
         {/if}
         {#each 会話 as line, i (i)}
+          <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
           <p class="line" class:mine={line.mine} class:system={line.system}>
-            {#if !line.system}<b>{line.who}</b>{/if}{line.body}
+            {#if line.at}<span class="at">{line.at}</span>{/if}{#if !line.system}<b>{line.who}</b
+              >{/if}{line.body}
           </p>
         {/each}
       </div>
@@ -711,7 +729,7 @@
           type="text"
           bind:value={下書き}
           placeholder={会議中 ? t('chat.placeholder') : t('chat.placeholder.nobody')}
-          onkeydown={(e) => e.key === 'Enter' && 話す()}
+          onkeydown={(e) => 送ってよい(e) && 話す()}
         />
         <button type="button" onclick={話す} disabled={!会議中 || !下書き.trim()}>
           {t('chat.send')}
@@ -888,6 +906,14 @@
   .controls button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  /* 時刻は等幅で、桁を揃える（DESIGN.md §5）。**本文より前に出て、本文より弱い** */
+  .at {
+    margin-right: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs-size);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-tertiary);
   }
   .line b {
     margin-right: 6px;
