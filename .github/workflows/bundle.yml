@@ -66,17 +66,13 @@ jobs:
       - name: install
         run: pnpm install --frozen-lockfile
 
-      # **Windows は CLI を建てる。**画面は上流の依存が食い違っていて建たない（先頭の注記）
-      - name: CLI を建てる（Windows）
-        if: matrix.os == 'windows-latest'
+      - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
       - name: フロントを建てる
-        if: matrix.os != 'windows-latest'
         run: pnpm --filter @warifu/desktop build
 
       # --no-bundle: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
       - name: 画面を建てる
-        if: matrix.os != 'windows-latest'
         working-directory: apps/desktop/src-tauri
         run: cargo build --release
