@@ -51,6 +51,12 @@ pnpm --filter @warifu/desktop tauri dev
 何が入っていて、何がまだ無いかは **`CHANGELOG.md`**。
 触ってもらう手順は **`docs/trial.md`**。
 
+### 訳文をレビューする
+
+**`docs/i18n-review.md`** —— UI の文言は 4 言語（en / ja / zh / ko）ありますが、
+**全部 AI の下書き**です。**誤訳が事故になる文言が 5 つ**あります。
+シートは `docs/i18n-review.tsv`。
+
 ### 相手がいなくても動かせる（**受信箱**）
 
 **`docs/inbox.md`** —— 自分のメール 1 つで動きます。P2P も会議も使いません。

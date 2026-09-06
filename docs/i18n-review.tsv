@@ -1,0 +1,72 @@
+鍵	en	ja	zh	ko	事故になるか	翻訳者への注記	判定	直した訳（ja/en/zh/ko）
+app.name	warifu	warifu	warifu	warifu				
+browser.only	Opened in a browser. Meetings only work inside the warifu window.	ブラウザで開いています。会議は warifu の窓でだけ動きます。	正在浏览器中打开。会议只能在 warifu 窗口里进行。	브라우저에서 열렸습니다. 회의는 warifu 창에서만 동작합니다.				
+call.camera	Camera	カメラ	摄像头	카메라				
+call.controls	Turn off what you are sending right now. Separate from the pre-join check.	会議中の入切。支度の確認とは別で、いま送っているものを止めます。	关闭当前正在发送的内容。与入会前的确认不同。	지금 보내고 있는 것을 끕니다. 입장 전 확인과는 별개입니다.				
+call.mic	Microphone	マイク	麦克风	마이크				
+camera.busy	Another app is using the camera.	ほかのアプリがカメラを使っています。	其他应用正在使用摄像头。	다른 앱이 카메라를 사용 중입니다.				
+camera.denied	Camera and microphone are not allowed. Allow them in your OS settings.	カメラとマイクが許可されていません。OS の設定で許可してください。	未允许使用摄像头和麦克风。请在系统设置中允许。	카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.				
+camera.missing	No camera or microphone found.	カメラかマイクが見つかりません。	找不到摄像头或麦克风。	카메라나 마이크를 찾을 수 없습니다.				
+camera.unknown	Could not use the camera.	カメラを使えませんでした。	无法使用摄像头。	카메라를 사용할 수 없습니다.				
+chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
+chat.hint	Goes to everyone in the meeting. Not saved — it disappears when you close.\n	会議に入っている人へ届きます。残りません — 閉じると消えます。\n	发送给会议中的所有人。不会保存 — 关闭后消失。\n	회의에 있는 사람에게 전달됩니다. 남지 않습니다 — 닫으면 사라집니다.\n				
+chat.joined	{who} joined	{who} が入室しました	{who} 已加入	{who} 님이 입장했습니다				
+chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
+chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
+chat.placeholder	Type and press Enter	書いて Enter	输入后按 Enter	입력 후 Enter				
+chat.send	Send	送る	发送	보내기				
+chat.title	Chat	文字で話す	文字聊天	문자로 대화				
+door.refused	Refused.	断りました。	已拒绝。	거절했습니다.	★	**既に断り終えた**という完了の意味。「保留しています」「確認中です」と読める訳にしないこと。待てば通ると誤解すると、来ていない相手を待ち続ける（D31）。		
+edit.copy	Copy	コピー	复制	복사하기				
+edit.cut	Cut	切り取る	剪切	오려두기				
+edit.paste	Paste	貼り付け	粘贴	붙여넣기				
+edit.pasteHint	Use Cmd+V to paste.	貼り付けは ⌘V を使ってください。	请使用 Cmd+V 粘贴。	붙여넣기는 Cmd+V를 사용하세요.				
+edit.selectAll	Select All	すべてを選択	全选	전체 선택				
+link.closed	The other person left.	相手が退出しました。	对方已离开。	상대방이 나갔습니다.				
+link.direct	Direct	直接	直连	직접				
+link.lost	The connection to the other person was lost. They can come back with the same meeting key — still waiting.	相手との経路が切れました。同じ会議キーで戻ってこられます — 待っています。	与对方的连接已中断。对方可以用同一个会议密钥重新进入 — 仍在等待。	상대방과의 연결이 끊어졌습니다. 같은 회의 키로 다시 들어올 수 있습니다 — 기다리는 중입니다.	★	**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、会議キーが別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
+link.relayed	Relayed	中継	中继	중계				
+link.unknown	Unknown	不明	未知	알 수 없음				
+meeting.join.action	Enter the meeting	入室する	进入会议	입장하기				
+meeting.join.hint	Whoever received the key enters. Whoever gave it just waits.	もらった側が入室します。渡した側は待つだけです。	收到密钥的一方进入，交出的一方等待即可。	받은 쪽이 입장합니다. 건넨 쪽은 기다리기만 하면 됩니다.				
+meeting.join.title	Enter with a meeting key	もらった会議キーで入室する	用收到的会议密钥进入	받은 회의 키로 입장하기				
+meeting.join.working	Entering…	入室しています…	正在进入…	입장 중…				
+meeting.key.copied	Copied	コピーしました	已复制	복사했습니다				
+meeting.key.copy	Copy	コピーする	复制	복사하기				
+meeting.key.hint	Hand this to the people joining. Only they can enter. It expires in 10 minutes. You can write it down or read it aloud.	これを参加者に渡します。渡した相手だけが入室できます。10 分で切れます。紙に書いても、読み上げても渡せます。	把它交给参加者。只有拿到的人才能进入。10 分钟后失效。可以写在纸上，也可以念给对方。	참가자에게 건네주세요. 건넨 사람만 입장할 수 있습니다. 10분 뒤에 만료됩니다. 종이에 적어도, 말로 전해도 됩니다.	★	「渡した相手だけが入室できる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **会議キーを他人に見られたら、その人が入室できる。**		
+meeting.key.label	Meeting key	会議キー	会议密钥	회의 키				
+meeting.key.more	Create another meeting key	会議キーをもう 1 本出す	再生成一个会议密钥	회의 키를 하나 더 만들기				
+meeting.key.more.hint	One meeting key lets one person in. To invite a third person, create another key and give it to them. The earlier keys keep working.	1 本の会議キーで入れるのは 1 人だけです。3 人目を呼ぶなら、もう 1 本出してその人に渡します。前の鍵は使えたままです。	一个会议密钥只能让一个人进入。要邀请第三个人，请再生成一个并交给对方。之前的密钥仍然可用。	회의 키 하나로 들어올 수 있는 사람은 한 명입니다. 세 번째 사람을 부르려면 하나 더 만들어 건네주세요. 이전 키는 그대로 쓸 수 있습니다.				
+meeting.key.own	That is your own meeting key. Hand it to the people joining.	これは自分の会議キーです。参加者に渡してください。	这是你自己的会议密钥。请交给参加者。	자신의 회의 키입니다. 참가자에게 건네주세요.				
+meeting.key.reveal	Show the full meeting key	会議キーの全文を見る	查看完整会议密钥	회의 키 전문 보기				
+meeting.start.action	Start a meeting	会議をはじめる	开始会议	회의 시작하기				
+meeting.start.title	Start a meeting	会議をはじめる	开始会议	회의 시작하기				
+meeting.status.live	In a meeting	会議中	会议中	회의 중				
+meeting.status.waiting	Waiting for the other person	相手を待っています	正在等待对方	상대방을 기다리는 중				
+revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{device} 해지	★	実行を促す文言。ここで「試す」「確認する」に寄せると、押した先が最終であることが伝わらない。		
+revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
+roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
+roster.name.action	Name	名前を付ける	命名	이름 붙이기				
+roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
+roster.name.save	Save	決める	保存	저장				
+setup.action	Check camera and microphone	カメラとマイクを確かめる	检查摄像头和麦克风	카메라와 마이크 확인				
+setup.blur	Blur my background	背景をぼかす	虚化背景	배경 흐리게				
+setup.blur.os	This environment cannot blur backgrounds from the app. On macOS, use Video Effects in Control Center.	この環境では、アプリから背景をぼかせません。macOS ならコントロールセンターのビデオエフェクトが使えます。	此环境无法由应用虚化背景。macOS 可使用控制中心的视频效果。	이 환경에서는 앱이 배경을 흐리게 할 수 없습니다. macOS라면 제어 센터의 비디오 효과를 사용하세요.				
+setup.camera	Enter with the camera on	カメラを入にして入室する	开着摄像头进入	카메라를 켠 채로 입장				
+setup.camera.none	No camera found	カメラが見つかりません	未找到摄像头	카메라를 찾을 수 없습니다				
+setup.headphones	Two devices in one room will echo no matter what. Use headphones.	同じ部屋で 2 台を鳴らすと、エコー除去では消せません。ヘッドフォンを使ってください。	同一房间里的两台设备一定会啸叫，回声消除也无法解决。请使用耳机。	같은 방에서 두 대를 켜면 에코 제거로도 막을 수 없습니다. 헤드폰을 사용하세요.				
+setup.hint	Check what you look and sound like before entering.	いま自分が何で映って、何で喋るかを、入る前に確かめられます。	进入之前，先确认自己的画面和声音。	들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.				
+setup.mic	Enter with the microphone on	マイクを入にして入室する	开着麦克风进入	마이크를 켠 채로 입장				
+setup.mic.none	No microphone found	マイクが見つかりません	未找到麦克风	마이크를 찾을 수 없습니다				
+setup.mode.audio	No camera, so sending audio only	カメラが無いので、音声だけ送ります	没有摄像头，只发送音频	카메라가 없어 음성만 보냅니다				
+setup.mode.both	Sending video and audio	映像と音声を送ります	将发送视频和音频	영상과 음성을 보냅니다				
+setup.mode.none	No camera or microphone, so joining to receive only	カメラもマイクも無いので、受け取るだけで入ります	没有摄像头和麦克风，仅接收方式加入	카메라도 마이크도 없어 받기만 하며 참여합니다				
+setup.title	Before you enter	入室前のしたく	进入前的准备	입장 전 준비				
+tile.me	You	自分	自己	나				
+tile.peer	Them	相手	对方	상대				
+update.apply	Restart and update	再起動して更新する	重启并更新	다시 시작하고 업데이트				
+update.available	Update available — {version}	更新あり — {version}	有可用更新 — {version}	업데이트 있음 — {version}				
+window.close	Close	閉じる	关闭	닫기				
+window.maximize	Maximize	最大化	最大化	최대화				
+window.minimize	Minimize	最小化	最小化	최소화				
+window.restore	Restore	元のサイズに戻す	还原	이전 크기로				
