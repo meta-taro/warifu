@@ -303,3 +303,19 @@ fn 壊れた規則は読み取らない() {
         "規則の外に目印がある"
     );
 }
+
+/// **手順書に載せたひな型が、実際に読めること。**
+///
+/// `docs/rules.example.tsv` は `docs/inbox.md` から名指しで案内している。
+/// **参照だけ足して実体を確かめないと、人が最初に踏む所で壊れる**
+/// （baseline §23 と同じ筋）。
+#[test]
+fn 手順書のひな型が読める() {
+    let text = include_str!("../../../docs/rules.example.tsv");
+    let 棚 = RuleStore::from_tsv(text).expect("ひな型が読めない");
+    assert_eq!(棚.len(), 3, "ひな型の規則の数が変わった");
+
+    // 往復しても形が変わらない（**保存できない規則を載せていない**）
+    let 戻り = RuleStore::from_tsv(&棚.to_tsv()).expect("書き出したものを読み戻せない");
+    assert_eq!(戻り.to_tsv(), 棚.to_tsv());
+}
