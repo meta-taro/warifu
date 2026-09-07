@@ -47,9 +47,46 @@ const EVENT_TEXT: &str = "warifu://text";
 /// **秘密情報を書かない**（baseline §14）。割符の中身・SDP の中身・
 /// 公開鍵の全桁は出さない。**長さと種類だけ**を出す。
 macro_rules! 記録 {
-    ($($arg:tt)*) => {
-        eprintln!("[warifu +{:.3}s] {}", 起動からの秒(), format!($($arg)*))
-    };
+    ($($arg:tt)*) => {{
+        let 行 = format!("[warifu +{:.3}s] {}", 起動からの秒(), format!($($arg)*));
+        eprintln!("{行}");
+        書き置く(&行);
+    }};
+}
+
+/// **決まった場所へ書き置く。**
+///
+/// `eprintln!` だけだと、**人がアイコンから起動したときログがどこにも残らない。**
+/// こちらが `> warifu.log` を付けて起動していたから読めていただけである
+/// （2026-09-07 に気づいた）。
+///
+/// **人が普通に使って不具合を踏んだとき、エージェントが見に行ける記録が要る。**
+/// GUI はエージェントが操作できない（端末から動かせない）ので、
+/// **人が触り、AI が記録を読む**という分担になる。**記録が無ければ、その分担が成立しない。**
+///
+/// 置き場所は身元と同じ所（`WARIFU_HOME` で移せる）。**中身は要所だけ**で、
+/// **会議の文字も鍵も住所も書かない**（`話の記録` と同じ構え）。
+fn 書き置く(行: &str) {
+    use std::io::Write as _;
+    static 置き場: std::sync::OnceLock<Option<std::sync::Mutex<std::fs::File>>> =
+        std::sync::OnceLock::new();
+    let 口 = 置き場.get_or_init(|| {
+        let vault = warifu_vault::Vault::default_location().ok()?;
+        let path = vault.dir().join("warifu.log");
+        // **前の分を消さない。**追記で足す。前回落ちた理由が消えると、追えなくなる
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .ok()
+            .map(std::sync::Mutex::new)
+    });
+    // **書けなくても止めない。**ログのために会議を落とさない
+    if let Some(f) = 口
+        && let Ok(mut f) = f.lock()
+    {
+        let _ = writeln!(f, "{行}");
+    }
 }
 
 /// 起動してから何秒経ったか。
