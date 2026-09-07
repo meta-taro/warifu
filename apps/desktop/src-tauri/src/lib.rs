@@ -985,11 +985,34 @@ fn log(message: String) {
 /// 身元は続くようになった（**D42**）ので、次は履歴を置く形を決める（`issues/010`）。
 #[tauri::command]
 async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
+    // **人が打った行は、まず机へ配る。**
+    // 会議に人が 1 人も居なくても、**同じ席の AI には届く** ——
+    // 「会議ありきのチャットじゃない」（オーナー・2026-09-06）。
+    // AI は画面に書けるのに人は返せない、という片側だけの経路にしない。
+    //
+    // **2026-09-07 に実物で踏んだ。**画面は「机 1 人」でボタンを押せるのに、
+    // ここが会議の相手だけを見ていたので「まだ誰も居ません」と断っていた。
+    let 机に居る = desk::席の数(&bridge) > 0;
+    if 机に居る {
+        desk::配る(
+            &bridge,
+            desk::聞いた(&key_to_string(bridge.device.public_key()), &body),
+        );
+    }
+
     let meeting = {
         let slot = bridge.conference.lock().await;
         slot.as_ref().map(Conference::id)
     };
     let Some(meeting) = meeting else {
+        // 机に居るなら、届いている。**届いたものを失敗にしない**
+        if 机に居る {
+            記録!(
+                "送信: 文字（{} バイト）を机へ（会議はまだ無い）",
+                body.len()
+            );
+            return Ok(());
+        }
         return Err(Failure {
             message: "まだ会議がありません".into(),
             code: None,
@@ -997,17 +1020,19 @@ async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
     };
     let out = bridge.outbound.lock().await;
     if out.is_empty() {
+        if 机に居る {
+            記録!(
+                "送信: 文字（{} バイト）を机へ（会議に人は居ない）",
+                body.len()
+            );
+            return Ok(());
+        }
         return Err(Failure {
             message: "まだ誰も居ません".into(),
             code: None,
         });
     }
     記録!("送信: 文字（{} バイト）を {} 人へ", body.len(), out.len());
-    // **人が打った行も机へ配る。**配らないと、AI は人の発言が見えない
-    desk::配る(
-        &bridge,
-        desk::聞いた(&key_to_string(bridge.device.public_key()), &body),
-    );
     for tx in out.values() {
         // 届かない相手が居ても止めない。**送る側を待たせない**
         let _ = tx
