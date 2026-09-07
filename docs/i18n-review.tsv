@@ -28,10 +28,13 @@ chat.nobody	Nobody is here yet. Share a meeting key and wait for someone to join
 chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
 chat.placeholder.desk	Talk to the AI on this computer	この PC の AI に話しかける	对这台电脑的 AI 说话	이 PC 의 AI 에게 말을 걸기				
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
-chat.scope	There is one conversation. It reaches everyone in the meeting and the AI on this computer.	この会話は 1 本です。会議に居る人と、この PC の AI の全員に届きます。	这是一条会话。会送达会议里的所有人，以及这台电脑的 AI。	이 대화는 하나입니다. 회의에 있는 사람과 이 PC 의 AI 모두에게 갑니다.	★	「1 本の会話」＝ 会議に居る全員と、この PC の AI に届く、という意味。「この相手にだけ届きます」「非公開の会話です」と読める訳にしないこと。個別に届くと誤解した人は、見られたくないものを書く。		
+chat.reach	Goes to {who}	届く先 {who}	送达 {who}	가는 곳 {who}				
+chat.reach.none	It goes nowhere yet. Someone joining the meeting, or the AI sitting at the desk, shows up here.	届く先はまだありません。会議に人が入るか、この PC の AI が机に着くと出ます。	目前送不到任何人。有人加入会议，或这台电脑的 AI 坐到桌旁后，就会显示在这里。	아직 갈 곳이 없습니다. 회의에 사람이 들어오거나 이 PC 의 AI 가 책상에 앉으면 여기에 나옵니다.				
 chat.send	Send	送る	发送	보내기				
+chat.shared	This is not a conversation with the person you picked.	ここは、選んだ相手だけの会話ではありません。	这里不是只和所选对方的会话。	여기는 고른 상대만의 대화가 아닙니다.	★	**会話は 1 本しか無い。**選んだ相手の隣に並んでいても、その人だけに届くのではない。「この相手にだけ届きます」「非公開の会話です」「ダイレクトメッセージ」と読める訳にしないこと。**個別に届くと誤解した人は、見られたくないものを書く。**		
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
 contacts.desk	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
+contacts.desk.how	To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。	要让 AI 坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。	책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
 contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
 contacts.empty	You have not remembered anyone yet. Name someone you met in a meeting and they stay here.	まだ誰も覚えていません。会議で会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给会议中遇到的人取个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 회의에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
 contacts.forget	Require a meeting key again	鍵なしで入れるのをやめる	恢复需要会议密钥	다시 회의 키를 받게 하기				
@@ -39,6 +42,8 @@ contacts.forget.hint	Right now this person can come in without a meeting key. Tu
 contacts.inmeeting	In the meeting now	いま会議に居る人	正在会议中的人	지금 회의에 있는 사람				
 contacts.key.label	Public key	公開鍵	公钥	공개키				
 contacts.me	You	あなた	你	당신				
+contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a meeting key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには会議キーが要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要会议密钥）。	이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 회의 키가 필요합니다).				
+contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
 contacts.presence.none	There is no way to tell whether they are running right now. You find out by calling.	相手がいま起動しているかは分かりません。呼んでみるまで分かりません。	无法知道对方现在是否已启动。只有呼叫之后才知道。	상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.				
 contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				

@@ -60,6 +60,12 @@ export type MessageKey =
   | 'contacts.empty'
   | 'contacts.pick'
   | 'contacts.key.label'
+  | 'contacts.me.what'
+  | 'contacts.me.share'
+  | 'contacts.desk.how'
+  | 'chat.shared'
+  | 'chat.reach'
+  | 'chat.reach.none'
   | 'contacts.presence.none'
   | 'contacts.forget'
   | 'contacts.forget.hint'
@@ -72,7 +78,6 @@ export type MessageKey =
   | 'act.already'
   | 'act.desk.local'
   | 'act.desk.empty'
-  | 'chat.scope'
   | 'schedule.title'
   | 'schedule.none'
   | 'chat.placeholder.nobody'
@@ -193,6 +198,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.empty': 'まだ誰も覚えていません。会議で会った相手に呼び名を付けると、ここに残ります。',
     'contacts.pick': '相手を選ぶと、できることが出ます。',
     'contacts.key.label': '公開鍵',
+    'contacts.me.what': 'これがこの PC のあなたです。閉じても同じ人でいられます。',
+    'contacts.me.share': 'この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには会議キーが要ります）。',
+    'contacts.desk.how': '机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。',
+    'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
+    'chat.reach': '届く先 {who}',
+    'chat.reach.none': '届く先はまだありません。会議に人が入るか、この PC の AI が机に着くと出ます。',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
     'contacts.forget': '鍵なしで入れるのをやめる',
     'contacts.forget.hint': 'この相手はいま、会議キーなしで入ってこられます。やめると、次からは会議キーが要ります。',
@@ -205,7 +216,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': 'すでにこの会議に居ます。',
     'act.desk.local': 'この PC の AI は、同じ机に着いています。会議に呼ぶ必要はありません。',
     'act.desk.empty': '机に誰も着いていません。',
-    'chat.scope': 'この会話は 1 本です。会議に居る人と、この PC の AI の全員に届きます。',
     'schedule.title': '予定',
     'schedule.none': '予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。',
     'chat.placeholder.nobody': '入ってきたら送れます',
@@ -298,6 +308,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.empty': 'You have not remembered anyone yet. Name someone you met in a meeting and they stay here.',
     'contacts.pick': 'Pick someone to see what you can do.',
     'contacts.key.label': 'Public key',
+    'contacts.me.what': 'This is you on this computer. You stay the same person after closing it.',
+    'contacts.me.share': 'You can show this public key to anyone. On its own it lets nobody in — coming in needs a meeting key.',
+    'contacts.desk.how': 'To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
+    'chat.shared': 'This is not a conversation with the person you picked.',
+    'chat.reach': 'Goes to {who}',
+    'chat.reach.none': 'It goes nowhere yet. Someone joining the meeting, or the AI sitting at the desk, shows up here.',
     'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
     'contacts.forget': 'Require a meeting key again',
     'contacts.forget.hint': 'Right now this person can come in without a meeting key. Turn it off and they will need one again.',
@@ -310,7 +326,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': 'Already in this meeting.',
     'act.desk.local': 'The AI on this computer is at the same desk. There is nothing to invite.',
     'act.desk.empty': 'No agent is at the desk.',
-    'chat.scope': 'There is one conversation. It reaches everyone in the meeting and the AI on this computer.',
     'schedule.title': 'Schedule',
     'schedule.none': 'The schedule pane does not work yet. There is no way for the window to read a calendar.',
     'chat.placeholder.nobody': 'You can send once someone joins',
@@ -403,6 +418,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.empty': '还没有记住任何人。给会议中遇到的人取个称呼，就会留在这里。',
     'contacts.pick': '选择一位，就会显示可以做的事。',
     'contacts.key.label': '公钥',
+    'contacts.me.what': '这是这台电脑上的你。关掉之后仍然是同一个人。',
+    'contacts.me.share': '这个公钥可以给对方看。仅凭它谁也进不来（进来需要会议密钥）。',
+    'contacts.desk.how': '要让 AI 坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。',
+    'chat.shared': '这里不是只和所选对方的会话。',
+    'chat.reach': '送达 {who}',
+    'chat.reach.none': '目前送不到任何人。有人加入会议，或这台电脑的 AI 坐到桌旁后，就会显示在这里。',
     'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
     'contacts.forget': '恢复需要会议密钥',
     'contacts.forget.hint': '现在这位不用会议密钥就能进来。取消后，下次就需要会议密钥了。',
@@ -415,7 +436,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': '已经在这个会议里了。',
     'act.desk.local': '这台电脑的 AI 就在同一张桌旁，不需要邀请进会议。',
     'act.desk.empty': '桌旁没有人。',
-    'chat.scope': '这是一条会话。会送达会议里的所有人，以及这台电脑的 AI。',
     'schedule.title': '日程',
     'schedule.none': '日程还不能用。画面还没有读取日程表的口。',
     'chat.placeholder.nobody': '有人进入后即可发送',
@@ -508,6 +528,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.empty': '아직 아무도 기억하지 않았습니다. 회의에서 만난 상대에게 이름을 붙이면 여기에 남습니다.',
     'contacts.pick': '상대를 고르면 할 수 있는 일이 나옵니다.',
     'contacts.key.label': '공개키',
+    'contacts.me.what': '이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.',
+    'contacts.me.share': '이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 회의 키가 필요합니다).',
+    'contacts.desk.how': '책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
+    'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',
+    'chat.reach': '가는 곳 {who}',
+    'chat.reach.none': '아직 갈 곳이 없습니다. 회의에 사람이 들어오거나 이 PC 의 AI 가 책상에 앉으면 여기에 나옵니다.',
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
     'contacts.forget': '다시 회의 키를 받게 하기',
     'contacts.forget.hint': '지금 이 상대는 회의 키 없이 들어올 수 있습니다. 끄면 다음부터는 회의 키가 필요합니다.',
@@ -520,7 +546,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': '이미 이 회의에 있습니다.',
     'act.desk.local': '이 PC 의 AI 는 같은 책상에 있습니다. 회의에 부를 필요가 없습니다.',
     'act.desk.empty': '책상에 아무도 없습니다.',
-    'chat.scope': '이 대화는 하나입니다. 회의에 있는 사람과 이 PC 의 AI 모두에게 갑니다.',
     'schedule.title': '일정',
     'schedule.none': '일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.',
     'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
@@ -553,7 +578,7 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'link.lost',
   'act.mail.none',
   'act.address.none',
-  'chat.scope',
+  'chat.shared',
 ] as const;
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
@@ -568,10 +593,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '「その相手は見つかりません」「拒否されました」と読める訳にしないこと。' +
     '相手のせいにすると、人は相手に確認しに行く。' +
     'また「自動でつながります」とも読ませないこと —— つなぐのは人の操作である。',
-  'chat.scope':
-    '「1 本の会話」＝ 会議に居る全員と、この PC の AI に届く、という意味。' +
-    '「この相手にだけ届きます」「非公開の会話です」と読める訳にしないこと。' +
-    '個別に届くと誤解した人は、見られたくないものを書く。',
+  'chat.shared':
+    '**会話は 1 本しか無い。**選んだ相手の隣に並んでいても、その人だけに届くのではない。' +
+    '「この相手にだけ届きます」「非公開の会話です」「ダイレクトメッセージ」と' +
+    '読める訳にしないこと。**個別に届くと誤解した人は、見られたくないものを書く。**',
   'revoke.irreversible':
     '「取り消せない」は事実であって、丁寧な警告ではない。' +
     '「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。' +

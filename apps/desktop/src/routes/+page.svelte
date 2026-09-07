@@ -25,6 +25,7 @@
   import { 机の印, type 行 as 連絡帳の行 } from '$lib/contacts/list';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
+  import { 届く先を並べる } from '$lib/chat/reach';
   import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
@@ -156,6 +157,17 @@
   let 自分の鍵 = $state('');
   /** いま会議キーなしで入れる相手。**覚えている相手とは別の集まり。** */
   let 鍵なしで入れる = $state<string[]>([]);
+
+  /**
+   * いま打ったものが届く先。**1 対 1 か 1 対 N かは、これを見れば分かる。**
+   */
+  const 届く先 = $derived(
+    届く先を並べる({
+      会議の相手: remotes.map((r) => 呼び名(名簿, r.key)),
+      机の人数,
+      机の呼び名: t('contacts.desk'),
+    }),
+  );
 
   const 連絡帳の素材 = $derived({
     自分: 自分の鍵,
@@ -712,6 +724,7 @@
       {会議中}
       {机の人数}
       送る={(body) => void 話す(body)}
+      {届く先}
     />
 
     {#if 支度の口を出す}
@@ -868,6 +881,8 @@
         {会議中}
         {机の人数}
         送る={(body) => void 話す(body)}
+        相手ごとではない
+        {届く先}
       />
     </div>
   {/if}

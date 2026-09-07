@@ -161,13 +161,24 @@
           </button>
         </div>
       {/if}
+      <!-- **自分を押しても行き止まりにしない。**
+           口は無いが、渡せるもの（公開鍵）と、何者かは出す -->
+      {#if 相手.種類 === '自分'}
+        <p class="hint">{t('contacts.me.what')}</p>
+        <p class="key">
+          <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
+        </p>
+        <p class="hint">{t('contacts.me.share')}</p>
+      {/if}
       {#if 相手.種類 === '人'}
         <p class="key">
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>
       {/if}
       {#if 相手.種類 === 'AI' && 素材.机の人数 === 0}
+        <!-- **「居ません」だけでは、どうすればよいか分からない。**手順まで出す -->
         <p class="hint">{t('contacts.desk.none')}</p>
+        <p class="hint">{t('contacts.desk.how')}</p>
       {/if}
 
       <div class="acts">

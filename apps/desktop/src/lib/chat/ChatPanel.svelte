@@ -10,7 +10,7 @@
 
   import { 送ってよい, type 会話行 } from '$lib/meeting/announce';
   import type { Locale } from '$lib/i18n/locales';
-  import { MESSAGES, type MessageKey } from '$lib/i18n/messages';
+  import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
 
   interface Props {
@@ -24,9 +24,33 @@
     机の人数: number;
     /** 送る。**中身は呼ぶ側が持つ**（下書きもここでは持たない）。 */
     送る: (body: string) => void;
+    /**
+     * 選んだ相手のすぐ隣に並ぶか。
+     *
+     * **並ぶなら「その人との会話ではない」と先に言う。**
+     * 言わないと、個別に届くと誤解した人が見られたくないものを書く。
+     */
+    相手ごとではない?: boolean;
+    /**
+     * **いま届く先。**呼び名をそのまま並べる。
+     *
+     * 「1 対 1 なのか 1 対 N なのか」は最初に人が気にする所である
+     * （オーナー・2026-09-07）。**言葉で説明するより、並べたほうが早い** ——
+     * 1 人しか並ばなければ 1 対 1、3 人並べば 1 対 3 である。
+     */
+    届く先: readonly string[];
   }
 
-  const { locale, 会話, 届く先がある, 会議中, 机の人数, 送る }: Props = $props();
+  const {
+    locale,
+    会話,
+    届く先がある,
+    会議中,
+    机の人数,
+    送る,
+    相手ごとではない = false,
+    届く先,
+  }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
   let 下書き = $state('');
@@ -41,8 +65,18 @@
 
 <div class="card chat">
   <h2><Icon name="chat" size={18} />{t('chat.title')}</h2>
-  <!-- **1 本の会話であることを、先に言う。**個別に届くと思わせない -->
-  <p class="hint">{t('chat.scope')}</p>
+  <!-- **1 本の会話であることを、先に言う。**個別に届くと思わせない。
+       連絡帳では選んだ相手のすぐ隣に並ぶので、**放っておくと
+       「その人との会話」に見える**（2026-09-07 にオーナーが実物で踏んだ）。 -->
+  {#if 相手ごとではない}
+    <p class="hint strong">{t('chat.shared')}</p>
+  {/if}
+  <!-- **誰に届くかを、そのまま並べる。**「全員に届きます」より読みやすい -->
+  {#if 届く先.length === 0}
+    <p class="hint">{t('chat.reach.none')}</p>
+  {:else}
+    <p class="hint reach">{format(t('chat.reach'), { who: 届く先.join(' ／ ') })}</p>
+  {/if}
   <div class="talk">
     {#if 会話.length === 0}
       <p class="hint">{t('chat.empty')}</p>
@@ -118,6 +152,13 @@
     gap: 6px;
     margin: 0;
     font-size: var(--text-sm-size);
+    font-weight: 600;
+  }
+  .hint.reach {
+    color: var(--text-secondary);
+  }
+  .hint.strong {
+    color: var(--text-secondary);
     font-weight: 600;
   }
   .hint {
