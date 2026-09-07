@@ -201,6 +201,9 @@ async fn 流す(app: &AppHandle, body: &str, 出所: u64) -> Result<usize, Strin
         EVENT_DESK,
         (key_to_string(自分), body.to_owned(), いま時刻()),
     );
+    // **同じ席の AI が喋ったことにも気づけるようにする。**
+    // 窓が前に居るときは鳴らないので、うるさくならない
+    crate::notify::届いたと知らせる(app, "この PC の AI");
     // 机に着いている**他の**エージェントにも同じ行を見せる（言った本人には返さない）
     let _ = bridge.desk.send((
         出所,

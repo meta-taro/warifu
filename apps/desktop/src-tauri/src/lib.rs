@@ -70,6 +70,7 @@ macro_rules! 記録 {
 mod call;
 mod contacts;
 mod desk;
+mod notify;
 
 /// **決まった場所へ書き置く。**
 ///
@@ -643,7 +644,7 @@ async fn 割符を確かめる(
 }
 
 /// 今の時刻（秒）。**割符の期限と戸口の窓に使う。**
-fn now_secs() -> u64 {
+pub(crate) fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -710,6 +711,8 @@ fn 汲む(
                             continue;
                         }
                         let _ = app.emit(EVENT_TEXT, (key_to_string(peer), body.clone()));
+                        // **窓が後ろに居ると、届いたことに気づけない。**押し出す
+                        notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **同じ席の AI にも、同じ行を見せる。**
                         // 見せないと、人にだけ見えている話に AI が返事をすることになる
                         desk::配る(
@@ -1137,6 +1140,9 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
 
 pub fn run() {
     tauri::Builder::default()
+        // **届いたことを窓の外へ押し出すため**（`notify.rs`）。
+        // 押し出せないとチャットにならない（オーナー・2026-09-07）
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             // 最初に呼んで、起点をここに固定する
             起動からの秒();
