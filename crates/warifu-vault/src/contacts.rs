@@ -10,7 +10,14 @@ pub struct Contact {
     key: PublicKey,
     label: String,
     added_at: u64,
+    address: Option<String>,
 }
+
+/// 住所の長さの上限（バイト）。
+///
+/// `warifu-meeting` が知らせで運ぶ住所と同じ値にする。
+/// **書けても読み戻せない行を作らない。**
+const ADDRESS_MAX: usize = 1024;
 
 impl Contact {
     /// 相手の公開鍵。**warifu ではこれが相手の名前そのもの。**
@@ -32,6 +39,18 @@ impl Contact {
     #[must_use]
     pub fn added_at(&self) -> u64 {
         self.added_at
+    }
+
+    /// **最後に繋がったときの住所。**まだ知らなければ `None`。
+    ///
+    /// **1 つしか持たない。**居場所の履歴にしない（`issues/010` の止めるべき条件）。
+    /// 中身は解釈しない —— 住所を読むのは経路の層の仕事であり、
+    /// ここは置き場所である（`Notice::Introduce` が文字列で持つのと同じ構え）。
+    ///
+    /// **当たる保証は無い。**当たらなければ会議キーを渡してもらう。
+    #[must_use]
+    pub fn address(&self) -> Option<&str> {
+        self.address.as_deref()
     }
 }
 
@@ -111,6 +130,7 @@ impl Contacts {
                 key,
                 label,
                 added_at: now,
+                address: None,
             });
         }
         self.sort();
@@ -128,13 +148,39 @@ impl Contacts {
         self.entries.sort_by(|a, b| a.label.cmp(&b.label));
     }
 
-    pub(crate) fn push_raw(&mut self, key: PublicKey, label: String, added_at: u64) {
+    pub(crate) fn push_raw(
+        &mut self,
+        key: PublicKey,
+        label: String,
+        added_at: u64,
+        address: Option<String>,
+    ) {
         self.entries.push(Contact {
             key,
             label,
             added_at,
+            address,
         });
         self.sort();
+    }
+
+    /// **最後に繋がった住所**を書き留める。覚えていない相手なら `false`。
+    ///
+    /// **行を作らない。**呼び名の無い相手を連絡帳に出さないため
+    /// （住所だけの行は、人が見ても誰か分からない）。
+    ///
+    /// 二度書けば**上書きする。**足していかない ——
+    /// 溜めると居場所の履歴になる（`issues/010` の止めるべき条件）。
+    ///
+    /// # Errors
+    /// 区切りを壊す住所・空・長すぎるとき [`Error::BadAddress`]。
+    pub fn note_address(&mut self, key: PublicKey, address: &str) -> Result<bool, Error> {
+        let address = check_address(address)?;
+        let Some(existing) = self.entries.iter_mut().find(|c| c.key == key) else {
+            return Ok(false);
+        };
+        existing.address = Some(address);
+        Ok(true)
     }
 }
 
@@ -142,6 +188,33 @@ impl Contacts {
 ///
 /// **区切りに使う文字を通さない。**通すと、書き出したものを読み直したときに
 /// 別の欄へずれ込む（呼び名を打つのは人なので、ここで止める）。
+/// 住所が**置ける形か**だけを見る。
+///
+/// **中身が正しい住所かは見ない。**それは経路の層の仕事である。
+/// ここが見るのは「この行を書いて、読み戻せるか」だけ。
+fn check_address(address: &str) -> Result<String, Error> {
+    let trimmed = address.trim();
+    if trimmed.is_empty() {
+        return Err(Error::BadAddress { why: "空です" });
+    }
+    if trimmed.contains('\t') {
+        return Err(Error::BadAddress {
+            why: "タブは使えません（欄の区切りに使っています）",
+        });
+    }
+    if trimmed.contains(['\n', '\r']) {
+        return Err(Error::BadAddress {
+            why: "改行は使えません（行の区切りに使っています）",
+        });
+    }
+    if trimmed.len() > ADDRESS_MAX {
+        return Err(Error::BadAddress {
+            why: "長すぎます（1024 バイトまで）",
+        });
+    }
+    Ok(trimmed.to_owned())
+}
+
 fn check_label(label: &str) -> Result<String, Error> {
     let trimmed = label.trim();
     if trimmed.is_empty() {

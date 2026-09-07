@@ -209,3 +209,72 @@ fn 叩きに本文が入らない() {
     assert_eq!(叩き.from().as_str(), "x@例");
     assert_eq!(叩き.at(), 今);
 }
+
+// ── 知り合いを持ち越す（**再起動をまたぐ**） ──
+
+#[test]
+fn 知り合いを渡して建て直せる() {
+    // **2026-09-07 まで、知り合いはメモリの上にしか無かった。**
+    // 「一度開けた相手は、次から割符なしで開ける」という決めごとが、
+    // **アプリを閉じた瞬間に効かなくなっていた**（不具合）。
+    //
+    // 戸口は保存の仕方を知らない（依存ゼロのまま置く・baseline §9）。
+    // **持ち越すのは外の層の仕事**なので、渡して建て直せる口だけを出す。
+    let 相手 = Subject::new("ABCDEFGH").unwrap();
+    let mut 戸口 = Door::with_known([相手.clone()]);
+
+    // 割符を持たずに来ても、知り合いなので通る
+    let 答え = 戸口.answer(&Knock::new(相手.clone(), 0));
+
+    assert_eq!(答え, Answer::Open);
+    assert!(戸口.knows(&相手));
+}
+
+#[test]
+fn 知り合いの一覧を取り出せる() {
+    // **取り出せないと保存できない。**
+    let 一人目 = Subject::new("AAA").unwrap();
+    let 二人目 = Subject::new("BBB").unwrap();
+    let mut 戸口 = Door::new();
+    戸口.answer(&Knock::with_verified_tally(一人目.clone(), 0));
+    戸口.answer(&Knock::with_verified_tally(二人目.clone(), 0));
+
+    let mut 一覧: Vec<&str> = 戸口.known().collect();
+    一覧.sort_unstable();
+
+    assert_eq!(一覧, ["AAA", "BBB"]);
+}
+
+#[test]
+fn 渡された知り合いも_叩きすぎれば断る() {
+    // **持ち越しても上限は外れない**（端末が乗っ取られる場合がある・KNOWN_QUOTA）。
+    let 相手 = Subject::new("ABCDEFGH").unwrap();
+    let mut 戸口 = Door::with_known([相手.clone()]);
+
+    for _ in 0..=warifu_door::KNOWN_QUOTA {
+        戸口.answer(&Knock::new(相手.clone(), 0));
+    }
+
+    assert_eq!(戸口.answer(&Knock::new(相手, 0)), Answer::Refuse);
+}
+
+#[test]
+fn 通さないと決めた相手は_次から断る() {
+    // **保存した瞬間、「閉じれば忘れる」という逃げ道が消える。**
+    // 2026-09-07 まで、間違って開けた相手はアプリを閉じれば切れていた。
+    // 持ち越すなら、**取り消す口を同じ段で出さなければならない。**
+    let 相手 = Subject::new("ABCDEFGH").unwrap();
+    let mut 戸口 = Door::with_known([相手.clone()]);
+    assert_eq!(戸口.answer(&Knock::new(相手.clone(), 0)), Answer::Open);
+
+    assert!(戸口.forget_known(&相手), "知り合いだったので落とせる");
+
+    assert_eq!(戸口.answer(&Knock::new(相手.clone(), 0)), Answer::Refuse);
+    assert!(!戸口.knows(&相手));
+}
+
+#[test]
+fn 知らない相手を忘れても_何も起きない() {
+    let mut 戸口 = Door::new();
+    assert!(!戸口.forget_known(&Subject::new("だれか").unwrap()));
+}

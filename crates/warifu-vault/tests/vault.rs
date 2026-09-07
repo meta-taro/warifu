@@ -323,3 +323,260 @@ fn 連絡先の一覧は呼び名の順で返る() {
         "並びが呼び名の順ではない"
     );
 }
+
+// --- 戸口の知り合い（**再起動をまたぐ**） -----------------------------------
+
+#[test]
+fn 覚えた知り合いは開き直しても残る() {
+    // **2026-09-07 まで、知り合いはメモリの上にしか無かった。**
+    // 「一度開けた相手は、次から割符なしで開ける」という決めごとが、
+    // アプリを閉じた瞬間に効かなくなっていた（不具合）。
+    let dir = 仮の置き場("known-survives");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    vault.save_known(&[鍵([7u8; 32]), 鍵([8u8; 32])]).unwrap();
+    let 戻り = Vault::at(&dir).known().unwrap();
+
+    assert_eq!(戻り.len(), 2);
+    assert!(戻り.contains(&鍵([7u8; 32])));
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 知り合いのファイルが無ければ_誰も知らないところから始まる() {
+    // **無いことと壊れていることを混ぜない。**初回は「無い」が正しい
+    let dir = 仮の置き場("known-empty");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    assert!(vault.known().unwrap().is_empty());
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 知り合いのファイルは自分だけが読める() {
+    // **誰を通すかの一覧である。**他人に読ませない
+    let dir = 仮の置き場("known-private");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    vault.save_known(&[鍵([9u8; 32])]).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(vault.known_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "0600 であること");
+    }
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルは知り合いとして読まない() {
+    let dir = 仮の置き場("known-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.known_path(), "なにかの別のファイル\n").unwrap();
+
+    let err = vault
+        .known()
+        .expect_err("別のファイルを知り合いとして読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 読めない行があっても_知り合いごと落とさない() {
+    // **1 行壊れただけで全員が入れなくなるのは、代償が大きすぎる**（名簿と同じ構え）
+    let dir = 仮の置き場("known-broken-line");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let 良い行 = 鍵([5u8; 32]).to_string();
+    fs::write(
+        vault.known_path(),
+        format!("warifu-known-v1\nこわれた行\n{良い行}\n"),
+    )
+    .unwrap();
+
+    let 戻り = vault.known().unwrap();
+
+    assert_eq!(戻り, vec![鍵([5u8; 32])]);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 同じ相手を二度書いても増えない() {
+    // **一覧であって履歴ではない**
+    let dir = 仮の置き場("known-dedup");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    vault.save_known(&[鍵([1u8; 32]), 鍵([1u8; 32])]).unwrap();
+
+    assert_eq!(vault.known().unwrap().len(), 1);
+    fs::remove_dir_all(&dir).ok();
+}
+
+// --- 最後に繋がった住所（**1 つだけ持つ。履歴にしない**） ---------------------
+
+/// 試験で使う住所の形（`warifu-net` の `Address` の表記に合わせた見た目）。
+const 住所: &str = "WARIFU1-AAAAAAAABBBBBBBBCCCCCCCC";
+const 別の住所: &str = "WARIFU1-DDDDDDDDEEEEEEEEFFFFFFFF";
+
+#[test]
+fn 旧版の名簿を読める() {
+    // **古いものを黙って壊さない。**手元にある v1 の名簿がそのまま読めること
+    let dir = 仮の置き場("contacts-v1-read");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v1\n{}\tmini\t100\n", 鍵([2u8; 32])),
+    )
+    .unwrap();
+
+    let 名簿 = vault.contacts().unwrap();
+
+    let 相手 = 名簿.find(鍵([2u8; 32])).expect("旧版の行を読めていない");
+    assert_eq!(相手.label(), "mini");
+    assert_eq!(相手.added_at(), 100);
+    assert_eq!(相手.address(), None, "旧版に住所は無い");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 旧版を読んで書き出すと新版になる() {
+    // **移行のための別コマンドを作らない。**次に書いたときに上がる
+    let dir = 仮の置き場("contacts-v1-upgrade");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v1\n{}\tmini\t100\n", 鍵([2u8; 32])),
+    )
+    .unwrap();
+
+    let 名簿 = vault.contacts().unwrap();
+    vault.save_contacts(&名簿).unwrap();
+
+    let 中身 = fs::read_to_string(vault.contacts_path()).unwrap();
+    assert!(中身.starts_with("warifu-contacts-v2\n"), "{中身}");
+    // **覚えた日を動かさない**（版が上がっただけで「今日覚えた人」にしない）
+    assert_eq!(
+        vault
+            .contacts()
+            .unwrap()
+            .find(鍵([2u8; 32]))
+            .unwrap()
+            .added_at(),
+        100
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 住所を覚えたら開き直しても残る() {
+    let dir = 仮の置き場("contacts-address");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    assert!(名簿.note_address(鍵([3u8; 32]), 住所).unwrap());
+    vault.save_contacts(&名簿).unwrap();
+
+    let 戻り = Vault::at(&dir).contacts().unwrap();
+
+    assert_eq!(戻り.find(鍵([3u8; 32])).unwrap().address(), Some(住所));
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 住所は一つだけ持つ() {
+    // **居場所の履歴にしない**（`issues/010` の「止めるべき条件」）
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 住所).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 別の住所).unwrap();
+
+    assert_eq!(名簿.len(), 1);
+    assert_eq!(名簿.find(鍵([3u8; 32])).unwrap().address(), Some(別の住所));
+}
+
+#[test]
+fn 覚えていない相手に住所は書けない() {
+    // **住所だけの行を作らない。**呼び名の無い相手は連絡帳に出せない
+    let mut 名簿 = Contacts::new();
+
+    assert!(!名簿.note_address(鍵([4u8; 32]), 住所).unwrap());
+
+    assert!(名簿.is_empty());
+}
+
+#[test]
+fn 呼び名を付け直しても住所は消えない() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 住所).unwrap();
+    名簿.add(鍵([3u8; 32]), "Mac Air", 200).unwrap();
+
+    assert_eq!(名簿.find(鍵([3u8; 32])).unwrap().label(), "Mac Air");
+    assert_eq!(名簿.find(鍵([3u8; 32])).unwrap().address(), Some(住所));
+}
+
+#[test]
+fn 区切りを壊す住所は断る() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+
+    for 壊す in ["WARIFU1-A\tB", "WARIFU1-A\nB", ""] {
+        assert!(
+            名簿.note_address(鍵([3u8; 32]), 壊す).is_err(),
+            "{壊す:?} を受け取った"
+        );
+    }
+}
+
+#[test]
+fn 長すぎる住所は断る() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    let 長い = format!("WARIFU1-{}", "A".repeat(2000));
+
+    assert!(名簿.note_address(鍵([3u8; 32]), &長い).is_err());
+}
+
+#[test]
+fn 欄の数が違う行は捨てて数える() {
+    let dir = 仮の置き場("contacts-v2-bad-cells");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!(
+            "warifu-contacts-v2\n{k}\tmini\t100\n{k2}\tair\t100\t{住所}\n",
+            k = 鍵([2u8; 32]),
+            k2 = 鍵([3u8; 32])
+        ),
+    )
+    .unwrap();
+
+    let 名簿 = vault.contacts().unwrap();
+
+    assert_eq!(名簿.len(), 1, "3 欄の行は v2 では読まない");
+    assert_eq!(名簿.skipped(), 1);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 忘れた相手の住所も消える() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 住所).unwrap();
+
+    assert!(名簿.remove(鍵([3u8; 32])));
+
+    assert!(名簿.find(鍵([3u8; 32])).is_none());
+}

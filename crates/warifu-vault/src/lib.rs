@@ -22,8 +22,14 @@
 //! ```text
 //! <置き場所>/            0700
 //!   seed                 0600  warifu-seed-v1 ＋ base32 52 文字
-//!   contacts.tsv         0600  warifu-contacts-v1 ＋ 1 行 1 人
+//!   contacts.tsv         0600  warifu-contacts-v2 ＋ 1 行 1 人（v1 も読める）
+//!   known.tsv            0600  warifu-known-v1 ＋ 1 行 1 公開鍵
 //! ```
+//!
+//! **名簿と知り合いは別のファイルにする。**
+//! 名簿（`contacts.tsv`）は**表示のため**の呼び名で、
+//! 知り合い（`known.tsv`）は**戸口が通してよいかを決めるため**である。
+//! 同じにすると、呼び名を消した瞬間に相手が入れなくなる（`issues/010`）。
 //!
 //! 版を先頭に書いてあるのは、**別のファイルを間違って読まない**ため、
 //! そして形を変えるときに**古いものを黙って壊さない**ためである。
@@ -46,7 +52,16 @@ pub use error::Error;
 pub const HOME_ENV: &str = "WARIFU_HOME";
 
 const SEED_HEADER: &str = "warifu-seed-v1";
-const CONTACTS_HEADER: &str = "warifu-contacts-v1";
+/// 3 欄（鍵・呼び名・覚えた日）。**読めるが、もう書かない。**
+const CONTACTS_HEADER_V1: &str = "warifu-contacts-v1";
+/// 4 欄（＋ 最後に繋がった住所）。**書くのは必ずこちら。**
+///
+/// v1 のまま欄を足すと、**古い実行ファイルが新しいファイルを読んだとき、
+/// 見出しは合っているのに全行が捨てられる**（連絡先が 0 件になった理由が読めない）。
+/// 版を上げれば、古い実行ファイルは「見出しが違います」で**止まる。**
+/// **止まるほうがよい。**版を先頭に書いてあるのは、まさにこのためである。
+const CONTACTS_HEADER_V2: &str = "warifu-contacts-v2";
+const KNOWN_HEADER: &str = "warifu-known-v1";
 /// base32 にした 32 byte の長さ。
 const SEED_TEXT_LEN: usize = 52;
 
@@ -100,6 +115,12 @@ impl Vault {
     #[must_use]
     pub fn contacts_path(&self) -> PathBuf {
         self.dir.join("contacts.tsv")
+    }
+
+    /// 戸口の知り合いのある場所。
+    #[must_use]
+    pub fn known_path(&self) -> PathBuf {
+        self.dir.join("known.tsv")
     }
 
     /// 身元がもうあるか。
@@ -174,13 +195,64 @@ impl Vault {
     ///
     /// # Errors
     /// 書けないとき [`Error::Io`]。
+    /// 覚えた相手を書き出す。**書くのは必ず新しい版。**
+    ///
+    /// 移行のための別の命令を作らない。**次に何か書き換えたときに上がる。**
+    /// 読むだけのつもりの呼び出しがファイルへ触るのは筋が悪い
+    /// （`contacts()` が読み取りに徹している形も壊れる）。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
     pub fn save_contacts(&self, contacts: &Contacts) -> Result<(), Error> {
-        let mut out = String::from(CONTACTS_HEADER);
+        let mut out = String::from(CONTACTS_HEADER_V2);
         out.push('\n');
         for c in contacts.iter() {
-            out.push_str(&format!("{}\t{}\t{}\n", c.key(), c.label(), c.added_at()));
+            out.push_str(&format!(
+                "{}\t{}\t{}\t{}\n",
+                c.key(),
+                c.label(),
+                c.added_at(),
+                c.address().unwrap_or_default()
+            ));
         }
         self.write_private(&self.contacts_path(), &out, "名簿を書く")
+    }
+
+    /// 戸口の知り合いを読む。
+    ///
+    /// 2026-09-07 まで、知り合いは戸口の `HashSet` にしか無かった。
+    /// **「一度開けた相手は、次から割符なしで開ける」が、
+    /// アプリを閉じた瞬間に効かなくなっていた**（不具合）。
+    ///
+    /// 無ければ空を返す。**無いことと壊れていることを混ぜない。**
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn known(&self) -> Result<Vec<PublicKey>, Error> {
+        let path = self.known_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "知り合いを読む"))?;
+        parse_known(&path, &text)
+    }
+
+    /// 戸口の知り合いを書き出す。**同じ相手は 1 度だけ書く。**
+    ///
+    /// 一覧であって履歴ではないので、順序にも重複にも意味を持たせない。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_known(&self, known: &[PublicKey]) -> Result<(), Error> {
+        let mut 済み = std::collections::HashSet::new();
+        let mut out = String::from(KNOWN_HEADER);
+        out.push('\n');
+        for key in known {
+            if 済み.insert(key.to_string()) {
+                out.push_str(&format!("{key}\n"));
+            }
+        }
+        self.write_private(&self.known_path(), &out, "知り合いを書く")
     }
 
     fn write_seed(&self, seed: &Seed) -> Result<(), Error> {
@@ -278,15 +350,54 @@ fn parse_phrase(path: &Path, phrase: &str) -> Result<Seed, Error> {
     Ok(Seed::from_bytes(bytes))
 }
 
+/// 知り合いの一覧を読む。
+///
+/// **1 行壊れただけで全員が入れなくなるのは、代償が大きすぎる**（名簿と同じ構え）。
+/// 読めない行は捨てて先へ進む。
+fn parse_known(path: &Path, text: &str) -> Result<Vec<PublicKey>, Error> {
+    let mut lines = text.lines();
+    let header = lines.next().unwrap_or_default().trim();
+    if header != KNOWN_HEADER {
+        return Err(Error::malformed(
+            path,
+            format!("見出しが違います（{KNOWN_HEADER} を待っていました）"),
+        ));
+    }
+
+    let mut 一覧 = Vec::new();
+    for line in lines {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        // **後ろに欄が増えても読めるようにしておく。**
+        // いま書くのは 1 欄だけだが、あとで「いつ開けたか」を足したくなったとき、
+        // 版を上げずに済む（`contacts.tsv` で払った授業料を二度払わない）
+        let 先頭 = line.split('\t').next().unwrap_or_default().trim();
+        // **読めない行は捨てる。**捨てたことを理由に全体を落とさない
+        if let Ok(key) = 先頭.parse::<PublicKey>()
+            && !一覧.contains(&key)
+        {
+            一覧.push(key);
+        }
+    }
+    Ok(一覧)
+}
+
 fn parse_contacts(path: &Path, text: &str) -> Result<Contacts, Error> {
     let mut lines = text.lines();
     let header = lines.next().unwrap_or_default().trim();
-    if header != CONTACTS_HEADER {
-        return Err(Error::malformed(
-            path,
-            format!("見出しが違います（{CONTACTS_HEADER} を待っていました）"),
-        ));
-    }
+    // **古いものを黙って壊さない。**手元にある v1 はそのまま読める
+    let 欄の数 = match header {
+        CONTACTS_HEADER_V1 => 3,
+        CONTACTS_HEADER_V2 => 4,
+        _ => {
+            return Err(Error::malformed(
+                path,
+                format!("見出しが違います（{CONTACTS_HEADER_V2} を待っていました）"),
+            ));
+        }
+    };
 
     let mut contacts = Contacts::new();
     let mut skipped = 0usize;
@@ -294,8 +405,10 @@ fn parse_contacts(path: &Path, text: &str) -> Result<Contacts, Error> {
         if line.trim().is_empty() {
             continue;
         }
-        match parse_contact_line(line) {
-            Some((key, label, added_at)) => contacts.push_raw(key, label, added_at),
+        match parse_contact_line(line, 欄の数) {
+            Some((key, label, added_at, address)) => {
+                contacts.push_raw(key, label, added_at, address);
+            }
             None => skipped += 1,
         }
     }
@@ -303,13 +416,29 @@ fn parse_contacts(path: &Path, text: &str) -> Result<Contacts, Error> {
     Ok(contacts)
 }
 
-fn parse_contact_line(line: &str) -> Option<(PublicKey, String, u64)> {
-    let mut cells = line.split('\t');
-    let key: PublicKey = cells.next()?.trim().parse().ok()?;
-    let label = cells.next()?.trim();
-    let added_at: u64 = cells.next()?.trim().parse().ok()?;
-    if label.is_empty() || cells.next().is_some() {
+/// 名簿の 1 行を読む。**欄の数は版が決める。**
+///
+/// 欄が多い行も少ない行も受け取らない ——
+/// **半端に読むと、住所の欄に呼び名が入るような形で通ってしまう。**
+fn parse_contact_line(
+    line: &str,
+    欄の数: usize,
+) -> Option<(PublicKey, String, u64, Option<String>)> {
+    let cells: Vec<&str> = line.split('\t').collect();
+    if cells.len() != 欄の数 {
         return None;
     }
-    Some((key, label.to_owned(), added_at))
+    let key: PublicKey = cells[0].trim().parse().ok()?;
+    let label = cells[1].trim();
+    let added_at: u64 = cells[2].trim().parse().ok()?;
+    if label.is_empty() {
+        return None;
+    }
+    // **空の欄は「まだ知らない」。**行を捨てる理由にしない
+    let address = cells
+        .get(3)
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+    Some((key, label.to_owned(), added_at, address))
 }

@@ -40,6 +40,11 @@ pub enum Error {
         /// 重なった呼び名。
         label: String,
     },
+    /// 住所として置けない。**中身が正しいかは見ていない**（それは経路の層の仕事）。
+    BadAddress {
+        /// どう置けないか。
+        why: &'static str,
+    },
     /// 呼び名として使えない。
     BadLabel {
         /// なぜ使えないか。
@@ -77,6 +82,7 @@ impl fmt::Display for Error {
             Self::DuplicateLabel { label } => {
                 write!(f, "その呼び名はもう使われています: {label}")
             }
+            Self::BadAddress { why } => write!(f, "住所として置けません: {why}"),
             Self::BadLabel { why } => write!(f, "呼び名として使えません: {why}"),
             Self::Rng => f.write_str("乱数を取れませんでした"),
         }
