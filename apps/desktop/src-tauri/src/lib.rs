@@ -212,7 +212,9 @@ pub struct Bridge {
     ///
     /// **人が打った行も、相手から届いた行も、ここを通す。**
     /// 通さないと、同じ席の AI は人の発言が見えないまま返事をすることになる。
-    desk: tokio::sync::broadcast::Sender<warifu_desk::FromDesk>,
+    /// 添えている数は**出所の番号**（`desk::机の外` なら机の外から出たもの）。
+    /// **言った本人には返さない**ために持つ。
+    desk: tokio::sync::broadcast::Sender<(u64, warifu_desk::FromDesk)>,
 }
 
 /// この端末の身元。**CLI と同じものを使う。**

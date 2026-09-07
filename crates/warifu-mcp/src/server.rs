@@ -251,8 +251,9 @@ impl Warifu {
     ) -> Result<String, ErrorData> {
         self.通るか("chat.send")?;
         let 机 = self.机().await?;
-        机.言う(&args.body).await?;
-        Ok("流しました。".to_owned())
+        let 人数 = 机.言う(&args.body).await?;
+        // **何人へ流したかまで言う**（D49）。「流しました」だけでは 0 人と区別が付かない
+        Ok(format!("{人数} 人へ流しました。"))
     }
 
     /// 届いている発言を読む。**読んだ分は消える。**

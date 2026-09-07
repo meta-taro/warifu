@@ -350,7 +350,7 @@ async fn 札が無ければ_会話を読めない() {
 #[tokio::test]
 async fn 机に着けば_流した行が机に届く() {
     // **ここが「エージェントが喋ると人の画面に出る」の実体。**
-    use warifu_desk::{ToDesk, 受け口, 口 as 行の口};
+    use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-chat-test.sock");
     let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
@@ -360,6 +360,8 @@ async fn 机に着けば_流した行が机に届く() {
         let 挨拶 = 行の口.受ける().await.unwrap().unwrap();
         assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen);
         let 行 = 行の口.受ける().await.unwrap().unwrap();
+        // **机は必ず返事をする。**返さないと、送った側は待ち続ける（D49）
+        行の口.送る(&FromDesk::Sent { to: 1 }.書く()).await.unwrap();
         ToDesk::読む(&行).unwrap()
     });
 
@@ -367,13 +369,16 @@ async fn 机に着けば_流した行が机に届く() {
         .机に着く(&場所)
         .await
         .expect("着けること");
-    口.chat_send(rmcp::handler::server::wrapper::Parameters(
-        warifu_mcp::SayArgs {
-            body: "直しました".to_owned(),
-        },
-    ))
-    .await
-    .expect("流せること");
+    let 返り = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "直しました".to_owned(),
+            },
+        ))
+        .await
+        .expect("流せること");
+    // **何人へ流したかまで返る**（D49）。「流しました」だけでは 0 人と区別が付かない
+    assert!(format!("{返り:?}").contains("1 人へ流しました"), "{返り:?}");
 
     let 届いた = 机.await.unwrap();
     assert_eq!(
@@ -388,7 +393,7 @@ async fn 机に着けば_流した行が机に届く() {
 async fn 画面が後から開いても_会話は使える() {
     // **エージェントが先に起きるのは普通のこと。**
     // そこで一度失敗させたきりにすると、以後ずっと会話が使えない
-    use warifu_desk::{ToDesk, 受け口, 口 as 行の口};
+    use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-late-desk.sock");
     let _ = std::fs::remove_file(&場所);
@@ -409,7 +414,9 @@ async fn 画面が後から開いても_会話は使える() {
     let 机 = tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
-        ToDesk::読む(&行の口.受ける().await.unwrap().unwrap()).unwrap()
+        let 行 = 行の口.受ける().await.unwrap().unwrap();
+        行の口.送る(&FromDesk::Sent { to: 1 }.書く()).await.unwrap();
+        ToDesk::読む(&行).unwrap()
     });
 
     口.chat_send(rmcp::handler::server::wrapper::Parameters(
@@ -426,4 +433,38 @@ async fn 画面が後から開いても_会話は使える() {
             body: "いま繋がりました".to_owned()
         }
     );
+}
+
+#[tokio::test]
+async fn 誰も居ないとき_流せたことにしない() {
+    // **2026-09-07、実物で再発した。**画面を建てて机に着き、
+    // 会議に人が 1 人も居ない状態で chat_send を叩いたら
+    // 「流しました。」と返った。**実際は誰にも届いていない**（D49）
+    use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-nobody.sock");
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    tokio::spawn(async move {
+        let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
+        let _言った = 行の口.受ける().await.unwrap().unwrap();
+        行の口.送る(&FromDesk::Nobody.書く()).await.unwrap();
+    });
+
+    let 口 = 用意(&["chat.send"])
+        .机に着く(&場所)
+        .await
+        .expect("着けること");
+    let 出た = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "誰も居ない所へ".to_owned(),
+            },
+        ))
+        .await;
+
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    // **画面には出ていることまで言う。**言わないと、言い直しを促すことになる
+    assert!(文.contains("画面には出ました"), "{文}");
+    assert!(文.contains("誰にも届いていません"), "{文}");
 }
