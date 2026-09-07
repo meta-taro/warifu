@@ -596,6 +596,83 @@
   </section>
 
   <aside>
+    <!--
+      **チャットを先頭に置く。**割符はビデオ会議が中心のアプリではない ——
+      「**チャットやメールを MCP を通じておこなえる OSS** です。
+      **会議ありきのチャットじゃないんです**」（オーナー・2026-09-06）。
+
+      2026-09-07、オーナーの画面でチャットが 3 枚のカードの下に埋まっていた。
+      **スクロールしないと会話が見えない並びは、製品と逆である。**
+      支度・会議キーは、チャットの下に置く（**使うのは最初の 1 回だけ**）。
+    -->
+    <!--
+      **名簿とチャットは、会議前でも畳まない。**この 2 つが窓の外にあると、
+      相手が落ちた知らせを目で見つけられない（2026-09-05 に実際に見つけられなかった）。
+      名簿は数行しかないので、チャットの始まりを押し下げない。
+      （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された所である）
+    -->
+    <Roster
+      {locale}
+      {members}
+      capacity={DEFAULT_CAPACITY}
+      names={名簿}
+      onRename={(key, label) => void 名前を付ける(key, label)}
+    />
+
+    <div class="card chat" class:live={状態 !== '会議前'}>
+      <h2><Icon name="people" size={18} />{t('chat.title')}</h2>
+      <p class="hint">{t('chat.hint')}</p>
+      <div class="talk">
+        {#if 会話.length === 0}
+          <p class="hint">{t('chat.empty')}</p>
+        {/if}
+        {#each 会話 as line, i (i)}
+          <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
+          <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
+            {#if line.at}<span class="at">{line.at}</span>{/if}{#if !line.system}<b>{line.who}</b
+              >{/if}{line.body}
+          </p>
+        {/each}
+      </div>
+      <!--
+        **相手が居ないときは押させない。**押せる形にしておいて「まだ誰も居ません」と
+        返すのは、**押した人には「効かない」としか見えない**
+        （2026-09-06 にオーナーから「チャット送るボタンきかないよ」と報告された）。
+        **打ち込みは残す** —— 先に書いておいて、入ってきたら送りたいことがある。
+      -->
+      {#if !届く先がある}
+        <p class="hint">{t('chat.nobody')}</p>
+      {:else if !会議中}
+        <!-- **会議に人は居ないが、同じ席の AI は居る。**話しかけられる -->
+        <p class="hint">{t('chat.desk')}</p>
+      {/if}
+      <div class="say">
+        <!--
+          **改行できる**（2026-09-06 のオーナー要望）。Shift+Enter / Option+Enter で改行、
+          Enter で送る。`preventDefault` を忘れると、**送ったうえに改行が残る。**
+          `input` ではなく `textarea` にしたのは、**改行を持てる欄が要る**ため。
+        -->
+        <textarea
+          rows="1"
+          bind:value={下書き}
+          placeholder={会議中
+            ? t('chat.placeholder')
+            : 机の人数 > 0
+              ? t('chat.placeholder.desk')
+              : t('chat.placeholder.nobody')}
+          onkeydown={(e) => {
+            if (送ってよい(e)) {
+              e.preventDefault();
+              void 話す();
+            }
+          }}
+        ></textarea>
+        <button type="button" onclick={話す} disabled={!届く先がある || !下書き.trim()}>
+          {t('chat.send')}
+        </button>
+      </div>
+    </div>
+
     {#if 支度の口を出す}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('setup.title')}</h2>
@@ -726,73 +803,6 @@
       </div>
     {/if}
 
-    <!--
-      **名簿とチャットは、会議前でも畳まない。**この 2 つが窓の外にあると、
-      相手が落ちた知らせを目で見つけられない（2026-09-05 に実際に見つけられなかった）。
-      名簿は数行しかないので、チャットの始まりを押し下げない。
-      （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された所である）
-    -->
-    <Roster
-      {locale}
-      {members}
-      capacity={DEFAULT_CAPACITY}
-      names={名簿}
-      onRename={(key, label) => void 名前を付ける(key, label)}
-    />
-
-    <div class="card chat" class:live={状態 !== '会議前'}>
-      <h2><Icon name="people" size={18} />{t('chat.title')}</h2>
-      <p class="hint">{t('chat.hint')}</p>
-      <div class="talk">
-        {#if 会話.length === 0}
-          <p class="hint">{t('chat.empty')}</p>
-        {/if}
-        {#each 会話 as line, i (i)}
-          <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
-          <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
-            {#if line.at}<span class="at">{line.at}</span>{/if}{#if !line.system}<b>{line.who}</b
-              >{/if}{line.body}
-          </p>
-        {/each}
-      </div>
-      <!--
-        **相手が居ないときは押させない。**押せる形にしておいて「まだ誰も居ません」と
-        返すのは、**押した人には「効かない」としか見えない**
-        （2026-09-06 にオーナーから「チャット送るボタンきかないよ」と報告された）。
-        **打ち込みは残す** —— 先に書いておいて、入ってきたら送りたいことがある。
-      -->
-      {#if !届く先がある}
-        <p class="hint">{t('chat.nobody')}</p>
-      {:else if !会議中}
-        <!-- **会議に人は居ないが、同じ席の AI は居る。**話しかけられる -->
-        <p class="hint">{t('chat.desk')}</p>
-      {/if}
-      <div class="say">
-        <!--
-          **改行できる**（2026-09-06 のオーナー要望）。Shift+Enter / Option+Enter で改行、
-          Enter で送る。`preventDefault` を忘れると、**送ったうえに改行が残る。**
-          `input` ではなく `textarea` にしたのは、**改行を持てる欄が要る**ため。
-        -->
-        <textarea
-          rows="1"
-          bind:value={下書き}
-          placeholder={会議中
-            ? t('chat.placeholder')
-            : 机の人数 > 0
-              ? t('chat.placeholder.desk')
-              : t('chat.placeholder.nobody')}
-          onkeydown={(e) => {
-            if (送ってよい(e)) {
-              e.preventDefault();
-              void 話す();
-            }
-          }}
-        ></textarea>
-        <button type="button" onclick={話す} disabled={!届く先がある || !下書き.trim()}>
-          {t('chat.send')}
-        </button>
-      </div>
-    </div>
   </aside>
 </main>
 
@@ -917,7 +927,11 @@
   .card.chat {
     /* **残りを取る。**打ち込み欄は底に固定され、行が増えても動かない */
     flex: 1;
-    min-height: 160px;
+    /* **見出し・案内・打ち込み欄で 160px はほぼ埋まる。**
+       埋まった残りが会話欄になるので、160 だと会話欄が数 px に潰れた
+       （2026-09-07・オーナーの画面で「まだ何もありません」が切れていた）。
+       会話欄の min-height と足し合わせた高さにする */
+    min-height: 320px;
   }
   .talk {
     display: flex;
@@ -925,7 +939,10 @@
     gap: 4px;
     /* **溢れたら中で動く。**外側（画面全体）を伸ばさない */
     flex: 1;
-    min-height: 0;
+    /* **空でも読める高さを持つ。**0 だと、親に余りが無いときに潰れて
+       「まだ何もありません」の 1 行すら切れる（縦のつまみだけが出る）。
+       ここは会話を読む場所であって、入力欄ではない —— 潰れた見た目にしない */
+    min-height: 140px;
     overflow-y: auto;
     padding: var(--space-2);
     background: var(--bg-app);
