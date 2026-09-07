@@ -48,6 +48,31 @@ impl Address {
         self.ips.iter().copied()
     }
 
+    /// 公開鍵と経路の候補から作る。**確かめるために開けてある。**
+    #[must_use]
+    pub fn from_ip_addrs(key: PublicKey, ips: impl IntoIterator<Item = SocketAddr>) -> Self {
+        Self::from_parts(key, ips)
+    }
+
+    /// **外から届きうるか。**
+    ///
+    /// warifu は**外部の中継を使わない**（**D13**）ので、
+    /// **候補が全部その場の網の中なら、同じ網の相手にしか届かない。**
+    ///
+    /// 2026-09-07 に Windows のエージェントから来た指摘 ——
+    /// 「**host は『待っています』と出したまま、外から到達不能な状態で平然と待ち続けます。
+    /// 私は 2 時間ぶん待つつもりでいました。**」
+    ///
+    /// **待たせる前に言えることは、待たせる前に言う。**
+    /// 「押せるのに効かないボタン」（D49）と同じ形である。
+    ///
+    /// **「届きうる」であって「届く」ではない。**外向きの候補があっても、
+    /// 相手側の網や機器で止まることはある。**無いと分かることだけが確かである。**
+    #[must_use]
+    pub fn 外から届きうる(&self) -> bool {
+        self.ips.iter().any(|a| 外向き(&a.ip()))
+    }
+
     /// 公開鍵だけ差し替える。**経路の候補はそのまま。**
     ///
     /// 差し替えた宛先で繋ぐと必ず落ちる（経路の暗号が相手の鍵に紐付いているため）。
@@ -111,6 +136,34 @@ fn take<const N: usize>(bytes: &[u8], from: usize) -> Result<[u8; N], Error> {
         .ok_or(Error::Malformed)?
         .try_into()
         .map_err(|_| Error::Malformed)
+}
+
+/// その番地が、外の網から呼びうるものか。
+///
+/// **グローバルに見えて呼べないものを、外向きに数えない。**
+/// - `100.64.0.0/10`（CGNAT）—— 事業者の内側。**モバイル回線でよくある**
+/// - `169.254.0.0/16` / `fe80::/10`（リンクローカル）—— 同じ線の上だけ
+fn 外向き(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            !(v4.is_private()
+                || v4.is_loopback()
+                || v4.is_link_local()
+                || v4.is_broadcast()
+                || v4.is_documentation()
+                || v4.is_unspecified()
+                // **CGNAT（100.64.0.0/10）。**外から呼べない
+                || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1])))
+        }
+        IpAddr::V6(v6) => {
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                // リンクローカル fe80::/10
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+                // ユニークローカル fc00::/7
+                || (v6.segments()[0] & 0xfe00) == 0xfc00)
+        }
+    }
 }
 
 impl fmt::Display for Address {

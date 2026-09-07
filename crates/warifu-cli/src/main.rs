@@ -57,19 +57,23 @@ fn 使い方() -> ExitCode {
         "warifu — 画面なしで会議に入る\n\
          \n\
          使い方:\n\
-         \x20 warifu host [--ttl <秒>] [--from <時刻>] [--until <時刻>]\n\
+         \x20 warifu host [--keys <本数>] [--ttl <秒>] [--from <時刻>] [--until <時刻>]\n\
          \x20            [--idle <秒>] [--remember <呼び名>]\n\
          \x20            待つ。会議キーを標準出力へ出す\n\
          \x20 warifu join <会議キー> [--idle <秒>] [--remember <呼び名>]\n\
          \x20            入る\n\
-         \x20 warifu id   自分の公開鍵と、身元の置き場所を出す\n\
-         \x20 warifu help この使い方を出す\n\
+         \x20 warifu id      自分の公開鍵と、身元の置き場所を出す\n\
+         \x20 warifu doctor  繋がらないときに調べる（経路の候補・外向きの有無・遮る物）\n\
+         \x20 warifu version 版を出す\n\
+         \x20 warifu help    この使い方を出す\n\
          \x20 warifu contacts                       覚えた相手を並べる\n\
          \x20 warifu contacts add <公開鍵> <呼び名>  覚える\n\
          \x20 warifu contacts forget <呼び名|公開鍵> 忘れる\n\
          \n\
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
+         --keys     出す会議キーの本数（既定 1）。**1 本につき 1 人**入れます\n\
+         \x20          会議中に /key と打てば、後からもう 1 本出せます\n\
          --ttl      会議キーの有効期間（既定 600 秒）。相手が建てている間に切れないように\n\
          --from     会議の開始。この時刻までは誰も入れません（予定に紐づく鍵）\n\
          --until    会議の終わり。--ttl より優先します\n\
@@ -79,7 +83,10 @@ fn 使い方() -> ExitCode {
          --remember つながった相手を、その呼び名で覚える\n\
          \n\
          身元はこの端末に残ります。閉じても同じ人でいられます（warifu id で確認）。\n\
-         映像は扱いません（それは画面の担当です）。"
+         映像は扱いません（それは画面の担当です）。\n\
+         \n\
+         繋がらないときは warifu doctor。外部の中継を使わないので、\n\
+         同じ網に居ないと届かないことがあります。"
     );
     ExitCode::from(2)
 }
@@ -285,6 +292,11 @@ async fn 本体() -> ExitCode {
             },
             None => return 使い方(),
         },
+        Some("doctor") => 診る().await,
+        Some("version") | Some("--version") | Some("-V") => {
+            println!("warifu {}", env!("CARGO_PKG_VERSION"));
+            return ExitCode::SUCCESS;
+        }
         Some("id") => 名乗る(),
         Some("contacts") => 名簿の口(&mut args),
         _ => return 使い方(),
@@ -398,7 +410,23 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     let 終わり = o.until.unwrap_or_else(|| 開始.saturating_add(o.ttl));
     let ttl = 終わり.saturating_sub(now_secs());
     let node = Arc::new(Node::bind_without_relay(&device).await?);
-    let address = node.address().await?.to_string();
+    let 宛先 = node.address().await?;
+    let address = 宛先.to_string();
+
+    // **届かないのに「待っています」と言わない。**
+    //
+    // warifu は外部の中継を使わない（**D13**）。候補が全部その場の網の中なら、
+    // **同じ網の相手にしか届かない。**それを黙って待つと、
+    // 相手は 2 時間ぶん待つことになる（2026-09-07 に Windows のエージェントが実際にそうなった）。
+    //
+    // **待たせる前に言う。**「押せるのに効かないボタン」（D49）と同じ形である。
+    if !宛先.外から届きうる() {
+        eprintln!(
+            "warifu: この会議キーは、同じ網の相手にしか届きません（外向きの経路がありません）"
+        );
+        eprintln!("warifu: 経路の候補: {}", 経路の候補を言う(&宛先));
+        eprintln!("warifu: 別の網から入ってもらうなら、warifu doctor で調べてください");
+    }
 
     let 会議 = Arc::new(Mutex::new(Conference::host(
         device.public_key(),
@@ -570,6 +598,113 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     }
     打つ.abort();
     Ok(())
+}
+
+/// **繋がらないときに、最初に叩くもの。**
+///
+/// 2026-09-07 に Windows のエージェントから来た指摘 ——
+/// 「**いま私が手で調べたことを、1 コマンドで出せるはずです。
+/// 試験導入する人間が最初に叩くものになります。**」
+///
+/// **出すのは事実だけ。**直し方は言うが、**勝手に直さない**
+/// （ファイアウォールの規則を AI が作らない・baseline §13）。
+async fn 診る() -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+    println!("── 身元 ──");
+    println!("  公開鍵      {}", device.public_key());
+    println!("  置き場所    {}", vault.dir().display());
+    println!(
+        "  覚えた相手  {} 人",
+        vault.contacts().map(|c| c.len()).unwrap_or(0)
+    );
+
+    println!("\n── 経路 ──");
+    let node = Node::bind_without_relay(&device).await?;
+    let 宛先 = node.address().await?;
+    let 候補: Vec<_> = 宛先.ip_addrs().collect();
+    println!("  候補        {} 件", 候補.len());
+    for a in &候補 {
+        println!("    {a}");
+    }
+    if 宛先.外から届きうる() {
+        println!("  外向き      あり");
+        println!("              → 別の網の相手からも届きうる");
+    } else {
+        println!("  外向き      **ありません**");
+        println!("              → **同じ網の相手にしか届きません**");
+        println!("              warifu は外部の中継を使いません（D13）");
+        println!("              考えられるもの: CGNAT / VPN / 仮想の網だけが見えている");
+    }
+
+    println!("\n── 遮る物 ──");
+    for 行 in 遮る物を調べる() {
+        println!("  {行}");
+    }
+
+    println!("\n**ここに出るのは事実だけです。**直すのは人が行います。");
+    Ok(())
+}
+
+/// ファイアウォールの状態を、その OS のやり方で調べる。
+///
+/// **調べるだけ。**規則は作らない —— **外から届く口を開けるのは、人が決めること**である
+/// （baseline §13）。
+fn 遮る物を調べる() -> Vec<String> {
+    #[cfg(target_os = "windows")]
+    {
+        let 出 = std::process::Command::new("powershell")
+            .args([
+                "-NoProfile",
+                "-Command",
+                "Get-NetFirewallApplicationFilter | Where-Object { $_.Program -like '*warifu*' } | Measure-Object | Select-Object -ExpandProperty Count",
+            ])
+            .output();
+        return match 出 {
+            Ok(o) => {
+                let n = String::from_utf8_lossy(&o.stdout).trim().to_owned();
+                if n == "0" || n.is_empty() {
+                    vec![
+                        "ファイアウォール  warifu の規則が **ありません**".to_owned(),
+                        "                  → 素の warifu.exe では確認の窓が出ません。".to_owned(),
+                        "                    管理者の PowerShell で 1 行:".to_owned(),
+                        "                    New-NetFirewallRule -DisplayName warifu \\".to_owned(),
+                        "                      -Direction Inbound -Program (Resolve-Path .\\warifu.exe) \\".to_owned(),
+                        "                      -Action Allow -Profile Any".to_owned(),
+                    ]
+                } else {
+                    vec![format!("ファイアウォール  warifu の規則が {n} 件あります")]
+                }
+            }
+            Err(e) => vec![format!("ファイアウォール  調べられませんでした（{e}）")],
+        };
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let 出 = std::process::Command::new("/usr/libexec/ApplicationFirewall/socketfilterfw")
+            .arg("--getglobalstate")
+            .output();
+        match 出 {
+            Ok(o) => vec![format!(
+                "ファイアウォール  {}",
+                String::from_utf8_lossy(&o.stdout).trim()
+            )],
+            Err(e) => vec![format!("ファイアウォール  調べられませんでした（{e}）")],
+        }
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        vec!["ファイアウォール  この OS では調べていません".to_owned()]
+    }
+}
+
+/// 経路の候補を、人が読める形で並べる。**中身は宛先そのもので、秘密ではない。**
+fn 経路の候補を言う(宛先: &Address) -> String {
+    let mut 並び: Vec<String> = 宛先.ip_addrs().map(|a| a.to_string()).collect();
+    if 並び.is_empty() {
+        return "（1 つもありません）".to_owned();
+    }
+    並び.sort();
+    並び.join(" / ")
 }
 
 /// 相手ごとの送り口。**1 本しか持たない形にすると、3 人目が来た時点で前の相手へ届かなくなる。**
