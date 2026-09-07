@@ -81,6 +81,21 @@ pnpm tauri build --bundles app
 
 ## 1. 落とす
 
+### 試すだけなら、タグを待たなくてよい
+
+`develop` に入ったものを試すなら、**`bundle` の成果物**が使えます
+（`Actions` → `bundle` → 最新の実行 → Artifacts）。
+
+| | 中身 |
+|---|---|
+| `warifu-windows-latest-develop` | `warifu.exe`（CLI）＋ `warifu-desktop.exe`（画面・**インストーラではない**） |
+| `warifu-macos-latest-develop` | 同じもの（macOS 版） |
+
+**7 日で消えます。**配るためのものではなく、**試すためのもの**です。
+**インストーラ（`.msi` / `.dmg`）が要るなら、下のタグの成果物**を使ってください。
+
+---
+
 タグを打つと、GitHub Actions の `release` が配布物を作ります。
 **Actions の実行結果ページの「Artifacts」から落とします**（Releases には出しません）。
 リポジトリを見られる人だけが落とせます。

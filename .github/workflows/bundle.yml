@@ -76,3 +76,24 @@ jobs:
       - name: 画面を建てる
         working-directory: apps/desktop/src-tauri
         run: cargo build --release
+
+      # **建てただけで終わらせない。**
+      #
+      # 2026-09-07 に Windows のエージェントから来た指摘 ——
+      # 「**`develop` の CI は成果物を出していません。Windows バイナリが出るのは
+      # release（タグ）だけです。『Windows で試してほしい』のに、
+      # `develop` を試す手段が Windows 側に無いという形になっています。**」
+      #
+      # **そのとおりだった。**Windows には Rust が入っていないので、
+      # 手元で建てることもできない。**タグを待たせるのは、こちらの都合である。**
+      - name: できたものを上げる
+        uses: actions/upload-artifact@v4
+        with:
+          name: warifu-${{ matrix.os }}-develop
+          path: |
+            target/release/warifu
+            target/release/warifu.exe
+            apps/desktop/src-tauri/target/release/warifu-desktop
+            apps/desktop/src-tauri/target/release/warifu-desktop.exe
+          if-no-files-found: error
+          retention-days: 7
