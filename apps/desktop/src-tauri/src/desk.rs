@@ -23,7 +23,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::broadcast;
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口, 机の場所};
 
-use crate::{Bridge, EVENT_DESK, key_to_string};
+use crate::{Bridge, EVENT_DESK, EVENT_DESK_SEATS, key_to_string};
 
 /// 机に着いている相手へ配る溜め。
 ///
@@ -88,6 +88,9 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
         let 自分 = 次の番号.fetch_add(1, Ordering::Relaxed);
         let mut 口 = 口::新しく(一本);
         let mut 聞く = app.state::<Bridge>().desk.subscribe();
+        // **人数が変わったことを画面へ伝える。**伝えないと、
+        // AI が居るのに「入ってきたら送れます」と出たままになる
+        席の数を伝える(&app);
         loop {
             tokio::select! {
                 来た = 口.受ける() => {
@@ -114,7 +117,25 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             }
         }
         記録!("机から 1 人抜けました");
+        // subscribe を落としてから数える。**落とす前だと自分を数えてしまう**
+        drop(聞く);
+        席の数を伝える(&app);
     });
+}
+
+/// 机に何人着いているかを、画面へ伝える。
+///
+/// **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
+/// 会議に人が居なくても、同じ席の AI が居るなら人は話しかけられる。
+pub fn 席の数を伝える(app: &AppHandle) {
+    let 数 = app.state::<Bridge>().desk.receiver_count();
+    let _ = app.emit(EVENT_DESK_SEATS, 数);
+}
+
+/// いま机に何人着いているか。
+#[must_use]
+pub fn 席の数(bridge: &Bridge) -> usize {
+    bridge.desk.receiver_count()
 }
 
 /// 机から来た 1 行に応じる。

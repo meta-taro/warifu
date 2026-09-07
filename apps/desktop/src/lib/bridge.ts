@@ -31,6 +31,13 @@ export const EVENT_TEXT = 'warifu://text';
  * 混ぜると、誰が言ったのか画面から読めなくなる。
  */
 export const EVENT_DESK = 'warifu://desk';
+/**
+ * **机に何人着いているか**が変わった（人数だけが届く）。
+ *
+ * 会議に人が居なくても、**同じ席の AI が居るなら人は話しかけられる。**
+ * これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
+ */
+export const EVENT_DESK_SEATS = 'warifu://desk-seats';
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {
@@ -110,6 +117,14 @@ export const leave = () => invoke<void>('leave');
  * **残らない。**閉じれば消える（保存には身元が続く必要があり、D2 が未決）。
  */
 export const sendText = (body: string) => invoke<void>('send_text', { body });
+
+/**
+ * いま机に何人着いているか。
+ *
+ * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
+ * 会議に人が居なくても、同じ席の AI が居るなら送れる。
+ */
+export const deskSeats = () => invoke<number>('desk_seats');
 
 /**
  * 画面の出来事を、Rust と同じログへ流す。

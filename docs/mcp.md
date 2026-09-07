@@ -38,7 +38,11 @@
 
 ## 2. エージェント側に口を書く
 
-エージェントの MCP 設定（Claude Code なら `.mcp.json`）に、次を書きます。
+エージェントの MCP 設定に**ファイルとして**書きます。
+Claude Code なら、**そのエージェントが作業するフォルダの直下に `.mcp.json`** を置きます
+（そのまま使える形を `docs/mcp.json.example` に置いてあります）。
+
+このリポジトリには、手元で建てた実体を指す `.mcp.json` が既に入っています。
 
 ```json
 {
@@ -55,11 +59,16 @@
 何を許すかは**人が決めて、人がここに書きます。**
 割符が自動で札を出すことはありません。
 
-`warifu` に PATH が通っていなければ、実体の場所をそのまま書いてください。
+`command` は、**そのエージェントから実際に叩ける場所**にします。
 
-```json
-"command": "/Applications/warifu.app/Contents/MacOS/warifu-cli"
-```
+| | 書き方 |
+|---|---|
+| PATH が通っている | `"warifu"` |
+| このリポジトリで建てた | `"./target/debug/warifu"`（`.mcp.json` はこれ） |
+| `.app` を受け取った（macOS） | `"/Applications/warifu.app/Contents/MacOS/warifu-cli"` |
+| `.msi` で入れた（Windows） | `"C:\\Program Files\\warifu\\warifu.exe"` |
+
+**書いたあと、エージェントを立て直してください。**MCP の口は起動時に読まれます。
 
 ### 許せる動作
 

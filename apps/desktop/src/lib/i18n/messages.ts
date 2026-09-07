@@ -46,6 +46,8 @@ export type MessageKey =
   | 'chat.lost'
   | 'chat.nobody'
   | 'chat.agent'
+  | 'chat.desk'
+  | 'chat.placeholder.desk'
   | 'chat.placeholder.nobody'
   | 'call.mic'
   | 'call.camera'
@@ -150,6 +152,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.lost': '{who} との経路が切れました',
     'chat.nobody': 'まだ誰も居ません。会議キーを渡して、入ってもらうと送れます。',
     'chat.agent': 'この PC の AI',
+    'chat.desk': 'この PC の AI が居ます。会議に人が居なくても話しかけられます。',
+    'chat.placeholder.desk': 'この PC の AI に話しかける',
     'chat.placeholder.nobody': '入ってきたら送れます',
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
@@ -226,6 +230,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.lost': 'The connection to {who} was lost',
     'chat.nobody': 'Nobody is here yet. Share a meeting key and wait for someone to join.',
     'chat.agent': 'AI on this computer',
+    'chat.desk': 'The AI on this computer is here. You can talk to it even with nobody else in the meeting.',
+    'chat.placeholder.desk': 'Talk to the AI on this computer',
     'chat.placeholder.nobody': 'You can send once someone joins',
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
@@ -302,6 +308,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.lost': '与 {who} 的连接已中断',
     'chat.nobody': '还没有人加入。把会议密钥交给对方，等对方进入后即可发送。',
     'chat.agent': '这台电脑的 AI',
+    'chat.desk': '这台电脑的 AI 在。即使会议里没有其他人，也可以对它说话。',
+    'chat.placeholder.desk': '对这台电脑的 AI 说话',
     'chat.placeholder.nobody': '有人进入后即可发送',
     'call.mic': '麦克风',
     'call.camera': '摄像头',
@@ -378,6 +386,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.lost': '{who} 님과의 연결이 끊어졌습니다',
     'chat.nobody': '아직 아무도 없습니다. 회의 키를 건네고 상대가 들어오면 보낼 수 있습니다.',
     'chat.agent': '이 PC 의 AI',
+    'chat.desk': '이 PC 의 AI 가 있습니다. 회의에 사람이 없어도 말을 걸 수 있습니다.',
+    'chat.placeholder.desk': '이 PC 의 AI 에게 말을 걸기',
     'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
     'call.mic': '마이크',
     'call.camera': '카메라',

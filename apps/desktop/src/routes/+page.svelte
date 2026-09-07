@@ -18,7 +18,7 @@
     type 会話行,
     type 出来事,
   } from '$lib/meeting/announce';
-  import { 準備を出す, 画面の状態を決める } from '$lib/meeting/stage';
+  import { 準備を出す, 画面の状態を決める, 届く先がある as 送れるか } from '$lib/meeting/stage';
   import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
@@ -49,6 +49,8 @@
     EVENT_SIGNAL,
     EVENT_TEXT,
     EVENT_DESK,
+    EVENT_DESK_SEATS,
+    deskSeats,
     connect,
     contacts,
     hostMeeting,
@@ -118,6 +120,15 @@
    * （2026-09-04 に実機で踏んだ）。
    */
   const 会議中 = $derived(remotes.length > 0);
+  /**
+   * 机に着いている人数（同じ PC の AI）。
+   *
+   * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
+   * オーナーが「会議ありきのチャットじゃない」と言った所である（2026-09-06）。
+   */
+  let 机の人数 = $state(0);
+  /** 打ったものが誰かに届くか。**会議の人でも、同じ席の AI でもよい。** */
+  const 届く先がある = $derived(送れるか({ 相手: remotes.length, 机の人数 }));
   /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
   let 会話 = $state<会話行[]>([]);
 
@@ -269,6 +280,9 @@
   $effect(() => {
     const unsubs: Array<() => void> = [];
     void (async () => {
+      // **窓より先に AI が着いていることがある。**知らせを待つだけだと、
+      // その 1 人を数え損ねて「入ってきたら送れます」が出たままになる
+      机の人数 = (await deskSeats()) ?? 0;
       unsubs.push(
         await onEvent<string>(EVENT_JOINED, async (key) => {
           log(`入った人がいる（${短く(key)}）。通話を作る`);
@@ -334,6 +348,11 @@
         }),
       );
       unsubs.push(
+        await onEvent<number>(EVENT_DESK_SEATS, (数) => {
+          机の人数 = 数;
+        }),
+      );
+      unsubs.push(
         await onEvent<string>(EVENT_LEFT, (key) => 片付ける(key)),
       );
       unsubs.push(
@@ -384,6 +403,9 @@
     const 状態 = [
       `名簿 ${members.length}/${DEFAULT_CAPACITY}`,
       `相手 ${remotes.length} 人`,
+      // **机に AI が着いているかは、後から追えないと分からない。**
+      // 「送れない」と言われたときに、居たのか居なかったのかが読めなくなる
+      `机 ${机の人数} 人`,
       `送るもの ${送るものを言う(sendMode)}`,
       `会議キー ${meetingKey ? 'あり' : 'なし'}`,
       `経路 ${remotes.map((r) => r.path).join(',') || 'なし'}`,
@@ -475,7 +497,7 @@
     try {
       await sendText(body);
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
-      log(話の記録('送信', `${remotes.length} 人`, body));
+      log(話の記録('送信', 会議中 ? `${remotes.length} 人` : '机', body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
       会話 = [...会話, { who: t('tile.me'), body, mine: true, at: いま時刻() }];
       下書き = '';
@@ -739,8 +761,11 @@
         （2026-09-06 にオーナーから「チャット送るボタンきかないよ」と報告された）。
         **打ち込みは残す** —— 先に書いておいて、入ってきたら送りたいことがある。
       -->
-      {#if !会議中}
+      {#if !届く先がある}
         <p class="hint">{t('chat.nobody')}</p>
+      {:else if !会議中}
+        <!-- **会議に人は居ないが、同じ席の AI は居る。**話しかけられる -->
+        <p class="hint">{t('chat.desk')}</p>
       {/if}
       <div class="say">
         <!--
@@ -751,7 +776,11 @@
         <textarea
           rows="1"
           bind:value={下書き}
-          placeholder={会議中 ? t('chat.placeholder') : t('chat.placeholder.nobody')}
+          placeholder={会議中
+            ? t('chat.placeholder')
+            : 机の人数 > 0
+              ? t('chat.placeholder.desk')
+              : t('chat.placeholder.nobody')}
           onkeydown={(e) => {
             if (送ってよい(e)) {
               e.preventDefault();
@@ -759,7 +788,7 @@
             }
           }}
         ></textarea>
-        <button type="button" onclick={話す} disabled={!会議中 || !下書き.trim()}>
+        <button type="button" onclick={話す} disabled={!届く先がある || !下書き.trim()}>
           {t('chat.send')}
         </button>
       </div>

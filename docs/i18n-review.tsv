@@ -9,6 +9,7 @@ camera.denied	Camera and microphone are not allowed. Allow them in your OS setti
 camera.missing	No camera or microphone found.	カメラかマイクが見つかりません。	找不到摄像头或麦克风。	카메라나 마이크를 찾을 수 없습니다.				
 camera.unknown	Could not use the camera.	カメラを使えませんでした。	无法使用摄像头。	카메라를 사용할 수 없습니다.				
 chat.agent	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
+chat.desk	The AI on this computer is here. You can talk to it even with nobody else in the meeting.	この PC の AI が居ます。会議に人が居なくても話しかけられます。	这台电脑的 AI 在。即使会议里没有其他人，也可以对它说话。	이 PC 의 AI 가 있습니다. 회의에 사람이 없어도 말을 걸 수 있습니다.				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	Goes to everyone in the meeting. Not saved — it disappears when you close.\n	会議に入っている人へ届きます。残りません — 閉じると消えます。\n	发送给会议中的所有人。不会保存 — 关闭后消失。\n	회의에 있는 사람에게 전달됩니다. 남지 않습니다 — 닫으면 사라집니다.\n				
 chat.joined	{who} joined	{who} が入室しました	{who} 已加入	{who} 님이 입장했습니다				
@@ -16,6 +17,7 @@ chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 �
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.nobody	Nobody is here yet. Share a meeting key and wait for someone to join.	まだ誰も居ません。会議キーを渡して、入ってもらうと送れます。	还没有人加入。把会议密钥交给对方，等对方进入后即可发送。	아직 아무도 없습니다. 회의 키를 건네고 상대가 들어오면 보낼 수 있습니다.				
 chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
+chat.placeholder.desk	Talk to the AI on this computer	この PC の AI に話しかける	对这台电脑的 AI 说话	이 PC 의 AI 에게 말을 걸기				
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
 chat.send	Send	送る	发送	보내기				
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				

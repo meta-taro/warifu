@@ -44,6 +44,11 @@ const EVENT_TEXT: &str = "warifu://text";
 /// **同じ席の AI の発言だと人に分かる必要がある**ため。
 /// 混ぜると、誰が言ったのか画面から読めなくなる。
 const EVENT_DESK: &str = "warifu://desk";
+/// **机に何人着いているか**が変わった。人数だけを渡す。
+///
+/// 会議に人が居なくても、**同じ席の AI が居るなら人は話しかけられる。**
+/// これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
+const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
 
 /// 経路の要所を書き出す。
 ///
@@ -934,6 +939,14 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     Ok(())
 }
 
+/// **机に何人着いているか。**画面が「送れるかどうか」を決めるのに使う。
+///
+/// 会議に人が居なくても、**同じ席の AI が居るなら送れる。**
+#[tauri::command]
+fn desk_seats(bridge: State<'_, Bridge>) -> usize {
+    desk::席の数(&bridge)
+}
+
 /// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。
 #[tauri::command]
 async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool> {
@@ -1015,6 +1028,7 @@ pub fn run() {
             log,
             contacts,
             remember,
+            desk_seats,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())
