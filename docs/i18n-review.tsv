@@ -35,7 +35,7 @@ meeting.join.title	Enter with a meeting key	もらった会議キーで入室す
 meeting.join.working	Entering…	入室しています…	正在进入…	입장 중…				
 meeting.key.copied	Copied	コピーしました	已复制	복사했습니다				
 meeting.key.copy	Copy	コピーする	复制	복사하기				
-meeting.key.hint	Hand this to the people joining. Only they can enter. It expires in 10 minutes. You can write it down or read it aloud.	これを参加者に渡します。渡した相手だけが入室できます。10 分で切れます。紙に書いても、読み上げても渡せます。	把它交给参加者。只有拿到的人才能进入。10 分钟后失效。可以写在纸上，也可以念给对方。	참가자에게 건네주세요. 건넨 사람만 입장할 수 있습니다. 10분 뒤에 만료됩니다. 종이에 적어도, 말로 전해도 됩니다.	★	「渡した相手だけが入室できる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **会議キーを他人に見られたら、その人が入室できる。**		
+meeting.key.hint	Give this to the person you are inviting. Only they can join. It expires in 24 hours. You can write it down or read it aloud.	これを参加者に渡します。渡した相手だけが入室できます。24 時間で切れます。紙に書いても、読み上げても渡せます。	把它交给参会者。只有拿到的人才能进入。24 小时后失效。可以写在纸上，也可以念给对方。	참가자에게 건네주세요. 받은 사람만 입장할 수 있습니다. 24시간 후 만료됩니다. 종이에 적어도, 읽어 주어도 전달할 수 있습니다.	★	「渡した相手だけが入室できる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **会議キーを他人に見られたら、その人が入室できる。**		
 meeting.key.label	Meeting key	会議キー	会议密钥	회의 키				
 meeting.key.more	Create another meeting key	会議キーをもう 1 本出す	再生成一个会议密钥	회의 키를 하나 더 만들기				
 meeting.key.more.hint	One meeting key lets one person in. To invite a third person, create another key and give it to them. The earlier keys keep working.	1 本の会議キーで入れるのは 1 人だけです。3 人目を呼ぶなら、もう 1 本出してその人に渡します。前の鍵は使えたままです。	一个会议密钥只能让一个人进入。要邀请第三个人，请再生成一个并交给对方。之前的密钥仍然可用。	회의 키 하나로 들어올 수 있는 사람은 한 명입니다. 세 번째 사람을 부르려면 하나 더 만들어 건네주세요. 이전 키는 그대로 쓸 수 있습니다.				

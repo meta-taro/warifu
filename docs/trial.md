@@ -120,7 +120,7 @@ Developer ID の発行は Apple の開発者アカウントでの作業で、**�
 cargo build -p warifu-cli
 
 # 待つ側（会議キーが標準出力の 1 行目に出る）
-./target/debug/warifu host --ttl 7200 --idle 3600 > /tmp/warifu.key 2>/tmp/warifu.log &
+./target/debug/warifu host > /tmp/warifu.key 2>/tmp/warifu.log &
 head -1 /tmp/warifu.key        # ← これを相手へ渡す
 
 # 入る側
@@ -130,8 +130,10 @@ echo "こんにちは" | ./target/debug/warifu join '<会議キー>' --idle 30
 tail -n +2 /tmp/warifu.key
 ```
 
-**`--ttl` を伸ばすこと。**既定は 10 分で、**相手が建てている間に切れる**
-（2026-09-04 に実際に切れた）。
+**`--ttl` は普段は要りません。**既定は 24 時間です
+（2026-09-07 に 10 分から変えました —— **離席している間に切れて、再発行する手間が重かった**）。
+
+**短くしたいときだけ指定します。**予定に紐づく会議なら `--from` / `--until` を使ってください。
 
 **通れば、割符・戸口・会議・Intent の全部が通ったことになる。**映像はその上に載るだけ。
 
