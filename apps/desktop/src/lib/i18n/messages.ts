@@ -48,6 +48,32 @@ export type MessageKey =
   | 'chat.agent'
   | 'chat.desk'
   | 'chat.placeholder.desk'
+  | 'pane.contacts'
+  | 'pane.meeting'
+  | 'pane.schedule'
+  | 'contacts.this'
+  | 'contacts.me'
+  | 'contacts.desk'
+  | 'contacts.desk.none'
+  | 'contacts.inmeeting'
+  | 'contacts.saved'
+  | 'contacts.empty'
+  | 'contacts.pick'
+  | 'contacts.key.label'
+  | 'contacts.presence.none'
+  | 'contacts.forget'
+  | 'act.chat'
+  | 'act.call'
+  | 'act.call.working'
+  | 'act.mail'
+  | 'act.mail.none'
+  | 'act.address.none'
+  | 'act.already'
+  | 'act.desk.local'
+  | 'act.desk.empty'
+  | 'chat.scope'
+  | 'schedule.title'
+  | 'schedule.none'
   | 'chat.placeholder.nobody'
   | 'call.mic'
   | 'call.camera'
@@ -154,6 +180,32 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': 'この PC の AI',
     'chat.desk': 'この PC の AI が居ます。会議に人が居なくても話しかけられます。',
     'chat.placeholder.desk': 'この PC の AI に話しかける',
+    'pane.contacts': '連絡帳',
+    'pane.meeting': '会議',
+    'pane.schedule': '予定',
+    'contacts.this': 'この PC',
+    'contacts.me': 'あなた',
+    'contacts.desk': 'この PC の AI',
+    'contacts.desk.none': '机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。',
+    'contacts.inmeeting': 'いま会議に居る人',
+    'contacts.saved': '覚えている相手',
+    'contacts.empty': 'まだ誰も覚えていません。会議で会った相手に呼び名を付けると、ここに残ります。',
+    'contacts.pick': '相手を選ぶと、できることが出ます。',
+    'contacts.key.label': '公開鍵',
+    'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
+    'contacts.forget': 'この相手を戸口から降ろす',
+    'act.chat': 'チャットする',
+    'act.call': '会議に呼ぶ',
+    'act.call.working': '呼んでいます…',
+    'act.mail': 'メールを送る',
+    'act.mail.none': 'まだ送れません。warifu にメールを送る経路が、まだ 1 本もありません（読む口だけがあります）。',
+    'act.address.none': '住所をまだ覚えていません。会議キーで一度つながると覚えます。それまでは、こちらから呼べません。',
+    'act.already': 'すでにこの会議に居ます。',
+    'act.desk.local': 'この PC の AI は、同じ机に着いています。会議に呼ぶ必要はありません。',
+    'act.desk.empty': '机に誰も着いていません。',
+    'chat.scope': 'この会話は 1 本です。会議に居る人と、この PC の AI の全員に届きます。',
+    'schedule.title': '予定',
+    'schedule.none': '予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。',
     'chat.placeholder.nobody': '入ってきたら送れます',
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
@@ -232,6 +284,32 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': 'AI on this computer',
     'chat.desk': 'The AI on this computer is here. You can talk to it even with nobody else in the meeting.',
     'chat.placeholder.desk': 'Talk to the AI on this computer',
+    'pane.contacts': 'Contacts',
+    'pane.meeting': 'Meeting',
+    'pane.schedule': 'Schedule',
+    'contacts.this': 'This computer',
+    'contacts.me': 'You',
+    'contacts.desk': 'AI on this computer',
+    'contacts.desk.none': 'No agent is at the desk. Connect one with `warifu mcp` and it appears here.',
+    'contacts.inmeeting': 'In the meeting now',
+    'contacts.saved': 'People you remember',
+    'contacts.empty': 'You have not remembered anyone yet. Name someone you met in a meeting and they stay here.',
+    'contacts.pick': 'Pick someone to see what you can do.',
+    'contacts.key.label': 'Public key',
+    'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
+    'contacts.forget': 'Stop letting this person in',
+    'act.chat': 'Chat',
+    'act.call': 'Invite to a meeting',
+    'act.call.working': 'Calling…',
+    'act.mail': 'Send mail',
+    'act.mail.none': 'Not possible yet. warifu has no way to send mail at all (it can only read).',
+    'act.address.none': 'Their whereabouts are not remembered yet. Connect once with a meeting key and it is remembered. Until then you cannot call them.',
+    'act.already': 'Already in this meeting.',
+    'act.desk.local': 'The AI on this computer is at the same desk. There is nothing to invite.',
+    'act.desk.empty': 'No agent is at the desk.',
+    'chat.scope': 'There is one conversation. It reaches everyone in the meeting and the AI on this computer.',
+    'schedule.title': 'Schedule',
+    'schedule.none': 'The schedule pane does not work yet. There is no way for the window to read a calendar.',
     'chat.placeholder.nobody': 'You can send once someone joins',
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
@@ -310,6 +388,32 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': '这台电脑的 AI',
     'chat.desk': '这台电脑的 AI 在。即使会议里没有其他人，也可以对它说话。',
     'chat.placeholder.desk': '对这台电脑的 AI 说话',
+    'pane.contacts': '通讯录',
+    'pane.meeting': '会议',
+    'pane.schedule': '日程',
+    'contacts.this': '这台电脑',
+    'contacts.me': '你',
+    'contacts.desk': '这台电脑的 AI',
+    'contacts.desk.none': '桌旁没有人。用 `warifu mcp` 连接后会出现在这里。',
+    'contacts.inmeeting': '正在会议中的人',
+    'contacts.saved': '记住的对方',
+    'contacts.empty': '还没有记住任何人。给会议中遇到的人取个称呼，就会留在这里。',
+    'contacts.pick': '选择一位，就会显示可以做的事。',
+    'contacts.key.label': '公钥',
+    'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
+    'contacts.forget': '不再让这位进入',
+    'act.chat': '聊天',
+    'act.call': '邀请进会议',
+    'act.call.working': '正在呼叫…',
+    'act.mail': '发送邮件',
+    'act.mail.none': '还发不了。warifu 目前完全没有发送邮件的通道（只有读取的口）。',
+    'act.address.none': '还没有记住对方的位置。用会议密钥连接一次后就会记住。在那之前无法从这边呼叫。',
+    'act.already': '已经在这个会议里了。',
+    'act.desk.local': '这台电脑的 AI 就在同一张桌旁，不需要邀请进会议。',
+    'act.desk.empty': '桌旁没有人。',
+    'chat.scope': '这是一条会话。会送达会议里的所有人，以及这台电脑的 AI。',
+    'schedule.title': '日程',
+    'schedule.none': '日程还不能用。画面还没有读取日程表的口。',
     'chat.placeholder.nobody': '有人进入后即可发送',
     'call.mic': '麦克风',
     'call.camera': '摄像头',
@@ -388,6 +492,32 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': '이 PC 의 AI',
     'chat.desk': '이 PC 의 AI 가 있습니다. 회의에 사람이 없어도 말을 걸 수 있습니다.',
     'chat.placeholder.desk': '이 PC 의 AI 에게 말을 걸기',
+    'pane.contacts': '연락처',
+    'pane.meeting': '회의',
+    'pane.schedule': '일정',
+    'contacts.this': '이 PC',
+    'contacts.me': '당신',
+    'contacts.desk': '이 PC 의 AI',
+    'contacts.desk.none': '책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.',
+    'contacts.inmeeting': '지금 회의에 있는 사람',
+    'contacts.saved': '기억한 상대',
+    'contacts.empty': '아직 아무도 기억하지 않았습니다. 회의에서 만난 상대에게 이름을 붙이면 여기에 남습니다.',
+    'contacts.pick': '상대를 고르면 할 수 있는 일이 나옵니다.',
+    'contacts.key.label': '공개키',
+    'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
+    'contacts.forget': '이 상대를 문에서 내리기',
+    'act.chat': '채팅하기',
+    'act.call': '회의에 부르기',
+    'act.call.working': '부르는 중…',
+    'act.mail': '메일 보내기',
+    'act.mail.none': '아직 보낼 수 없습니다. warifu 에는 메일을 보내는 경로가 하나도 없습니다 (읽는 입구만 있습니다).',
+    'act.address.none': '상대의 위치를 아직 기억하지 못했습니다. 회의 키로 한 번 연결하면 기억합니다. 그전에는 이쪽에서 부를 수 없습니다.',
+    'act.already': '이미 이 회의에 있습니다.',
+    'act.desk.local': '이 PC 의 AI 는 같은 책상에 있습니다. 회의에 부를 필요가 없습니다.',
+    'act.desk.empty': '책상에 아무도 없습니다.',
+    'chat.scope': '이 대화는 하나입니다. 회의에 있는 사람과 이 PC 의 AI 모두에게 갑니다.',
+    'schedule.title': '일정',
+    'schedule.none': '일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.',
     'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
     'call.mic': '마이크',
     'call.camera': '카메라',
@@ -416,10 +546,27 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'door.refused',
   'meeting.key.hint',
   'link.lost',
+  'act.mail.none',
+  'act.address.none',
+  'chat.scope',
 ] as const;
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
 export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
+  'act.mail.none':
+    '「まだ送れません」は「いま経路が無い」という事実である。' +
+    '「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。' +
+    'この画面でいちばん重い事故は、送ったつもりで送られていないことである。' +
+    'また「準備中です」「近日対応」のような、待てば来ると読める訳にもしないこと。',
+  'act.address.none':
+    '覚えていないのは**こちら側**である。' +
+    '「その相手は見つかりません」「拒否されました」と読める訳にしないこと。' +
+    '相手のせいにすると、人は相手に確認しに行く。' +
+    'また「自動でつながります」とも読ませないこと —— つなぐのは人の操作である。',
+  'chat.scope':
+    '「1 本の会話」＝ 会議に居る全員と、この PC の AI に届く、という意味。' +
+    '「この相手にだけ届きます」「非公開の会話です」と読める訳にしないこと。' +
+    '個別に届くと誤解した人は、見られたくないものを書く。',
   'revoke.irreversible':
     '「取り消せない」は事実であって、丁寧な警告ではない。' +
     '「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。' +

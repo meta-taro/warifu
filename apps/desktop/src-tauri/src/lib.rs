@@ -67,6 +67,8 @@ macro_rules! 記録 {
 }
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
+mod call;
+mod contacts;
 mod desk;
 
 /// **決まった場所へ書き置く。**
@@ -243,7 +245,10 @@ impl Bridge {
             device,
             node: Mutex::new(None),
             tally: Arc::new(Mutex::new(Vec::new())),
-            door: Arc::new(Mutex::new(Door::new())),
+            // **置いてある知り合いを連れて開く。**
+            // 2026-09-07 まで毎起動で空になっており、「一度開けた相手は
+            // 次から割符なしで開ける」（D31）が再起動をまたいで効かなかった
+            door: Arc::new(Mutex::new(contacts::戸口を開く())),
             addresses: Arc::new(Mutex::new(HashMap::new())),
             conference: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(HashMap::new())),
@@ -434,8 +439,54 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         )
         .await?;
 
+    // **自分の住所を名乗る。**相手は経路からこちらの住所を知れない（D41 と同じ理由）。
+    // これが無いと、主催側は相手を「呼び返す」ことが永遠にできない
+    if let Ok(自分の住所) = node.address().await {
+        let _ = channel
+            .send(
+                &Notice::Introduce {
+                    meeting: meeting_id,
+                    who: bridge.device.public_key(),
+                    address: 自分の住所.to_string(),
+                }
+                .to_intent()?,
+            )
+            .await;
+    }
+
+    // **繋がったいま覚える。**この住所はたったいま届いたことが分かっている。
+    // 切れた時に覚えると、証明が古くなるうえ、落ちたら書けない
+    contacts::書き留める(peer, &address);
+
     始める(&app, &bridge, channel, peer).await;
     Ok(())
+}
+
+/// **覚えた相手を、割符なしで呼ぶ。**
+///
+/// 名前を押して繋ぐ道（`issues/010` 段 3）。会議キーを手で渡さない。
+/// 住所を知らなければ、**繋ぎに行かずにすぐ返す**（押した人を待たせない・D49）。
+#[tauri::command]
+async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) -> Answer<()> {
+    let 相手: PublicKey = key.parse().map_err(|_| Failure {
+        message: "公開鍵として読めません".into(),
+        code: None,
+    })?;
+    call::呼ぶ(&app, &bridge, 相手).await
+}
+
+/// **相手を戸口から降ろす。**次からは割符が要る。
+///
+/// 知り合いを保存した以上、**取り消す口が要る。**
+/// 保存する前は、間違って開けた相手もアプリを閉じれば切れていた。
+#[tauri::command]
+async fn stop_knowing(bridge: State<'_, Bridge>, key: String) -> Answer<bool> {
+    let 相手: PublicKey = key.parse().map_err(|_| Failure {
+        message: "公開鍵として読めません".into(),
+        code: None,
+    })?;
+    let mut door = bridge.door.lock().await;
+    Ok(contacts::降ろす(&mut door, 相手))
 }
 
 /// 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。**
@@ -474,14 +525,17 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                     "合わなかった"
                 }
             );
-            let 答え = {
+            let (答え, 知っていた) = {
                 let mut door = door.lock().await;
+                // **answer は通した相手を知り合いに入れる。**前に見ておかないと
+                // 「新しく知り合いになったか」が分からなくなる
+                let 知っていた = door.knows(&subject);
                 let knock = if 合った {
                     Knock::with_verified_tally(subject.clone(), now_secs())
                 } else {
                     Knock::new(subject.clone(), now_secs())
                 };
-                door.answer(&knock)
+                (door.answer(&knock), 知っていた)
             };
             記録!("待受: 戸口の答えは {答え:?}");
             if 答え != DoorAnswer::Open {
@@ -489,7 +543,32 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 continue;
             }
 
-            let channel = Channel::new(session);
+            // **新しく知り合いになったなら書き置く。**
+            // 毎回書かない —— 叩かれるたびにディスクへ触ることになる。
+            // ロックは集めるまで。**持ったままファイルへ触らない**
+            if !知っていた {
+                let 一覧: Vec<String> = {
+                    let door = door.lock().await;
+                    door.known().map(str::to_owned).collect()
+                };
+                contacts::戸口を書き置く(&一覧);
+                記録!("待受: 知り合いに加えて書き置いた");
+            }
+
+            let mut channel = Channel::new(session);
+
+            // **割符なしで来た相手には、会議を教える。**
+            // 相手は会議 id を知りようがない（会議キーを持っていない）。
+            // 割符つきで来た相手には送らない —— そちらは鍵に id が入っている
+            if !合った
+                && let Some(招待) = call::招く(&conference)
+                && let Ok(intent) = 招待.to_intent()
+            {
+                if channel.send(&intent).await.is_err() {
+                    continue;
+                }
+                記録!("待受: 割符なしの相手へ会議を教えた");
+            }
             {
                 let mut slot = conference.lock().await;
                 if slot.is_none() {
@@ -644,6 +723,10 @@ fn 汲む(
                     // **紹介は名簿を動かさない**（D41）
                     記録!("受信: {}", 知らせの名(&notice));
                     if let Notice::Introduce { meeting, who, address } = &notice {
+                        // **名乗りをそのまま連絡帳へ落とさない。**
+                        // 「C さんの住所はここです」と言われるまま書くと、
+                        // 次に人が C の名前を押したとき別の場所へ呼びに行く（D12 の迂回）
+                        contacts::住所を覚える(peer, *who, address);
                         addresses.lock().await.insert(who.to_bytes(), address.clone());
                         // 自分が主催者なら、**入った人を既存の面々へ配り、
                         // 入った人へ既存の面々を教える**
@@ -819,6 +902,11 @@ pub struct ContactRow {
     key: String,
     /// 人が付けた呼び名。
     label: String,
+    /// **居場所を覚えているか。**覚えていれば、名前を押して呼べる。
+    ///
+    /// **住所そのものは画面へ渡さない。**画面に要るのは
+    /// 「押せるかどうか」だけであり、中身を出しても人には読めない。
+    has_address: bool,
 }
 
 /// 覚えている相手を並べる。
@@ -835,6 +923,7 @@ fn contacts() -> Answer<Vec<ContactRow>> {
         .map(|c| ContactRow {
             key: c.key().to_string(),
             label: c.label().to_owned(),
+            has_address: c.address().is_some(),
         })
         .collect())
 }
@@ -844,15 +933,23 @@ fn contacts() -> Answer<Vec<ContactRow>> {
 /// 覚えるのは**呼び名と鍵だけ**で、住所（いまどこに居るか）は入らない。
 /// 住所は会議キーが運ぶ（`issues/010` の会場鍵で埋める予定）。
 #[tauri::command]
-fn remember(key: String, label: String) -> Answer<()> {
+async fn remember(bridge: State<'_, Bridge>, key: String, label: String) -> Answer<()> {
     let who = key.parse::<PublicKey>()?;
     let vault = warifu_vault::Vault::default_location()?;
     let mut list = vault.contacts()?;
     let 名 = label.trim();
     if 名.is_empty() {
         list.remove(who);
-    } else {
-        list.add(who, 名, now_secs())?;
+        vault.save_contacts(&list)?;
+        記録!("名簿: 忘れた（{}）", 短く(&key));
+        return Ok(());
+    }
+    list.add(who, 名, now_secs())?;
+    // **呼び名を付けるのと同時に、いま知っている住所も書く。**
+    // 住所は「覚えている相手」にしか書けない（住所だけの行を作らない）ので、
+    // ここで拾わないと、**呼び名を付けた相手の居場所が永遠に入らない**
+    if let Some(住所) = bridge.addresses.lock().await.get(&who.to_bytes()).cloned() {
+        let _ = list.note_address(who, &住所);
     }
     vault.save_contacts(&list)?;
     記録!("名簿: 覚えた（{}）", 短く(&key));
@@ -1029,6 +1126,8 @@ pub fn run() {
             contacts,
             remember,
             desk_seats,
+            call_contact,
+            stop_knowing,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())

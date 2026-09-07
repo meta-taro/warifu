@@ -19,6 +19,12 @@
     type 出来事,
   } from '$lib/meeting/announce';
   import { 準備を出す, 画面の状態を決める, 届く先がある as 送れるか } from '$lib/meeting/stage';
+  import PaneRail from '$lib/shell/PaneRail.svelte';
+  import { 既定の面, 押した後の面, type 面 as 面の型 } from '$lib/shell/panes';
+  import ContactsPane from '$lib/contacts/ContactsPane.svelte';
+  import { 机の印, type 行 as 連絡帳の行 } from '$lib/contacts/list';
+  import type { 口の種類 } from '$lib/contacts/actions';
+  import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
@@ -53,6 +59,8 @@
     deskSeats,
     connect,
     contacts,
+    callContact,
+    type ContactRow,
     hostMeeting,
     inTauri,
     invite,
@@ -129,6 +137,28 @@
   let 机の人数 = $state(0);
   /** 打ったものが誰かに届くか。**会議の人でも、同じ席の AI でもよい。** */
   const 届く先がある = $derived(送れるか({ 相手: remotes.length, 机の人数 }));
+
+  /**
+   * いま見ている面。**入口は連絡帳**（会議ではない）。
+   *
+   * **相手の操作で動かさない**（`面へ移ってよい` / D31）。移すのは人が押したときだけ。
+   */
+  let 面 = $state<面の型>(既定の面);
+  /** 連絡帳で選んでいる相手（公開鍵か、机の印）。 */
+  let 選んだ相手 = $state<string | null>(null);
+  /** いま呼んでいる相手。**二度押しを止める。** */
+  let 呼んでいる = $state<string | null>(null);
+  /** 覚えている相手（住所を知っているかを含む）。 */
+  let 覚えた = $state<ContactRow[]>([]);
+  /** 自分の公開鍵。**連絡帳の「この PC」に出す。** */
+  let 自分の鍵 = $state('');
+
+  const 連絡帳の素材 = $derived({
+    自分: 自分の鍵,
+    机の人数,
+    会議の相手: remotes.map((r) => r.key),
+    覚えた,
+  });
   /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
   let 会話 = $state<会話行[]>([]);
 
@@ -158,6 +188,7 @@
       // ブラウザで開いたときは null が返る（Tauri の外）。**そこで落ちない**
       const rows = (await contacts()) ?? [];
       名簿 = Object.fromEntries(rows.map((r) => [r.key, r.label]));
+      覚えた = rows;
     } catch (e) {
       // **握り潰さない。**名前が出ないだけで会議は続けられる
       log(`名簿を読めなかった（${読める(e)}）`);
@@ -185,7 +216,6 @@
       // 握り潰す理由: 音が鳴らないことを会議の失敗にしない
     }
   }
-  let 下書き = $state('');
   let call: Call | null = null;
   let keyField: HTMLTextAreaElement | undefined = $state();
   let previewVideo: HTMLVideoElement | undefined = $state();
@@ -272,6 +302,7 @@
       await hostMeeting(DEFAULT_CAPACITY);
       await listen();
       const me = (await myKey()) ?? '';
+      自分の鍵 = me;
       members = [{ key: me, me: true, host: true, path: 'unknown' }];
       void 名簿を読む();
     })();
@@ -491,19 +522,46 @@
     setTimeout(() => (copied = false), COPIED_FOR_MS);
   }
 
-  async function 話す() {
-    const body = 下書き.trim();
-    if (!body) return;
+  async function 話す(body: string) {
+    if (!body.trim()) return;
     try {
       await sendText(body);
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
       log(話の記録('送信', 会議中 ? `${remotes.length} 人` : '机', body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
       会話 = [...会話, { who: t('tile.me'), body, mine: true, at: いま時刻() }];
-      下書き = '';
     } catch (e) {
       notice = 読める(e);
     }
+  }
+
+  /**
+   * 連絡帳から口を押した。
+   *
+   * **チャットは会議へ連れて行かない**（`押した後の面('chat') === null`）。
+   * 「会議ありきのチャットじゃないんです」（オーナー・2026-09-07）。
+   */
+  async function 連絡帳から押す(種類: 口の種類, 相手: 連絡帳の行) {
+    // 机の AI は同じ席に居る。**繋ぎに行くものが無い**
+    if (相手.key === 机の印) return;
+    if (種類 === 'mail') return;
+
+    // すでに繋がっているなら、繋ぎ直さない
+    if (!相手.いま会議に居る) {
+      呼んでいる = 相手.key;
+      notice = '';
+      try {
+        await callContact(相手.key);
+        await 名簿を読む();
+      } catch (e) {
+        notice = 読める(e);
+        return;
+      } finally {
+        呼んでいる = null;
+      }
+    }
+    const 次 = 押した後の面(種類 === 'call' ? 'call' : 'chat');
+    if (次) 面 = 次;
   }
 
   async function 入室する() {
@@ -530,6 +588,14 @@
 />
 
 <main>
+  <PaneRail {locale} いまの面={面} {状態} 選ぶ={(次) => (面 = 次)} />
+
+  <!--
+    **会議の面は畳まない。隠すだけ。**
+    相手の音は `<video>` 要素から出ているので、`{#if}` で外すと
+    **連絡帳へ移った瞬間に相手の声が消える**（`畳んでよい('会議') === false`）。
+  -->
+  <div class="pane meeting" hidden={面 !== '会議'} role="tabpanel">
   <section class="stage">
     <!--
       **知らせは映像の上。**下に置くと目に入らない —— 会議中の目線は
@@ -619,59 +685,14 @@
       onRename={(key, label) => void 名前を付ける(key, label)}
     />
 
-    <div class="card chat" class:live={状態 !== '会議前'}>
-      <h2><Icon name="people" size={18} />{t('chat.title')}</h2>
-      <p class="hint">{t('chat.hint')}</p>
-      <div class="talk">
-        {#if 会話.length === 0}
-          <p class="hint">{t('chat.empty')}</p>
-        {/if}
-        {#each 会話 as line, i (i)}
-          <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
-          <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
-            {#if line.at}<span class="at">{line.at}</span>{/if}{#if !line.system}<b>{line.who}</b
-              >{/if}{line.body}
-          </p>
-        {/each}
-      </div>
-      <!--
-        **相手が居ないときは押させない。**押せる形にしておいて「まだ誰も居ません」と
-        返すのは、**押した人には「効かない」としか見えない**
-        （2026-09-06 にオーナーから「チャット送るボタンきかないよ」と報告された）。
-        **打ち込みは残す** —— 先に書いておいて、入ってきたら送りたいことがある。
-      -->
-      {#if !届く先がある}
-        <p class="hint">{t('chat.nobody')}</p>
-      {:else if !会議中}
-        <!-- **会議に人は居ないが、同じ席の AI は居る。**話しかけられる -->
-        <p class="hint">{t('chat.desk')}</p>
-      {/if}
-      <div class="say">
-        <!--
-          **改行できる**（2026-09-06 のオーナー要望）。Shift+Enter / Option+Enter で改行、
-          Enter で送る。`preventDefault` を忘れると、**送ったうえに改行が残る。**
-          `input` ではなく `textarea` にしたのは、**改行を持てる欄が要る**ため。
-        -->
-        <textarea
-          rows="1"
-          bind:value={下書き}
-          placeholder={会議中
-            ? t('chat.placeholder')
-            : 机の人数 > 0
-              ? t('chat.placeholder.desk')
-              : t('chat.placeholder.nobody')}
-          onkeydown={(e) => {
-            if (送ってよい(e)) {
-              e.preventDefault();
-              void 話す();
-            }
-          }}
-        ></textarea>
-        <button type="button" onclick={話す} disabled={!届く先がある || !下書き.trim()}>
-          {t('chat.send')}
-        </button>
-      </div>
-    </div>
+    <ChatPanel
+      {locale}
+      {会話}
+      {届く先がある}
+      {会議中}
+      {机の人数}
+      送る={(body) => void 話す(body)}
+    />
 
     {#if 支度の口を出す}
     <div class="card">
@@ -804,15 +825,68 @@
     {/if}
 
   </aside>
+  </div>
+
+  <!-- 連絡帳。**起動して最初に出る面** -->
+  {#if 面 === '連絡帳'}
+    <div class="pane contacts" role="tabpanel">
+      <ContactsPane
+        {locale}
+        素材={連絡帳の素材}
+        選んでいる={選んだ相手}
+        選ぶ={(key) => (選んだ相手 = key)}
+        押す={連絡帳から押す}
+        呼んでいる={呼んでいる}
+      />
+      <ChatPanel
+        {locale}
+        {会話}
+        {届く先がある}
+        {会議中}
+        {机の人数}
+        送る={(body) => void 話す(body)}
+      />
+    </div>
+  {/if}
+
+  <!-- 予定。**まだ動かないことを、理由つきで出す**（§2 原則 7） -->
+  {#if 面 === '予定'}
+    <div class="pane schedule" role="tabpanel">
+      <div class="card">
+        <h2><Icon name="calendar" size={18} />{t('schedule.title')}</h2>
+        <p class="hint">{t('schedule.none')}</p>
+      </div>
+    </div>
+  {/if}
 </main>
 
 <style>
   main {
     flex: 1;
-    display: grid;
-    grid-template-columns: 1fr 340px;
+    /* **レール（面の切り替え）と、面 1 つ。**面の中身は面ごとに決める */
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .pane {
+    display: flex;
+    flex: 1;
+    min-height: 0;
     gap: var(--space-4);
     padding: var(--space-4);
+    overflow: hidden;
+  }
+  /* 連絡帳は「一覧 ＋ 相手」と「会話」の 2 つ */
+  .pane.contacts > :global(.card) {
+    width: 340px;
+    flex: none;
+  }
+  .pane.schedule {
+    align-items: flex-start;
+  }
+  .pane.meeting {
+    display: grid;
+    grid-template-columns: 1fr 340px;
     /* **窓ごと動かさない。**動いてよいのは右の列の中だけである。
        ここを `overflow-y: auto` にしていたため、右の列が 1101px まで伸びて
        **チャットと名簿が窓の下端から 442px はみ出していた**（2026-09-06 の実測）。
@@ -820,6 +894,17 @@
        min-height: 0 が無いと grid の子が縮まない */
     min-height: 0;
     overflow: hidden;
+  }
+
+  /* **隠すのであって、外すのではない。**
+     `display: none` でも DOM には残るので、**相手の音は鳴り続ける。**
+     `{#if}` で外すと `<video>` ごと消えて声が切れる（`畳んでよい('会議') === false`）。
+
+     **ここが最後でなければ効かない。**`.pane[hidden]` と `.pane.meeting` は
+     同じ強さなので、後に書いたほうが勝つ（2026-09-07 に実物で踏んだ ——
+     会議の面が隠れず、連絡帳の横に居座っていた）。 */
+  .pane[hidden] {
+    display: none;
   }
   .stage {
     display: flex;
@@ -924,50 +1009,6 @@
     line-height: var(--text-xs-line);
     color: var(--text-tertiary);
   }
-  .card.chat {
-    /* **残りを取る。**打ち込み欄は底に固定され、行が増えても動かない */
-    flex: 1;
-    /* **見出し・案内・打ち込み欄で 160px はほぼ埋まる。**
-       埋まった残りが会話欄になるので、160 だと会話欄が数 px に潰れた
-       （2026-09-07・オーナーの画面で「まだ何もありません」が切れていた）。
-       会話欄の min-height と足し合わせた高さにする */
-    min-height: 320px;
-  }
-  .talk {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    /* **溢れたら中で動く。**外側（画面全体）を伸ばさない */
-    flex: 1;
-    /* **空でも読める高さを持つ。**0 だと、親に余りが無いときに潰れて
-       「まだ何もありません」の 1 行すら切れる（縦のつまみだけが出る）。
-       ここは会話を読む場所であって、入力欄ではない —— 潰れた見た目にしない */
-    min-height: 140px;
-    overflow-y: auto;
-    padding: var(--space-2);
-    background: var(--bg-app);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-  .line {
-    margin: 0;
-    /* **打った改行を、そのまま見せる。**折り返しも効かせる */
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font-size: var(--text-sm-size);
-    line-height: var(--text-sm-line);
-    word-break: break-word;
-  }
-  /* **会議からの知らせ。**人の発言と見分けが付く形にする */
-  .line.system {
-    color: var(--text-tertiary);
-    font-style: italic;
-    text-align: center;
-  }
-  /* 会議中はチャットを広く取る。**下に小さく置くと気づかれない** */
-  .chat.live .talk {
-    max-height: 420px;
-  }
   /* **会議中の入切。**映像のすぐ下に置く（探させない） */
   .controls {
     display: flex;
@@ -983,48 +1024,6 @@
   .controls button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-  }
-  /* 時刻は等幅で、桁を揃える（DESIGN.md §5）。**本文より前に出て、本文より弱い** */
-  .at {
-    margin-right: 6px;
-    font-family: var(--font-mono);
-    font-size: var(--text-2xs-size);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-tertiary);
-  }
-  .line b {
-    margin-right: 6px;
-    font-weight: 500;
-    color: var(--text-tertiary);
-  }
-  .line.mine b {
-    color: var(--accent);
-  }
-  /* **同じ席の AI。**人の発言と一目で見分けが付く必要がある
-     （見分けが付かないと、人が言っていないことを人が言ったと読まれる） */
-  .line.agent b {
-    color: var(--text-secondary);
-    font-weight: 600;
-  }
-  /* **1 行から始めて、打った分だけ伸びる。**伸びすぎない（会話が見えなくなる） */
-  .say textarea {
-    flex: 1;
-    min-width: 0;
-    min-height: 34px;
-    max-height: 120px;
-    resize: none;
-    font-family: var(--font-ui);
-    font-size: var(--text-sm-size);
-    line-height: var(--text-sm-line);
-    color: var(--text-primary);
-    background: var(--bg-app);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 6px var(--space-2);
-  }
-  .say {
-    display: flex;
-    gap: var(--space-2);
   }
   .row {
     display: flex;

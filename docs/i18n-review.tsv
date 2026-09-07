@@ -1,4 +1,13 @@
 鍵	en	ja	zh	ko	事故になるか	翻訳者への注記	判定	直した訳（ja/en/zh/ko）
+act.address.none	Their whereabouts are not remembered yet. Connect once with a meeting key and it is remembered. Until then you cannot call them.	住所をまだ覚えていません。会議キーで一度つながると覚えます。それまでは、こちらから呼べません。	还没有记住对方的位置。用会议密钥连接一次后就会记住。在那之前无法从这边呼叫。	상대의 위치를 아직 기억하지 못했습니다. 회의 키로 한 번 연결하면 기억합니다. 그전에는 이쪽에서 부를 수 없습니다.	★	覚えていないのは**こちら側**である。「その相手は見つかりません」「拒否されました」と読める訳にしないこと。相手のせいにすると、人は相手に確認しに行く。また「自動でつながります」とも読ませないこと —— つなぐのは人の操作である。		
+act.already	Already in this meeting.	すでにこの会議に居ます。	已经在这个会议里了。	이미 이 회의에 있습니다.				
+act.call	Invite to a meeting	会議に呼ぶ	邀请进会议	회의에 부르기				
+act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중…				
+act.chat	Chat	チャットする	聊天	채팅하기				
+act.desk.empty	No agent is at the desk.	机に誰も着いていません。	桌旁没有人。	책상에 아무도 없습니다.				
+act.desk.local	The AI on this computer is at the same desk. There is nothing to invite.	この PC の AI は、同じ机に着いています。会議に呼ぶ必要はありません。	这台电脑的 AI 就在同一张桌旁，不需要邀请进会议。	이 PC 의 AI 는 같은 책상에 있습니다. 회의에 부를 필요가 없습니다.				
+act.mail	Send mail	メールを送る	发送邮件	메일 보내기				
+act.mail.none	Not possible yet. warifu has no way to send mail at all (it can only read).	まだ送れません。warifu にメールを送る経路が、まだ 1 本もありません（読む口だけがあります）。	还发不了。warifu 目前完全没有发送邮件的通道（只有读取的口）。	아직 보낼 수 없습니다. warifu 에는 메일을 보내는 경로가 하나도 없습니다 (읽는 입구만 있습니다).	★	「まだ送れません」は「いま経路が無い」という事実である。「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。この画面でいちばん重い事故は、送ったつもりで送られていないことである。また「準備中です」「近日対応」のような、待てば来ると読める訳にもしないこと。		
 app.name	warifu	warifu	warifu	warifu				
 browser.only	Opened in a browser. Meetings only work inside the warifu window.	ブラウザで開いています。会議は warifu の窓でだけ動きます。	正在浏览器中打开。会议只能在 warifu 窗口里进行。	브라우저에서 열렸습니다. 회의는 warifu 창에서만 동작합니다.				
 call.camera	Camera	カメラ	摄像头	카메라				
@@ -19,8 +28,20 @@ chat.nobody	Nobody is here yet. Share a meeting key and wait for someone to join
 chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
 chat.placeholder.desk	Talk to the AI on this computer	この PC の AI に話しかける	对这台电脑的 AI 说话	이 PC 의 AI 에게 말을 걸기				
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
+chat.scope	There is one conversation. It reaches everyone in the meeting and the AI on this computer.	この会話は 1 本です。会議に居る人と、この PC の AI の全員に届きます。	这是一条会话。会送达会议里的所有人，以及这台电脑的 AI。	이 대화는 하나입니다. 회의에 있는 사람과 이 PC 의 AI 모두에게 갑니다.	★	「1 本の会話」＝ 会議に居る全員と、この PC の AI に届く、という意味。「この相手にだけ届きます」「非公開の会話です」と読める訳にしないこと。個別に届くと誤解した人は、見られたくないものを書く。		
 chat.send	Send	送る	发送	보내기				
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
+contacts.desk	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
+contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
+contacts.empty	You have not remembered anyone yet. Name someone you met in a meeting and they stay here.	まだ誰も覚えていません。会議で会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给会议中遇到的人取个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 회의에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
+contacts.forget	Stop letting this person in	この相手を戸口から降ろす	不再让这位进入	이 상대를 문에서 내리기				
+contacts.inmeeting	In the meeting now	いま会議に居る人	正在会议中的人	지금 회의에 있는 사람				
+contacts.key.label	Public key	公開鍵	公钥	공개키				
+contacts.me	You	あなた	你	당신				
+contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
+contacts.presence.none	There is no way to tell whether they are running right now. You find out by calling.	相手がいま起動しているかは分かりません。呼んでみるまで分かりません。	无法知道对方现在是否已启动。只有呼叫之后才知道。	상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.				
+contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
+contacts.this	This computer	この PC	这台电脑	이 PC				
 door.refused	Refused.	断りました。	已拒绝。	거절했습니다.	★	**既に断り終えた**という完了の意味。「保留しています」「確認中です」と読める訳にしないこと。待てば通ると誤解すると、来ていない相手を待ち続ける（D31）。		
 edit.copy	Copy	コピー	复制	복사하기				
 edit.cut	Cut	切り取る	剪切	오려두기				
@@ -48,12 +69,17 @@ meeting.start.action	Start a meeting	会議をはじめる	开始会议	회의 �
 meeting.start.title	Start a meeting	会議をはじめる	开始会议	회의 시작하기				
 meeting.status.live	In a meeting	会議中	会议中	회의 중				
 meeting.status.waiting	Waiting for the other person	相手を待っています	正在等待对方	상대방을 기다리는 중				
+pane.contacts	Contacts	連絡帳	通讯录	연락처				
+pane.meeting	Meeting	会議	会议	회의				
+pane.schedule	Schedule	予定	日程	일정				
 revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{device} 해지	★	実行を促す文言。ここで「試す」「確認する」に寄せると、押した先が最終であることが伝わらない。		
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
 roster.name.save	Save	決める	保存	저장				
+schedule.none	The schedule pane does not work yet. There is no way for the window to read a calendar.	予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。	日程还不能用。画面还没有读取日程表的口。	일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.				
+schedule.title	Schedule	予定	日程	일정				
 setup.action	Check camera and microphone	カメラとマイクを確かめる	检查摄像头和麦克风	카메라와 마이크 확인				
 setup.blur	Blur my background	背景をぼかす	虚化背景	배경 흐리게				
 setup.blur.os	This environment cannot blur backgrounds from the app. On macOS, use Video Effects in Control Center.	この環境では、アプリから背景をぼかせません。macOS ならコントロールセンターのビデオエフェクトが使えます。	此环境无法由应用虚化背景。macOS 可使用控制中心的视频效果。	이 환경에서는 앱이 배경을 흐리게 할 수 없습니다. macOS라면 제어 센터의 비디오 효과를 사용하세요.				

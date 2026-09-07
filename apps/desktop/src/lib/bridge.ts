@@ -127,6 +127,23 @@ export const sendText = (body: string) => invoke<void>('send_text', { body });
 export const deskSeats = () => invoke<number>('desk_seats');
 
 /**
+ * **覚えた相手を、割符なしで呼ぶ。**会議キーを手で渡さない。
+ *
+ * 住所を覚えていなければ、繋ぎに行かずにすぐ断る（押した人を待たせない・D49）。
+ * 繋がらなかった理由は分けない —— 「居ない」も「断られた」も同じ言い分が返る
+ * （分けると、断る理由を相手に返さない D31 が画面越しに崩れる）。
+ */
+export const callContact = (key: string) => invoke<void>('call_contact', { key });
+
+/**
+ * **相手を戸口から降ろす。**次からは割符が要る。
+ *
+ * 知り合いを保存した以上、取り消す口が要る ——
+ * 保存する前は、間違って開けた相手もアプリを閉じれば切れていた。
+ */
+export const stopKnowing = (key: string) => invoke<boolean>('stop_knowing', { key });
+
+/**
  * 画面の出来事を、Rust と同じログへ流す。
  *
  * WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、
@@ -139,14 +156,15 @@ export const log = (message: string) => void invoke<void>('log', { message });
 /** 待ち受けを始める。**呼ぶ側だけでは 2 台は出会えない。** */
 export const listen = () => invoke<void>('listen');
 
-/**
- * **入った人を、既に居る面々へ紹介する**（D41）。
- *
- * 名簿は公開鍵しか運ばないので、3 人目は既存の面々の住所を知る手段が無い。
- * **主催者だけが配る** — 主催者でなければ何も起きない（断りではない）。
- */
-export const introduce = (newcomer: string, address: string) =>
-  invoke<void>('introduce', { newcomer, address });
+// **`introduce` の口はここに置かない。**
+//
+// 2026-09-07 まで `invoke('introduce', …)` を export していたが、
+// **Rust 側にその命令は無く、呼び出し元も 1 つも無かった。**
+// 押せるのに効かない口を残さない（**D49**）。
+//
+// 住所の名乗り（D41）は Rust の中で済ませる —— `connect` と `call_contact` が
+// 繋がった直後に `Notice::Introduce` を送る。**画面に押させると、
+// 押し忘れで住所が入らない経路ができる。**
 
 /** 覚えている相手 1 人。**呼び名と鍵の組だけ。** */
 export interface ContactRow {
@@ -154,6 +172,13 @@ export interface ContactRow {
   key: string;
   /** 人が付けた呼び名。 */
   label: string;
+  /**
+   * **居場所を覚えているか。**覚えていれば、名前を押して呼べる。
+   *
+   * 住所そのものは渡ってこない —— 画面に要るのは「押せるかどうか」だけで、
+   * 中身を出しても人には読めない。
+   */
+  has_address: boolean;
 }
 
 /**
