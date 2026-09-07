@@ -51,6 +51,21 @@ pnpm --filter @warifu/desktop tauri dev
 何が入っていて、何がまだ無いかは **`CHANGELOG.md`**。
 触ってもらう手順は **`docs/trial.md`**。
 
+### エージェントを、人と同じ会話に着かせる（**MCP**）
+
+**`docs/mcp.md`** —— この PC のエージェント（Claude Code など）を、
+**人が見ているチャットに着かせます。**エージェントが喋った行が、そのまま人の画面に出ます。
+
+```json
+{ "mcpServers": { "warifu": {
+  "command": "warifu",
+  "args": ["mcp", "--allow", "chat.send", "--allow", "chat.read"]
+} } }
+```
+
+**`--allow` を書かなければ、どの口も通りません。既定は拒否です。**
+何を許すかは人が決めて、人が書きます。
+
 ### 訳文をレビューする
 
 **`docs/i18n-review.md`** —— UI の文言は 4 言語（en / ja / zh / ko）ありますが、

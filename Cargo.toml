@@ -15,6 +15,7 @@ members = [
     "crates/warifu-door",
     "crates/warifu-vault",
     "crates/warifu-app",
+    "crates/warifu-desk",
     "crates/warifu-cli",
 ]
 # GUI は別 workspace に置く。**ここへ入れない。**
@@ -44,6 +45,8 @@ warifu-capability = { path = "crates/warifu-capability" }
 warifu-calendar = { path = "crates/warifu-calendar" }
 warifu-link = { path = "crates/warifu-link" }
 warifu-app = { path = "crates/warifu-app" }
+warifu-desk = { path = "crates/warifu-desk" }
+warifu-mcp = { path = "crates/warifu-mcp" }
 # MCP は動く仕様なので、自前で追わず公式 SDK に寄せる（D25）
 rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
 schemars = "1"

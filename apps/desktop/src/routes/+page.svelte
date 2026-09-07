@@ -48,6 +48,7 @@
     EVENT_LEFT,
     EVENT_SIGNAL,
     EVENT_TEXT,
+    EVENT_DESK,
     connect,
     contacts,
     hostMeeting,
@@ -323,6 +324,13 @@
         await onEvent<[string, string]>(EVENT_TEXT, ([key, body]) => {
           log(話の記録('受信', 短く(key), body));
           会話 = [...会話, { who: 呼び名(名簿, key), body, mine: false, at: いま時刻() }];
+        }),
+      );
+      unsubs.push(
+        // **同じ席の AI が言ったこと。**人の発言と見分けが付く形で出す
+        await onEvent<[string, string, string]>(EVENT_DESK, ([key, body, at]) => {
+          log(話の記録('送信', 短く(key), body));
+          会話 = [...会話, { who: t('chat.agent'), body, mine: false, agent: true, at }];
         }),
       );
       unsubs.push(
@@ -719,7 +727,7 @@
         {/if}
         {#each 会話 as line, i (i)}
           <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
-          <p class="line" class:mine={line.mine} class:system={line.system}>
+          <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
             {#if line.at}<span class="at">{line.at}</span>{/if}{#if !line.system}<b>{line.who}</b
               >{/if}{line.body}
           </p>
@@ -945,6 +953,12 @@
   }
   .line.mine b {
     color: var(--accent);
+  }
+  /* **同じ席の AI。**人の発言と一目で見分けが付く必要がある
+     （見分けが付かないと、人が言っていないことを人が言ったと読まれる） */
+  .line.agent b {
+    color: var(--text-secondary);
+    font-weight: 600;
   }
   /* **1 行から始めて、打った分だけ伸びる。**伸びすぎない（会話が見えなくなる） */
   .say textarea {

@@ -29,8 +29,11 @@ warifu-meeting = { path = "../../../crates/warifu-meeting" }
 warifu-app = { path = "../../../crates/warifu-app" }
 warifu-door = { path = "../../../crates/warifu-door" }
 warifu-vault = { path = "../../../crates/warifu-vault" }
+warifu-desk = { path = "../../../crates/warifu-desk" }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+# 時刻を HH:MM で出すためだけに使う。**既に木にあるもの**を使い、供給元を増やさない
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [profile.release]
 # 鍵を扱う側と同じ姿勢を保つ（root の Cargo.toml と揃える）

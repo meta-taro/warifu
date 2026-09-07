@@ -36,8 +36,10 @@
 //! 本文を読む（Level 3）札と、metadata を見る（Level 0）札は**別**である。
 //! 関所の照合は完全一致なので、`inbox.open.raw` の札で `inbox.list` は通らない。
 
+mod chat;
 mod server;
 mod tools;
 
+pub use chat::Chat;
 pub use server::{Warifu, subject};
-pub use tools::{OpenArgs, SlotsArgs, ToolError};
+pub use tools::{OpenArgs, SayArgs, SlotsArgs, ToolError};

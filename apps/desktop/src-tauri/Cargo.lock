@@ -5774,15 +5774,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-desk"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "warifu-desktop"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "serde",
  "tauri",
  "tauri-build",
  "tokio",
  "warifu-app",
  "warifu-core",
+ "warifu-desk",
  "warifu-door",
  "warifu-intent",
  "warifu-meeting",

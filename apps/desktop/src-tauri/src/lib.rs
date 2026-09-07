@@ -38,6 +38,12 @@ const EVENT_CLOSED: &str = "warifu://closed";
 const EVENT_INTRODUCED: &str = "warifu://introduced";
 /// 文字が届いた。`[誰から, 中身]` で渡す。
 const EVENT_TEXT: &str = "warifu://text";
+/// **この PC の机から出た発言。**`[公開鍵, 中身, 時刻]` で渡す。
+///
+/// 相手から届いた文字（[`EVENT_TEXT`]）と分けるのは、
+/// **同じ席の AI の発言だと人に分かる必要がある**ため。
+/// 混ぜると、誰が言ったのか画面から読めなくなる。
+const EVENT_DESK: &str = "warifu://desk";
 
 /// 経路の要所を書き出す。
 ///
@@ -48,11 +54,15 @@ const EVENT_TEXT: &str = "warifu://text";
 /// 公開鍵の全桁は出さない。**長さと種類だけ**を出す。
 macro_rules! 記録 {
     ($($arg:tt)*) => {{
-        let 行 = format!("[warifu +{:.3}s] {}", 起動からの秒(), format!($($arg)*));
+        // **crate:: で書く。**別のモジュールから呼ばれても同じ所を指す
+        let 行 = format!("[warifu +{:.3}s] {}", $crate::起動からの秒(), format!($($arg)*));
         eprintln!("{行}");
-        書き置く(&行);
+        $crate::書き置く(&行);
     }};
 }
+
+// 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
+mod desk;
 
 /// **決まった場所へ書き置く。**
 ///
@@ -198,6 +208,11 @@ pub struct Bridge {
     /// 1 本しか持たない形にすると、3 人目が来た時点で**前の相手へ届かなくなる。**
     /// 鍵をそのまま鍵にする（`PublicKey` は `Hash` を持たないのでバイト列で持つ）。
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    /// 机に着いている相手へ配る口（`desk.rs`）。
+    ///
+    /// **人が打った行も、相手から届いた行も、ここを通す。**
+    /// 通さないと、同じ席の AI は人の発言が見えないまま返事をすることになる。
+    desk: tokio::sync::broadcast::Sender<warifu_desk::FromDesk>,
 }
 
 /// この端末の身元。**CLI と同じものを使う。**
@@ -225,6 +240,7 @@ impl Bridge {
             addresses: Arc::new(Mutex::new(HashMap::new())),
             conference: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(HashMap::new())),
+            desk: tokio::sync::broadcast::Sender::new(desk::配る溜め),
         }
     }
 
@@ -597,6 +613,12 @@ fn 汲む(
                             continue;
                         }
                         let _ = app.emit(EVENT_TEXT, (key_to_string(peer), body.clone()));
+                        // **同じ席の AI にも、同じ行を見せる。**
+                        // 見せないと、人にだけ見えている話に AI が返事をすることになる
+                        desk::配る(
+                            &app.state::<Bridge>(),
+                            desk::聞いた(&key_to_string(peer), body),
+                        );
                         // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
                         //
                         // 三者会議は星形である —— 参加者どうしは繋がっていないので、
@@ -866,6 +888,11 @@ async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
         });
     }
     記録!("送信: 文字（{} バイト）を {} 人へ", body.len(), out.len());
+    // **人が打った行も机へ配る。**配らないと、AI は人の発言が見えない
+    desk::配る(
+        &bridge,
+        desk::聞いた(&key_to_string(bridge.device.public_key()), &body),
+    );
     for tx in out.values() {
         // 届かない相手が居ても止めない。**送る側を待たせない**
         let _ = tx
@@ -967,6 +994,9 @@ pub fn run() {
             起動からの秒();
             記録!("起動しました。ここから経路の要所を書き出します（+秒 は起動からの経過）");
             app.manage(Bridge::new());
+            // **画面が立ったら机も開く。**人が別の操作をしなくても、
+            // 同じ PC のエージェントが会話に着ける状態にする
+            desk::開く(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

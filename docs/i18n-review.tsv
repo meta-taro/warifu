@@ -8,6 +8,7 @@ camera.busy	Another app is using the camera.	ほかのアプリがカメラを�
 camera.denied	Camera and microphone are not allowed. Allow them in your OS settings.	カメラとマイクが許可されていません。OS の設定で許可してください。	未允许使用摄像头和麦克风。请在系统设置中允许。	카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.				
 camera.missing	No camera or microphone found.	カメラかマイクが見つかりません。	找不到摄像头或麦克风。	카메라나 마이크를 찾을 수 없습니다.				
 camera.unknown	Could not use the camera.	カメラを使えませんでした。	无法使用摄像头。	카메라를 사용할 수 없습니다.				
+chat.agent	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	Goes to everyone in the meeting. Not saved — it disappears when you close.\n	会議に入っている人へ届きます。残りません — 閉じると消えます。\n	发送给会议中的所有人。不会保存 — 关闭后消失。\n	회의에 있는 사람에게 전달됩니다. 남지 않습니다 — 닫으면 사라집니다.\n				
 chat.joined	{who} joined	{who} が入室しました	{who} 已加入	{who} 님이 입장했습니다				

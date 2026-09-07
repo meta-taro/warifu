@@ -3922,12 +3922,17 @@ version = "0.1.0"
 name = "warifu-cli"
 version = "0.1.0"
 dependencies = [
+ "rmcp",
  "tokio",
  "warifu-app",
+ "warifu-capability",
  "warifu-core",
+ "warifu-desk",
  "warifu-intent",
+ "warifu-mcp",
  "warifu-meeting",
  "warifu-net",
+ "warifu-read",
  "warifu-vault",
 ]
 
@@ -3940,6 +3945,15 @@ dependencies = [
  "hkdf",
  "sha2 0.10.9",
  "zeroize",
+]
+
+[[package]]
+name = "warifu-desk"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -3984,6 +3998,7 @@ dependencies = [
  "tokio",
  "warifu-calendar",
  "warifu-capability",
+ "warifu-desk",
  "warifu-read",
 ]
 

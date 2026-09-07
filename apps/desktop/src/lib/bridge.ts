@@ -23,6 +23,14 @@ export type ClosedReason = 'left' | 'lost';
 export const EVENT_INTRODUCED = 'warifu://introduced';
 /** 文字が届いた。`[誰から, 中身]` で届く。 */
 export const EVENT_TEXT = 'warifu://text';
+/**
+ * **この PC の机から出た発言**（`[公開鍵, 中身, 時刻]`）。
+ *
+ * 同じ席の AI（`warifu mcp` で繋いだエージェント）が言ったもの。
+ * **相手から届いた文字（{@link EVENT_TEXT}）と分ける** ——
+ * 混ぜると、誰が言ったのか画面から読めなくなる。
+ */
+export const EVENT_DESK = 'warifu://desk';
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {

@@ -29,6 +29,16 @@ pub struct SlotsArgs {
     pub duration: u64,
 }
 
+/// [`crate::Warifu::chat_send`] の引数。
+///
+/// **差出人を書く場所が無いのは意図。**誰が言ったかは机が刻む
+/// （[`warifu_desk::ToDesk`] と同じ約束）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct SayArgs {
+    /// 流す本文。空は流せない。長すぎるものは受けない。
+    pub body: String,
+}
+
 /// tool が返す失敗。
 ///
 /// **断った理由を、実行できなかった理由と混ぜない。**

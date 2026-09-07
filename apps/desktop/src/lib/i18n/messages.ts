@@ -45,6 +45,7 @@ export type MessageKey =
   | 'chat.left'
   | 'chat.lost'
   | 'chat.nobody'
+  | 'chat.agent'
   | 'chat.placeholder.nobody'
   | 'call.mic'
   | 'call.camera'
@@ -148,6 +149,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.left': '{who} が退室しました',
     'chat.lost': '{who} との経路が切れました',
     'chat.nobody': 'まだ誰も居ません。会議キーを渡して、入ってもらうと送れます。',
+    'chat.agent': 'この PC の AI',
     'chat.placeholder.nobody': '入ってきたら送れます',
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
@@ -223,6 +225,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.left': '{who} left',
     'chat.lost': 'The connection to {who} was lost',
     'chat.nobody': 'Nobody is here yet. Share a meeting key and wait for someone to join.',
+    'chat.agent': 'AI on this computer',
     'chat.placeholder.nobody': 'You can send once someone joins',
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
@@ -298,6 +301,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.left': '{who} 已离开',
     'chat.lost': '与 {who} 的连接已中断',
     'chat.nobody': '还没有人加入。把会议密钥交给对方，等对方进入后即可发送。',
+    'chat.agent': '这台电脑的 AI',
     'chat.placeholder.nobody': '有人进入后即可发送',
     'call.mic': '麦克风',
     'call.camera': '摄像头',
@@ -373,6 +377,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.left': '{who} 님이 퇴장했습니다',
     'chat.lost': '{who} 님과의 연결이 끊어졌습니다',
     'chat.nobody': '아직 아무도 없습니다. 회의 키를 건네고 상대가 들어오면 보낼 수 있습니다.',
+    'chat.agent': '이 PC 의 AI',
     'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
     'call.mic': '마이크',
     'call.camera': '카메라',

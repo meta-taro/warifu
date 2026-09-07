@@ -36,6 +36,7 @@ use warifu_net::{Address, Node};
 use warifu_vault::Vault;
 
 mod identity;
+mod mcp;
 
 /// 会議キーの既定の有効期間（秒）。**24 時間。**画面側と揃えてある。
 ///
@@ -86,6 +87,9 @@ fn 使い方() -> ExitCode {
          \x20            入る\n\
          \x20 warifu id      自分の公開鍵と、身元の置き場所を出す\n\
          \x20 warifu doctor  繋がらないときに調べる（経路の候補・外向きの有無・遮る物）\n\
+         \x20 warifu mcp [--allow <動作>]... [--desk <場所>]\n\
+         \x20            MCP の口を標準入出力で出す（エージェントがここに繋ぐ）\n\
+         \x20            --allow を書かなければ何も通りません。既定は拒否です\n\
          \x20 warifu version 版を出す\n\
          \x20 warifu help    この使い方を出す\n\
          \x20 warifu contacts                       覚えた相手を並べる\n\
@@ -315,6 +319,10 @@ async fn 本体() -> ExitCode {
             None => return 使い方(),
         },
         Some("doctor") => 診る().await,
+        Some("mcp") => match mcp::読む(&mut args) {
+            Ok(設) => mcp::出す(&設).await,
+            Err(e) => Err(e.into()),
+        },
         Some("version") | Some("--version") | Some("-V") => {
             println!("warifu {}", env!("CARGO_PKG_VERSION"));
             return ExitCode::SUCCESS;

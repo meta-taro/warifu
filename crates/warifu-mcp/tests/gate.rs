@@ -178,11 +178,24 @@ fn 承認の口を出していない() {
 }
 
 #[test]
-fn 出している口は_4_つだけ() {
-    // 増やすときは、**その口に札の種類が要るか**を先に決める
-    let 名前 = Warifu::tool_names();
+fn 出している口を_数えて名前で押さえる() {
+    // 増やすときは、**その口に札の種類が要るか**を先に決める。
+    // 2026-09-07 に chat_send / chat_read を足した（`chat.send` / `chat.read`）
+    let mut 名前 = Warifu::tool_names();
+    名前.sort();
 
-    assert_eq!(名前.len(), 4, "{名前:?}");
+    assert_eq!(
+        名前,
+        [
+            "calendar_slots",
+            "chat_read",
+            "chat_send",
+            "inbox_list",
+            "inbox_open",
+            "rules_list",
+        ],
+        "口が増えたら、札の種類を決めてからここを直す"
+    );
 }
 
 // ── 予定表（企画書 v2 §17 / roadmap Phase 3 の代表 Demo） ──
@@ -290,4 +303,127 @@ fn 求めた長さが窓より長ければ空き枠は出ない() {
     let 空き = 空き枠を尋ねる(&口, 100_000, 14_400).unwrap();
 
     assert!(空き.contains("空いている枠はありません"), "{空き}");
+}
+
+// ── 会話（机） ──
+
+#[tokio::test]
+async fn 札が無ければ_会話へ流せない() {
+    // **机に着く前に断られること。**札の判定が机の有無より後だと、
+    // 机が無いだけで通ったように見える
+    let 口 = 用意(&[]);
+    let 出た = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "流れてはいけない".to_owned(),
+            },
+        ))
+        .await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("関所"), "{文}");
+    assert!(!文.contains("机"), "札の話に机の話を混ぜない: {文}");
+}
+
+#[tokio::test]
+async fn 札があっても_机が無ければ流せない() {
+    // **札の問題と、机が開いていない問題を混ぜない。**
+    // 混ぜると、札を足せば直ると読めてしまう
+    let 口 = 用意(&["chat.send"]);
+    let 出た = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "やあ".to_owned(),
+            },
+        ))
+        .await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("机が開いていません"), "{文}");
+}
+
+#[tokio::test]
+async fn 札が無ければ_会話を読めない() {
+    let 口 = 用意(&[]);
+    let 文 = format!("{:?}", 口.chat_read().await.unwrap_err());
+    assert!(文.contains("関所"), "{文}");
+}
+
+#[tokio::test]
+async fn 机に着けば_流した行が机に届く() {
+    // **ここが「エージェントが喋ると人の画面に出る」の実体。**
+    use warifu_desk::{ToDesk, 受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-chat-test.sock");
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let 机 = tokio::spawn(async move {
+        let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        // 1 本目は「聞く」の挨拶
+        let 挨拶 = 行の口.受ける().await.unwrap().unwrap();
+        assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen);
+        let 行 = 行の口.受ける().await.unwrap().unwrap();
+        ToDesk::読む(&行).unwrap()
+    });
+
+    let 口 = 用意(&["chat.send"])
+        .机に着く(&場所)
+        .await
+        .expect("着けること");
+    口.chat_send(rmcp::handler::server::wrapper::Parameters(
+        warifu_mcp::SayArgs {
+            body: "直しました".to_owned(),
+        },
+    ))
+    .await
+    .expect("流せること");
+
+    let 届いた = 机.await.unwrap();
+    assert_eq!(
+        届いた,
+        ToDesk::Say {
+            body: "直しました".to_owned()
+        }
+    );
+}
+
+#[tokio::test]
+async fn 画面が後から開いても_会話は使える() {
+    // **エージェントが先に起きるのは普通のこと。**
+    // そこで一度失敗させたきりにすると、以後ずっと会話が使えない
+    use warifu_desk::{ToDesk, 受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-late-desk.sock");
+    let _ = std::fs::remove_file(&場所);
+
+    // まだ机は開いていない
+    let 口 = 用意(&["chat.send"]).机を覚える(&場所);
+    let 早すぎた = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "まだ誰も居ない".to_owned(),
+            },
+        ))
+        .await;
+    assert!(早すぎた.is_err(), "机が無いのに流れました");
+
+    // ここで人が画面を開いた
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let 机 = tokio::spawn(async move {
+        let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
+        ToDesk::読む(&行の口.受ける().await.unwrap().unwrap()).unwrap()
+    });
+
+    口.chat_send(rmcp::handler::server::wrapper::Parameters(
+        warifu_mcp::SayArgs {
+            body: "いま繋がりました".to_owned(),
+        },
+    ))
+    .await
+    .expect("開いたあとは流せること");
+
+    assert_eq!(
+        机.await.unwrap(),
+        ToDesk::Say {
+            body: "いま繋がりました".to_owned()
+        }
+    );
 }
