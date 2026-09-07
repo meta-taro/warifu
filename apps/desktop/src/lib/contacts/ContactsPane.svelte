@@ -99,54 +99,28 @@
 
 <div class="pane">
   <div class="list">
-    <!-- **右クリックできることは、押してみないと分からない。**一言添える -->
-    <p class="hint tip">{t('contacts.rename.hint')}</p>
     {#each 区画 as 一区画 (一区画.title)}
       <h2>{t(一区画.title as MessageKey)}</h2>
       {#if 一区画.行たち.length === 0}
         <p class="hint">{t('contacts.empty')}</p>
       {/if}
       {#each 一区画.行たち as 行 (行.key)}
-        {#if 書き換え中 === 行.key}
-          <!-- **その場で付ける。**別の画面へ行かせない（名簿と同じ作法） -->
-          <div class="rename">
-            <input
-              type="text"
-              bind:value={下書き}
-              placeholder={t('roster.name.placeholder')}
-              onkeydown={(e) => {
-                if (e.key === 'Enter') 名付けを決める(行.key);
-                if (e.key === 'Escape') 書き換え中 = null;
-              }}
-            />
-            <button type="button" class="quiet" onclick={() => 名付けを決める(行.key)}>
-              {t('roster.name.save')}
-            </button>
-          </div>
-        {:else}
-          <!-- **右クリックでも名前を付けられる。**
-               会議で会っただけの相手は、名前を付けないと連絡帳に残らない -->
-          <button
-            type="button"
-            class="row"
-            class:on={行.key === 選んでいる}
-            onclick={() => 選ぶ(行.key)}
-            oncontextmenu={(e) => {
-              if (行.種類 !== '人') return;
-              e.preventDefault();
-              e.stopPropagation();
-              選ぶ(行.key);
-              名付けを始める(行);
-            }}
-          >
-            <Icon name={行.key === 机の印 ? 'desk' : 'people'} size={16} />
-            <span class="name">{名(行)}</span>
-            <!-- **在席は出さない。**相手が起動しているかは分からない -->
-            {#if 行.key === 机の印}
-              <span class="sub">{行.いま会議に居る ? `${素材.机の人数}` : '0'}</span>
-            {/if}
-          </button>
-        {/if}
+        <!-- **呼び名を変える口は、名前の隣の鉛筆だけ。**
+             一覧にも出すと入力欄が 2 つ並び、どちらに打てばよいか分からなくなる
+             （2026-09-07 に実物で出た）。**同じことをする口を 2 つ置かない。** -->
+        <button
+          type="button"
+          class="row"
+          class:on={行.key === 選んでいる}
+          onclick={() => 選ぶ(行.key)}
+        >
+          <Icon name={行.key === 机の印 ? 'desk' : 'people'} size={16} />
+          <span class="name">{名(行)}</span>
+          <!-- **在席は出さない。**相手が起動しているかは分からない -->
+          {#if 行.key === 机の印}
+            <span class="sub">{行.いま会議に居る ? `${素材.机の人数}` : '0'}</span>
+          {/if}
+        </button>
       {/each}
     {/each}
   </div>
@@ -155,7 +129,38 @@
     {#if !相手}
       <p class="hint">{t('contacts.pick')}</p>
     {:else}
-      <h2>{名(相手)}</h2>
+      <h2>
+        {名(相手)}
+        {#if 相手.種類 === '人'}
+          <!-- **名前の隣に置く。**名前を書き換える口は、名前のそばにあるのが普通である
+               （2026-09-07 オーナー指摘「名前をつけるの配置が悪いです」） -->
+          <button
+            type="button"
+            class="pencil"
+            title={t('roster.name.action')}
+            aria-label={t('roster.name.action')}
+            onclick={() => 名付けを始める(相手)}
+          >
+            <Icon name="pencil" size={15} />
+          </button>
+        {/if}
+      </h2>
+      {#if 書き換え中 === 相手.key}
+        <div class="rename">
+          <input
+            type="text"
+            bind:value={下書き}
+            placeholder={t('roster.name.placeholder')}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') 名付けを決める(相手.key);
+              if (e.key === 'Escape') 書き換え中 = null;
+            }}
+          />
+          <button type="button" class="quiet" onclick={() => 名付けを決める(相手.key)}>
+            {t('roster.name.save')}
+          </button>
+        </div>
+      {/if}
       {#if 相手.種類 === '人'}
         <p class="key">
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
@@ -190,13 +195,6 @@
         <!-- **相手が起動しているかは分からない。**分からないと出す（§2 原則 7） -->
         <p class="hint">{t('contacts.presence.none')}</p>
 
-        <div class="tail">
-          <!-- **鍵の頭では、人もエージェントも見分けが付かない。**
-               名前を付けると連絡帳に残り、住所も一緒に覚える -->
-          <button type="button" class="quiet" onclick={() => 名付けを始める(相手)}>
-            {t('roster.name.action')}
-          </button>
-        </div>
 
         {#if 鍵なしで入れる.includes(相手.key)}
           <!-- **一度通した相手は、閉じても忘れない**（D58）。だから取り消す口が要る。
@@ -244,15 +242,30 @@
     background: var(--bg-subtle);
   }
   h2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin: var(--space-2) 0 4px;
     font-size: var(--text-sm-size);
     font-weight: 600;
   }
+  /* **名前の隣の鉛筆。**押せることは分かるが、名前より前に出ない */
+  button.pencil {
+    display: inline-flex;
+    padding: 3px;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  button.pencil:hover {
+    color: var(--text-primary);
+    background: var(--bg-app);
+    border-color: var(--border);
+  }
   .list h2:first-child {
     margin-top: 0;
-  }
-  .tip {
-    margin-bottom: var(--space-2);
   }
   .hint {
     margin: 0;
