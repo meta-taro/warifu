@@ -62,6 +62,8 @@ export type MessageKey =
   | 'contacts.key.label'
   | 'contacts.presence.none'
   | 'contacts.forget'
+  | 'contacts.forget.hint'
+  | 'contacts.rename.hint'
   | 'act.chat'
   | 'act.call'
   | 'act.call.working'
@@ -193,7 +195,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.pick': '相手を選ぶと、できることが出ます。',
     'contacts.key.label': '公開鍵',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
-    'contacts.forget': 'この相手を戸口から降ろす',
+    'contacts.forget': '鍵なしで入れるのをやめる',
+    'contacts.forget.hint': 'この相手はいま、会議キーなしで入ってこられます。やめると、次からは会議キーが要ります。',
+    'contacts.rename.hint': '名前を右クリックすると、呼び名を付けられます。',
     'act.chat': 'チャットする',
     'act.call': '会議に呼ぶ',
     'act.call.working': '呼んでいます…',
@@ -297,7 +301,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.pick': 'Pick someone to see what you can do.',
     'contacts.key.label': 'Public key',
     'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
-    'contacts.forget': 'Stop letting this person in',
+    'contacts.forget': 'Require a meeting key again',
+    'contacts.forget.hint': 'Right now this person can come in without a meeting key. Turn it off and they will need one again.',
+    'contacts.rename.hint': 'Right-click a name to give it a nickname.',
     'act.chat': 'Chat',
     'act.call': 'Invite to a meeting',
     'act.call.working': 'Calling…',
@@ -401,7 +407,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.pick': '选择一位，就会显示可以做的事。',
     'contacts.key.label': '公钥',
     'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
-    'contacts.forget': '不再让这位进入',
+    'contacts.forget': '恢复需要会议密钥',
+    'contacts.forget.hint': '现在这位不用会议密钥就能进来。取消后，下次就需要会议密钥了。',
+    'contacts.rename.hint': '右键点击名字即可取一个称呼。',
     'act.chat': '聊天',
     'act.call': '邀请进会议',
     'act.call.working': '正在呼叫…',
@@ -505,7 +513,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.pick': '상대를 고르면 할 수 있는 일이 나옵니다.',
     'contacts.key.label': '공개키',
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
-    'contacts.forget': '이 상대를 문에서 내리기',
+    'contacts.forget': '다시 회의 키를 받게 하기',
+    'contacts.forget.hint': '지금 이 상대는 회의 키 없이 들어올 수 있습니다. 끄면 다음부터는 회의 키가 필요합니다.',
+    'contacts.rename.hint': '이름을 오른쪽 클릭하면 호칭을 붙일 수 있습니다.',
     'act.chat': '채팅하기',
     'act.call': '회의에 부르기',
     'act.call.working': '부르는 중…',

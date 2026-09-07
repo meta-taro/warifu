@@ -24,8 +24,48 @@
     押す: (種類: 口の種類, 相手: 行) => void;
     /** 呼んでいる最中の相手。**二度押しを止める。** */
     呼んでいる: string | null;
+    /** 呼び名を付ける。**空にすると忘れる**（名簿と同じ約束）。 */
+    名前を付ける: (key: string, label: string) => void;
+    /** 相手を戸口から降ろす。 */
+    降ろす: (key: string) => void;
+    /**
+     * **いま会議キーなしで入れる相手**の公開鍵。
+     *
+     * 覚えている相手とは**別の集まり**である（呼び名を付けただけでは入れない）。
+     * ここに居る相手にだけ「やめる」を出す —— **出しても効かない口を出さない**（D49）。
+     */
+    鍵なしで入れる: readonly string[];
   }
-  const { locale, 素材, 選んでいる, 選ぶ, 押す, 呼んでいる }: Props = $props();
+  const {
+    locale,
+    素材,
+    選んでいる,
+    選ぶ,
+    押す,
+    呼んでいる,
+    名前を付ける,
+    降ろす,
+    鍵なしで入れる,
+  }: Props = $props();
+
+  /**
+   * いま呼び名を付けている相手。**1 人ずつ。**
+   *
+   * **会議で会っただけの相手には、名前を付ける口が要る。**
+   * 付けないと連絡帳に残らず、住所も覚えられない（住所だけの行は作らないため）。
+   */
+  let 書き換え中 = $state<string | null>(null);
+  let 下書き = $state('');
+
+  function 名付けを始める(行: 行) {
+    if (行.種類 !== '人') return;
+    書き換え中 = 行.key;
+    下書き = 素材.覚えた.find((c) => c.key === 行.key)?.label ?? '';
+  }
+  function 名付けを決める(key: string) {
+    名前を付ける(key, 下書き);
+    書き換え中 = null;
+  }
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
 
@@ -59,25 +99,54 @@
 
 <div class="pane">
   <div class="list">
+    <!-- **右クリックできることは、押してみないと分からない。**一言添える -->
+    <p class="hint tip">{t('contacts.rename.hint')}</p>
     {#each 区画 as 一区画 (一区画.title)}
       <h2>{t(一区画.title as MessageKey)}</h2>
       {#if 一区画.行たち.length === 0}
         <p class="hint">{t('contacts.empty')}</p>
       {/if}
       {#each 一区画.行たち as 行 (行.key)}
-        <button
-          type="button"
-          class="row"
-          class:on={行.key === 選んでいる}
-          onclick={() => 選ぶ(行.key)}
-        >
-          <Icon name={行.key === 机の印 ? 'desk' : 'people'} size={16} />
-          <span class="name">{名(行)}</span>
-          <!-- **在席は出さない。**相手が起動しているかは分からない -->
-          {#if 行.key === 机の印}
-            <span class="sub">{行.いま会議に居る ? `${素材.机の人数}` : '0'}</span>
-          {/if}
-        </button>
+        {#if 書き換え中 === 行.key}
+          <!-- **その場で付ける。**別の画面へ行かせない（名簿と同じ作法） -->
+          <div class="rename">
+            <input
+              type="text"
+              bind:value={下書き}
+              placeholder={t('roster.name.placeholder')}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') 名付けを決める(行.key);
+                if (e.key === 'Escape') 書き換え中 = null;
+              }}
+            />
+            <button type="button" class="quiet" onclick={() => 名付けを決める(行.key)}>
+              {t('roster.name.save')}
+            </button>
+          </div>
+        {:else}
+          <!-- **右クリックでも名前を付けられる。**
+               会議で会っただけの相手は、名前を付けないと連絡帳に残らない -->
+          <button
+            type="button"
+            class="row"
+            class:on={行.key === 選んでいる}
+            onclick={() => 選ぶ(行.key)}
+            oncontextmenu={(e) => {
+              if (行.種類 !== '人') return;
+              e.preventDefault();
+              e.stopPropagation();
+              選ぶ(行.key);
+              名付けを始める(行);
+            }}
+          >
+            <Icon name={行.key === 机の印 ? 'desk' : 'people'} size={16} />
+            <span class="name">{名(行)}</span>
+            <!-- **在席は出さない。**相手が起動しているかは分からない -->
+            {#if 行.key === 机の印}
+              <span class="sub">{行.いま会議に居る ? `${素材.机の人数}` : '0'}</span>
+            {/if}
+          </button>
+        {/if}
       {/each}
     {/each}
   </div>
@@ -120,6 +189,25 @@
       {#if 相手.種類 === '人'}
         <!-- **相手が起動しているかは分からない。**分からないと出す（§2 原則 7） -->
         <p class="hint">{t('contacts.presence.none')}</p>
+
+        <div class="tail">
+          <!-- **鍵の頭では、人もエージェントも見分けが付かない。**
+               名前を付けると連絡帳に残り、住所も一緒に覚える -->
+          <button type="button" class="quiet" onclick={() => 名付けを始める(相手)}>
+            {t('roster.name.action')}
+          </button>
+        </div>
+
+        {#if 鍵なしで入れる.includes(相手.key)}
+          <!-- **一度通した相手は、閉じても忘れない**（D58）。だから取り消す口が要る。
+               **覚えているだけの相手には出さない** —— 出しても効かない -->
+          <div class="tail">
+            <button type="button" class="quiet" onclick={() => 降ろす(相手.key)}>
+              {t('contacts.forget')}
+            </button>
+          </div>
+          <p class="why">{t('contacts.forget.hint')}</p>
+        {/if}
       {/if}
     {/if}
   </div>
@@ -162,6 +250,9 @@
   }
   .list h2:first-child {
     margin-top: 0;
+  }
+  .tip {
+    margin-bottom: var(--space-2);
   }
   .hint {
     margin: 0;
@@ -246,6 +337,35 @@
   button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  .rename {
+    display: flex;
+    gap: 6px;
+    padding: 2px 0;
+  }
+  .rename input {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font: inherit;
+    font-size: var(--text-sm-size);
+    color: var(--text-primary);
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .tail {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+  button.quiet {
+    padding: 5px 10px;
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+    background: transparent;
+    border-color: var(--border);
   }
   .why {
     margin: 0;

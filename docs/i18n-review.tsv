@@ -34,12 +34,14 @@ chat.title	Chat	文字で話す	文字聊天	문자로 대화
 contacts.desk	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
 contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
 contacts.empty	You have not remembered anyone yet. Name someone you met in a meeting and they stay here.	まだ誰も覚えていません。会議で会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给会议中遇到的人取个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 회의에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
-contacts.forget	Stop letting this person in	この相手を戸口から降ろす	不再让这位进入	이 상대를 문에서 내리기				
+contacts.forget	Require a meeting key again	鍵なしで入れるのをやめる	恢复需要会议密钥	다시 회의 키를 받게 하기				
+contacts.forget.hint	Right now this person can come in without a meeting key. Turn it off and they will need one again.	この相手はいま、会議キーなしで入ってこられます。やめると、次からは会議キーが要ります。	现在这位不用会议密钥就能进来。取消后，下次就需要会议密钥了。	지금 이 상대는 회의 키 없이 들어올 수 있습니다. 끄면 다음부터는 회의 키가 필요합니다.				
 contacts.inmeeting	In the meeting now	いま会議に居る人	正在会议中的人	지금 회의에 있는 사람				
 contacts.key.label	Public key	公開鍵	公钥	공개키				
 contacts.me	You	あなた	你	당신				
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
 contacts.presence.none	There is no way to tell whether they are running right now. You find out by calling.	相手がいま起動しているかは分かりません。呼んでみるまで分かりません。	无法知道对方现在是否已启动。只有呼叫之后才知道。	상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.				
+contacts.rename.hint	Right-click a name to give it a nickname.	名前を右クリックすると、呼び名を付けられます。	右键点击名字即可取一个称呼。	이름을 오른쪽 클릭하면 호칭을 붙일 수 있습니다.				
 contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
 contacts.this	This computer	この PC	这台电脑	이 PC				
 door.refused	Refused.	断りました。	已拒绝。	거절했습니다.	★	**既に断り終えた**という完了の意味。「保留しています」「確認中です」と読める訳にしないこと。待てば通ると誤解すると、来ていない相手を待ち続ける（D31）。		

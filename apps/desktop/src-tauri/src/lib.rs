@@ -475,6 +475,17 @@ async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) ->
     call::呼ぶ(&app, &bridge, 相手).await
 }
 
+/// **いま鍵なしで入れる相手**を並べる。
+///
+/// 画面は、この一覧に居る相手にだけ「やめる」を出す。
+/// **出しても効かない口を出さない**（D49）——
+/// 覚えている相手と、鍵なしで入れる相手は**別の集まり**である。
+#[tauri::command]
+async fn known_keys(bridge: State<'_, Bridge>) -> Answer<Vec<String>> {
+    let door = bridge.door.lock().await;
+    Ok(door.known().map(str::to_owned).collect())
+}
+
 /// **相手を戸口から降ろす。**次からは割符が要る。
 ///
 /// 知り合いを保存した以上、**取り消す口が要る。**
@@ -1128,6 +1139,7 @@ pub fn run() {
             desk_seats,
             call_contact,
             stop_knowing,
+            known_keys,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())

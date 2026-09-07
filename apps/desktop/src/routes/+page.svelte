@@ -60,6 +60,8 @@
     connect,
     contacts,
     callContact,
+    stopKnowing,
+    knownKeys,
     type ContactRow,
     hostMeeting,
     inTauri,
@@ -152,6 +154,8 @@
   let 覚えた = $state<ContactRow[]>([]);
   /** 自分の公開鍵。**連絡帳の「この PC」に出す。** */
   let 自分の鍵 = $state('');
+  /** いま会議キーなしで入れる相手。**覚えている相手とは別の集まり。** */
+  let 鍵なしで入れる = $state<string[]>([]);
 
   const 連絡帳の素材 = $derived({
     自分: 自分の鍵,
@@ -189,6 +193,7 @@
       const rows = (await contacts()) ?? [];
       名簿 = Object.fromEntries(rows.map((r) => [r.key, r.label]));
       覚えた = rows;
+      鍵なしで入れる = (await knownKeys()) ?? [];
     } catch (e) {
       // **握り潰さない。**名前が出ないだけで会議は続けられる
       log(`名簿を読めなかった（${読める(e)}）`);
@@ -197,6 +202,21 @@
   async function 名前を付ける(key: string, label: string) {
     try {
       await remember(key, label);
+      await 名簿を読む();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  /**
+   * 相手を戸口から降ろす。**次からは割符が要る。**
+   *
+   * 知り合いを保存した以上、取り消す口が要る（**D58**）——
+   * 保存する前は、間違って開けた相手もアプリを閉じれば切れていた。
+   */
+  async function 戸口から降ろす(key: string) {
+    try {
+      await stopKnowing(key);
       await 名簿を読む();
     } catch (e) {
       notice = 読める(e);
@@ -837,6 +857,9 @@
         選ぶ={(key) => (選んだ相手 = key)}
         押す={連絡帳から押す}
         呼んでいる={呼んでいる}
+        名前を付ける={(key, label) => void 名前を付ける(key, label)}
+        降ろす={(key) => void 戸口から降ろす(key)}
+        {鍵なしで入れる}
       />
       <ChatPanel
         {locale}

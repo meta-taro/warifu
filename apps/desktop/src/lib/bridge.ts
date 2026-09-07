@@ -144,6 +144,14 @@ export const callContact = (key: string) => invoke<void>('call_contact', { key }
 export const stopKnowing = (key: string) => invoke<boolean>('stop_knowing', { key });
 
 /**
+ * **いま会議キーなしで入れる相手**の公開鍵を並べる。
+ *
+ * **覚えている相手とは別の集まりである。**呼び名を付けただけでは、
+ * 鍵なしでは入れない（一度通した相手だけが入れる）。
+ */
+export const knownKeys = () => invoke<string[]>('known_keys');
+
+/**
  * 画面の出来事を、Rust と同じログへ流す。
  *
  * WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、
