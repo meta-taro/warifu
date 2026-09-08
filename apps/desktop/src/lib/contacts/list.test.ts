@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { 連絡帳を組む, 机の印, type 素材 } from './list';
+import { 連絡帳を組む, 机の印, 部屋のid, type 素材 } from './list';
 
 const 自分 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const 相手 = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
@@ -94,5 +94,36 @@ describe('連絡帳の並び', () => {
     const 区画 = 連絡帳を組む({ ...素, 覚えた: [{ key: 相手, label: 'air', has_address: false }] });
     const 覚えた = 区画.find((s) => s.title === 'contacts.saved');
     expect(覚えた?.行たち.some((r) => r.key === 自分)).toBe(false);
+  });
+});
+
+describe('部屋の一覧', () => {
+  it('居る部屋を並べる', () => {
+    // **持てても見えなければ切り替えようがない**（2026-09-08）
+    const 区画 = 連絡帳を組む({
+      ...素,
+      部屋たち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
+    });
+    const 部屋 = 区画.find((s) => s.title === 'contacts.rooms');
+    expect(部屋?.行たち).toHaveLength(1);
+    expect(部屋?.行たち[0].種類).toBe('部屋');
+  });
+
+  it('部屋が無ければ、その区画そのものを出さない', () => {
+    // **空の見出しを並べない**
+    expect(連絡帳を組む(素).some((s) => s.title === 'contacts.rooms')).toBe(false);
+  });
+
+  it('自分しか居ない部屋は、繋がっている扱いにしない', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      部屋たち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 1, host: true }],
+    });
+    expect(区画.find((s) => s.title === 'contacts.rooms')?.行たち[0].いま会議に居る).toBe(false);
+  });
+
+  it('部屋の印から id を取り出せる', () => {
+    expect(部屋のid('room:ROOM1')).toBe('ROOM1');
+    expect(部屋のid('desk:zumen の AI')).toBeNull();
   });
 });

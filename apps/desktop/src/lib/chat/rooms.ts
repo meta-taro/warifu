@@ -51,5 +51,7 @@ export function 畳む(会話: 部屋の会話, 部屋: string): 部屋の会話
  */
 export function 見る部屋(選んでいる: string | null, いまの部屋: string | null): string | null {
   if (選んでいる?.startsWith('desk:')) return 机の部屋;
+  // **部屋を選んだら、その部屋。**見ていない部屋も生きている
+  if (選んでいる?.startsWith('room:')) return 選んでいる.slice('room:'.length);
   return いまの部屋;
 }

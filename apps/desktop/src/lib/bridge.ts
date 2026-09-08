@@ -174,6 +174,30 @@ export const stopAgent = (name: string) => invoke<boolean>('stop_agent', { name 
  */
 export const currentRoom = () => invoke<string | null>('current_room');
 
+/** 部屋 1 つ分。 */
+export interface RoomRow {
+  /** 部屋の id（全桁）。 */
+  id: string;
+  /** いま居る人数（自分を含む）。 */
+  members: number;
+  /** 自分が主催か。 */
+  host: boolean;
+}
+
+/**
+ * **いま居る部屋を並べる。**
+ *
+ * 部屋を複数持てる以上、**一覧が無ければ切り替えようがない。**
+ */
+export const rooms = () => invoke<RoomRow[]>('rooms');
+
+/**
+ * **見る部屋を選ぶ。**
+ *
+ * 見ていない部屋も生きている —— 選び直すだけで、経路は切れない。
+ */
+export const lookAtRoom = (id: string) => invoke<boolean>('look_at_room', { id });
+
 /**
  * 画面の出来事を、Rust と同じログへ流す。
  *

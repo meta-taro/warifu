@@ -57,6 +57,10 @@ export type MessageKey =
   | 'contacts.desk.none'
   | 'contacts.inmeeting'
   | 'contacts.saved'
+  | 'contacts.rooms'
+  | 'room.members.some'
+  | 'room.alone'
+  | 'room.host'
   | 'contacts.empty'
   | 'contacts.pick'
   | 'contacts.key.label'
@@ -197,6 +201,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': '机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。',
     'contacts.inmeeting': 'いま同じ部屋に居る人',
     'contacts.saved': '覚えている相手',
+    'contacts.rooms': 'いま居る部屋',
+    'room.members.some': '人が居ます。',
+    'room.alone': 'まだ自分だけです。鍵を渡すと入ってもらえます。',
+    'room.host': 'あなたが建てた部屋です',
     'contacts.empty': 'まだ誰も覚えていません。部屋で会った相手に呼び名を付けると、ここに残ります。',
     'contacts.pick': '相手を選ぶと、できることが出ます。',
     'contacts.key.label': '公開鍵',
@@ -309,6 +317,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': 'No agent is at the desk. Connect one with `warifu mcp` and it appears here.',
     'contacts.inmeeting': 'In the room now',
     'contacts.saved': 'People you remember',
+    'contacts.rooms': 'Rooms you are in',
+    'room.members.some': 'People are here.',
+    'room.alone': 'Just you so far. Hand out a key and someone can come in.',
+    'room.host': 'You made this room',
     'contacts.empty': 'You have not remembered anyone yet. Name someone you met in a room and they stay here.',
     'contacts.pick': 'Pick someone to see what you can do.',
     'contacts.key.label': 'Public key',
@@ -421,6 +433,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': '桌旁没有人。用 `warifu mcp` 连接后会出现在这里。',
     'contacts.inmeeting': '现在同一个房间里的人',
     'contacts.saved': '记住的对方',
+    'contacts.rooms': '你所在的房间',
+    'room.members.some': '有人在。',
+    'room.alone': '目前只有你。把密钥交出去，对方就能进来。',
+    'room.host': '这个房间由你建立',
     'contacts.empty': '还没有记住任何人。给房间里遇到的人取个称呼，就会留在这里。',
     'contacts.pick': '选择一位，就会显示可以做的事。',
     'contacts.key.label': '公钥',
@@ -533,6 +549,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': '책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.',
     'contacts.inmeeting': '지금 같은 방에 있는 사람',
     'contacts.saved': '기억한 상대',
+    'contacts.rooms': '지금 있는 방',
+    'room.members.some': '사람이 있습니다.',
+    'room.alone': '아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.',
+    'room.host': '당신이 만든 방입니다',
     'contacts.empty': '아직 아무도 기억하지 않았습니다. 방에서 만난 상대에게 이름을 붙이면 여기에 남습니다.',
     'contacts.pick': '상대를 고르면 할 수 있는 일이 나옵니다.',
     'contacts.key.label': '공개키',

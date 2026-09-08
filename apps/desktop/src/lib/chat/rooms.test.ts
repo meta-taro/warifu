@@ -61,3 +61,14 @@ describe('いま見る部屋', () => {
     expect(見る部屋(null, null)).toBeNull();
   });
 });
+
+describe('部屋を選ぶ', () => {
+  it('部屋を選んだら、その部屋を見る', () => {
+    // **見ていない部屋も生きている。**選び直すだけで経路は切れない
+    expect(見る部屋('room:ROOM2', 'ROOM1')).toBe('ROOM2');
+  });
+
+  it('AI を選ぶほうが優先される（机は部屋ではない）', () => {
+    expect(見る部屋('desk:zumen の AI', 'ROOM1')).toBe(机の部屋);
+  });
+});

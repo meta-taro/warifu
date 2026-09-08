@@ -48,6 +48,7 @@ contacts.me.share	You can show this public key to anyone. On its own it lets nob
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
 contacts.presence.none	There is no way to tell whether they are running right now. You find out by calling.	相手がいま起動しているかは分かりません。呼んでみるまで分かりません。	无法知道对方现在是否已启动。只有呼叫之后才知道。	상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.				
+contacts.rooms	Rooms you are in	いま居る部屋	你所在的房间	지금 있는 방				
 contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
 contacts.this	This computer	この PC	这台电脑	이 PC				
 door.refused	Refused.	断りました。	已拒绝。	거절했습니다.	★	**既に断り終えた**という完了の意味。「保留しています」「確認中です」と読める訳にしないこと。待てば通ると誤解すると、来ていない相手を待ち続ける（D31）。		
@@ -82,6 +83,9 @@ pane.meeting	Room	部屋	房间	방
 pane.schedule	Schedule	予定	日程	일정				
 revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{device} 해지	★	実行を促す文言。ここで「試す」「確認する」に寄せると、押した先が最終であることが伝わらない。		
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
+room.alone	Just you so far. Hand out a key and someone can come in.	まだ自分だけです。鍵を渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
+room.host	You made this room	あなたが建てた部屋です	这个房间由你建立	당신이 만든 방입니다				
+room.members.some	People are here.	人が居ます。	有人在。	사람이 있습니다.				
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				

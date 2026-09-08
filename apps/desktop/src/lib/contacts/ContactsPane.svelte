@@ -12,7 +12,7 @@
   import { 鍵の頭 } from '$lib/meeting/names';
   import Icon, { type IconName } from '$lib/ui/Icon.svelte';
   import { できること, type 口の種類 } from './actions';
-  import { 机の印, 連絡帳を組む, type 行, type 素材 as 連絡帳の素材 } from './list';
+  import { 机の印, 部屋か, 連絡帳を組む, type 行, type 素材 as 連絡帳の素材 } from './list';
 
   interface Props {
     locale: Locale;
@@ -124,7 +124,10 @@
           class:on={行.key === 選んでいる}
           onclick={() => 選ぶ(行.key)}
         >
-          <Icon name={行.key === 机の印 ? 'desk' : 'people'} size={16} />
+          <Icon
+            name={部屋か(行.key) ? 'chat' : 行.key === 机の印 ? 'desk' : 'people'}
+            size={16}
+          />
           <span class="name">{名(行)}</span>
           <!-- **在席は出さない。**相手が起動しているかは分からない -->
           <!-- **在席は出さない。**着いているかどうかは、行が在ること自体で分かる -->
@@ -177,6 +180,12 @@
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>
         <p class="hint">{t('contacts.me.share')}</p>
+      {/if}
+      {#if 相手.種類 === '部屋'}
+        <!-- **部屋は押して見るもの。**口は出さない（居るだけ） -->
+        <p class="hint">
+          {相手.いま会議に居る ? t('room.members.some') : t('room.alone')}
+        </p>
       {/if}
       {#if 相手.種類 === '人'}
         <p class="key">

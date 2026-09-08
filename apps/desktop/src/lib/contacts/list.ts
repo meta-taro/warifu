@@ -6,7 +6,7 @@
 //
 // **同じ人を二度出さない。**いま会議に居る覚えた相手は、上の区画にだけ出す。
 
-import { 呼び名 } from '$lib/meeting/names';
+import { 呼び名, 鍵の頭 } from '$lib/meeting/names';
 
 /** 一覧の 1 行。 */
 export interface 行 {
@@ -14,7 +14,7 @@ export interface 行 {
   key: string;
   /** 画面に出す名前。 */
   name: string;
-  種類: '自分' | 'AI' | '人';
+  種類: '自分' | 'AI' | '人' | '部屋';
   住所を覚えている: boolean;
   いま会議に居る: boolean;
 }
@@ -42,10 +42,30 @@ export interface 素材 {
   会議の相手: readonly string[];
   /** 覚えている相手。 */
   覚えた: readonly { key: string; label: string; has_address: boolean }[];
+  /**
+   * いま居る部屋。
+   *
+   * **持てても見えなければ切り替えようがない**（2026-09-08）。
+   * 部屋を複数持てるようにした以上、一覧が要る。
+   */
+  部屋たち?: readonly { id: string; members: number; host: boolean }[];
 }
 
 /** 机に着いている相手を指す、画面の中だけの印。**公開鍵ではない。** */
 export const 机の印 = 'desk:';
+
+/** 部屋を指す、画面の中だけの印。**公開鍵ではない。** */
+export const 部屋の印 = 'room:';
+
+/** その行が部屋か。 */
+export function 部屋か(key: string): boolean {
+  return key.startsWith(部屋の印);
+}
+
+/** 部屋の印から id を取り出す。部屋でなければ `null`。 */
+export function 部屋のid(key: string): string | null {
+  return 部屋か(key) ? key.slice(部屋の印.length) : null;
+}
 
 /** その行が机の相手か。 */
 export function 机の相手か(key: string): boolean {
@@ -116,6 +136,17 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const 区画たち: 区画[] = [{ title: 'contacts.this', 行たち: このPC }];
+
+  // **部屋は、居るときだけ出す。**空の見出しを並べない
+  const 部屋: 行[] = (素材.部屋たち ?? []).map((r) => ({
+    key: `${部屋の印}${r.id}`,
+    // **部屋の名前はまだ無い。**id の頭で見分ける（段 3 で名前を付ける）
+    name: 鍵の頭(r.id),
+    種類: '部屋' as const,
+    住所を覚えている: false,
+    いま会議に居る: r.members > 1,
+  }));
+  if (部屋.length > 0) 区画たち.push({ title: 'contacts.rooms', 行たち: 部屋 });
   // **誰も居ない区画そのものを出さない**（見出しだけが並ぶ画面にしない）
   if (会議.length > 0) 区画たち.push({ title: 'contacts.inmeeting', 行たち: 会議 });
   区画たち.push({ title: 'contacts.saved', 行たち: 覚えた });

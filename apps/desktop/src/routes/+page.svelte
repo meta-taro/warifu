@@ -22,7 +22,7 @@
   import PaneRail from '$lib/shell/PaneRail.svelte';
   import { 既定の面, 押した後の面, type 面 as 面の型 } from '$lib/shell/panes';
   import ContactsPane from '$lib/contacts/ContactsPane.svelte';
-  import { 机の印, type 行 as 連絡帳の行 } from '$lib/contacts/list';
+  import { 机の印, 部屋のid, type 行 as 連絡帳の行 } from '$lib/contacts/list';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -72,6 +72,9 @@
     knownKeys,
     stopAgent,
     currentRoom,
+    rooms as 部屋を読む,
+    lookAtRoom,
+    type RoomRow,
     type ContactRow,
     hostMeeting,
     inTauri,
@@ -186,15 +189,8 @@
     }),
   );
 
-  const 連絡帳の素材 = $derived({
-    自分: 自分の鍵,
-    机のAIたち,
-    会議の相手: remotes.map((r) => r.key),
-    覚えた,
-  });
-  /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
   /**
-   * **部屋ごとの会話。**混ぜない。
+   * **部屋ごとの会話。**混ぜない。閉じれば消える（履歴は `issues/010`）。
    *
    * 会話が 1 本しか無いと、**相手ごとの会話に見えない** ——
    * 「1 対 1 と 1 対 N がはっきりしない」（オーナー・2026-09-08）の本体である。
@@ -202,6 +198,16 @@
   let 部屋の会話たち = $state<部屋の会話>({});
   /** いま居る部屋の id（Rust 側が持っている）。 */
   let いまの部屋 = $state<string | null>(null);
+  /** いま居る部屋たち。**持てても見えなければ切り替えようがない。** */
+  let 部屋たち: RoomRow[] = $state([]);
+
+  const 連絡帳の素材 = $derived({
+    自分: 自分の鍵,
+    机のAIたち,
+    部屋たち,
+    会議の相手: remotes.map((r) => r.key),
+    覚えた,
+  });
   /** いま見ている部屋。**同じ PC の AI を選んでいれば机の部屋。** */
   const 見ている = $derived(見る部屋(選んだ相手, いまの部屋));
   /** 画面に出す会話。**選んだ部屋のものだけ。** */
@@ -227,6 +233,32 @@
    * 2026-09-06 に画面のチャットで実際に困った（`67R54JO7ND6P…` が誰なのか分からない）。
    */
   let 名簿 = $state<Record<string, string>>({});
+  /**
+   * いま居る部屋を読み直す。
+   *
+   * **部屋が増える／減るのは Rust 側の出来事**なので、
+   * 節目（建てた・入った・呼んだ・誰か入ってきた）で読み直す。
+   */
+  /** 見る部屋を移す。**見ていない部屋も生きている。** */
+  async function 部屋へ移る(id: string) {
+    try {
+      await lookAtRoom(id);
+      いまの部屋 = (await currentRoom()) ?? null;
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  async function 部屋を読み直す() {
+    if (!inTauri()) return;
+    try {
+      いまの部屋 = (await currentRoom()) ?? null;
+      部屋たち = (await 部屋を読む()) ?? [];
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   async function 名簿を読む() {
     if (!inTauri()) return;
     try {
@@ -378,7 +410,7 @@
       await listen();
       const me = (await myKey()) ?? '';
       自分の鍵 = me;
-      いまの部屋 = (await currentRoom()) ?? null;
+      await 部屋を読み直す();
       members = [{ key: me, me: true, host: true, path: 'unknown' }];
       void 名簿を読む();
     })();
@@ -406,7 +438,7 @@
           }
           音を出す(入室の音);
           remotes = [...remotes, { key, stream: null, path: 'unknown' }];
-          いまの部屋 = (await currentRoom()) ?? null;
+          await 部屋を読み直す();
           const offering = (await shouldOfferTo(key)) ?? false;
           const call = new Call(
             offering,
@@ -590,7 +622,7 @@
     try {
       meetingKey = (await invite(KEY_TTL_SECS)) ?? '';
       // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
-      いまの部屋 = (await currentRoom()) ?? null;
+      await 部屋を読み直す();
     } catch (e) {
       notice = 読める(e);
     }
@@ -657,7 +689,7 @@
       notice = '';
       try {
         await callContact(相手.key);
-        いまの部屋 = (await currentRoom()) ?? null;
+        await 部屋を読み直す();
         await 名簿を読む();
       } catch (e) {
         notice = 読める(e);
@@ -676,7 +708,7 @@
     入室中 = true;
     try {
       await connect(received.trim());
-      いまの部屋 = (await currentRoom()) ?? null;
+      await 部屋を読み直す();
     } catch (e) {
       notice = 読める(e);
     } finally {
@@ -950,7 +982,13 @@
         {locale}
         素材={連絡帳の素材}
         選んでいる={選んだ相手}
-        選ぶ={(key) => (選んだ相手 = key)}
+        選ぶ={(key) => {
+          選んだ相手 = key;
+          // **部屋を選んだら、Rust 側の「いま見ている部屋」も動かす。**
+          // 動かさないと、打ったものが前の部屋へ流れる
+          const id = 部屋のid(key);
+          if (id) void 部屋へ移る(id);
+        }}
         押す={連絡帳から押す}
         呼んでいる={呼んでいる}
         名前を付ける={(key, label) => void 名前を付ける(key, label)}

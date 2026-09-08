@@ -1188,6 +1188,58 @@ fn desk_seats() -> Vec<String> {
     desk::着いている顔ぶれ()
 }
 
+/// 部屋 1 つ分。**画面が一覧に出す。**
+#[derive(Debug, serde::Serialize)]
+pub struct RoomRow {
+    /// 部屋の id（全桁）。**押したときに使う。**
+    id: String,
+    /// いま居る人数（自分を含む）。
+    members: usize,
+    /// 自分が主催か。
+    host: bool,
+}
+
+/// **いま居る部屋を並べる。**
+///
+/// 部屋を複数持てるようになった以上（`issues/015`）、
+/// **一覧が無ければ切り替えようがない。**持てても見えなければ意味がない。
+#[tauri::command]
+async fn rooms(bridge: State<'_, Bridge>) -> Answer<Vec<RoomRow>> {
+    let me = bridge.device.public_key();
+    let 棚 = bridge.conferences.lock().await;
+    let mut 並び: Vec<RoomRow> = 棚
+        .values()
+        .map(|c| RoomRow {
+            id: c.id().to_string(),
+            members: c.members().len(),
+            host: c.members().first() == Some(&me),
+        })
+        .collect();
+    // **並びを固定する。**`HashMap` の順は読むたびに変わる
+    並び.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(並び)
+}
+
+/// **見る部屋を選ぶ。**
+///
+/// 見ていない部屋も生きている —— 選び直すだけで、経路は切れない。
+#[tauri::command]
+async fn look_at_room(bridge: State<'_, Bridge>, id: String) -> Answer<bool> {
+    let 選ぶ = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .find(|k| k.to_string() == id)
+        .copied();
+    let Some(選ぶ) = 選ぶ else {
+        // **知らない部屋を見ていることにしない**
+        return Ok(false);
+    };
+    *bridge.いまの部屋.lock().await = Some(選ぶ);
+    Ok(true)
+}
+
 /// **いま見ている部屋の id。**画面が会話を部屋ごとに分けるのに使う。
 ///
 /// 部屋を複数持つので（`issues/015`）、**どの部屋の会話を出すか**を
@@ -1304,6 +1356,8 @@ pub fn run() {
             known_keys,
             stop_agent,
             current_room,
+            rooms,
+            look_at_room,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())
