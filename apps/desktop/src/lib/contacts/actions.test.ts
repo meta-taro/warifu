@@ -125,3 +125,30 @@ describe('部屋', () => {
     expect(できること(部屋)).toEqual([]);
   });
 });
+
+describe('預かり所を置いているとき', () => {
+  it('住所を知らない相手にも、チャットは押せる', () => {
+    // **預けるのに要るのは公開鍵だけ**（封は相手しか開けられない・D71）
+    const 口たち = できること({
+      種類: '人',
+      住所を覚えている: false,
+      いま会議に居る: false,
+      机に着いている: false,
+      預かり所がある: true,
+    });
+    expect(口たち.find((k) => k.種類 === 'chat')?.押せる).toBe(true);
+  });
+
+  it('会議には呼べない（いま繋がっていないと始まらない）', () => {
+    const 口たち = できること({
+      種類: '人',
+      住所を覚えている: false,
+      いま会議に居る: false,
+      机に着いている: false,
+      預かり所がある: true,
+    });
+    const call = 口たち.find((k) => k.種類 === 'call');
+    expect(call?.押せる).toBe(false);
+    expect(call?.訳).toBe('act.address.none');
+  });
+});

@@ -43,15 +43,26 @@ export function 畳む(会話: 部屋の会話, 部屋: string): 部屋の会話
   return 残り;
 }
 
+/** その人との会話に使う、画面の中だけの部屋の名前。**部屋 id ではない。** */
+export const 人の部屋 = (key: string) => `contact:${key}`;
+
 /**
  * いま見る部屋を決める。
  *
  * **選んだ相手が同じ PC の AI なら、机の部屋。**
+ * **部屋に居ない人を選んだなら、その人との会話**（預かり所ごしの 1 対 1・D71）。
  * そうでなければ、いま居る部屋。
  */
-export function 見る部屋(選んでいる: string | null, いまの部屋: string | null): string | null {
+export function 見る部屋(
+  選んでいる: string | null,
+  いまの部屋: string | null,
+  その人は部屋に居る = true,
+): string | null {
   if (選んでいる?.startsWith('desk:')) return 机の部屋;
   // **部屋を選んだら、その部屋。**見ていない部屋も生きている
   if (選んでいる?.startsWith('room:')) return 選んでいる.slice('room:'.length);
+  // **部屋に居ない人との会話を、部屋の会話と混ぜない。**
+  // 混ぜると、留守中に届いた分が「いまの部屋で言われたこと」として並ぶ
+  if (選んでいる && !その人は部屋に居る) return 人の部屋(選んでいる);
   return いまの部屋;
 }

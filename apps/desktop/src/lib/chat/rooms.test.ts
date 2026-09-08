@@ -72,3 +72,19 @@ describe('部屋を選ぶ', () => {
     expect(見る部屋('desk:zumen の AI', 'ROOM1')).toBe(机の部屋);
   });
 });
+
+describe('部屋に居ない人を選んだとき', () => {
+  it('その人との会話を見る（預かり所ごしの 1 対 1）', () => {
+    expect(見る部屋('ABC', 'room-1', false)).toBe('contact:ABC');
+  });
+
+  it('同じ部屋に居るなら、部屋の会話を見る', () => {
+    expect(見る部屋('ABC', 'room-1', true)).toBe('room-1');
+  });
+
+  it('留守中に届いた分を、部屋の会話に混ぜない', () => {
+    // 混ぜると「いまの部屋で言われたこと」として並ぶ
+    expect(見る部屋('ABC', null, false)).not.toBe(null);
+    expect(見る部屋(null, 'room-1')).toBe('room-1');
+  });
+});

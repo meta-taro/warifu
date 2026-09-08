@@ -127,3 +127,36 @@ describe('部屋の一覧', () => {
     expect(部屋のid('desk:zumen の AI')).toBeNull();
   });
 });
+
+describe('留守中に届いた相手', () => {
+  it('覚えていない相手でも、開く所を出す', () => {
+    // **受け取っておいて出さないのは、黙って捨てるのと同じに見える**
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      留守中に届いた: ['XYZ'],
+    });
+    const 留守 = 区画.find((s) => s.title === 'contacts.late');
+    expect(留守?.行たち.map((r) => r.key)).toEqual(['XYZ']);
+    // **居場所は知らない。**預かり所ごしに届いただけ
+    expect(留守?.行たち[0].住所を覚えている).toBe(false);
+  });
+
+  it('覚えている相手は、二度出さない', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: [],
+      会議の相手: [],
+      覚えた: [{ key: 'ABC', label: '田中', has_address: true }],
+      留守中に届いた: ['ABC'],
+    });
+    expect(区画.find((s) => s.title === 'contacts.late')).toBeUndefined();
+  });
+
+  it('届いていなければ、区画そのものを出さない', () => {
+    const 区画 = 連絡帳を組む({ 自分: 'ME', 机のAIたち: [], 会議の相手: [], 覚えた: [] });
+    expect(区画.find((s) => s.title === 'contacts.late')).toBeUndefined();
+  });
+});

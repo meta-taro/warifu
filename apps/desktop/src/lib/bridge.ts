@@ -39,6 +39,7 @@ export const EVENT_DESK = 'warifu://desk';
  */
 export const EVENT_DESK_SEATS = 'warifu://desk-seats';
 
+
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {
   step: 'offer' | 'answer' | 'candidate' | 'end';
@@ -132,6 +133,35 @@ export const sendText = (body: string, to?: string | null) =>
  * 会議に人が居なくても、同じ席の AI が居るなら送れる。
  */
 export const deskSeats = () => invoke<string[]>('desk_seats');
+
+/**
+ * **覚えている相手へ、1 対 1 で言う。**
+ *
+ * 同じ部屋に居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
+ * 預かり所を置いていなければ「いま居ません」で終わる ——
+ * **黙って中央へ繋ぎに行かない**（D68）。
+ */
+export const sendToContact = (key: string, body: string) =>
+  invoke<void>('send_to_contact', { key, body });
+
+/** いま置いてある預かり所の宛先。**置いていなければ空。** */
+export const postbox = () => invoke<string | null>('postbox');
+
+/**
+ * 預かり所の宛先を置く。空にすると外れる。
+ *
+ * **人が書く。**割符が拾ってこない（D71）。
+ */
+export const setPostbox = (address: string | null) =>
+  invoke<void>('set_postbox', { address: address ?? null });
+
+/**
+ * **留守中の分を取りに行く。**開けた 1 通ずつが `[公開鍵, 中身, 出した側の時刻（秒）]` で返る。
+ *
+ * **知らせ（イベント）では渡さない。**画面が聞き始める前に渡してしまうと、
+ * 預かり所は渡したら手放すので**そのまま消える**（2026-09-08 に実物で踏んだ）。
+ */
+export const fetchPostbox = () => invoke<[string, string, number][]>('fetch_postbox');
 
 /**
  * **覚えた相手を、割符なしで呼ぶ。**会議キーを手で渡さない。

@@ -48,6 +48,17 @@ export type MessageKey =
   | 'chat.agent'
   | 'chat.desk'
   | 'chat.placeholder.desk'
+  | 'chat.late'
+  | 'send.absent'
+  | 'postbox.title'
+  | 'postbox.hint'
+  | 'postbox.placeholder'
+  | 'postbox.save'
+  | 'postbox.clear'
+  | 'postbox.saved'
+  | 'postbox.cleared'
+  | 'postbox.kept'
+  | 'postbox.received'
   | 'pane.contacts'
   | 'pane.meeting'
   | 'pane.schedule'
@@ -57,6 +68,7 @@ export type MessageKey =
   | 'contacts.desk.none'
   | 'contacts.inmeeting'
   | 'contacts.saved'
+  | 'contacts.late'
   | 'contacts.rooms'
   | 'room.members.some'
   | 'room.alone'
@@ -192,6 +204,17 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': 'この PC の AI',
     'chat.desk': 'この PC の AI が居ます。部屋に人が居なくても話しかけられます。',
     'chat.placeholder.desk': 'この PC の AI に話しかける',
+    'chat.late': '留守中',
+    'send.absent': 'いま居ません。預かり所を置くと、留守中でも届きます。',
+    'postbox.title': '預かり所（任意）',
+    'postbox.hint': '相手が起動していない間、封を預かる所です。中身は読めません。置かなければ、相手が起動している間だけ届きます。',
+    'postbox.placeholder': '預かり所の宛先を貼り付ける',
+    'postbox.save': '置く',
+    'postbox.clear': '外す',
+    'postbox.saved': '預かり所を置きました。',
+    'postbox.cleared': '預かり所を外しました。',
+    'postbox.kept': 'いま居ないので、預かり所へ預けました。相手が起動したときに届きます。',
+    'postbox.received': '留守中に届いていた分が {n} 通ありました。',
     'pane.contacts': '連絡帳',
     'pane.meeting': '部屋',
     'pane.schedule': '予定',
@@ -201,6 +224,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': '机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。',
     'contacts.inmeeting': 'いま同じ部屋に居る人',
     'contacts.saved': '覚えている相手',
+    'contacts.late': '留守中に届いた相手',
     'contacts.rooms': 'いま居る部屋',
     'room.members.some': '人が居ます。',
     'room.alone': 'まだ自分だけです。鍵を渡すと入ってもらえます。',
@@ -308,6 +332,17 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': 'AI on this computer',
     'chat.desk': 'The AI on this computer is here. You can talk to it even with nobody else in the room.',
     'chat.placeholder.desk': 'Talk to the AI on this computer',
+    'chat.late': 'while away',
+    'send.absent': 'Not here right now. Set up a mailbox and messages will reach them later.',
+    'postbox.title': 'Mailbox (optional)',
+    'postbox.hint': 'A place that holds sealed messages while the other person is not running. It cannot read them. Without one, messages only arrive while the other person is running.',
+    'postbox.placeholder': 'Paste the mailbox address',
+    'postbox.save': 'Set',
+    'postbox.clear': 'Remove',
+    'postbox.saved': 'Mailbox set.',
+    'postbox.cleared': 'Mailbox removed.',
+    'postbox.kept': 'They are not here, so it was left at the mailbox. It arrives when they start up.',
+    'postbox.received': '{n} message(s) had arrived while you were away.',
     'pane.contacts': 'Contacts',
     'pane.meeting': 'Room',
     'pane.schedule': 'Schedule',
@@ -317,6 +352,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': 'No agent is at the desk. Connect one with `warifu mcp` and it appears here.',
     'contacts.inmeeting': 'In the room now',
     'contacts.saved': 'People you remember',
+    'contacts.late': 'Arrived while you were away',
     'contacts.rooms': 'Rooms you are in',
     'room.members.some': 'People are here.',
     'room.alone': 'Just you so far. Hand out a key and someone can come in.',
@@ -424,6 +460,17 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': '这台电脑的 AI',
     'chat.desk': '这台电脑的 AI 在。即使房间里没有其他人，也可以对它说话。',
     'chat.placeholder.desk': '对这台电脑的 AI 说话',
+    'chat.late': '离线期间',
+    'send.absent': '对方现在不在。设置寄存处后，离线期间也能送达。',
+    'postbox.title': '寄存处（可选）',
+    'postbox.hint': '在对方没有启动时，代为保管密封内容的地方。它读不到内容。不设置的话，只有对方启动时才能送达。',
+    'postbox.placeholder': '粘贴寄存处地址',
+    'postbox.save': '设置',
+    'postbox.clear': '移除',
+    'postbox.saved': '已设置寄存处。',
+    'postbox.cleared': '已移除寄存处。',
+    'postbox.kept': '对方不在，已寄存。对方启动时会送到。',
+    'postbox.received': '离线期间收到了 {n} 条。',
     'pane.contacts': '通讯录',
     'pane.meeting': '房间',
     'pane.schedule': '日程',
@@ -433,6 +480,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': '桌旁没有人。用 `warifu mcp` 连接后会出现在这里。',
     'contacts.inmeeting': '现在同一个房间里的人',
     'contacts.saved': '记住的对方',
+    'contacts.late': '离线期间来信的人',
     'contacts.rooms': '你所在的房间',
     'room.members.some': '有人在。',
     'room.alone': '目前只有你。把密钥交出去，对方就能进来。',
@@ -540,6 +588,17 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agent': '이 PC 의 AI',
     'chat.desk': '이 PC 의 AI 가 있습니다. 방에 사람이 없어도 말을 걸 수 있습니다.',
     'chat.placeholder.desk': '이 PC 의 AI 에게 말을 걸기',
+    'chat.late': '부재 중',
+    'send.absent': '지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.',
+    'postbox.title': '보관소 (선택)',
+    'postbox.hint': '상대가 실행 중이 아닐 때 봉한 내용을 맡아 두는 곳입니다. 내용은 읽을 수 없습니다. 두지 않으면 상대가 실행 중일 때만 전달됩니다.',
+    'postbox.placeholder': '보관소 주소를 붙여넣기',
+    'postbox.save': '두기',
+    'postbox.clear': '내리기',
+    'postbox.saved': '보관소를 두었습니다.',
+    'postbox.cleared': '보관소를 내렸습니다.',
+    'postbox.kept': '지금 없어서 보관소에 맡겼습니다. 상대가 실행하면 전달됩니다.',
+    'postbox.received': '부재 중에 {n} 통이 와 있었습니다.',
     'pane.contacts': '연락처',
     'pane.meeting': '방',
     'pane.schedule': '일정',
@@ -549,6 +608,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.none': '책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.',
     'contacts.inmeeting': '지금 같은 방에 있는 사람',
     'contacts.saved': '기억한 상대',
+    'contacts.late': '부재 중에 온 상대',
     'contacts.rooms': '지금 있는 방',
     'room.members.some': '사람이 있습니다.',
     'room.alone': '아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.',
@@ -609,10 +669,20 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'act.mail.none',
   'act.address.none',
   'chat.shared',
+  'send.absent',
+  'postbox.kept',
 ] as const;
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
 export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
+  'send.absent':
+    '**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。' +
+    '預かり所を置いていない状態なので、打った言葉はどこにも残っていない。' +
+    '「預かり所を置くと」は条件であって、約束ではない。',
+  'postbox.kept':
+    '**相手にはまだ届いていない。**「送信しました」「配達済み」と読める訳にしないこと。' +
+    '届くのは相手が次に起動したときであり、いつになるかは分からない。' +
+    'また「保存しました」（＝こちらの手元に残した）とも読ませないこと —— 預けた先は別の機械である。',
   'act.mail.none':
     '「まだ送れません」は「いま経路が無い」という事実である。' +
     '「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。' +

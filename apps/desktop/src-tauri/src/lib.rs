@@ -71,6 +71,7 @@ mod call;
 mod contacts;
 mod desk;
 mod notify;
+mod postbox;
 
 /// **決まった場所へ書き置く。**
 ///
@@ -281,6 +282,19 @@ pub(crate) async fn その部屋の相手(
     };
     let out = outbound.lock().await;
     面々.iter().filter_map(|k| out.get(k).cloned()).collect()
+}
+
+/// **その相手が居る部屋**を探す。居なければ `None`。
+///
+/// 部屋を複数持つので（`issues/015`）、「その人へ言う」には
+/// **どの部屋の話か**を決めないと `Notice` が組めない。
+pub(crate) async fn 相手が居る部屋(
+    部屋: &部屋たち, 相手: PublicKey
+) -> Option<MeetingId> {
+    let 棚 = 部屋.lock().await;
+    棚.iter()
+        .find(|(_, c)| c.members().contains(&相手))
+        .map(|(id, _)| *id)
 }
 
 /// この端末の身元。**CLI と同じものを使う。**
@@ -1144,6 +1158,45 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
     Ok(())
 }
 
+/// **覚えている相手へ、1 対 1 で言う。**
+///
+/// 同じ部屋に居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
+/// 預かり所を置いていなければ「いま居ません」で終わる ——
+/// **黙って中央へ繋ぎに行かない**（D68）。
+///
+/// **机へは配らない。**これは 1 人へ宛てた言葉である（D66 と同じ構え）。
+#[tauri::command]
+async fn send_to_contact(bridge: State<'_, Bridge>, key: String, body: String) -> Answer<()> {
+    let 相手: PublicKey = key.parse().map_err(|_| Failure {
+        message: "相手の鍵として読めません".into(),
+        code: None,
+    })?;
+
+    if let Some(meeting) = 相手が居る部屋(&bridge.conferences, 相手).await {
+        let tx = bridge.outbound.lock().await.get(&相手.to_bytes()).cloned();
+        if let Some(tx) = tx {
+            let 送れた = tx
+                .send(Notice::Text {
+                    meeting,
+                    // **自分が言ったと載せる**（D48）
+                    from: bridge.device.public_key(),
+                    話し手: None,
+                    body: body.clone(),
+                })
+                .await
+                .is_ok();
+            if 送れた {
+                記録!("送信: 文字（{} バイト）を 1 人へ（同じ部屋）", body.len());
+                return Ok(());
+            }
+            // 経路が死んでいた。**落としてしまわず、預かり所へ回す**
+            記録!("送信: 経路が死んでいたので預かり所へ回します");
+        }
+    }
+
+    postbox::預ける(&bridge, 相手, &body).await
+}
+
 /// **会議から抜けると告げる。**
 ///
 /// 告げないと、相手の名簿からは**経路が切れたときにしか**消えない。
@@ -1359,6 +1412,10 @@ pub fn run() {
             rooms,
             look_at_room,
             set_menu_locale,
+            postbox::postbox,
+            postbox::set_postbox,
+            postbox::fetch_postbox,
+            send_to_contact,
         ])
         .run(tauri::generate_context!())
         .expect("warifu の窓を開けませんでした");

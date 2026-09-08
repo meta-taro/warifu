@@ -24,6 +24,7 @@ chat.desk	The AI on this computer is here. You can talk to it even with nobody e
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じ部屋に居る人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
 chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들어왔습니다				
+chat.late	while away	留守中	离线期间	부재 중				
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.nobody	Nobody is here yet. Hand out a key and wait for someone to come in.	まだ誰も居ません。鍵を渡して、入ってもらうと送れます。	还没有人进来。把密钥交给对方，等对方进来后即可发送。	아직 아무도 없습니다. 열쇠를 건네고 상대가 들어오면 보낼 수 있습니다.				
@@ -43,6 +44,7 @@ contacts.forget	Require a meeting key again	鍵なしで入れるのをやめる
 contacts.forget.hint	Right now this person can come in without a key. Turn it off and they will need one again.	この相手はいま、鍵なしで入ってこられます。やめると、次からは鍵が要ります。	现在这位不用密钥就能进来。取消后，下次就需要密钥了。	지금 이 상대는 열쇠 없이 들어올 수 있습니다. 끄면 다음부터는 열쇠가 필요합니다.				
 contacts.inmeeting	In the room now	いま同じ部屋に居る人	现在同一个房间里的人	지금 같은 방에 있는 사람				
 contacts.key.label	Public key	公開鍵	公钥	공개키				
+contacts.late	Arrived while you were away	留守中に届いた相手	离线期间来信的人	부재 중에 온 상대				
 contacts.me	You	あなた	你	당신				
 contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには鍵が要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。	이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).				
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
@@ -81,6 +83,15 @@ meeting.status.waiting	Waiting for the other person	相手を待っています	
 pane.contacts	Contacts	連絡帳	通讯录	연락처				
 pane.meeting	Room	部屋	房间	방				
 pane.schedule	Schedule	予定	日程	일정				
+postbox.clear	Remove	外す	移除	내리기				
+postbox.cleared	Mailbox removed.	預かり所を外しました。	已移除寄存处。	보관소를 내렸습니다.				
+postbox.hint	A place that holds sealed messages while the other person is not running. It cannot read them. Without one, messages only arrive while the other person is running.	相手が起動していない間、封を預かる所です。中身は読めません。置かなければ、相手が起動している間だけ届きます。	在对方没有启动时，代为保管密封内容的地方。它读不到内容。不设置的话，只有对方启动时才能送达。	상대가 실행 중이 아닐 때 봉한 내용을 맡아 두는 곳입니다. 내용은 읽을 수 없습니다. 두지 않으면 상대가 실행 중일 때만 전달됩니다.				
+postbox.kept	They are not here, so it was left at the mailbox. It arrives when they start up.	いま居ないので、預かり所へ預けました。相手が起動したときに届きます。	对方不在，已寄存。对方启动时会送到。	지금 없어서 보관소에 맡겼습니다. 상대가 실행하면 전달됩니다.	★	**相手にはまだ届いていない。**「送信しました」「配達済み」と読める訳にしないこと。届くのは相手が次に起動したときであり、いつになるかは分からない。また「保存しました」（＝こちらの手元に残した）とも読ませないこと —— 預けた先は別の機械である。		
+postbox.placeholder	Paste the mailbox address	預かり所の宛先を貼り付ける	粘贴寄存处地址	보관소 주소를 붙여넣기				
+postbox.received	{n} message(s) had arrived while you were away.	留守中に届いていた分が {n} 通ありました。	离线期间收到了 {n} 条。	부재 중에 {n} 통이 와 있었습니다.				
+postbox.save	Set	置く	设置	두기				
+postbox.saved	Mailbox set.	預かり所を置きました。	已设置寄存处。	보관소를 두었습니다.				
+postbox.title	Mailbox (optional)	預かり所（任意）	寄存处（可选）	보관소 (선택)				
 revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{device} 해지	★	実行を促す文言。ここで「試す」「確認する」に寄せると、押した先が最終であることが伝わらない。		
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a key and someone can come in.	まだ自分だけです。鍵を渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
@@ -92,6 +103,7 @@ roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air 
 roster.name.save	Save	決める	保存	저장				
 schedule.none	The schedule pane does not work yet. There is no way for the window to read a calendar.	予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。	日程还不能用。画面还没有读取日程表的口。	일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.				
 schedule.title	Schedule	予定	日程	일정				
+send.absent	Not here right now. Set up a mailbox and messages will reach them later.	いま居ません。預かり所を置くと、留守中でも届きます。	对方现在不在。设置寄存处后，离线期间也能送达。	지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.	★	**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態なので、打った言葉はどこにも残っていない。「預かり所を置くと」は条件であって、約束ではない。		
 setup.action	Check camera and microphone	カメラとマイクを確かめる	检查摄像头和麦克风	카메라와 마이크 확인				
 setup.blur	Blur my background	背景をぼかす	虚化背景	배경 흐리게				
 setup.blur.os	This environment cannot blur backgrounds from the app. On macOS, use Video Effects in Control Center.	この環境では、アプリから背景をぼかせません。macOS ならコントロールセンターのビデオエフェクトが使えます。	此环境无法由应用虚化背景。macOS 可使用控制中心的视频效果。	이 환경에서는 앱이 배경을 흐리게 할 수 없습니다. macOS라면 제어 센터의 비디오 효과를 사용하세요.				

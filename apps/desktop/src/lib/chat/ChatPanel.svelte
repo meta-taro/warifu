@@ -84,7 +84,9 @@
     {#each 会話 as line, i (i)}
       <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
       <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
-        {#if line.at}<span class="at">{line.at}</span>{/if}{#if !line.system}<b>{line.who}</b
+        {#if line.at}<span class="at">{line.at}</span>{/if}{#if line.留守中}<span class="late"
+            >{t('chat.late')}</span
+          >{/if}{#if !line.system}<b>{line.who}</b
           >{/if}{line.body}
       </p>
     {/each}
@@ -97,8 +99,10 @@
   -->
   {#if !届く先がある}
     <p class="hint">{t('chat.nobody')}</p>
-  {:else if !会議中}
-    <!-- **会議に人は居ないが、同じ席の AI は居る。**話しかけられる -->
+  {:else if !会議中 && 机の人数 > 0}
+    <!-- **会議に人は居ないが、同じ席の AI は居る。**話しかけられる。
+         **机に誰も着いていないのに出さない** —— 預かり所ごしに 1 人へ
+         預けるだけのときにも出ていた（2026-09-08 に実物で踏んだ） -->
     <p class="hint">{t('chat.desk')}</p>
   {/if}
   <div class="say">
@@ -195,6 +199,16 @@
     color: var(--text-tertiary);
     font-style: italic;
     text-align: center;
+  }
+  /* **留守中に届いた分**（D71）。時刻は「出した側の時計」なので、
+     いま届いたように見せない。**印を付けて、そう分かるようにする** */
+  .late {
+    margin-right: 6px;
+    padding: 0 4px;
+    font-size: var(--text-2xs-size);
+    color: var(--text-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
   }
   /* 時刻は等幅で、桁を揃える（DESIGN.md §5）。**本文より前に出て、本文より弱い** */
   .at {

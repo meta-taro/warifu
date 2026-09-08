@@ -62,6 +62,8 @@ const CONTACTS_HEADER_V1: &str = "warifu-contacts-v1";
 /// **止まるほうがよい。**版を先頭に書いてあるのは、まさにこのためである。
 const CONTACTS_HEADER_V2: &str = "warifu-contacts-v2";
 const KNOWN_HEADER: &str = "warifu-known-v1";
+/// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
+const POSTBOX_HEADER: &str = "warifu-postbox-v1";
 /// base32 にした 32 byte の長さ。
 const SEED_TEXT_LEN: usize = 52;
 
@@ -121,6 +123,12 @@ impl Vault {
     #[must_use]
     pub fn known_path(&self) -> PathBuf {
         self.dir.join("known.tsv")
+    }
+
+    /// 預かり所の宛先のある場所。
+    #[must_use]
+    pub fn postbox_path(&self) -> PathBuf {
+        self.dir.join("postbox.txt")
     }
 
     /// 身元がもうあるか。
@@ -253,6 +261,54 @@ impl Vault {
             }
         }
         self.write_private(&self.known_path(), &out, "知り合いを書く")
+    }
+
+    /// 預かり所の宛先を読む。**置いていなければ [`None`]。**
+    ///
+    /// 預かり所は**任意**である（`docs/relay.md`）。
+    /// 置かなければ、相手が起動している間だけ届く形になる。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn postbox(&self) -> Result<Option<String>, Error> {
+        let path = self.postbox_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "預かり所を読む"))?;
+        let mut lines = text.lines();
+        if lines.next() != Some(POSTBOX_HEADER) {
+            return Err(Error::Malformed {
+                path,
+                why: format!("見出しが {POSTBOX_HEADER} ではありません"),
+            });
+        }
+        Ok(lines
+            .next()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned))
+    }
+
+    /// 預かり所の宛先を置く。[`None`] で外す。
+    ///
+    /// **1 行に 1 つ。**改行やタブが入った物は受け取らない ——
+    /// 入ると、次の行が別の意味を持ってしまう。
+    ///
+    /// # Errors
+    /// 改行やタブが入っているとき [`Error::Malformed`]、書けないとき [`Error::Io`]。
+    pub fn save_postbox(&self, 宛先: Option<&str>) -> Result<(), Error> {
+        let 宛先 = 宛先.map(str::trim).filter(|a| !a.is_empty());
+        if let Some(a) = 宛先 {
+            if a.contains(['\n', '\r', '\t']) {
+                return Err(Error::Malformed {
+                    path: self.postbox_path(),
+                    why: "宛先に改行やタブは入れられません".into(),
+                });
+            }
+        }
+        let out = format!("{POSTBOX_HEADER}\n{}\n", 宛先.unwrap_or_default());
+        self.write_private(&self.postbox_path(), &out, "預かり所を書く")
     }
 
     fn write_seed(&self, seed: &Seed) -> Result<(), Error> {

@@ -580,3 +580,76 @@ fn 忘れた相手の住所も消える() {
 
     assert!(名簿.find(鍵([3u8; 32])).is_none());
 }
+
+// --- 預かり所の宛先（**人が書く。割符が拾ってこない**） ----------------------
+
+#[test]
+fn 預かり所の宛先は開き直しても残る() {
+    let dir = 仮の置き場("postbox-remembered");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    assert_eq!(vault.postbox().unwrap(), None, "はじめは無い");
+
+    vault.save_postbox(Some("WARIFU1-ABCDEF")).unwrap();
+    assert_eq!(
+        Vault::at(&dir).postbox().unwrap().as_deref(),
+        Some("WARIFU1-ABCDEF")
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 預かり所は外せる() {
+    // **やめると決めたら、置いたものが残らない**
+    let dir = 仮の置き場("postbox-cleared");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    vault.save_postbox(Some("WARIFU1-ABCDEF")).unwrap();
+    vault.save_postbox(None).unwrap();
+    assert_eq!(vault.postbox().unwrap(), None);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 預かり所の宛先は自分だけが読める() {
+    // **どこへ預けに行くかは、その人の居場所の手がかりになる**
+    let dir = 仮の置き場("postbox-private");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    vault.save_postbox(Some("WARIFU1-ABCDEF")).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(vault.postbox_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "0600 であること");
+    }
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルは預かり所として読まない() {
+    let dir = 仮の置き場("postbox-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.postbox_path(), "なにかの別のファイル\n").unwrap();
+
+    let err = vault
+        .postbox()
+        .expect_err("別のファイルを預かり所として読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 宛先に改行は書けない() {
+    // **1 行に 1 つ。**改行が入ると、次の行が別の意味を持ってしまう
+    let dir = 仮の置き場("postbox-newline");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    assert!(vault.save_postbox(Some("WARIFU1-AB\nCDEF")).is_err());
+    fs::remove_dir_all(&dir).ok();
+}

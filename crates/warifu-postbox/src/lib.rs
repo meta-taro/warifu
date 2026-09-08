@@ -17,6 +17,10 @@
 
 #![forbid(unsafe_code)]
 
+mod letter;
+
+pub use letter::{手紙, 手紙にする, 手紙を読む};
+
 use warifu_core::{Device, PublicKey};
 use warifu_net::{Address, Node};
 use warifu_post::{Ask, Box as 預かり所, Reply};
@@ -59,9 +63,10 @@ impl From<warifu_seal::Error> for Error {
     }
 }
 
-/// **封をして、預かり所へ預ける。**
+/// **1 通に組み、封をして、預かり所へ預ける。**
 ///
 /// 預かり所は中身を読めない。**誰から誰へ、も分からない**（使い捨ての鍵で封をする）。
+/// **署名のない言葉は預けられない** —— 受け取った側が、誰が言ったかを確かめられなくなる。
 ///
 /// # Errors
 ///
@@ -69,10 +74,12 @@ impl From<warifu_seal::Error> for Error {
 pub async fn 預ける(
     node: &Node,
     預かり所: &Address,
+    私: &Device,
     宛先: PublicKey,
-    中身: &[u8],
+    今: u64,
+    本文: &[u8],
 ) -> Result<(), Error> {
-    let 封 = warifu_seal::seal(宛先, 中身)?;
+    let 封 = warifu_seal::seal(宛先, &手紙にする(私, 宛先, 今, 本文))?;
     let 返 = 一度だけ話す(
         node,
         預かり所,
@@ -89,10 +96,11 @@ pub async fn 預ける(
     }
 }
 
-/// **預かり所から受け取って、開ける。**
+/// **預かり所から受け取って、開けて、誰が言ったかを確かめる。**
 ///
-/// 開けられなかった封は**黙って捨てる**（自分あてでない物が混ざっていても、
-/// そこで全部が止まらないようにする）。
+/// 開けられなかった封と、**署名が合わなかった手紙は黙って捨てる。**
+/// 1 通のために全部が止まらないようにする ——
+/// **ただし「捨てた」ことは呼ぶ側が数えられる**（返る数と、預かり所が渡した数の差）。
 ///
 /// # Errors
 ///
@@ -101,7 +109,7 @@ pub async fn 受け取る(
     node: &Node,
     私: &Device,
     預かり所: &Address,
-) -> Result<Vec<Vec<u8>>, Error> {
+) -> Result<Vec<手紙>, Error> {
     let 返 = 一度だけ話す(node, 預かり所, &Ask::Take).await?;
     let Reply::Handed(封たち) = 返 else {
         return Err(Error::Unreadable);
@@ -110,6 +118,8 @@ pub async fn 受け取る(
         .iter()
         .filter_map(|b| warifu_seal::Sealed::from_bytes(b))
         .filter_map(|封| warifu_seal::open(私, &封).ok())
+        // **名乗りだけの言葉は通さない**（`letter.rs`）
+        .filter_map(|中身| 手紙を読む(私.public_key(), &中身))
         .collect())
 }
 
