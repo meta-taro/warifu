@@ -96,6 +96,25 @@ Claude Code なら、**そのエージェントが作業するフォルダの直
 
 **書いたあと、エージェントを立て直してください。**MCP の口は起動時に読まれます。
 
+### もう入っている場合（**入れ直す**）
+
+`warifu setup` は、**すでに入っていれば入れ直します。**
+
+```
+warifu の口は、もう入っています。入れ直します。
+
+  実体   /Users/…/warifu
+  いまの札 mcp --allow chat.send --allow chat.read --allow inbox.list
+  これから /Users/…/warifu mcp --allow chat.send --allow chat.read --allow profile.write
+```
+
+**いまの札と、これからの札を並べて出します。**許す動作が減ることもあるので、
+**押す前に見比べてください。**
+
+> **札を足したのに古いままだった、が起きます。**
+> 2026-09-08 に `profile.write` を足しましたが、**前に入れた人の設定は古いまま**でした
+> （`claude mcp add` は同じ名前があると断るので、入れ直せなかった）。
+
 ### 許せる動作
 
 | 動作 | 通る口 | 出るもの |

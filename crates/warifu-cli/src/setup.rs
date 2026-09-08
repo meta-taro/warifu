@@ -57,10 +57,22 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         )
         .collect();
 
-    println!("warifu の口を、Claude Code の利用者ごとの設定へ入れます。");
+    // **もう入っているなら、先に言う。**あとから 2 回目を尋ねない
+    let いまの札 = すでに入っている();
+    if いまの札.is_some() {
+        // **端末は Markdown を解釈しない。**`**` をそのまま出さない
+        println!("warifu の口は、もう入っています。入れ直します。");
+    } else {
+        println!("warifu の口を、Claude Code の利用者ごとの設定へ入れます。");
+    }
     println!();
     println!("  実体   {}", 実体.display());
-    println!("  許す   {}", 既定で許す.join(" "));
+    if let Some(古い) = &いまの札 {
+        println!("  いまの札 {古い}");
+        println!("  これから {} {}", 実体.display(), 引数.join(" "));
+    } else {
+        println!("  許す   {}", 既定で許す.join(" "));
+    }
     println!();
     println!("会話と、自分の席の名乗り（プロフィール）だけを許します。");
     println!("受信箱も予定表も許しません（要るなら自分で足してください）。");
@@ -85,6 +97,19 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // **入れ直すときは、先に外す。**`claude mcp add` は同じ名前があると断る ——
+    // そのままだと**「入れ直せない」＝ 許す動作を増やせない**
+    // （2026-09-08 に踏んだ。札を 1 つ足したのに、
+    // 前に入れた人はいつまでも古い札のままになる）
+    if いまの札.is_some() {
+        let 消した = Command::new("claude")
+            .args(["mcp", "remove", "warifu", "--scope", "user"])
+            .status()?;
+        if !消した.success() {
+            return Err("いまの設定を外せませんでした".into());
+        }
+    }
+
     let mut 命令 = Command::new("claude");
     命令.args(["mcp", "add", "warifu", "--scope", "user", "--"]);
     命令.arg(&実体);
@@ -96,6 +121,23 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     println!();
     println!("入りました。Claude Code を立て直すと、どのフォルダでも warifu が出ます。");
     Ok(())
+}
+
+/// すでに入っているか。入っていれば、**いま許してある札**を返す。
+///
+/// **入っているかどうかを、当てずっぽうで決めない。**`claude` に聞く。
+fn すでに入っている() -> Option<String> {
+    let 出た = Command::new("claude")
+        .args(["mcp", "get", "warifu"])
+        .output()
+        .ok()?;
+    if !出た.status.success() {
+        return None;
+    }
+    let 文 = String::from_utf8_lossy(&出た.stdout);
+    // `Args: mcp --allow chat.send …` の行から札だけを拾う
+    let 札 = 文.lines().find_map(|l| l.trim().strip_prefix("Args:"))?;
+    Some(札.trim().to_owned())
 }
 
 /// 人に尋ねる。**押していないものを押したことにしない。**
