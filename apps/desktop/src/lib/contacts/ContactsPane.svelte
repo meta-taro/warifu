@@ -79,6 +79,27 @@
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
 
+  /** 写せたことを見せる時間（ms）。**押した手応えが無いと、人は二度押す。** */
+  const 写した印の時間 = 1600;
+  let 写した = $state(false);
+
+  /**
+   * 自分の公開鍵を写す。**渡すのは全桁。**
+   *
+   * 画面に出しているのは頭だけ（人が読むため）だが、
+   * **渡すときに頭だけでは相手が使えない。**
+   */
+  async function 鍵を写す(key: string) {
+    try {
+      await navigator.clipboard.writeText(key);
+    } catch {
+      // **黙って失敗させない。**写せなければ、印を出さない
+      return;
+    }
+    写した = true;
+    setTimeout(() => (写した = false), 写した印の時間);
+  }
+
   const 区画 = $derived(連絡帳を組む(素材));
   const 相手 = $derived(
     区画.flatMap((s) => s.行たち).find((r) => r.key === 選んでいる) ?? null,
@@ -180,14 +201,29 @@
           </button>
         </div>
       {/if}
-      <!-- **自分を押しても行き止まりにしない。**
-           口は無いが、渡せるもの（公開鍵）と、何者かは出す -->
+      <!--
+        **自分の行は「プロフィール」である。**
+        人は自分の名前を押したら、名前やアバターを直せると思う（オーナー・2026-09-08）。
+        **warifu には自分で名乗る名前が無い** —— 呼び名は相手が付ける（**D46**）ので、
+        そのことを書く。**書かないと「まだ作っていないだけ」に見える。**
+
+        **ここに口を出すなら、効く口だけにする。**
+        公開鍵を渡すのは実際にやることなので、コピーだけを置く
+        （オーナー・2026-09-08「なにもつかえないなら、あることは誤解しか生みません」）。
+      -->
       {#if 相手.種類 === '自分'}
         <p class="hint">{t('contacts.me.what')}</p>
         <p class="key">
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>
+        <div class="tail">
+          <button type="button" class="quiet" onclick={() => 鍵を写す(相手.key)}>
+            <Icon name={写した ? 'check' : 'copy'} size={16} />
+            {写した ? t('contacts.me.copied') : t('contacts.me.copy')}
+          </button>
+        </div>
         <p class="hint">{t('contacts.me.share')}</p>
+        <p class="hint">{t('contacts.me.name')}</p>
       {/if}
       {#if 相手.種類 === '部屋'}
         <!-- **部屋は押して見るもの。**口は出さない（居るだけ） -->

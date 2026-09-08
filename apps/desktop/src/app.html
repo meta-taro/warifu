@@ -3,6 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      /*
+        **テーマを、描く前に決める。**
+        後から差すと、暗いテーマでも一瞬だけ白く光る。
+
+        `tokens.css` は `:root[data-theme='dark']` だけを持ち、
+        `@media (prefers-color-scheme)` を持たない（二重定義を避けるため）。
+        **その data-theme を立てる所が、2026-09-08 まで無かった** ——
+        ダークの値は書かれていたのに、**一度も出ていなかった。**
+      */
+      (() => {
+        const 暗いか = window.matchMedia('(prefers-color-scheme: dark)');
+        const 決める = () => {
+          document.documentElement.dataset.theme = 暗いか.matches ? 'dark' : 'light';
+        };
+        決める();
+        // **OS の切り替えに、その場で従う。**開き直させない
+        暗いか.addEventListener('change', 決める);
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

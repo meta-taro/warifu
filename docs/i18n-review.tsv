@@ -46,6 +46,9 @@ contacts.inmeeting	In the room now	いま同じ部屋に居る人	现在同一�
 contacts.key.label	Public key	公開鍵	公钥	공개키				
 contacts.late	Arrived while you were away	留守中に届いた相手	离线期间来信的人	부재 중에 온 상대				
 contacts.me	You	あなた	你	당신				
+contacts.me.copied	Copied	コピーしました	已复制	복사했습니다				
+contacts.me.copy	Copy public key	公開鍵をコピーする	复制公钥	공개키 복사				
+contacts.me.name	The name you appear under is chosen by each person you talk to. There is no name you declare yourself — a declared name can be copied by anyone.	あなたの呼び名は、相手がそれぞれ付けます。こちらから名乗る名前はありません（名乗った名前は誰でも真似できるためです）。	你显示的称呼由对方各自设定。这里没有自己申报的名字——申报的名字谁都能冒充。	당신의 호칭은 상대가 각자 붙입니다. 스스로 대는 이름은 없습니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				
 contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには鍵が要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。	이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).				
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				

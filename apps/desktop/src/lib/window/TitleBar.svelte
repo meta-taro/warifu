@@ -28,7 +28,31 @@
 
 <!-- 地そのものが掴む所。中身は pointer-events:none で地へ貫通させる -->
 <div class="bar" data-tauri-drag-region>
-  <span class="lead"><span class="brand-dot"></span>{t('app.name')}</span>
+  <span class="lead">
+    <!--
+      **割符の印。**アプリの顔（`icons/`）と同じ物を、帯の大きさで描く。
+      **`--accent` を使わない**（DESIGN.md §4-A）—— アクセントは
+      「操作できる一点」の色で、アプリの顔はそこから外してある。
+      2026-09-08 まで、ここだけアクセント色の四角が置かれていた。
+    -->
+    <!--
+      寸法は `scripts/make-icon.py` の比をそのまま使う（16 を 1 とする）——
+      角丸 0.22 ／ 板 0.50 × 0.66 ／ 割れ目 0.095 ／ 振れ幅 0.105 ／ 歯 2 つ。
+      **目分量で描き直さない。**アイコンと帯で形が違うと、同じ物に見えない。
+    -->
+    <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <rect width="16" height="16" rx="3.52" fill="#cdb295" />
+      <rect x="4" y="2.72" width="8" height="10.56" rx="0.72" fill="#7b5a3e" />
+      <!-- 割れ目。**両側が同じ線で抜かれる = 噛み合う**（片方をずらして描かない） -->
+      <path
+        d="M9.68 2.72 L6.32 5.36 L9.68 8 L6.32 10.64 L9.68 13.28"
+        fill="none"
+        stroke="#cdb295"
+        stroke-width="1.52"
+      />
+    </svg>
+    {t('app.name')}
+  </span>
   <span class="center">{status}</span>
   <span class="ctrls">
     {#each controls as c (c.id)}
@@ -67,11 +91,9 @@
     padding: 0 var(--space-4);
     font-weight: 600;
   }
-  .brand-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-    background: var(--accent);
+  .brand-mark {
+    width: 14px;
+    height: 14px;
     flex: none;
   }
   .center {

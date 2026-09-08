@@ -3,9 +3,15 @@
  * ------------------------------------------------------------------
  * - ライトを既定（:root）、ダークは :root[data-theme='dark'] で「値だけ」上書きする。
  * - @media (prefers-color-scheme) との二重定義を持たない。持つとダーク値の管理が
- *   二重化して必ずずれる。初期化スクリプトが paint 前に data-theme を必ず立てる。
+ *   二重化して必ずずれる。data-theme は `app.html` の頭のスクリプトが
+ *   **描く前に**立てる（OS の切り替えにもその場で従う）。
+ *   **2026-09-08 まで、その所が無かった** —— ダークの値は書かれていたのに、
+ *   **一度も出ていなかった。**
  * - **コンポーネントは色をハードコードしない。**必ずこのファイルのトークンを参照する。
- * - この値は md-business から引き写したもの（D33）。**変えるときは DESIGN.md と同じ commit で。**
+ * - **色はアイコンから採る**（**D73**・2026-09-08 オーナー指示
+ *   「まず全体の色味をアイコンで決めてきた色調にしたほうがいい」）。
+ *   地はカフェオレ（`#cdb295`）、操作の色は木（`#7b5a3e`）、濃い木目（`#6b4c33`）。
+ *   **変えるときは DESIGN.md と同じ commit で。**
  */
 
 :root {
@@ -13,36 +19,39 @@
   color-scheme: light;
 
   /* ── §3.1 アクセント ────────────────────────────────────── */
-  --accent: #5b5bd6;
-  --accent-hover: #4f4fc9;
-  --accent-active: #4444b8;
-  --accent-subtle: #eeeefb;
-  --accent-border: #d5d5f5;
+  /* 木の板（アイコンの印そのもの）。**押せる一点の色** */
+  --accent: #7b5a3e;
+  --accent-hover: #6b4c33;
+  --accent-active: #5a3f2b;
+  --accent-subtle: #f3e9dd;
+  --accent-border: #e0cdb6;
 
-  /* ── §3.2 ニュートラル ──────────────────────────────────── */
-  --bg-app: #ffffff;
-  --bg-subtle: #fbfbfd;
-  --bg-sunken: #f4f4f7;
-  --bg-elevated: #ffffff;
-  --bg-hover: #f6f6f9;
-  --border: #e8e8ed;
-  --border-strong: #d4d4dc;
-  --text-primary: #1c1c22;
-  --text-secondary: #63636e;
-  --text-tertiary: #9b9ba5;
-  --text-on-accent: #ffffff;
+  /* ── §3.2 ニュートラル（カフェオレへ寄せた温かい灰） ─────── */
+  --bg-app: #fffdfa;
+  --bg-subtle: #faf6f0;
+  --bg-sunken: #f2ebe1;
+  --bg-elevated: #fffdfa;
+  --bg-hover: #f5eee4;
+  --border: #e7ddd0;
+  --border-strong: #d5c6b3;
+  --text-primary: #241d16;
+  --text-secondary: #6b5c4c;
+  --text-tertiary: #9b8c7b;
+  --text-on-accent: #fffdfa;
 
   /* ── §3.3 セマンティック（地 / 文字） ───────────────────── */
-  --success-bg: #e7f6ec;
-  --success-fg: #1a7f42;
-  --warning-bg: #fdf3e2;
-  --warning-fg: #9a6a00;
-  --neutral-bg: #f0f0f3;
-  --neutral-fg: #63636e;
-  --danger-bg: #fcebec;
-  --danger-fg: #b4232a;
-  --info-bg: #e9f1fd;
-  --info-fg: #1f5fc0;
+  /* **意味の色は、意味のまま残す**（緑は通った・赤は危ない）。
+     地だけを温かい側へ寄せて、周りから浮かないようにする */
+  --success-bg: #e8f3e4;
+  --success-fg: #2f6f3a;
+  --warning-bg: #fbf0dc;
+  --warning-fg: #8a6412;
+  --neutral-bg: #f2ebe1;
+  --neutral-fg: #6b5c4c;
+  --danger-bg: #f9e9e4;
+  --danger-fg: #a83a2c;
+  --info-bg: #eaf0f2;
+  --info-fg: #3a6274;
 
   /* ── §4 warifu 固有の第 3 軸 ─────────────────────────────
      「どうなっているか」ではなく「何であるか」。セマンティックから借りない。
@@ -108,10 +117,10 @@
   --radius-full: 999px;
 
   /* ── §6 影（ライト・低アルファ） ────────────────────────── */
-  --shadow-xs: 0 1px 2px rgba(20, 20, 30, 0.04);
-  --shadow-sm: 0 1px 3px rgba(20, 20, 30, 0.06), 0 1px 2px rgba(20, 20, 30, 0.04);
-  --shadow-md: 0 4px 12px rgba(20, 20, 30, 0.08), 0 2px 4px rgba(20, 20, 30, 0.04);
-  --shadow-lg: 0 12px 32px rgba(20, 20, 30, 0.14);
+  --shadow-xs: 0 1px 2px rgba(60, 42, 26, 0.05);
+  --shadow-sm: 0 1px 3px rgba(60, 42, 26, 0.07), 0 1px 2px rgba(60, 42, 26, 0.05);
+  --shadow-md: 0 4px 12px rgba(60, 42, 26, 0.1), 0 2px 4px rgba(60, 42, 26, 0.05);
+  --shadow-lg: 0 12px 32px rgba(60, 42, 26, 0.16);
 
   /* ── §6 モーション ──────────────────────────────────────── */
   --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -127,34 +136,37 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --accent: #7c7cf0;
-  --accent-hover: #8f8ff5;
-  --accent-active: #a0a0f7;
-  --accent-subtle: #1e1e3a;
-  --accent-border: #33335c;
+  /* **暗い所では、木は沈む。**アイコンの地（カフェオレ）を操作の色にする。
+     色そのものは変えていない —— 明暗の役割を入れ替えただけである */
+  --accent: #cdb295;
+  --accent-hover: #dbc4aa;
+  --accent-active: #e6d4bf;
+  --accent-subtle: #2e2419;
+  --accent-border: #453626;
 
-  --bg-app: #0f0f13;
-  --bg-subtle: #141418;
-  --bg-sunken: #1a1a20;
-  --bg-elevated: #1b1b21;
-  --bg-hover: #1f1f26;
-  --border: #26262d;
-  --border-strong: #34343d;
-  --text-primary: #f4f4f6;
-  --text-secondary: #a0a0ab;
-  --text-tertiary: #6b6b76;
-  --text-on-accent: #ffffff;
+  --bg-app: #14100c;
+  --bg-subtle: #1a1511;
+  --bg-sunken: #211a14;
+  --bg-elevated: #231c16;
+  --bg-hover: #2b231b;
+  --border: #31281f;
+  --border-strong: #42362b;
+  --text-primary: #f6f1ea;
+  --text-secondary: #b3a493;
+  --text-tertiary: #7d7062;
+  /* **淡い地には濃い文字。**白のままだと読めない */
+  --text-on-accent: #241d16;
 
-  --success-bg: #12291b;
-  --success-fg: #4ade80;
-  --warning-bg: #2a2109;
-  --warning-fg: #f5c451;
-  --neutral-bg: #22222a;
-  --neutral-fg: #a0a0ab;
-  --danger-bg: #2a1113;
-  --danger-fg: #f2777c;
-  --info-bg: #0f1d33;
-  --info-fg: #6fa8f5;
+  --success-bg: #14251a;
+  --success-fg: #86c98d;
+  --warning-bg: #2a2010;
+  --warning-fg: #e5bd6f;
+  --neutral-bg: #241d16;
+  --neutral-fg: #b3a493;
+  --danger-bg: #2a1512;
+  --danger-fg: #e8998a;
+  --info-bg: #14212a;
+  --info-fg: #8fb4c4;
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
