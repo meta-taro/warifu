@@ -1107,6 +1107,15 @@ fn desk_seats() -> Vec<String> {
     desk::着いている顔ぶれ()
 }
 
+/// **同じ PC の AI に「止まれ」と言う。**
+///
+/// 常駐（`warifu agent`）は人が居ない間も動く。
+/// **落とすしか止め方が無い状態にしない**（`issues/014`）。
+#[tauri::command]
+async fn stop_agent(bridge: State<'_, Bridge>, name: String) -> Answer<bool> {
+    Ok(desk::席を止める(&bridge, &name))
+}
+
 /// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。
 #[tauri::command]
 async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool> {
@@ -1195,6 +1204,7 @@ pub fn run() {
             call_contact,
             stop_knowing,
             known_keys,
+            stop_agent,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())

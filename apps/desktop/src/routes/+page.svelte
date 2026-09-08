@@ -63,6 +63,7 @@
     callContact,
     stopKnowing,
     knownKeys,
+    stopAgent,
     type ContactRow,
     hostMeeting,
     inTauri,
@@ -238,6 +239,20 @@
     try {
       await stopKnowing(key);
       await 名簿を読む();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  /**
+   * 同じ PC の AI に「止まれ」と言う。
+   *
+   * **落とすしか止め方が無い状態にしない**（`issues/014`）。
+   * 相手を殺すのではなく、**受けた側が自分で降りる。**
+   */
+  async function AIを止める(呼び方: string) {
+    try {
+      await stopAgent(呼び方);
     } catch (e) {
       notice = 読める(e);
     }
@@ -894,6 +909,7 @@
         呼んでいる={呼んでいる}
         名前を付ける={(key, label) => void 名前を付ける(key, label)}
         降ろす={(key) => void 戸口から降ろす(key)}
+        止める={(呼び方) => void AIを止める(呼び方)}
         {鍵なしで入れる}
       />
       <ChatPanel

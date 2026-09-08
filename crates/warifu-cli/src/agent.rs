@@ -37,6 +37,40 @@ use warifu_desk::{FromDesk, ToDesk, 口, 机の場所, 繋ぐ};
 /// **終わらない命令に机を塞がせない。**
 const 命令を待つ秒: u64 = 300;
 
+/// 窓のあいだに動いてよい回数。
+///
+/// **人が居ない間に動くものに、上限を置かないわけにいかない。**
+/// 洪水を送るだけで、この機械の上で命令を何度でも起こせることになる
+/// （戸口が知らない相手の叩きに上限を置いているのと同じ理由・**D31**）。
+const 窓のあいだに動ける回数: usize = 60;
+
+/// 数える窓の長さ（秒）。
+const 窓の秒: u64 = 60;
+
+/// 動いた回数を、窓のあいだで数える。
+struct 回数 {
+    窓のはじまり: std::time::Instant,
+    動いた: usize,
+}
+
+impl 回数 {
+    fn 新しく() -> Self {
+        Self {
+            窓のはじまり: std::time::Instant::now(),
+            動いた: 0,
+        }
+    }
+
+    /// 動いてよいか。**上限を超えたら断る。**
+    fn 動いてよい(&mut self) -> bool {
+        if self.窓のはじまり.elapsed().as_secs() >= 窓の秒 {
+            *self = Self::新しく();
+        }
+        self.動いた += 1;
+        self.動いた <= 窓のあいだに動ける回数
+    }
+}
+
 /// `warifu agent` の設定。
 pub struct 設定 {
     /// 机の場所。
@@ -102,13 +136,40 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         )
     );
 
+    let mut 数 = 回数::新しく();
     while let Some(行) = 口.受ける().await? {
-        let Ok(FromDesk::Heard { from, body, at }) = FromDesk::読む(&行) else {
-            // 発言以外（入退室・断り）は動く理由にしない
-            continue;
+        let (from, body, at) = match FromDesk::読む(&行) {
+            Ok(FromDesk::Heard { from, body, at }) => (from, body, at),
+            // **人が画面から止めた。**落とすしか止め方が無い状態にしない
+            Ok(FromDesk::Stop) => {
+                eprintln!("止まれと言われました。降ります。");
+                return Ok(());
+            }
+            // 入退室・断りは動く理由にしない
+            _ => continue,
         };
         eprintln!("[{at}] {from}: {body}");
         let Some(命令) = &設.命令 else { continue };
+
+        // **上限を超えたら動かない。**洪水で命令を起こし続けられないようにする
+        if !数.動いてよい() {
+            eprintln!(
+                "（{}秒に{}回を超えたので動きません）",
+                窓の秒, 窓のあいだに動ける回数
+            );
+            continue;
+        }
+
+        // **自分が言ったことで動かない。**返した文字がまた自分へ返ると、
+        // 止まらなくなる（机は言った本人に返さないが、**別の席の自分**は別物である）
+        if 設
+            .名乗り
+            .as_deref()
+            .is_some_and(|名| from == format!("{名} の AI"))
+        {
+            eprintln!("（自分の発言なので動きません）");
+            continue;
+        }
 
         // **一度に 1 つだけ。**受けている間は次を読まないので、重ならない
         match 起こす(命令, &body).await {
@@ -118,9 +179,28 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                     口.送る(&言う.書く()).await?;
                 }
             }
-            Ok(_) => eprintln!("（何も言わなかった）"),
-            Err(e) => eprintln!("命令が失敗しました: {e}"),
+            // **何も言わなかったことも、会話に残す。**
+            // 人が居ない間に動くので、**何も出ないと「動いたのか」が分からない**
+            Ok(_) => 言い残す(&mut 口, "（動きましたが、何も言いませんでした）").await?,
+            Err(e) => {
+                eprintln!("命令が失敗しました: {e}");
+                言い残す(&mut 口, &format!("（動きましたが、失敗しました: {e}）")).await?;
+            }
         }
+    }
+    Ok(())
+}
+
+/// 会話に一言残す。**残せなくても止めない。**
+///
+/// 人が居ない間に動くので、**何も出ないと「動いたのか」が分からない。**
+async fn 言い残す(
+    口: &mut 口<impl warifu_desk::一本>,
+    一言: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    eprintln!("{一言}");
+    if let Ok(言う) = ToDesk::say(一言) {
+        口.送る(&言う.書く()).await?;
     }
     Ok(())
 }

@@ -159,6 +159,15 @@ export const stopKnowing = (key: string) => invoke<boolean>('stop_knowing', { ke
 export const knownKeys = () => invoke<string[]>('known_keys');
 
 /**
+ * **同じ PC の AI に「止まれ」と言う。**
+ *
+ * 常駐（`warifu agent`）は人が居ない間も動く。
+ * **落とすしか止め方が無い状態にしない。**
+ * 相手のプロセスを殺すのではなく、**受けた側が自分で降りる。**
+ */
+export const stopAgent = (name: string) => invoke<boolean>('stop_agent', { name });
+
+/**
  * 画面の出来事を、Rust と同じログへ流す。
  *
  * WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、

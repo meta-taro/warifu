@@ -232,6 +232,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Joined { who } => format!("\t{who}\t（入室）"),
             FromDesk::Left { who } => format!("\t{who}\t（退室）"),
             FromDesk::Sent { to } => format!("\t\t（{to} 人へ流しました）"),
+            FromDesk::Stop => "\t\t（止まれと言われました）".to_owned(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
         })

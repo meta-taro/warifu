@@ -28,6 +28,8 @@
     名前を付ける: (key: string, label: string) => void;
     /** 相手を戸口から降ろす。 */
     降ろす: (key: string) => void;
+    /** 同じ PC の AI に「止まれ」と言う。 */
+    止める: (呼び方: string) => void;
     /**
      * **いま会議キーなしで入れる相手**の公開鍵。
      *
@@ -45,6 +47,7 @@
     呼んでいる,
     名前を付ける,
     降ろす,
+    止める,
     鍵なしで入れる,
   }: Props = $props();
 
@@ -179,6 +182,16 @@
         <p class="key">
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>
+      {/if}
+      {#if 相手.種類 === 'AI' && 相手.いま会議に居る}
+        <!-- **落とすしか止め方が無い状態にしない**（`issues/014`）。
+             相手を殺すのではなく、受けた側が自分で降りる -->
+        <div class="tail">
+          <button type="button" class="quiet" onclick={() => 止める(相手.name)}>
+            {t('act.desk.stop')}
+          </button>
+        </div>
+        <p class="why">{t('act.desk.stop.hint')}</p>
       {/if}
       {#if 相手.種類 === 'AI' && !相手.いま会議に居る}
         <!-- **「居ません」だけでは、どうすればよいか分からない。**手順まで出す -->

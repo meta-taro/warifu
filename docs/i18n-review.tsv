@@ -6,6 +6,8 @@ act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중�
 act.chat	Chat	チャットする	聊天	채팅하기				
 act.desk.empty	No agent is at the desk.	机に誰も着いていません。	桌旁没有人。	책상에 아무도 없습니다.				
 act.desk.local	The AI on this computer is in the room from the start. There is nothing to bring in.	この PC の AI は、はじめから同じ部屋に居ます。入れる必要はありません。	这台电脑的 AI 从一开始就在同一个房间里，不需要请进来。	이 PC 의 AI 는 처음부터 같은 방에 있습니다. 들일 필요가 없습니다.				
+act.desk.stop	Stop this AI	この AI を止める	让这个 AI 停下	이 AI 를 멈추기				
+act.desk.stop.hint	It is told to stop. Nothing is killed — the other side steps down on its own. To run it again, start it there.	「止まれ」と伝えます。相手を殺すのではなく、受けた側が自分で降ります。もう一度動かすには、そちらで立ち上げ直してください。	会传达「停下」。不是杀掉对方，而是收到的一方自己退出。要再次运行，请在那边重新启动。	「멈추라」고 전합니다. 상대를 죽이는 것이 아니라, 받은 쪽이 스스로 내려옵니다. 다시 움직이려면 그쪽에서 다시 시작해 주세요.				
 act.mail	Send mail	メールを送る	发送邮件	메일 보내기				
 act.mail.none	Not possible yet. warifu has no way to send mail at all (it can only read).	まだ送れません。warifu にメールを送る経路が、まだ 1 本もありません（読む口だけがあります）。	还发不了。warifu 目前完全没有发送邮件的通道（只有读取的口）。	아직 보낼 수 없습니다. warifu 에는 메일을 보내는 경로가 하나도 없습니다 (읽는 입구만 있습니다).	★	「まだ送れません」は「いま経路が無い」という事実である。「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。この画面でいちばん重い事故は、送ったつもりで送られていないことである。また「準備中です」「近日対応」のような、待てば来ると読める訳にもしないこと。		
 app.name	warifu	warifu	warifu	warifu				

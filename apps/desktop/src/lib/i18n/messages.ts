@@ -78,6 +78,8 @@ export type MessageKey =
   | 'act.already'
   | 'act.desk.local'
   | 'act.desk.empty'
+  | 'act.desk.stop'
+  | 'act.desk.stop.hint'
   | 'schedule.title'
   | 'schedule.none'
   | 'chat.placeholder.nobody'
@@ -216,6 +218,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': 'すでに同じ部屋に居ます。',
     'act.desk.local': 'この PC の AI は、はじめから同じ部屋に居ます。入れる必要はありません。',
     'act.desk.empty': '机に誰も着いていません。',
+    'act.desk.stop': 'この AI を止める',
+    'act.desk.stop.hint': '「止まれ」と伝えます。相手を殺すのではなく、受けた側が自分で降ります。もう一度動かすには、そちらで立ち上げ直してください。',
     'schedule.title': '予定',
     'schedule.none': '予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。',
     'chat.placeholder.nobody': '入ってきたら送れます',
@@ -326,6 +330,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': 'Already in the same room.',
     'act.desk.local': 'The AI on this computer is in the room from the start. There is nothing to bring in.',
     'act.desk.empty': 'No agent is at the desk.',
+    'act.desk.stop': 'Stop this AI',
+    'act.desk.stop.hint': 'It is told to stop. Nothing is killed — the other side steps down on its own. To run it again, start it there.',
     'schedule.title': 'Schedule',
     'schedule.none': 'The schedule pane does not work yet. There is no way for the window to read a calendar.',
     'chat.placeholder.nobody': 'You can send once someone joins',
@@ -436,6 +442,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': '已经在同一个房间里了。',
     'act.desk.local': '这台电脑的 AI 从一开始就在同一个房间里，不需要请进来。',
     'act.desk.empty': '桌旁没有人。',
+    'act.desk.stop': '让这个 AI 停下',
+    'act.desk.stop.hint': '会传达「停下」。不是杀掉对方，而是收到的一方自己退出。要再次运行，请在那边重新启动。',
     'schedule.title': '日程',
     'schedule.none': '日程还不能用。画面还没有读取日程表的口。',
     'chat.placeholder.nobody': '有人进入后即可发送',
@@ -546,6 +554,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.already': '이미 같은 방에 있습니다.',
     'act.desk.local': '이 PC 의 AI 는 처음부터 같은 방에 있습니다. 들일 필요가 없습니다.',
     'act.desk.empty': '책상에 아무도 없습니다.',
+    'act.desk.stop': '이 AI 를 멈추기',
+    'act.desk.stop.hint': '「멈추라」고 전합니다. 상대를 죽이는 것이 아니라, 받은 쪽이 스스로 내려옵니다. 다시 움직이려면 그쪽에서 다시 시작해 주세요.',
     'schedule.title': '일정',
     'schedule.none': '일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.',
     'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
