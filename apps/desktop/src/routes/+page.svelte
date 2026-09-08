@@ -93,6 +93,9 @@
     sendToContact,
     postbox,
     setPostbox,
+    profiles,
+    setProfile,
+    type ProfileRow,
     fetchPostbox,
     setMenuLocale,
     shouldOfferTo,
@@ -199,6 +202,12 @@
    * 受け取っておいて出さないのは、黙って捨てるのと同じに見える。
    */
   let 留守中に届いた = $state<string[]>([]);
+  /**
+   * この端末のプロフィール（**人と、この PC の AI**）。
+   *
+   * **書き換えられるのはこの端末の持ち主だけ**（`profile.rs`）。
+   */
+  let 名乗りたち = $state<ProfileRow[]>([]);
 
   /**
    * いま打ったものが届く先。**1 対 1 か 1 対 N かは、これを見れば分かる。**
@@ -271,6 +280,11 @@
   const 連絡帳の素材 = $derived({
     自分: 自分の鍵,
     机のAIたち,
+    // **立ち上げていない席も並べる。**エージェントはそれぞれが 1 人であり、
+    // 消えると、その 1 人ぶんの名乗りが編集できなくなる（2026-09-08）
+    名乗りのある席: 名乗りたち
+      .filter((p) => p.who.startsWith(机の印))
+      .map((p) => p.who.slice(机の印.length)),
     部屋たち,
     会議の相手: remotes.map((r) => r.key),
     覚えた,
@@ -476,6 +490,7 @@
       await 部屋を読み直す();
       members = [{ key: me, me: true, host: true, path: 'unknown' }];
       void 名簿を読む();
+      名乗りたち = (await profiles()) ?? [];
       // **覚えているテーマを、画面の状態にも持つ**（当てるのは app.html が済ませている）
       テーマの選び = 読み取る(localStorage.getItem(覚える鍵));
       // **置いてある預かり所を、画面にも出す。**
@@ -899,6 +914,21 @@
     }
   }
 
+  /**
+   * プロフィールを書く（**この端末の人と、この PC の AI**）。
+   *
+   * **名乗りは本人確認にしない**（D46）。相手が付けた呼び名があれば、そちらが勝つ。
+   */
+  async function 名乗りを書く(who: string, name: string, bio: string) {
+    notice = '';
+    try {
+      await setProfile(who, name, bio);
+      名乗りたち = (await profiles()) ?? [];
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   async function 入室する() {
     if (入室中) return;
     notice = '';
@@ -1222,6 +1252,8 @@
         止める={(呼び方) => void AIを止める(呼び方)}
         {鍵なしで入れる}
         預かり所がある={!!預かり所}
+        プロフィール={名乗りたち}
+        名乗りを書く={(who, name, bio) => void 名乗りを書く(who, name, bio)}
       />
       <!--
         **自分を選んでいる間は、会話の枠を出さない。**

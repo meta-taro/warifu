@@ -38,6 +38,7 @@
 
 mod contacts;
 mod error;
+mod profile;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -47,6 +48,7 @@ use zeroize::Zeroize as _;
 
 pub use contacts::{Contact, Contacts};
 pub use error::Error;
+pub use profile::{BIO_MAX, Bad, NAME_MAX, Profile, Profiles, Who};
 
 /// 環境変数でこの場所を差し替えられる。**別の身元で試すときに使う。**
 pub const HOME_ENV: &str = "WARIFU_HOME";
@@ -62,6 +64,8 @@ const CONTACTS_HEADER_V1: &str = "warifu-contacts-v1";
 /// **止まるほうがよい。**版を先頭に書いてあるのは、まさにこのためである。
 const CONTACTS_HEADER_V2: &str = "warifu-contacts-v2";
 const KNOWN_HEADER: &str = "warifu-known-v1";
+/// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
+const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
 const POSTBOX_HEADER: &str = "warifu-postbox-v1";
 /// base32 にした 32 byte の長さ。
@@ -129,6 +133,21 @@ impl Vault {
     #[must_use]
     pub fn postbox_path(&self) -> PathBuf {
         self.dir.join("postbox.txt")
+    }
+
+    /// プロフィールのある場所。
+    #[must_use]
+    pub fn profiles_path(&self) -> PathBuf {
+        self.dir.join("profiles.tsv")
+    }
+
+    /// 差し替えた顔を置く所。
+    ///
+    /// **画像はここにしか置かない。**外の場所を指させると、
+    /// 消えた・入れ替わったファイルを指したまま配ることになる。
+    #[must_use]
+    pub fn avatars_dir(&self) -> PathBuf {
+        self.dir.join("avatars")
     }
 
     /// 身元がもうあるか。
@@ -311,6 +330,38 @@ impl Vault {
         self.write_private(&self.postbox_path(), &out, "預かり所を書く")
     }
 
+    /// プロフィールを読む。**無ければ空。**
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn profiles(&self) -> Result<Profiles, Error> {
+        let path = self.profiles_path();
+        if !path.exists() {
+            return Ok(Profiles::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "プロフィールを読む"))?;
+        parse_profiles(&path, &text)
+    }
+
+    /// プロフィールを書き出す。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_profiles(&self, profiles: &Profiles) -> Result<(), Error> {
+        let mut out = String::from(PROFILES_HEADER);
+        out.push('\n');
+        for p in profiles.iter() {
+            out.push_str(&format!(
+                "{}\t{}\t{}\t{}\n",
+                p.who().to_field(),
+                p.name(),
+                p.bio(),
+                p.avatar().unwrap_or_default()
+            ));
+        }
+        self.write_private(&self.profiles_path(), &out, "プロフィールを書く")
+    }
+
     fn write_seed(&self, seed: &Seed) -> Result<(), Error> {
         let mut bytes = seed.to_bytes();
         let mut text = format!("{SEED_HEADER}\n{}\n", base32::encode(&bytes));
@@ -410,6 +461,40 @@ fn parse_phrase(path: &Path, phrase: &str) -> Result<Seed, Error> {
 ///
 /// **1 行壊れただけで全員が入れなくなるのは、代償が大きすぎる**（名簿と同じ構え）。
 /// 読めない行は捨てて先へ進む。
+/// プロフィールを読む。**壊れた行は捨てて先へ進む**（名簿と同じ構え）。
+fn parse_profiles(path: &Path, text: &str) -> Result<Profiles, Error> {
+    let mut lines = text.lines();
+    let header = lines.next().unwrap_or_default().trim();
+    if header != PROFILES_HEADER {
+        return Err(Error::malformed(
+            path,
+            format!("見出しが違います（{PROFILES_HEADER} を待っていました）"),
+        ));
+    }
+
+    let mut 面々 = Profiles::new();
+    for line in lines {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let mut 欄 = line.split('\t');
+        let (Some(誰), Some(名), Some(一言)) = (欄.next(), 欄.next(), 欄.next()) else {
+            continue;
+        };
+        let Some(who) = Who::from_field(誰.trim()) else {
+            continue;
+        };
+        // **上限を超えた行は捨てる。**書けない値を読み戻さない
+        let Ok(mut p) = Profile::new(who, 名, 一言) else {
+            continue;
+        };
+        // 顔は欄が無くてもよい（古い行・置いていない人）
+        let _ = p.set_avatar(欄.next());
+        面々.put(p);
+    }
+    Ok(面々)
+}
+
 fn parse_known(path: &Path, text: &str) -> Result<Vec<PublicKey>, Error> {
     let mut lines = text.lines();
     let header = lines.next().unwrap_or_default().trim();

@@ -48,7 +48,7 @@ contacts.late	Arrived while you were away	留守中に届いた相手	离线期�
 contacts.me	You	あなた	你	당신				
 contacts.me.copied	Copied	コピーしました	已复制	복사했습니다				
 contacts.me.copy	Copy public key	公開鍵をコピーする	复制公钥	공개키 복사				
-contacts.me.name	The name you appear under is chosen by each person you talk to. There is no name you declare yourself — a declared name can be copied by anyone.	あなたの呼び名は、相手がそれぞれ付けます。こちらから名乗る名前はありません（名乗った名前は誰でも真似できるためです）。	你显示的称呼由对方各自设定。这里没有自己申报的名字——申报的名字谁都能冒充。	당신의 호칭은 상대가 각자 붙입니다. 스스로 대는 이름은 없습니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				
+contacts.me.name	The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.	ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。	你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。	여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				
 contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには鍵が要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。	이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).				
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
@@ -95,6 +95,14 @@ postbox.received	{n} message(s) had arrived while you were away.	留守中に届
 postbox.save	Set	置く	设置	두기				
 postbox.saved	Mailbox set.	預かり所を置きました。	已设置寄存处。	보관소를 두었습니다.				
 postbox.title	Mailbox (optional)	預かり所（任意）	寄存处（可选）	보관소 (선택)				
+profile.ai.hint	Written by the owner of this computer. The AI cannot change it itself — if it could, it could pose as another agent at the same desk.	この PC の持ち主が書きます。AI 自身は書き換えられません（書き換えられると、同じ机の別のエージェントに化けられるためです）。	由这台电脑的主人填写。AI 自己不能改——能改的话，就可以冒充同一张桌子上的其他智能体。	이 PC 의 주인이 씁니다. AI 스스로는 바꿀 수 없습니다 (바꿀 수 있으면 같은 책상의 다른 에이전트로 둔갑할 수 있기 때문입니다).				
+profile.ai.who	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
+profile.bio	Short bio	短い紹介	简介	짧은 소개				
+profile.cancel	Cancel	やめる	取消	그만두기				
+profile.edit	Edit profile	プロフィールを書く	编辑资料	프로필 쓰기				
+profile.name	Name	名前	名字	이름				
+profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
+profile.save	Save	決める	保存	정하기				
 revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{device} 해지	★	実行を促す文言。ここで「試す」「確認する」に寄せると、押した先が最終であることが伝わらない。		
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a key and someone can come in.	まだ自分だけです。鍵を渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				

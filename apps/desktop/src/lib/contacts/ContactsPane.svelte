@@ -11,6 +11,8 @@
   import { MESSAGES, type MessageKey } from '$lib/i18n/messages';
   import { 鍵の頭 } from '$lib/meeting/names';
   import Icon, { type IconName } from '$lib/ui/Icon.svelte';
+  import Avatar from './Avatar.svelte';
+  import type { ProfileRow } from '$lib/bridge';
   import { できること, type 口の種類 } from './actions';
   import { 机の印, 部屋か, 連絡帳を組む, type 行, type 素材 as 連絡帳の素材 } from './list';
 
@@ -43,6 +45,15 @@
      * 置いていれば、**相手が起動していなくても**文字は届く。
      */
     預かり所がある?: boolean;
+    /**
+     * この端末のプロフィール（**人と、この PC の AI**）。
+     *
+     * **書き換えられるのはこの端末の持ち主だけ。**AI 自身の口には無い ——
+     * 自分の名前を書き換えられると、**同じ机の別のエージェントに化けられる。**
+     */
+    プロフィール?: readonly ProfileRow[];
+    /** プロフィールを書く。**名前も紹介も空にすると消える。** */
+    名乗りを書く?: (who: string, name: string, bio: string) => void;
   }
   const {
     locale,
@@ -56,6 +67,8 @@
     止める,
     鍵なしで入れる,
     預かり所がある = false,
+    プロフィール = [],
+    名乗りを書く = () => {},
   }: Props = $props();
 
   /**
@@ -131,8 +144,44 @@
    * （`zumen の AI` など）ので、訳そうとすると空になる（2026-09-08 に実物で出た）。
    */
   function 名(行: 行): string {
+    // **名乗っているなら、その名前で呼ぶ**（この端末の人と AI だけ・2026-09-08）
+    const 名乗り = 名乗りを引く(行)?.name;
+    if (名乗り) return 名乗り;
     if (行.種類 === '自分' || 行.key === 机の印) return t(行.name as MessageKey);
     return 行.name;
+  }
+
+  /** いま名乗りを書き換えている行の key。 */
+  let 名乗り書き中 = $state<string | null>(null);
+  let 名前の下書き = $state('');
+  let 紹介の下書き = $state('');
+
+  /** 名乗りを書き始める。**いま書いてあるものを入れておく**（消してから書き直させない）。 */
+  function 名乗りを始める(行: 行) {
+    const いま = 名乗りを引く(行);
+    名前の下書き = いま?.name ?? '';
+    紹介の下書き = いま?.bio ?? '';
+    名乗り書き中 = 行.key;
+  }
+
+  /** 書いたものを決める。**空にすると、その 1 人ぶんが消える。** */
+  function 名乗りを決める(行: 行) {
+    const 誰 = 行.種類 === '自分' ? 'me' : 行.key;
+    名乗りを書く(誰, 名前の下書き.trim(), 紹介の下書き.trim());
+    名乗り書き中 = null;
+  }
+
+  /** その行のプロフィール。**この端末の人と AI にしかない。** */
+  function 名乗りを引く(行: 行): ProfileRow | undefined {
+    if (行.種類 === '自分') return プロフィール.find((p) => p.who === 'me');
+    if (行.種類 !== 'AI') return undefined;
+    // 机の行の key は `desk:<呼び方>`。**着いていないときの行（`desk:`）は素通し**
+    return プロフィール.find((p) => p.who === 行.key);
+  }
+
+  /** 差し替えた顔があれば、その置き場所。 */
+  function 顔の画像(行: 行): string | null {
+    return 名乗りを引く(行)?.avatar ?? null;
   }
 </script>
 
@@ -153,10 +202,12 @@
           class:on={行.key === 選んでいる}
           onclick={() => 選ぶ(行.key)}
         >
-          <Icon
-            name={部屋か(行.key) ? 'chat' : 行.key === 机の印 ? 'desk' : 'people'}
-            size={16}
-          />
+          <!-- **部屋は顔を持たない。**人と AI にだけ顔を出す -->
+          {#if 部屋か(行.key)}
+            <Icon name="chat" size={16} />
+          {:else}
+            <Avatar 種={行.key} 大きさ={20} 画像={顔の画像(行)} 名={名(行)} />
+          {/if}
           <span class="name">{名(行)}</span>
           <!-- **在席は出さない。**相手が起動しているかは分からない -->
           <!-- **在席は出さない。**着いているかどうかは、行が在ること自体で分かる -->
@@ -170,7 +221,25 @@
       <p class="hint">{t('contacts.pick')}</p>
     {:else}
       <h2>
+        {#if 相手.種類 !== '部屋'}
+          <Avatar 種={相手.key} 大きさ={40} 画像={顔の画像(相手)} 名={名(相手)} />
+        {/if}
         {名(相手)}
+        <!-- **まだ誰も着いていない行には出さない。**
+             その行は「そういう仕組みがある」という案内であって、1 人ではない -->
+        {#if 相手.種類 === '自分' || (相手.種類 === 'AI' && 相手.key !== 机の印)}
+          <!-- **この端末の人と AI は、この端末の持ち主が書く。**
+               名前の隣の鉛筆 1 つだけ（呼び名と同じ置き方） -->
+          <button
+            type="button"
+            class="pencil"
+            title={t('profile.edit')}
+            aria-label={t('profile.edit')}
+            onclick={() => 名乗りを始める(相手)}
+          >
+            <Icon name="pencil" size={15} />
+          </button>
+        {/if}
         {#if 相手.種類 === '人'}
           <!-- **名前の隣に置く。**名前を書き換える口は、名前のそばにあるのが普通である
                （2026-09-07 オーナー指摘「名前をつけるの配置が悪いです」） -->
@@ -211,6 +280,46 @@
         公開鍵を渡すのは実際にやることなので、コピーだけを置く
         （オーナー・2026-09-08「なにもつかえないなら、あることは誤解しか生みません」）。
       -->
+      <!-- **書いた紹介は、名前のすぐ下に出す。**プロフィールはそういう形をしている -->
+      {#if 名乗りを引く(相手)?.bio}
+        <p class="bio">{名乗りを引く(相手)?.bio}</p>
+      {/if}
+
+      {#if 名乗り書き中 === 相手.key}
+        <div class="rename profile">
+          <input
+            type="text"
+            bind:value={名前の下書き}
+            placeholder={t('profile.name')}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') 名乗りを決める(相手);
+              if (e.key === 'Escape') 名乗り書き中 = null;
+            }}
+          />
+          <textarea
+            rows="2"
+            bind:value={紹介の下書き}
+            placeholder={t('profile.bio')}
+            onkeydown={(e) => {
+              if (e.key === 'Escape') 名乗り書き中 = null;
+            }}
+          ></textarea>
+          <div class="tail">
+            <button type="button" class="quiet" onclick={() => 名乗りを決める(相手)}>
+              {t('profile.save')}
+            </button>
+            <button type="button" class="quiet" onclick={() => (名乗り書き中 = null)}>
+              {t('profile.cancel')}
+            </button>
+          </div>
+        </div>
+      {/if}
+
+      {#if 相手.種類 === 'AI' && 相手.key !== 机の印 && 名乗り書き中 !== 相手.key}
+        <!-- **書けるのは持ち主だけ**であることを、書く所のそばで言う -->
+        <p class="hint">{t('profile.ai.hint')}</p>
+      {/if}
+
       {#if 相手.種類 === '自分'}
         <p class="hint">{t('contacts.me.what')}</p>
         <p class="key">
@@ -443,6 +552,31 @@
     background: var(--bg-app);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+  }
+  /* **プロフィールは縦に積む。**名前と紹介は別の物である */
+  .rename.profile {
+    flex-direction: column;
+  }
+  .rename.profile textarea {
+    box-sizing: border-box;
+    padding: 5px 8px;
+    font: inherit;
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+    color: var(--text-primary);
+    background: var(--bg-app);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    resize: none;
+  }
+  /* 書いた紹介。**名前のすぐ下** */
+  .bio {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   .tail {
     display: flex;

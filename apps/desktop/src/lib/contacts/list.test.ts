@@ -160,3 +160,52 @@ describe('留守中に届いた相手', () => {
     expect(区画.find((s) => s.title === 'contacts.late')).toBeUndefined();
   });
 });
+
+describe('この PC のエージェント', () => {
+  it('それぞれが 1 人として並ぶ', () => {
+    // **まとめて「この PC の AI」1 行にしない**（オーナー・2026-09-08）
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: ['zumen の AI', 'git-qa の AI'],
+      会議の相手: [],
+      覚えた: [],
+    });
+    const このPC = 区画.find((s) => s.title === 'contacts.this');
+    expect(このPC?.行たち.map((r) => r.name)).toEqual(['contacts.me', 'zumen の AI', 'git-qa の AI']);
+  });
+
+  it('立ち上げていない席も、名乗りがあれば残る', () => {
+    // 消えると、その 1 人ぶんの名乗りが編集できなくなる
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: ['zumen の AI'],
+      名乗りのある席: ['zumen の AI', 'git-qa の AI'],
+      会議の相手: [],
+      覚えた: [],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'zumen の AI', 'git-qa の AI']);
+    // **着いているかどうかは分ける**
+    expect(行たち.find((r) => r.name === 'zumen の AI')?.いま会議に居る).toBe(true);
+    expect(行たち.find((r) => r.name === 'git-qa の AI')?.いま会議に居る).toBe(false);
+  });
+
+  it('同じ席を二度出さない', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: ['zumen の AI'],
+      名乗りのある席: ['zumen の AI'],
+      会議の相手: [],
+      覚えた: [],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
+    expect(行たち.filter((r) => r.name === 'zumen の AI').length).toBe(1);
+  });
+
+  it('誰も着いておらず、名乗りも無ければ「この PC の AI」を 1 行だけ出す', () => {
+    // 消すと「そういう仕組みが無い」と読まれる
+    const 区画 = 連絡帳を組む({ 自分: 'ME', 机のAIたち: [], 会議の相手: [], 覚えた: [] });
+    const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'contacts.desk']);
+  });
+});

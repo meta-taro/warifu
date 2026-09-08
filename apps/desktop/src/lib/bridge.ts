@@ -158,6 +158,31 @@ export const deskSeats = () => invoke<string[]>('desk_seats');
 export const sendToContact = (key: string, body: string) =>
   invoke<void>('send_to_contact', { key, body });
 
+/** この端末のプロフィール 1 人ぶん。 */
+export interface ProfileRow {
+  /** 誰のものか（`me` か `desk:<名乗り>`）。 */
+  who: string;
+  /** 名乗っている名前。**空なら名乗っていない。** */
+  name: string;
+  /** 短い紹介。 */
+  bio: string;
+  /** 差し替えた顔。**空なら鍵から描く。** */
+  avatar: string | null;
+}
+
+/**
+ * この端末のプロフィールを並べる。
+ *
+ * **人と、この PC の AI**（席ごと）。書き換えられるのは**この端末の持ち主だけ**で、
+ * MCP の口には無い —— **AI が自分の名前を書き換えられると、
+ * 同じ机の別のエージェントに化けられる。**
+ */
+export const profiles = () => invoke<ProfileRow[]>('profiles');
+
+/** プロフィールを書く。**名前も紹介も空にすると、その 1 人ぶんを消す。** */
+export const setProfile = (who: string, name: string, bio: string) =>
+  invoke<void>('set_profile', { who, name, bio });
+
 /** いま置いてある預かり所の宛先。**置いていなければ空。** */
 export const postbox = () => invoke<string | null>('postbox');
 

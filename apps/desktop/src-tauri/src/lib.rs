@@ -77,6 +77,7 @@ mod contacts;
 mod desk;
 mod notify;
 mod postbox;
+mod profile;
 
 /// **決まった場所へ書き置く。**
 ///
@@ -1430,6 +1431,8 @@ pub fn run() {
             postbox::postbox,
             postbox::set_postbox,
             postbox::fetch_postbox,
+            profile::profiles,
+            profile::set_profile,
             send_to_contact,
         ])
         .run(tauri::generate_context!())

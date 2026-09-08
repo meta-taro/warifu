@@ -81,6 +81,14 @@ export type MessageKey =
   | 'contacts.me.copy'
   | 'contacts.me.copied'
   | 'contacts.me.name'
+  | 'profile.edit'
+  | 'profile.name'
+  | 'profile.bio'
+  | 'profile.save'
+  | 'profile.cancel'
+  | 'profile.none'
+  | 'profile.ai.who'
+  | 'profile.ai.hint'
   | 'contacts.desk.how'
   | 'chat.shared'
   | 'chat.reach'
@@ -239,7 +247,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': 'この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには鍵が要ります）。',
     'contacts.me.copy': '公開鍵をコピーする',
     'contacts.me.copied': 'コピーしました',
-    'contacts.me.name': 'あなたの呼び名は、相手がそれぞれ付けます。こちらから名乗る名前はありません（名乗った名前は誰でも真似できるためです）。',
+    'contacts.me.name': 'ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。',
+    'profile.edit': 'プロフィールを書く',
+    'profile.name': '名前',
+    'profile.bio': '短い紹介',
+    'profile.save': '決める',
+    'profile.cancel': 'やめる',
+    'profile.none': 'まだ書いていません。',
+    'profile.ai.who': 'この PC の AI',
+    'profile.ai.hint': 'この PC の持ち主が書きます。AI 自身は書き換えられません（書き換えられると、同じ机の別のエージェントに化けられるためです）。',
     'contacts.desk.how': '机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
     'chat.reach': '届く先 {who}',
@@ -370,7 +386,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': 'You can show this public key to anyone. On its own it lets nobody in — coming in needs a key.',
     'contacts.me.copy': 'Copy public key',
     'contacts.me.copied': 'Copied',
-    'contacts.me.name': 'The name you appear under is chosen by each person you talk to. There is no name you declare yourself — a declared name can be copied by anyone.',
+    'contacts.me.name': 'The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.',
+    'profile.edit': 'Edit profile',
+    'profile.name': 'Name',
+    'profile.bio': 'Short bio',
+    'profile.save': 'Save',
+    'profile.cancel': 'Cancel',
+    'profile.none': 'Nothing written yet.',
+    'profile.ai.who': 'AI on this computer',
+    'profile.ai.hint': 'Written by the owner of this computer. The AI cannot change it itself — if it could, it could pose as another agent at the same desk.',
     'contacts.desk.how': 'To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
     'chat.shared': 'This is not a conversation with the person you picked.',
     'chat.reach': 'Goes to {who}',
@@ -501,7 +525,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': '这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。',
     'contacts.me.copy': '复制公钥',
     'contacts.me.copied': '已复制',
-    'contacts.me.name': '你显示的称呼由对方各自设定。这里没有自己申报的名字——申报的名字谁都能冒充。',
+    'contacts.me.name': '你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。',
+    'profile.edit': '编辑资料',
+    'profile.name': '名字',
+    'profile.bio': '简介',
+    'profile.save': '保存',
+    'profile.cancel': '取消',
+    'profile.none': '还没有填写。',
+    'profile.ai.who': '这台电脑的 AI',
+    'profile.ai.hint': '由这台电脑的主人填写。AI 自己不能改——能改的话，就可以冒充同一张桌子上的其他智能体。',
     'contacts.desk.how': '要让 AI 坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。',
     'chat.shared': '这里不是只和所选对方的会话。',
     'chat.reach': '送达 {who}',
@@ -632,7 +664,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': '이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).',
     'contacts.me.copy': '공개키 복사',
     'contacts.me.copied': '복사했습니다',
-    'contacts.me.name': '당신의 호칭은 상대가 각자 붙입니다. 스스로 대는 이름은 없습니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).',
+    'contacts.me.name': '여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).',
+    'profile.edit': '프로필 쓰기',
+    'profile.name': '이름',
+    'profile.bio': '짧은 소개',
+    'profile.save': '정하기',
+    'profile.cancel': '그만두기',
+    'profile.none': '아직 쓰지 않았습니다.',
+    'profile.ai.who': '이 PC 의 AI',
+    'profile.ai.hint': '이 PC 의 주인이 씁니다. AI 스스로는 바꿀 수 없습니다 (바꿀 수 있으면 같은 책상의 다른 에이전트로 둔갑할 수 있기 때문입니다).',
     'contacts.desk.how': '책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
     'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',
     'chat.reach': '가는 곳 {who}',

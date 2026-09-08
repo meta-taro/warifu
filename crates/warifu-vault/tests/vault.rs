@@ -653,3 +653,129 @@ fn 宛先に改行は書けない() {
     assert!(vault.save_postbox(Some("WARIFU1-AB\nCDEF")).is_err());
     fs::remove_dir_all(&dir).ok();
 }
+
+// --- プロフィール（**人も、この端末の AI も**） -----------------------------
+
+#[test]
+fn 人と_この端末の_ai_を分けて覚える() {
+    // **鍵で分けない。**この端末の AI は持ち主の鍵で喋る（D48）ので、
+    // 鍵で分けると人と AI が同じ 1 つになる
+    let dir = 仮の置き場("profiles-me-and-ai");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    let mut 面々 = warifu_vault::Profiles::new();
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "この PC の人").unwrap());
+    面々.put(
+        warifu_vault::Profile::new(
+            warifu_vault::Who::Desk("zumen".into()),
+            "図面くん",
+            "図面まわりを見ています",
+        )
+        .unwrap(),
+    );
+    vault.save_profiles(&面々).unwrap();
+
+    let 読み直し = Vault::at(&dir).profiles().unwrap();
+    assert_eq!(読み直し.len(), 2);
+    assert_eq!(
+        読み直し.find(&warifu_vault::Who::Me).unwrap().name(),
+        "たろう"
+    );
+    assert_eq!(
+        読み直し
+            .find(&warifu_vault::Who::Desk("zumen".into()))
+            .unwrap()
+            .bio(),
+        "図面まわりを見ています"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn プロフィールは自分だけが読める() {
+    let dir = 仮の置き場("profiles-private");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let mut 面々 = warifu_vault::Profiles::new();
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "").unwrap());
+    vault.save_profiles(&面々).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(vault.profiles_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "0600 であること");
+    }
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルはプロフィールとして読まない() {
+    let dir = 仮の置き場("profiles-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.profiles_path(), "なにかの別のファイル\n").unwrap();
+    let err = vault
+        .profiles()
+        .expect_err("別のファイルをプロフィールとして読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 壊れた行があっても_他のプロフィールは残る() {
+    let dir = 仮の置き場("profiles-broken-line");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.profiles_path(),
+        "warifu-profiles-v1\nこわれた行\nme\tたろう\tこの PC の人\t\n",
+    )
+    .unwrap();
+    let 面々 = vault.profiles().unwrap();
+    assert_eq!(面々.len(), 1);
+    assert_eq!(面々.find(&warifu_vault::Who::Me).unwrap().name(), "たろう");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 顔を差し替えても_既定へ戻せる() {
+    let mut p = warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "").unwrap();
+    assert_eq!(p.avatar(), None, "既定は鍵から描く");
+    p.set_avatar(Some("kao.png")).unwrap();
+    assert_eq!(p.avatar(), Some("kao.png"));
+    p.set_avatar(None).unwrap();
+    assert_eq!(p.avatar(), None);
+}
+
+#[test]
+fn 長すぎる名前と紹介は断る() {
+    // **黙って切り詰めない。**削られたことに、書いた人が気づかない
+    let 長い名 = "あ".repeat(warifu_vault::NAME_MAX + 1);
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, &長い名, "").is_err());
+    let 長い一言 = "い".repeat(warifu_vault::BIO_MAX + 1);
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, "た", &長い一言).is_err());
+}
+
+#[test]
+fn 改行やタブは入れられない() {
+    // 入ると、次の行・次の欄が別の意味を持つ
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, "た\nろう", "").is_err());
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "あ\tい").is_err());
+}
+
+#[test]
+fn 同じ人のプロフィールは一つだけ持つ() {
+    let mut 面々 = warifu_vault::Profiles::new();
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "").unwrap());
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう 2", "").unwrap());
+    assert_eq!(面々.len(), 1);
+    assert_eq!(
+        面々.find(&warifu_vault::Who::Me).unwrap().name(),
+        "たろう 2"
+    );
+}
