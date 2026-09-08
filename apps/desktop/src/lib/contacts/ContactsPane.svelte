@@ -91,9 +91,15 @@
     mail: { icon: 'mail', label: 'act.mail' },
   };
 
-  /** 行に出す名前。**この PC の 2 行だけ文言の鍵を持つ。** */
+  /**
+   * 行に出す名前。
+   *
+   * **文言の鍵を持つのは 2 つだけ** —— 自分と、誰も着いていないときの
+   * 「この PC の AI」。着いている AI は**呼び方をそのまま持っている**
+   * （`zumen の AI` など）ので、訳そうとすると空になる（2026-09-08 に実物で出た）。
+   */
   function 名(行: 行): string {
-    if (行.種類 === '自分' || 行.種類 === 'AI') return t(行.name as MessageKey);
+    if (行.種類 === '自分' || 行.key === 机の印) return t(行.name as MessageKey);
     return 行.name;
   }
 </script>

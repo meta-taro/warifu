@@ -996,7 +996,7 @@ fn log(message: String) {
 /// **まだ残さない。**送ったものも届いたものも、閉じれば消える。
 /// 身元は続くようになった（**D42**）ので、次は履歴を置く形を決める（`issues/010`）。
 #[tauri::command]
-async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
+async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) -> Answer<()> {
     // **人が打った行は、まず机へ配る。**
     // 会議に人が 1 人も居なくても、**同じ席の AI には届く** ——
     // 「会議ありきのチャットじゃない」（オーナー・2026-09-06）。
@@ -1004,12 +1004,25 @@ async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
     //
     // **2026-09-07 に実物で踏んだ。**画面は「机 1 人」でボタンを押せるのに、
     // ここが会議の相手だけを見ていたので「まだ誰も居ません」と断っていた。
+    let 話 = desk::聞いた(&key_to_string(bridge.device.public_key()), &body);
+
+    // **宛先が決まっていれば、その席にだけ渡して終わる。**
+    // 3 つも 4 つも机に着いていると、zumen だけに聞きたくても全員に飛ぶ ——
+    // それでは 1 対 1 が成り立たない（2026-09-08）
+    if let Some(宛先) = &to {
+        if !desk::席へ配る(&bridge, 宛先, 話) {
+            return Err(Failure {
+                message: "その相手はもう居ません".into(),
+                code: Some("desk.gone".into()),
+            });
+        }
+        記録!("送信: 文字（{} バイト）を 1 席へ", body.len());
+        return Ok(());
+    }
+
     let 机に居る = desk::席の数(&bridge) > 0;
     if 机に居る {
-        desk::配る(
-            &bridge,
-            desk::聞いた(&key_to_string(bridge.device.public_key()), &body),
-        );
+        desk::配る(&bridge, 話);
     }
 
     let meeting = {

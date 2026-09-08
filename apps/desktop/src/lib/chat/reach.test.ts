@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { 届く先を並べる } from './reach';
+import { 届く先を並べる, 宛先を決める } from './reach';
 
 const 机 = 'この PC の AI';
 
@@ -40,5 +40,42 @@ describe('届く先', () => {
     // **自分に届くのは当たり前。**数に入れると「1 人に届く」が
     // 自分だけなのか相手 1 人なのか読めなくなる
     expect(届く先を並べる({ 会議の相手: [], 机のAIたち: [] })).toHaveLength(0);
+  });
+});
+
+describe('宛先', () => {
+  const AIたち = ['zumen の AI', 'git-qa の AI'];
+
+  it('机の AI を選ぶと、その 1 つが宛先になる', () => {
+    // **3 つも 4 つも着いていると、zumen だけに聞きたくても全員に飛ぶ。**
+    // それでは 1 対 1 が成り立たない（2026-09-08 オーナー指摘）
+    expect(宛先を決める('desk:zumen の AI', AIたち)).toBe('zumen の AI');
+  });
+
+  it('何も選んでいなければ、宛先は無い（全員へ）', () => {
+    expect(宛先を決める(null, AIたち)).toBeNull();
+  });
+
+  it('部屋の相手は宛先にできない', () => {
+    // **そちらは部屋に何人居るかで決まる**（issues/015）
+    expect(宛先を決める('BBBBBBBBBBBBBBBB', AIたち)).toBeNull();
+  });
+
+  it('着いていない相手は宛先にしない', () => {
+    // **居ないものへ送ったことにしない**
+    expect(宛先を決める('desk:dbboard の AI', AIたち)).toBeNull();
+  });
+
+  it('宛先が決まっていれば、届く先はその 1 つだけ', () => {
+    expect(
+      届く先を並べる({ 会議の相手: ['air'], 机のAIたち: AIたち, 宛先: 'zumen の AI' }),
+    ).toEqual(['zumen の AI']);
+  });
+
+  it('宛先が無ければ、居る全員が並ぶ', () => {
+    expect(届く先を並べる({ 会議の相手: ['air'], 机のAIたち: AIたち })).toEqual([
+      'air',
+      ...AIたち,
+    ]);
   });
 });

@@ -25,7 +25,7 @@
   import { 机の印, type 行 as 連絡帳の行 } from '$lib/contacts/list';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
-  import { 届く先を並べる } from '$lib/chat/reach';
+  import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
   import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
@@ -162,10 +162,18 @@
   /**
    * いま打ったものが届く先。**1 対 1 か 1 対 N かは、これを見れば分かる。**
    */
+  /**
+   * いまの宛先（同じ PC の AI 1 つ）。**連絡帳で AI を選んでいるときだけ決まる。**
+   *
+   * 決まっていれば、打ったものは**その席にだけ**届く。
+   */
+  const 宛先 = $derived(宛先を決める(選んだ相手, 机のAIたち));
+
   const 届く先 = $derived(
     届く先を並べる({
       会議の相手: remotes.map((r) => 呼び名(名簿, r.key)),
       机のAIたち,
+      宛先,
     }),
   );
 
@@ -472,6 +480,9 @@
       // **机に AI が着いているかは、後から追えないと分からない。**
       // 「送れない」と言われたときに、居たのか居なかったのかが読めなくなる
       `机 ${机の人数} 人${机のAIたち.length ? `（${机のAIたち.join('・')}）` : ''}`,
+      // **届く先を書く。**書かないと「誰に届くはずだったか」が後から読めない
+      `届く先 ${届く先.length ? 届く先.join('・') : 'なし'}`,
+      `宛先 ${宛先 ?? 'なし'}`,
       `送るもの ${送るものを言う(sendMode)}`,
       `会議キー ${meetingKey ? 'あり' : 'なし'}`,
       `経路 ${remotes.map((r) => r.path).join(',') || 'なし'}`,
@@ -560,9 +571,9 @@
   async function 話す(body: string) {
     if (!body.trim()) return;
     try {
-      await sendText(body);
+      await sendText(body, 宛先);
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
-      log(話の記録('送信', 会議中 ? `${remotes.length} 人` : '机', body));
+      log(話の記録('送信', 宛先 ?? (会議中 ? `${remotes.length} 人` : '机'), body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
       会話 = [...会話, { who: t('tile.me'), body, mine: true, at: いま時刻() }];
     } catch (e) {

@@ -116,7 +116,14 @@ export const leave = () => invoke<void>('leave');
  * 下ごしらえ（SDP）と違って、文字は組ごとのものではないので宛先を指定しない。
  * **残らない。**閉じれば消える（保存には身元が続く必要があり、D2 が未決）。
  */
-export const sendText = (body: string) => invoke<void>('send_text', { body });
+/**
+ * 文字を送る。
+ *
+ * `to` に**同じ PC の AI の呼び方**を渡すと、**その席にだけ**届く。
+ * 渡さなければ、部屋に居る全員と机の AI 全員へ。
+ */
+export const sendText = (body: string, to?: string | null) =>
+  invoke<void>('send_text', { body, to: to ?? null });
 
 /**
  * いま机に何人着いているか。
