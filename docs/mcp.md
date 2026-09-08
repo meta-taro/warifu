@@ -66,7 +66,9 @@ claude mcp add warifu --scope user -- warifu mcp --allow chat.send --allow chat.
 Claude Code なら、**そのエージェントが作業するフォルダの直下に `.mcp.json`** を置きます
 （そのまま使える形を `docs/mcp.json.example` に置いてあります）。
 
-このリポジトリには、手元で建てた実体を指す `.mcp.json` が既に入っています。
+**このリポジトリにも `.mcp.json` は置いていません。**`warifu setup` で入れてください ——
+フォルダごとに書くと、**リポジトリの数だけ書くことになり、書き方もばらけます**
+（2026-09-08 に実際にばらけました）。
 
 ```json
 {

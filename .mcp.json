@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "warifu": {
-      "command": "./target/debug/warifu",
-      "args": ["mcp", "--allow", "chat.send", "--allow", "chat.read"]
-    }
-  }
-}

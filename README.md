@@ -66,15 +66,15 @@ pnpm --filter @warifu/desktop tauri dev
 **`docs/mcp.md`** —— この PC のエージェント（Claude Code など）を、
 **人が見ているチャットに着かせます。**エージェントが喋った行が、そのまま人の画面に出ます。
 
-```json
-{ "mcpServers": { "warifu": {
-  "command": "warifu",
-  "args": ["mcp", "--allow", "chat.send", "--allow", "chat.read"]
-} } }
+```
+warifu setup
 ```
 
-**`--allow` を書かなければ、どの口も通りません。既定は拒否です。**
-何を許すかは人が決めて、人が書きます。
+**Claude Code の「利用者ごとの設定」へ 1 回だけ入れます。**入れたあとは
+**どのフォルダで立ち上げても** `warifu` が出ます。
+
+**何を許すかを、入れる前に画面に出します。**既定は**会話だけ**
+（受信箱も予定表も許しません）。**`--allow` を書かなければ、どの口も通りません。**
 
 ### 訳文をレビューする
 
