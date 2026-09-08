@@ -463,7 +463,7 @@ fn 旧版を読んで書き出すと新版になる() {
     vault.save_contacts(&名簿).unwrap();
 
     let 中身 = fs::read_to_string(vault.contacts_path()).unwrap();
-    assert!(中身.starts_with("warifu-contacts-v2\n"), "{中身}");
+    assert!(中身.starts_with("warifu-contacts-v3\n"), "{中身}");
     // **覚えた日を動かさない**（版が上がっただけで「今日覚えた人」にしない）
     assert_eq!(
         vault
@@ -839,4 +839,80 @@ fn 顔のファイル名は置き場所の外へ出られない() {
         warifu_vault::顔のファイル名(&warifu_vault::Who::Me),
         "me.png"
     );
+}
+
+// --- 覚え書き（**こちらが書く。相手の名乗りとは別**） -----------------------
+
+#[test]
+fn 相手に覚え書きを残せる() {
+    // 「どの機械の、何をするエージェントか」を人が自分の言葉で残す
+    let dir = 仮の置き場("contacts-note");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "mac air", 100).unwrap();
+    assert!(
+        名簿
+            .set_note(鍵([3u8; 32]), "Air の zumen 担当。図面まわり")
+            .unwrap()
+    );
+    vault.save_contacts(&名簿).unwrap();
+
+    let 読み直し = Vault::at(&dir).contacts().unwrap();
+    assert_eq!(
+        読み直し.find(鍵([3u8; 32])).unwrap().note(),
+        "Air の zumen 担当。図面まわり"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 覚えていない相手には覚え書きを残せない() {
+    // **行を作らない。**呼び名の無い相手を連絡帳に出さない（住所と同じ構え）
+    let mut 名簿 = Contacts::new();
+    assert!(!名簿.set_note(鍵([4u8; 32]), "だれか").unwrap());
+}
+
+#[test]
+fn 覚え書きは空にできる() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([5u8; 32]), "air", 100).unwrap();
+    名簿.set_note(鍵([5u8; 32]), "いちど書く").unwrap();
+    名簿.set_note(鍵([5u8; 32]), "").unwrap();
+    assert_eq!(名簿.find(鍵([5u8; 32])).unwrap().note(), "");
+}
+
+#[test]
+fn 覚え書きに改行やタブは入れられない() {
+    // 入ると、次の行・次の欄が別の意味を持つ
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([6u8; 32]), "air", 100).unwrap();
+    assert!(名簿.set_note(鍵([6u8; 32]), "あ\tい").is_err());
+    assert!(名簿.set_note(鍵([6u8; 32]), "あ\nい").is_err());
+}
+
+#[test]
+fn 長すぎる覚え書きは断る() {
+    // **黙って切り詰めない**
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([7u8; 32]), "air", 100).unwrap();
+    let 長い = "あ".repeat(warifu_vault::NOTE_MAX + 1);
+    assert!(名簿.set_note(鍵([7u8; 32]), &長い).is_err());
+}
+
+#[test]
+fn 覚え書きの無い旧版も読める() {
+    // v1 / v2 の行にはそもそも欄が無い
+    let dir = 仮の置き場("contacts-v2-note");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v2\n{}\tair\t100\t\n", 鍵([8u8; 32])),
+    )
+    .unwrap();
+    let 名簿 = vault.contacts().unwrap();
+    assert_eq!(名簿.find(鍵([8u8; 32])).unwrap().note(), "");
+    fs::remove_dir_all(&dir).ok();
 }

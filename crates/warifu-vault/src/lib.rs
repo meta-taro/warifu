@@ -50,7 +50,7 @@ use zeroize::Zeroize as _;
 pub use avatar::{
     AVATAR_MAX_BYTES, AVATAR_MAX_SIDE, BadImage, 顔として読む, 顔のファイル名
 };
-pub use contacts::{Contact, Contacts};
+pub use contacts::{Contact, Contacts, NOTE_MAX};
 pub use error::Error;
 pub use profile::{BIO_MAX, Bad, NAME_MAX, Profile, Profiles, Who};
 
@@ -67,6 +67,11 @@ const CONTACTS_HEADER_V1: &str = "warifu-contacts-v1";
 /// 版を上げれば、古い実行ファイルは「見出しが違います」で**止まる。**
 /// **止まるほうがよい。**版を先頭に書いてあるのは、まさにこのためである。
 const CONTACTS_HEADER_V2: &str = "warifu-contacts-v2";
+/// 5 欄目に**こちらが書いた覚え書き**を足した版（2026-09-08）。
+///
+/// 「どの機械の、何をするエージェントか」を人が自分の言葉で残せるようにした
+/// （オーナー・2026-09-08）。**v1 / v2 も読める。**書くときは必ずこれ。
+const CONTACTS_HEADER_V3: &str = "warifu-contacts-v3";
 const KNOWN_HEADER: &str = "warifu-known-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
@@ -235,15 +240,16 @@ impl Vault {
     /// # Errors
     /// 書けないとき [`Error::Io`]。
     pub fn save_contacts(&self, contacts: &Contacts) -> Result<(), Error> {
-        let mut out = String::from(CONTACTS_HEADER_V2);
+        let mut out = String::from(CONTACTS_HEADER_V3);
         out.push('\n');
         for c in contacts.iter() {
             out.push_str(&format!(
-                "{}\t{}\t{}\t{}\n",
+                "{}\t{}\t{}\t{}\t{}\n",
                 c.key(),
                 c.label(),
                 c.added_at(),
-                c.address().unwrap_or_default()
+                c.address().unwrap_or_default(),
+                c.note()
             ));
         }
         self.write_private(&self.contacts_path(), &out, "名簿を書く")
@@ -536,10 +542,11 @@ fn parse_contacts(path: &Path, text: &str) -> Result<Contacts, Error> {
     let 欄の数 = match header {
         CONTACTS_HEADER_V1 => 3,
         CONTACTS_HEADER_V2 => 4,
+        CONTACTS_HEADER_V3 => 5,
         _ => {
             return Err(Error::malformed(
                 path,
-                format!("見出しが違います（{CONTACTS_HEADER_V2} を待っていました）"),
+                format!("見出しが違います（{CONTACTS_HEADER_V3} を待っていました）"),
             ));
         }
     };
@@ -551,8 +558,8 @@ fn parse_contacts(path: &Path, text: &str) -> Result<Contacts, Error> {
             continue;
         }
         match parse_contact_line(line, 欄の数) {
-            Some((key, label, added_at, address)) => {
-                contacts.push_raw(key, label, added_at, address);
+            Some((key, label, added_at, address, note)) => {
+                contacts.push_raw(key, label, added_at, address, note);
             }
             None => skipped += 1,
         }
@@ -568,7 +575,7 @@ fn parse_contacts(path: &Path, text: &str) -> Result<Contacts, Error> {
 fn parse_contact_line(
     line: &str,
     欄の数: usize,
-) -> Option<(PublicKey, String, u64, Option<String>)> {
+) -> Option<(PublicKey, String, u64, Option<String>, String)> {
     let cells: Vec<&str> = line.split('\t').collect();
     if cells.len() != 欄の数 {
         return None;
@@ -585,5 +592,11 @@ fn parse_contact_line(
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_owned);
-    Some((key, label.to_owned(), added_at, address))
+    // **覚え書きは無くてもよい**（v1 / v2 の行にはそもそも欄が無い）
+    let note = cells
+        .get(4)
+        .map(|s| s.trim())
+        .unwrap_or_default()
+        .to_owned();
+    Some((key, label.to_owned(), added_at, address, note))
 }

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { その部屋の会話, 足す, 畳む, 見る部屋, 机の部屋, type 部屋の会話 } from './rooms';
+import {
+  その部屋の会話,
+  机と部屋へ足す,
+  足す,
+  畳む,
+  見る部屋,
+  机の部屋,
+  type 部屋の会話,
+} from './rooms';
 import type { 会話行 } from '$lib/meeting/announce';
 
 const 行 = (body: string): 会話行 => ({ who: '自分', body, mine: true });
@@ -86,5 +94,36 @@ describe('部屋に居ない人を選んだとき', () => {
     // 混ぜると「いまの部屋で言われたこと」として並ぶ
     expect(見る部屋('ABC', null, false)).not.toBe(null);
     expect(見る部屋(null, 'room-1')).toBe('room-1');
+  });
+});
+
+describe('机と部屋の両方へ積む（issues/1）', () => {
+  it('どちらの入口から見ても、同じ話が見える', () => {
+    // **片方にしか積まないと、もう片方を見ている人には何も見えない**
+    let 会話: 部屋の会話 = {};
+    会話 = 机と部屋へ足す(会話, 'room-1', 行('zumen です'));
+    expect(その部屋の会話(会話, 机の部屋).map((l) => l.body)).toEqual(['zumen です']);
+    expect(その部屋の会話(会話, 'room-1').map((l) => l.body)).toEqual(['zumen です']);
+  });
+
+  it('部屋がまだ無ければ、机だけに積む', () => {
+    let 会話: 部屋の会話 = {};
+    会話 = 机と部屋へ足す(会話, null, 行('部屋はまだ無い'));
+    expect(その部屋の会話(会話, 机の部屋).length).toBe(1);
+  });
+
+  it('相手ごとの会話（預かり所ごし）には積まない', () => {
+    // **そこは本当に別の相手である**
+    let 会話: 部屋の会話 = {};
+    会話 = 机と部屋へ足す(会話, 'room-1', 行('みんなへ'));
+    expect(その部屋の会話(会話, 'contact:ABC').length).toBe(0);
+  });
+
+  it('順番が崩れない', () => {
+    let 会話: 部屋の会話 = {};
+    会話 = 机と部屋へ足す(会話, 'room-1', 行('1 つ目'));
+    会話 = 机と部屋へ足す(会話, 'room-1', 行('2 つ目'));
+    expect(その部屋の会話(会話, 'room-1').map((l) => l.body)).toEqual(['1 つ目', '2 つ目']);
+    expect(その部屋の会話(会話, 机の部屋).map((l) => l.body)).toEqual(['1 つ目', '2 つ目']);
   });
 });

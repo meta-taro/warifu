@@ -334,6 +334,13 @@ export interface ContactRow {
    * 中身を出しても人には読めない。
    */
   has_address: boolean;
+  /**
+   * **こちらが書いた覚え書き。**空なら書いていない。
+   *
+   * 「どの機械の、何をするエージェントか」を人が自分の言葉で残す所。
+   * **相手が名乗ったものとは別**である（名乗りは相手の都合で変わる）。
+   */
+  note: string;
 }
 
 /**
@@ -347,6 +354,14 @@ export const contacts = () => invoke<ContactRow[]>('contacts');
 /** 相手を覚える。**呼び名を空にすると忘れる。** */
 export const remember = (key: string, label: string) =>
   invoke<void>('remember', { key, label });
+
+/**
+ * **こちらが書いた覚え書き**を残す。**空にすると消える。**
+ *
+ * 覚えていない相手には書けません（住所と同じで、行を作らないため）。
+ */
+export const rememberNote = (key: string, note: string) =>
+  invoke<void>('remember_note', { key, note });
 
 /** 相手に対して自分が offer を出す側か（D38）。 */
 export const shouldOfferTo = (peer: string) => invoke<boolean>('should_offer_to', { peer });

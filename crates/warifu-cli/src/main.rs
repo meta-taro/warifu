@@ -816,6 +816,13 @@ fn 汲む(
                         Err(e) => break 終わり方を見る(&e),
                     };
                     let Ok(notice) = Notice::from_intent(&intent) else { continue };
+                    if let Notice::Profile {
+                        from, 名前, 紹介, ..
+                    } = &notice
+                    {
+                        名乗りを出す(peer, *from, 名前, 紹介);
+                        continue;
+                    }
                     if let Notice::Text { from, body, .. } = &notice {
                         // **名乗った差出人と、繋いできた相手が違うなら通さない**（D48）
                         if *from != peer {
@@ -1118,6 +1125,11 @@ async fn やり取り(
                     continue;
                 };
                 match notice {
+                    // **相手の名乗り**（**D75**）。**本人確認ではない** ——
+                    // 名乗った名前は誰でも真似できるので、そう分かる形で出す
+                    Notice::Profile {
+                        from, 名前, 紹介, ..
+                    } => 名乗りを出す(peer, from, &名前, &紹介),
                     // **誰が言ったかを出す**（D48）。主催が配った文字は、
                     // 経路の相手（主催）と差出人が違う —— 三者会議ではそれが普通である
                     Notice::Text { from, body, .. } => {
@@ -1159,6 +1171,30 @@ fn now_secs() -> u64 {
 /// `MeetingId` を使う所が上にしか無いので、型を持っておく足場。
 #[allow(dead_code)]
 fn _keep(_: MeetingId) {}
+
+/// 相手の名乗りを、手元へ出す（**D75**）。
+///
+/// **本人確認ではない。**名乗った名前は誰でも真似できるので、
+/// **「名乗っています」と書く** —— 名前だけを出すと、確かめた名前に見える。
+///
+/// **経路の相手と差出人が違うものは捨てる**（`Notice::Text` と同じ扱い・**D48**）。
+fn 名乗りを出す(peer: PublicKey, from: PublicKey, 名前: &str, 紹介: &str) {
+    if from != peer {
+        eprintln!("warifu: 名乗りが経路の相手と違います。捨てました");
+        return;
+    }
+    // **消したことも伝える。**黙って前の名前を残さない
+    if 名前.trim().is_empty() && 紹介.trim().is_empty() {
+        eprintln!("warifu: {} は名乗りを取り消しました", 鍵の頭(from));
+        return;
+    }
+    if !名前.trim().is_empty() {
+        eprintln!("warifu: {} は「{名前}」と名乗っています", 鍵の頭(from));
+    }
+    if !紹介.trim().is_empty() {
+        eprintln!("warifu: {紹介}");
+    }
+}
 
 #[cfg(test)]
 mod tests {

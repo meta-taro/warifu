@@ -11,7 +11,15 @@ pub struct Contact {
     label: String,
     added_at: u64,
     address: Option<String>,
+    note: String,
 }
+
+/// 覚え書きの長さの上限（文字）。
+///
+/// **こちらが書くもの**であって、相手が名乗ったものではない ——
+/// 「どの機械の、何をするエージェントか」を人が自分の言葉で残す（オーナー・2026-09-08）。
+/// **プロフィールの紹介と同じ長さ**にしておく（並べて出すため）。
+pub const NOTE_MAX: usize = 140;
 
 /// 住所の長さの上限（バイト）。
 ///
@@ -24,6 +32,16 @@ impl Contact {
     #[must_use]
     pub fn key(&self) -> PublicKey {
         self.key
+    }
+
+    /// **こちらが書いた覚え書き。**空なら書いていない。
+    ///
+    /// 「どの機械の、何をするエージェントか」を人が自分の言葉で残す所である
+    /// （オーナー・2026-09-08「こちらでこのひとはこういうひとって決められるように」）。
+    /// **相手が名乗ったものとは別に持つ** —— 名乗りは相手の都合で変わる。
+    #[must_use]
+    pub fn note(&self) -> &str {
+        &self.note
     }
 
     /// こちらが付けた呼び名。**相手が名乗ったものではない。**
@@ -131,6 +149,7 @@ impl Contacts {
                 label,
                 added_at: now,
                 address: None,
+                note: String::new(),
             });
         }
         self.sort();
@@ -154,14 +173,35 @@ impl Contacts {
         label: String,
         added_at: u64,
         address: Option<String>,
+        note: String,
     ) {
         self.entries.push(Contact {
             key,
             label,
             added_at,
             address,
+            note,
         });
         self.sort();
+    }
+
+    /// **こちらが書いた覚え書き**を残す。覚えていない相手なら `false`。
+    ///
+    /// 「どの機械の、何をするエージェントか」を人が自分の言葉で残す所である
+    /// （オーナー・2026-09-08）。**空にすると消える。**
+    ///
+    /// **相手が名乗ったものとは別に持つ。**名乗りは相手の都合で変わるが、
+    /// これは変わらない —— **こちらが書いたものだからである。**
+    ///
+    /// # Errors
+    /// 長すぎるとき・区切りを壊す文字が入っているとき [`Error::BadNote`]。
+    pub fn set_note(&mut self, key: PublicKey, note: &str) -> Result<bool, Error> {
+        let note = check_note(note)?;
+        let Some(existing) = self.entries.iter_mut().find(|c| c.key == key) else {
+            return Ok(false);
+        };
+        existing.note = note;
+        Ok(true)
     }
 
     /// **最後に繋がった住所**を書き留める。覚えていない相手なら `false`。
@@ -182,6 +222,25 @@ impl Contacts {
         existing.address = Some(address);
         Ok(true)
     }
+}
+
+/// 覚え書きが**置ける形か**だけを見る。
+///
+/// **中身は見ない。**人が自分の言葉で書くものである。
+/// ここが見るのは「この行を書いて、読み戻せるか」と「長すぎないか」だけ。
+fn check_note(note: &str) -> Result<String, Error> {
+    let trimmed = note.trim();
+    if trimmed.contains(['\t', '\n', '\r']) {
+        return Err(Error::BadNote {
+            why: "改行やタブは入れられません",
+        });
+    }
+    if trimmed.chars().count() > NOTE_MAX {
+        return Err(Error::BadNote {
+            why: "長すぎます"
+        });
+    }
+    Ok(trimmed.to_owned())
 }
 
 /// 呼び名として使えるか。

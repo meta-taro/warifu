@@ -45,6 +45,11 @@ pub enum Error {
         /// どう置けないか。
         why: &'static str,
     },
+    /// 覚え書きとして置けない。**中身は見ていない**（人が自分の言葉で書くもの）。
+    BadNote {
+        /// どう置けないか。
+        why: &'static str,
+    },
     /// 呼び名として使えない。
     BadLabel {
         /// なぜ使えないか。
@@ -83,6 +88,7 @@ impl fmt::Display for Error {
                 write!(f, "その呼び名はもう使われています: {label}")
             }
             Self::BadAddress { why } => write!(f, "住所として置けません: {why}"),
+            Self::BadNote { why } => write!(f, "覚え書きとして置けません: {why}"),
             Self::BadLabel { why } => write!(f, "呼び名として使えません: {why}"),
             Self::Rng => f.write_str("乱数を取れませんでした"),
         }

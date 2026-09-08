@@ -210,3 +210,32 @@ describe('この PC のエージェント', () => {
     expect(行たち.map((r) => r.name)).toEqual(['contacts.me']);
   });
 });
+
+describe('部屋の名前', () => {
+  it('付けた名前で呼ぶ', () => {
+    // **「どの部屋？」と人が思う**（オーナー・2026-09-08）
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      部屋たち: [{ id: 'ROOM-ABCDEF', members: 2, host: true }],
+      部屋の名前: { 'ROOM-ABCDEF': '朝会' },
+    });
+    const 部屋 = 区画.find((s) => s.title === 'contacts.rooms');
+    expect(部屋?.行たち[0].name).toBe('朝会');
+  });
+
+  it('付いていなければ id の頭で出す', () => {
+    // **知らないものを、知っているように見せない**
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      部屋たち: [{ id: 'ROOMABCDEFGHIJKL', members: 1, host: true }],
+    });
+    const 部屋 = 区画.find((s) => s.title === 'contacts.rooms');
+    expect(部屋?.行たち[0].name).toContain('…');
+  });
+});

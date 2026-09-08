@@ -15,7 +15,14 @@
   import { 名乗りを添えるか, 呼ぶ名 } from './claimed';
   import type { ProfileRow } from '$lib/bridge';
   import { できること, type 口の種類 } from './actions';
-  import { 机の印, 部屋か, 連絡帳を組む, type 行, type 素材 as 連絡帳の素材 } from './list';
+  import {
+    机の印,
+    部屋か,
+    部屋のid,
+    連絡帳を組む,
+    type 行,
+    type 素材 as 連絡帳の素材,
+  } from './list';
 
   interface Props {
     locale: Locale;
@@ -65,6 +72,14 @@
     顔の画?: Readonly<Record<string, string>>;
     /** 顔を差し替える（`null` で既定へ戻す）。 */
     顔を差し替える?: (who: string, 場所: string | null) => void;
+    /**
+     * **こちらが書いた覚え書き**を残す（**相手の名乗りとは別**）。
+     *
+     * 「どの機械の、何をするエージェントか」を人が自分の言葉で残す所。
+     */
+    覚え書きを書く?: (key: string, note: string) => void;
+    /** 部屋に名前を付ける（**画面の中だけ**）。 */
+    部屋に名前を付ける?: (id: string, 名前: string) => void;
   }
   const {
     locale,
@@ -83,6 +98,8 @@
     名乗られたもの = {},
     顔の画 = {},
     顔を差し替える = () => {},
+    覚え書きを書く = () => {},
+    部屋に名前を付ける = () => {},
   }: Props = $props();
 
   /**
@@ -190,6 +207,8 @@
   let 名乗り書き中 = $state<string | null>(null);
   let 名前の下書き = $state('');
   let 紹介の下書き = $state('');
+  /** 覚え書きの書きかけ。**相手ごとに入れ直す。** */
+  let 覚え書きの下書き = $state('');
 
   /** 名乗りを書き始める。**いま書いてあるものを入れておく**（消してから書き直させない）。 */
   function 名乗りを始める(行: 行) {
@@ -199,6 +218,12 @@
     名乗り書き中 = 行.key;
   }
 
+  /** 部屋の名前を決める。**画面の中だけ。** */
+  function 部屋の名前を決める(行: 行) {
+    const id = 部屋のid(行.key);
+    if (id) 部屋に名前を付ける(id, 名前の下書き);
+  }
+
   /** 書いたものを決める。**空にすると、その 1 人ぶんが消える。** */
   function 名乗りを決める(行: 行) {
     const 誰 = 行.種類 === '自分' ? 'me' : 行.key;
@@ -206,7 +231,22 @@
     名乗り書き中 = null;
   }
 
-  /** その行のプロフィール。**この端末の人と AI にしかない。** */
+  /**
+   * 選んだ相手が変わったら、書きかけを入れ直す。
+   *
+   * **前の相手に書きかけたものを、次の相手へ持ち越さない。**
+   */
+  $effect(() => {
+    const 誰 = 選んでいる;
+    if (!誰) return;
+    if (部屋か(誰)) {
+      名前の下書き = 相手?.name ?? '';
+      return;
+    }
+    覚え書きの下書き = 素材.覚えた.find((c) => c.key === 誰)?.note ?? '';
+  });
+
+  /** その行のプロフィール。**この端末の人とエージェントにしかない。** */
   function 名乗りを引く(行: 行): ProfileRow | undefined {
     if (行.種類 === '自分') return プロフィール.find((p) => p.who === 'me');
     if (行.種類 !== 'AI') return undefined;
@@ -437,6 +477,27 @@
         <p class="hint">
           {相手.いま会議に居る ? t('room.members.some') : t('room.alone')}
         </p>
+        <!--
+          **部屋に名前を付けられる**（オーナー・2026-09-08
+          「部屋名も決められないと、どの部屋？って人間はなります」）。
+          **名前はこの画面の中だけ** —— 部屋 id はその場限りのものなので、
+          置き場所へ書くと使い終わった名前が溜まっていく
+        -->
+        <div class="rename">
+          <input
+            type="text"
+            value={名前の下書き}
+            placeholder={t('room.name')}
+            oninput={(e) => (名前の下書き = e.currentTarget.value)}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') 部屋の名前を決める(相手);
+            }}
+          />
+          <button type="button" class="quiet" onclick={() => 部屋の名前を決める(相手)}>
+            {t('profile.save')}
+          </button>
+        </div>
+        <p class="hint">{t('room.name.hint')}</p>
       {/if}
       {#if 相手.種類 === '人'}
         <!--
@@ -455,6 +516,28 @@
         <p class="key">
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>
+        <!--
+          **こちらが書く覚え書き**（オーナー・2026-09-08
+          「こちらでこのひとはこういうひとって決められるようにしたい」）。
+          **相手が名乗ったものとは別** —— 名乗りは相手の都合で変わるが、これは変わらない
+        -->
+        <div class="rename profile">
+          <textarea
+            rows="2"
+            bind:value={覚え書きの下書き}
+            placeholder={t('contacts.note')}
+          ></textarea>
+          <div class="tail">
+            <button
+              type="button"
+              class="quiet"
+              onclick={() => 覚え書きを書く(相手.key, 覚え書きの下書き)}
+            >
+              {t('profile.save')}
+            </button>
+          </div>
+        </div>
+        <p class="hint">{t('contacts.note.hint')}</p>
       {/if}
       {#if 相手.種類 === 'AI' && 相手.いま会議に居る}
         <!-- **落とすしか止め方が無い状態にしない**（`issues/014`）。

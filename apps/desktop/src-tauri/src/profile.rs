@@ -161,7 +161,10 @@ pub async fn set_avatar(app: tauri::AppHandle, who: String, path: String) -> Ans
         code: None,
     })?;
 
-    記録!("顔を差し替えました（{who} / {幅}×{高さ} / {} バイト）", 中身.len());
+    記録!(
+        "顔を差し替えました（{who} / {幅}×{高さ} / {} バイト）",
+        中身.len()
+    );
     let _ = app.emit(crate::EVENT_PROFILES, ());
     Ok(())
 }

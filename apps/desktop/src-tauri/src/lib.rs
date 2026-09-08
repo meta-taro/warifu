@@ -711,6 +711,21 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                     }
                 }
             }
+            // **迎える側も名乗る**（**D75**）。
+            // 呼ぶ側だけが名乗ると、**片方向にしか名前が出ない**
+            if let Ok((名前, 紹介)) = 自分の名乗り()
+                && let Some(id) = いま見ている部屋(&いまの部屋).await
+                && let Ok(intent) = (Notice::Profile {
+                    meeting: id,
+                    from: me,
+                    名前,
+                    紹介,
+                })
+                .to_intent()
+            {
+                let _ = channel.send(&intent).await;
+            }
+
             汲む(
                 app.clone(),
                 Arc::clone(&conferences),
@@ -1076,6 +1091,10 @@ pub struct ContactRow {
     /// **住所そのものは画面へ渡さない。**画面に要るのは
     /// 「押せるかどうか」だけであり、中身を出しても人には読めない。
     has_address: bool,
+    /// **こちらが書いた覚え書き。**空なら書いていない。
+    ///
+    /// 相手が名乗ったものとは別である（名乗りは相手の都合で変わる）。
+    note: String,
 }
 
 /// 覚えている相手を並べる。
@@ -1093,6 +1112,7 @@ fn contacts() -> Answer<Vec<ContactRow>> {
             key: c.key().to_string(),
             label: c.label().to_owned(),
             has_address: c.address().is_some(),
+            note: c.note().to_owned(),
         })
         .collect())
 }
@@ -1122,6 +1142,29 @@ async fn remember(bridge: State<'_, Bridge>, key: String, label: String) -> Answ
     }
     vault.save_contacts(&list)?;
     記録!("名簿: 覚えた（{}）", 短く(&key));
+    Ok(())
+}
+
+/// **こちらが書いた覚え書き**を残す（オーナー・2026-09-08）。
+///
+/// 「どの機械の、何をするエージェントか」を、人が自分の言葉で残す所である。
+/// **相手が名乗ったものとは別に持つ** —— 名乗りは相手の都合で変わるが、
+/// **これは変わらない**（こちらが書いたものだから）。
+///
+/// 空にすると消える。**覚えていない相手には書けない**（行を作らない）。
+#[tauri::command]
+async fn remember_note(key: String, note: String) -> Answer<()> {
+    let who = key.parse::<PublicKey>()?;
+    let vault = warifu_vault::Vault::default_location()?;
+    let mut list = vault.contacts()?;
+    if !list.set_note(who, &note)? {
+        return Err(Failure {
+            message: "先に呼び名を付けてください".into(),
+            code: Some("contact.unknown".into()),
+        });
+    }
+    vault.save_contacts(&list)?;
+    記録!("名簿: 覚え書きを書いた（{} / {} 文字）", 短く(&key), note.chars().count());
     Ok(())
 }
 
@@ -1479,6 +1522,7 @@ pub fn run() {
             log,
             contacts,
             remember,
+            remember_note,
             desk_seats,
             call_contact,
             stop_knowing,

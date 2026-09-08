@@ -93,6 +93,10 @@ export type MessageKey =
   | 'profile.face'
   | 'profile.face.drop'
   | 'profile.face.clear'
+  | 'contacts.note'
+  | 'contacts.note.hint'
+  | 'room.name'
+  | 'room.name.hint'
   | 'contacts.desk.how'
   | 'chat.shared'
   | 'chat.reach'
@@ -264,6 +268,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.face': '顔',
     'profile.face.drop': 'ここに PNG を落とすと、顔を差し替えられます（512px・64 KB まで）。',
     'profile.face.clear': '既定の顔に戻す',
+    'contacts.note': '覚え書き',
+    'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
+    'room.name': '部屋の名前',
+    'room.name.hint': '名前はこの画面の中だけです（閉じると消えます）。相手には送りません。',
     'contacts.desk.how': '机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
     'chat.reach': '届く先 {who}',
@@ -407,6 +415,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.face': 'Face',
     'profile.face.drop': 'Drop a PNG here to replace the face (up to 512px, 64 KB).',
     'profile.face.clear': 'Back to the default face',
+    'contacts.note': 'Your note',
+    'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
+    'room.name': 'Room name',
+    'room.name.hint': 'The name lives only in this window (it goes away when you close it). It is not sent to anyone.',
     'contacts.desk.how': 'To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
     'chat.shared': 'This is not a conversation with the person you picked.',
     'chat.reach': 'Goes to {who}',
@@ -550,6 +562,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.face': '头像',
     'profile.face.drop': '把 PNG 拖到这里可以替换头像（最大 512px、64 KB）。',
     'profile.face.clear': '恢复默认头像',
+    'contacts.note': '备注',
+    'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
+    'room.name': '房间名',
+    'room.name.hint': '名字只存在于这个窗口里（关闭后消失）。不会发送给别人。',
     'contacts.desk.how': '要让代理坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。',
     'chat.shared': '这里不是只和所选对方的会话。',
     'chat.reach': '送达 {who}',
@@ -693,6 +709,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.face': '얼굴',
     'profile.face.drop': '여기에 PNG 를 놓으면 얼굴을 바꿀 수 있습니다 (512px・64 KB 까지).',
     'profile.face.clear': '기본 얼굴로 되돌리기',
+    'contacts.note': '메모',
+    'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
+    'room.name': '방 이름',
+    'room.name.hint': '이름은 이 화면 안에만 있습니다 (닫으면 사라집니다). 상대에게는 보내지 않습니다.',
     'contacts.desk.how': '책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
     'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',
     'chat.reach': '가는 곳 {who}',

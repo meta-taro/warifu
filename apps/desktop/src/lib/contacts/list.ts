@@ -49,7 +49,7 @@ export interface 素材 {
    */
   名乗りのある席?: readonly string[];
   /** 覚えている相手。 */
-  覚えた: readonly { key: string; label: string; has_address: boolean }[];
+  覚えた: readonly { key: string; label: string; has_address: boolean; note?: string }[];
   /**
    * いま居る部屋。
    *
@@ -57,6 +57,13 @@ export interface 素材 {
    * 部屋を複数持てるようにした以上、一覧が要る。
    */
   部屋たち?: readonly { id: string; members: number; host: boolean }[];
+  /**
+   * 部屋に付けた名前（部屋 id → 名前）。
+   *
+   * **付いていなければ id の頭で出す。**「どの部屋？」と人が思う所である
+   * （オーナー・2026-09-08）。
+   */
+  部屋の名前?: Readonly<Record<string, string>>;
   /**
    * **留守中に預かり所へ言葉を置いていった相手**の公開鍵（**D71** / **D72**）。
    *
@@ -163,8 +170,8 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
   // **部屋は、居るときだけ出す。**空の見出しを並べない
   const 部屋: 行[] = (素材.部屋たち ?? []).map((r) => ({
     key: `${部屋の印}${r.id}`,
-    // **部屋の名前はまだ無い。**id の頭で見分ける（段 3 で名前を付ける）
-    name: 鍵の頭(r.id),
+    // **付けた名前があればそれで呼ぶ。**無ければ id の頭で見分ける
+    name: 素材.部屋の名前?.[r.id] ?? 鍵の頭(r.id),
     種類: '部屋' as const,
     住所を覚えている: false,
     いま会議に居る: r.members > 1,
