@@ -18,7 +18,6 @@
 //! 画面越しに崩れる。
 
 use std::str::FromStr as _;
-use std::sync::Arc;
 
 use tauri::AppHandle;
 use warifu_app::{Conference, KNOCK_WITHOUT_TALLY};
@@ -79,12 +78,12 @@ pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answ
     );
 
     let events = {
-        let mut slot = bridge.conference.lock().await;
-        *slot = Some(Conference::joined(
-            bridge.device.public_key(),
-            meeting,
-            roster,
-        ));
+        crate::部屋を足す(
+            &bridge.conferences,
+            &bridge.いまの部屋,
+            Conference::joined(bridge.device.public_key(), meeting, roster),
+        )
+        .await;
         vec![warifu_app::Event::Joined(peer)]
     };
     emit_events(app, &events);
@@ -130,9 +129,13 @@ async fn 招待を待つ(channel: &mut Channel) -> Answer<(warifu_meeting::Meeti
 ///
 /// `Notice::Invite` は型も試験も前からあったのに、**誰も送っていなかった。**
 /// 割符つきで来た相手には送らない —— そちらは会議キーに id が入っている。
-pub fn 招く(conference: &Arc<tokio::sync::Mutex<Option<Conference>>>) -> Option<Notice> {
-    let slot = conference.try_lock().ok()?;
-    let c = slot.as_ref()?;
+pub fn 招く(
+    conferences: &crate::部屋たち, いまの部屋: &crate::見ている部屋
+) -> Option<Notice> {
+    // **いま見ている部屋へ招く。**部屋を複数持つので、どこへ招くかを決める必要がある
+    let id = (*いまの部屋.try_lock().ok()?)?;
+    let 棚 = conferences.try_lock().ok()?;
+    let c = 棚.get(&id)?;
     let mut roster = Roster::with_capacity(c.me(), c.capacity()).ok()?;
     for m in c.members() {
         if *m != c.me() {

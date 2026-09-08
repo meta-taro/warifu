@@ -26,7 +26,7 @@ use warifu_app::{Conference, format_invite, introductions_for, parse_invite};
 use warifu_core::{Acceptance, Device, PublicKey, Revocations, Tally};
 use warifu_door::{Answer as DoorAnswer, Door, Knock, Subject};
 use warifu_intent::Channel;
-use warifu_meeting::{Notice, Signal, Step};
+use warifu_meeting::{MeetingId, Notice, Signal, Step};
 use warifu_net::{Address, Node};
 
 /// 画面へ流す出来事。**名前は画面側の `events.ts` と揃える。**
@@ -210,7 +210,19 @@ pub struct Bridge {
     /// **主催者は、繋がれた相手の住所を知らない**（相手から来たので）。
     /// だから**入る側が自分で名乗る。**それをここに覚えて、次の人へ紹介する。
     addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
-    conference: Arc<Mutex<Option<Conference>>>,
+    /// いま居る部屋。**複数持てる**（`issues/015`）。
+    ///
+    /// 「相手を選ぶ ＝ その人との部屋を開く」が成り立つには、
+    /// **air と 2 人で話しながら、3 人の部屋にも居る**ことができなければならない。
+    /// 1 つしか持てないと、部屋を移るたびに前の部屋が切れる。
+    ///
+    /// **鍵は部屋の id。**`Notice` は前から部屋の id を持っているので、
+    /// 届いた知らせをどの部屋のものか振り分けられる。
+    conferences: Arc<Mutex<HashMap<MeetingId, Conference>>>,
+    /// **画面がいま見ている部屋。**打ったものはここへ流れる。
+    ///
+    /// 部屋そのものとは別に持つ —— **見ていない部屋も生きている。**
+    いまの部屋: Arc<Mutex<Option<MeetingId>>>,
     /// 相手ごとの送り出し口（**M6**）。
     ///
     /// 1 本しか持たない形にすると、3 人目が来た時点で**前の相手へ届かなくなる。**
@@ -223,6 +235,52 @@ pub struct Bridge {
     /// 添えている数は**出所の番号**（`desk::机の外` なら机の外から出たもの）。
     /// **言った本人には返さない**ために持つ。
     desk: tokio::sync::broadcast::Sender<(u64, warifu_desk::FromDesk)>,
+}
+
+/// いま居る部屋たち。**複数持てる**（`issues/015`）。
+pub(crate) type 部屋たち = Arc<Mutex<HashMap<MeetingId, Conference>>>;
+/// 画面がいま見ている部屋。
+pub(crate) type 見ている部屋 = Arc<Mutex<Option<MeetingId>>>;
+
+/// 部屋を足して、**見ている部屋にする。**
+pub(crate) async fn 部屋を足す(
+    部屋: &部屋たち,
+    いま: &見ている部屋,
+    c: Conference,
+) -> MeetingId {
+    let id = c.id();
+    部屋.lock().await.insert(id, c);
+    *いま.lock().await = Some(id);
+    id
+}
+
+/// いま見ている部屋の id。**無ければ `None`。**
+pub(crate) async fn いま見ている部屋(いま: &見ている部屋) -> Option<MeetingId> {
+    *いま.lock().await
+}
+
+/// **その部屋に居る相手だけ**へ送る口を集める。
+///
+/// 部屋を複数持つので、**全員へ配ると別の部屋の人にも届く。**
+pub(crate) async fn その部屋の相手(
+    部屋: &部屋たち,
+    outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    meeting: MeetingId,
+    me: PublicKey,
+) -> Vec<mpsc::Sender<Notice>> {
+    let 面々: Vec<[u8; 32]> = {
+        let 棚 = 部屋.lock().await;
+        let Some(c) = 棚.get(&meeting) else {
+            return Vec::new();
+        };
+        c.members()
+            .iter()
+            .filter(|k| **k != me)
+            .map(|k| k.to_bytes())
+            .collect()
+    };
+    let out = outbound.lock().await;
+    面々.iter().filter_map(|k| out.get(k).cloned()).collect()
 }
 
 /// この端末の身元。**CLI と同じものを使う。**
@@ -251,7 +309,8 @@ impl Bridge {
             // 次から割符なしで開ける」（D31）が再起動をまたいで効かなかった
             door: Arc::new(Mutex::new(contacts::戸口を開く())),
             addresses: Arc::new(Mutex::new(HashMap::new())),
-            conference: Arc::new(Mutex::new(None)),
+            conferences: Arc::new(Mutex::new(HashMap::new())),
+            いまの部屋: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(HashMap::new())),
             desk: tokio::sync::broadcast::Sender::new(desk::配る溜め),
         }
@@ -299,14 +358,13 @@ async fn invite(
     // **会議 id を鍵に載せる。**載せないと入る側が別の id を名乗り、
     // こちらが「別の会議あて」として捨てる（2026-09-04 に実機で踏んだ）
     let meeting = {
-        let mut slot = bridge.conference.lock().await;
-        if slot.is_none() {
-            *slot = Some(Conference::host(
-                bridge.device.public_key(),
-                warifu_app::DEFAULT_CAPACITY,
-            )?);
+        // **部屋が無ければ建てる。**鍵は部屋への招待なので、部屋が要る
+        if let Some(id) = いま見ている部屋(&bridge.いまの部屋).await {
+            id
+        } else {
+            let c = Conference::host(bridge.device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
+            部屋を足す(&bridge.conferences, &bridge.いまの部屋, c).await
         }
-        slot.as_ref().expect("直前に入れた").id()
     };
     let 開始 = starts_at.unwrap_or_else(now_secs);
     let (tally, token) = bridge
@@ -359,9 +417,8 @@ fn my_key(bridge: State<'_, Bridge>) -> String {
 #[tauri::command]
 async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<String> {
     let conference = Conference::host(bridge.device.public_key(), capacity)?;
-    let id = conference.id().to_string();
-    *bridge.conference.lock().await = Some(conference);
-    Ok(id)
+    let id = 部屋を足す(&bridge.conferences, &bridge.いまの部屋, conference).await;
+    Ok(id.to_string())
 }
 
 /// 相手の宛先へ繋ぎ、会議に入ると告げる。
@@ -402,7 +459,6 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     // **会議キーに書かれた会議へ入る。**自分で id を作らない。
     // 作ると相手の会議と別物になり、送った知らせが「別の会議あて」として捨てられる
     let events = {
-        let mut slot = bridge.conference.lock().await;
         let mut roster = warifu_meeting::Roster::with_capacity(
             bridge.device.public_key(),
             warifu_app::DEFAULT_CAPACITY,
@@ -415,11 +471,12 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
             message: e.to_string(),
             code: None,
         })?;
-        *slot = Some(Conference::joined(
-            bridge.device.public_key(),
-            meeting,
-            roster,
-        ));
+        部屋を足す(
+            &bridge.conferences,
+            &bridge.いまの部屋,
+            Conference::joined(bridge.device.public_key(), meeting, roster),
+        )
+        .await;
         vec![warifu_app::Event::Joined(peer)]
     };
     let meeting_id = meeting;
@@ -507,7 +564,8 @@ async fn stop_knowing(bridge: State<'_, Bridge>, key: String) -> Answer<bool> {
 #[tauri::command]
 async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let node = bridge.node().await?;
-    let conference = Arc::clone(&bridge.conference);
+    let conferences = Arc::clone(&bridge.conferences);
+    let いまの部屋 = Arc::clone(&bridge.いまの部屋);
     let outbound = Arc::clone(&bridge.outbound);
     let me = bridge.device.public_key();
 
@@ -573,7 +631,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // 相手は会議 id を知りようがない（会議キーを持っていない）。
             // 割符つきで来た相手には送らない —— そちらは鍵に id が入っている
             if !合った
-                && let Some(招待) = call::招く(&conference)
+                && let Some(招待) = call::招く(&conferences, &いまの部屋)
                 && let Ok(intent) = 招待.to_intent()
             {
                 if channel.send(&intent).await.is_err() {
@@ -582,17 +640,19 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 記録!("待受: 割符なしの相手へ会議を教えた");
             }
             {
-                let mut slot = conference.lock().await;
-                if slot.is_none() {
+                // **部屋が 1 つも無ければ建てる。**受けた相手を入れる先が要る
+                if conferences.lock().await.is_empty() {
                     match Conference::host(me, warifu_app::DEFAULT_CAPACITY) {
-                        Ok(c) => *slot = Some(c),
+                        Ok(c) => {
+                            部屋を足す(&conferences, &いまの部屋, c).await;
+                        }
                         Err(_) => continue,
                     }
                 }
             }
             汲む(
                 app.clone(),
-                Arc::clone(&conference),
+                Arc::clone(&conferences),
                 Arc::clone(&outbound),
                 Arc::clone(&addresses),
                 me,
@@ -655,7 +715,7 @@ pub(crate) fn now_secs() -> u64 {
 async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: PublicKey) {
     汲む(
         app.clone(),
-        Arc::clone(&bridge.conference),
+        Arc::clone(&bridge.conferences),
         Arc::clone(&bridge.outbound),
         Arc::clone(&bridge.addresses),
         bridge.device.public_key(),
@@ -668,7 +728,7 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
 #[allow(clippy::too_many_arguments)]
 fn 汲む(
     app: AppHandle,
-    conference: Arc<Mutex<Option<Conference>>>,
+    conferences: 部屋たち,
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
     me: PublicKey,
@@ -735,8 +795,9 @@ fn 汲む(
                         // （2026-09-06 に実測）。**言った人はそのまま載っている**ので、
                         // 配られた側にも誰の発言かが分かる。
                         let 主催 = {
-                            let slot = conference.lock().await;
-                            slot.as_ref().map(|c| c.members().first() == Some(&me))
+                            let 棚 = conferences.lock().await;
+                            棚.get(&notice.meeting())
+                                .map(|c| c.members().first() == Some(&me))
                         };
                         if 主催 == Some(true) {
                             他へ配る(&outbound, peer, &notice).await;
@@ -754,11 +815,12 @@ fn 汲む(
                         // 自分が主催者なら、**入った人を既存の面々へ配り、
                         // 入った人へ既存の面々を教える**
                         let 主催 = {
-                            let slot = conference.lock().await;
-                            slot.as_ref().map(|c| c.members().first() == Some(&me))
+                            let 棚 = conferences.lock().await;
+                            棚.get(meeting).map(|c| c.members().first() == Some(&me))
                         };
                         if 主催 == Some(true) {
-                            紹介を配る(&conference, &outbound, &addresses, me, *who, *meeting).await;
+                            紹介を配る(&conferences, &outbound, &addresses, me, *who, *meeting)
+                                .await;
                         } else {
                             // 主催者でなければ、教わった住所を画面へ渡して呼びに行かせる
                             let _ =
@@ -766,8 +828,12 @@ fn 汲む(
                         }
                         continue;
                     }
-                    let mut slot = conference.lock().await;
-                    let Some(c) = slot.as_mut() else { continue };
+                    // **どの部屋あてかで振り分ける。**知らない部屋のものは受け取らない
+                    let mut 棚 = conferences.lock().await;
+                    let Some(c) = 棚.get_mut(&notice.meeting()) else {
+                        記録!("受信: 知らない部屋あてだった。捨てた");
+                        continue;
+                    };
                     match c.on_notice(peer, &notice) {
                         Ok(events) => emit_events(&app, &events),
                         Err(e) => {
@@ -795,10 +861,7 @@ fn 汲む(
 #[tauri::command]
 async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answer<()> {
     let step = step_from_str(&payload.step)?;
-    let meeting = {
-        let slot = bridge.conference.lock().await;
-        slot.as_ref().map(Conference::id)
-    };
+    let meeting = いま見ている部屋(&bridge.いまの部屋).await;
     let Some(meeting) = meeting else {
         return Err(Failure {
             message: "まだ会議がありません".into(),
@@ -873,7 +936,7 @@ async fn 他へ配る(
 /// 既存の面々へ「入った人の住所」を、入った人へ「既存の面々の住所」を送る。
 /// **住所を知らない相手は飛ばす** — まだ名乗っていないだけなので、断りではない。
 async fn 紹介を配る(
-    conference: &Arc<Mutex<Option<Conference>>>,
+    conferences: &部屋たち,
     outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     addresses: &Arc<Mutex<HashMap<[u8; 32], String>>>,
     me: PublicKey,
@@ -881,8 +944,8 @@ async fn 紹介を配る(
     meeting: warifu_meeting::MeetingId,
 ) {
     let 配り先 = {
-        let slot = conference.lock().await;
-        let Some(c) = slot.as_ref() else { return };
+        let 棚 = conferences.lock().await;
+        let Some(c) = 棚.get(&meeting) else { return };
         let Some(plan) = introductions_for(c, newcomer, me) else {
             return;
         };
@@ -1025,10 +1088,7 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
         desk::配る(&bridge, 話);
     }
 
-    let meeting = {
-        let slot = bridge.conference.lock().await;
-        slot.as_ref().map(Conference::id)
-    };
+    let meeting = いま見ている部屋(&bridge.いまの部屋).await;
     let Some(meeting) = meeting else {
         // 机に居るなら、届いている。**届いたものを失敗にしない**
         if 机に居る {
@@ -1043,11 +1103,18 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
             code: None,
         });
     };
-    let out = bridge.outbound.lock().await;
-    if out.is_empty() {
+    // **その部屋に居る相手だけへ。**全員へ配ると、別の部屋の人にも届く
+    let 送り先 = その部屋の相手(
+        &bridge.conferences,
+        &bridge.outbound,
+        meeting,
+        bridge.device.public_key(),
+    )
+    .await;
+    if 送り先.is_empty() {
         if 机に居る {
             記録!(
-                "送信: 文字（{} バイト）を机へ（会議に人は居ない）",
+                "送信: 文字（{} バイト）を机へ（部屋に人は居ない）",
                 body.len()
             );
             return Ok(());
@@ -1057,8 +1124,12 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
             code: None,
         });
     }
-    記録!("送信: 文字（{} バイト）を {} 人へ", body.len(), out.len());
-    for tx in out.values() {
+    記録!(
+        "送信: 文字（{} バイト）を {} 人へ",
+        body.len(),
+        送り先.len()
+    );
+    for tx in &送り先 {
         // 届かない相手が居ても止めない。**送る側を待たせない**
         let _ = tx
             .send(Notice::Text {
@@ -1082,18 +1153,28 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
 /// **全員へ送る。**抜けたことは、繋がっている全員に関係がある。
 #[tauri::command]
 async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
-    let meeting = {
-        let slot = bridge.conference.lock().await;
-        slot.as_ref().map(Conference::id)
-    };
+    let meeting = いま見ている部屋(&bridge.いまの部屋).await;
     let Some(meeting) = meeting else {
         // まだ会議が無い。**断りではない**ので黙って戻る
         return Ok(());
     };
-    let out = bridge.outbound.lock().await;
-    for tx in out.values() {
+    // **その部屋の相手だけへ。**別の部屋には居続ける
+    let 送り先 = その部屋の相手(
+        &bridge.conferences,
+        &bridge.outbound,
+        meeting,
+        bridge.device.public_key(),
+    )
+    .await;
+    for tx in &送り先 {
         // 届かない相手が居ても止めない。**抜ける側を待たせない**
         let _ = tx.send(Notice::Leave { meeting }).await;
+    }
+    // **抜けた部屋は畳む。**居ない部屋を持ち続けない
+    bridge.conferences.lock().await.remove(&meeting);
+    let mut いま = bridge.いまの部屋.lock().await;
+    if *いま == Some(meeting) {
+        *いま = bridge.conferences.lock().await.keys().next().copied();
     }
     Ok(())
 }
@@ -1128,8 +1209,14 @@ async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool
         message: "公開鍵の長さが違います".into(),
         code: None,
     })?)?;
-    let slot = bridge.conference.lock().await;
-    let Some(conference) = slot.as_ref() else {
+    let Some(meeting) = いま見ている部屋(&bridge.いまの部屋).await else {
+        return Err(Failure {
+            message: "まだ会議がありません".into(),
+            code: None,
+        });
+    };
+    let 棚 = bridge.conferences.lock().await;
+    let Some(conference) = 棚.get(&meeting) else {
         return Err(Failure {
             message: "まだ会議がありません".into(),
             code: None,

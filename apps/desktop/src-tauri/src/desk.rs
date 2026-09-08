@@ -234,10 +234,7 @@ async fn 流す(
     app: &AppHandle, body: &str, 出所: u64, 呼び方: String
 ) -> Result<usize, String> {
     let bridge = app.state::<Bridge>();
-    let meeting = {
-        let slot = bridge.conference.lock().await;
-        slot.as_ref().map(warifu_app::Conference::id)
-    };
+    let meeting = crate::いま見ている部屋(&bridge.いまの部屋).await;
     let Some(meeting) = meeting else {
         return Err("まだ会議がありません".to_owned());
     };
