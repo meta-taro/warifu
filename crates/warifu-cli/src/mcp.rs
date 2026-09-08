@@ -52,11 +52,26 @@ pub struct 設定 {
     pub 名乗り: Option<String>,
 }
 
+/// 名乗りとして置ける形か。**画面の 1 行に収まる長さに切る。**
+///
+/// # Errors
+/// 空・長すぎるとき。
+pub fn 名乗りを検める(名: &str) -> Result<String, String> {
+    let 名 = 名.trim().to_owned();
+    if 名.is_empty() || 名.chars().count() > warifu_desk::名乗りの上限 {
+        return Err(format!(
+            "名乗りは 1〜{} 文字にしてください",
+            warifu_desk::名乗りの上限
+        ));
+    }
+    Ok(名)
+}
+
 /// 起動した場所のフォルダ名。
 ///
 /// **人が書かなくても、どこで動いているかは分かる。**
 /// 取れなければ名乗らない（机が既定の呼び方をする）。
-fn 居場所から名乗る() -> Option<String> {
+pub fn 居場所から名乗る() -> Option<String> {
     let 名 = std::env::current_dir()
         .ok()?
         .file_name()?
@@ -93,14 +108,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             }
             "--as" => {
                 let 名 = args.next().ok_or("--as のあとに名前がありません")?;
-                let 名 = 名.trim().to_owned();
-                if 名.is_empty() || 名.chars().count() > warifu_desk::名乗りの上限 {
-                    return Err(format!(
-                        "名乗りは 1〜{} 文字にしてください",
-                        warifu_desk::名乗りの上限
-                    ));
-                }
-                設.名乗り = Some(名);
+                設.名乗り = Some(名乗りを検める(&名)?);
             }
             他 => return Err(format!("知らない指定です: {他}")),
         }

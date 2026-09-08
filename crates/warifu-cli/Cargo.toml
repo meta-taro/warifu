@@ -22,4 +22,4 @@ warifu-desk.workspace = true
 warifu-capability.workspace = true
 warifu-read.workspace = true
 rmcp.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-std", "io-util"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-std", "io-util", "process"] }

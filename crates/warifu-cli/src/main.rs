@@ -35,6 +35,7 @@ use warifu_meeting::{MeetingId, Notice, Roster};
 use warifu_net::{Address, Node};
 use warifu_vault::Vault;
 
+mod agent;
 mod identity;
 mod mcp;
 mod setup;
@@ -92,6 +93,9 @@ fn 使い方() -> ExitCode {
          \x20            MCP の口を標準入出力で出す（エージェントがここに繋ぐ）\n\
          \x20            --allow を書かなければ何も通りません。既定は拒否です\n\
          \x20            --as はどこで動いているか。既定は起動した場所のフォルダ名\n\
+         \x20 warifu agent [--as <名前>] [--desk <場所>] [--on <命令>...]\n\
+         \x20            机に着いて待ち、届いたら命令を起こす（常駐）\n\
+         \x20            届いた文字は命令の標準入力へ渡します。引数にはしません\n\
          \x20 warifu setup [--yes]\n\
          \x20            MCP の口を、Claude Code の利用者ごとの設定へ入れる\n\
          \x20            （どのフォルダでも出るようになる。会話だけを許します）\n\
@@ -326,6 +330,10 @@ async fn 本体() -> ExitCode {
         Some("doctor") => 診る().await,
         Some("setup") => match setup::読む(&mut args) {
             Ok(設) => setup::入れる(&設),
+            Err(e) => Err(e.into()),
+        },
+        Some("agent") => match agent::読む(&mut args) {
+            Ok(設) => agent::待つ(&設).await,
             Err(e) => Err(e.into()),
         },
         Some("mcp") => match mcp::読む(&mut args) {
