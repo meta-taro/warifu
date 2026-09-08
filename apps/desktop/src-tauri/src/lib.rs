@@ -1188,6 +1188,17 @@ fn desk_seats() -> Vec<String> {
     desk::着いている顔ぶれ()
 }
 
+/// **いま見ている部屋の id。**画面が会話を部屋ごとに分けるのに使う。
+///
+/// 部屋を複数持つので（`issues/015`）、**どの部屋の会話を出すか**を
+/// 画面が知っている必要がある。
+#[tauri::command]
+async fn current_room(bridge: State<'_, Bridge>) -> Answer<Option<String>> {
+    Ok(いま見ている部屋(&bridge.いまの部屋)
+        .await
+        .map(|id| id.to_string()))
+}
+
 /// **同じ PC の AI に「止まれ」と言う。**
 ///
 /// 常駐（`warifu agent`）は人が居ない間も動く。
@@ -1292,6 +1303,7 @@ pub fn run() {
             stop_knowing,
             known_keys,
             stop_agent,
+            current_room,
             set_menu_locale,
         ])
         .run(tauri::generate_context!())

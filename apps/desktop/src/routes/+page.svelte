@@ -26,6 +26,13 @@
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
+  import {
+    その部屋の会話,
+    机の部屋,
+    見る部屋,
+    足す as 会話に足す,
+    type 部屋の会話,
+  } from '$lib/chat/rooms';
   import { 呼び名 } from '$lib/meeting/names';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
@@ -64,6 +71,7 @@
     stopKnowing,
     knownKeys,
     stopAgent,
+    currentRoom,
     type ContactRow,
     hostMeeting,
     inTauri,
@@ -185,7 +193,19 @@
     覚えた,
   });
   /** 会議の中の文字。**残らない** — 閉じれば消える（保存には D2 の決着が要る）。 */
-  let 会話 = $state<会話行[]>([]);
+  /**
+   * **部屋ごとの会話。**混ぜない。
+   *
+   * 会話が 1 本しか無いと、**相手ごとの会話に見えない** ——
+   * 「1 対 1 と 1 対 N がはっきりしない」（オーナー・2026-09-08）の本体である。
+   */
+  let 部屋の会話たち = $state<部屋の会話>({});
+  /** いま居る部屋の id（Rust 側が持っている）。 */
+  let いまの部屋 = $state<string | null>(null);
+  /** いま見ている部屋。**同じ PC の AI を選んでいれば机の部屋。** */
+  const 見ている = $derived(見る部屋(選んだ相手, いまの部屋));
+  /** 画面に出す会話。**選んだ部屋のものだけ。** */
+  const 会話 = $derived(その部屋の会話(部屋の会話たち, 見ている));
 
   /**
    * 画面の状態（`$lib/meeting/stage`）。**会議中かどうかだけでは足りない。**
@@ -358,6 +378,7 @@
       await listen();
       const me = (await myKey()) ?? '';
       自分の鍵 = me;
+      いまの部屋 = (await currentRoom()) ?? null;
       members = [{ key: me, me: true, host: true, path: 'unknown' }];
       void 名簿を読む();
     })();
@@ -377,15 +398,15 @@
           void 名簿を読む();
           members = [...members, { key, path: 'unknown' }];
           // **見ていない間に誰が来たかを残す。**名簿は動くが、目を離すと分からない
-          会話 = [
-            ...会話,
-            {
+          if (いまの部屋) {
+            部屋の会話たち = 会話に足す(部屋の会話たち, いまの部屋, {
               ...入退室の知らせ('入室', 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v)),
               at: いま時刻(),
-            },
-          ];
+            });
+          }
           音を出す(入室の音);
           remotes = [...remotes, { key, stream: null, path: 'unknown' }];
+          いまの部屋 = (await currentRoom()) ?? null;
           const offering = (await shouldOfferTo(key)) ?? false;
           const call = new Call(
             offering,
@@ -423,7 +444,15 @@
       unsubs.push(
         await onEvent<[string, string]>(EVENT_TEXT, ([key, body]) => {
           log(話の記録('受信', 短く(key), body));
-          会話 = [...会話, { who: 呼び名(名簿, key), body, mine: false, at: いま時刻() }];
+          // **どの部屋あてかは Rust が振り分けている。**画面はいまの部屋へ積む
+          if (いまの部屋) {
+            部屋の会話たち = 会話に足す(部屋の会話たち, いまの部屋, {
+              who: 呼び名(名簿, key),
+              body,
+              mine: false,
+              at: いま時刻(),
+            });
+          }
         }),
       );
       unsubs.push(
@@ -433,7 +462,13 @@
         // 「この PC の AI」だけでは、どれが喋ったのか分からない（2026-09-08）
         await onEvent<[string, string, string]>(EVENT_DESK, ([呼び方, body, at]) => {
           log(話の記録('送信', 呼び方, body));
-          会話 = [...会話, { who: 呼び方, body, mine: false, agent: true, at }];
+          部屋の会話たち = 会話に足す(部屋の会話たち, 机の部屋, {
+            who: 呼び方,
+            body,
+            mine: false,
+            agent: true,
+            at,
+          });
         }),
       );
       unsubs.push(
@@ -496,6 +531,7 @@
       // 「送れない」と言われたときに、居たのか居なかったのかが読めなくなる
       `机 ${机の人数} 人${机のAIたち.length ? `（${机のAIたち.join('・')}）` : ''}`,
       // **届く先を書く。**書かないと「誰に届くはずだったか」が後から読めない
+      `部屋 ${いまの部屋 ? 短く(いまの部屋) : 'なし'}／見ている ${見ている ?? 'なし'}`,
       `届く先 ${届く先.length ? 届く先.join('・') : 'なし'}`,
       `宛先 ${宛先 ?? 'なし'}`,
       `送るもの ${送るものを言う(sendMode)}`,
@@ -528,13 +564,12 @@
     calls.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
     members = members.filter((m) => m.key !== key);
-    会話 = [
-      ...会話,
-      {
+    if (いまの部屋) {
+      部屋の会話たち = 会話に足す(部屋の会話たち, いまの部屋, {
         ...入退室の知らせ(種類, 呼び名(名簿, key), (k, v) => format(t(`chat.${k}`), v)),
         at: いま時刻(),
-      },
-    ];
+      });
+    }
     音を出す(退室の音);
   }
 
@@ -554,6 +589,8 @@
     notice = '';
     try {
       meetingKey = (await invite(KEY_TTL_SECS)) ?? '';
+      // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
+      いまの部屋 = (await currentRoom()) ?? null;
     } catch (e) {
       notice = 読める(e);
     }
@@ -590,7 +627,14 @@
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
       log(話の記録('送信', 宛先 ?? (会議中 ? `${remotes.length} 人` : '机'), body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
-      会話 = [...会話, { who: t('tile.me'), body, mine: true, at: いま時刻() }];
+      if (見ている) {
+        部屋の会話たち = 会話に足す(部屋の会話たち, 見ている, {
+          who: t('tile.me'),
+          body,
+          mine: true,
+          at: いま時刻(),
+        });
+      }
     } catch (e) {
       notice = 読める(e);
     }
@@ -613,6 +657,7 @@
       notice = '';
       try {
         await callContact(相手.key);
+        いまの部屋 = (await currentRoom()) ?? null;
         await 名簿を読む();
       } catch (e) {
         notice = 読める(e);
@@ -631,6 +676,7 @@
     入室中 = true;
     try {
       await connect(received.trim());
+      いまの部屋 = (await currentRoom()) ?? null;
     } catch (e) {
       notice = 読める(e);
     } finally {

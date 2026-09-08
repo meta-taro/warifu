@@ -15,7 +15,7 @@
 
   interface Props {
     locale: Locale;
-    会話: 会話行[];
+    会話: readonly 会話行[];
     /** 打ったものに届く先があるか。 */
     届く先がある: boolean;
     /** 会議に人が居るか（案内の文言が変わる）。 */

@@ -168,6 +168,13 @@ export const knownKeys = () => invoke<string[]>('known_keys');
 export const stopAgent = (name: string) => invoke<boolean>('stop_agent', { name });
 
 /**
+ * **いま見ている部屋の id。**
+ *
+ * 部屋を複数持つので、**どの部屋の会話を出すか**を画面が知っている必要がある。
+ */
+export const currentRoom = () => invoke<string | null>('current_room');
+
+/**
  * 画面の出来事を、Rust と同じログへ流す。
  *
  * WebView のコンソールはターミナルに出ない。**画面側だけで起きたことが見えないと、
