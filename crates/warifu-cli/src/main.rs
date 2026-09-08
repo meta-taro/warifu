@@ -38,6 +38,7 @@ use warifu_vault::Vault;
 mod agent;
 mod identity;
 mod mcp;
+mod post;
 mod relay;
 mod setup;
 
@@ -100,6 +101,9 @@ fn 使い方() -> ExitCode {
          \x20 warifu relay --allow-file <場所>\n\
          \x20            預かり所を立てる（相手が起動していない間、封を預かる）\n\
          \x20            中身は読めません。使ってよい人の公開鍵を 1 行ずつ書きます\n\
+         \x20 warifu post put  --at <預かり所> --to <相手>\n\
+         \x20 warifu post take --at <預かり所>\n\
+         \x20            預かり所を、画面なしで確かめる（本文は標準入力から）\n\
          \x20 warifu setup [--yes]\n\
          \x20            MCP の口を、Claude Code の利用者ごとの設定へ入れる\n\
          \x20            （どのフォルダでも出るようになる。会話だけを許します）\n\
@@ -334,6 +338,10 @@ async fn 本体() -> ExitCode {
         Some("doctor") => 診る().await,
         Some("setup") => match setup::読む(&mut args) {
             Ok(設) => setup::入れる(&設),
+            Err(e) => Err(e.into()),
+        },
+        Some("post") => match post::読む(&mut args) {
+            Ok(設) => post::走る(&設).await,
             Err(e) => Err(e.into()),
         },
         Some("relay") => match relay::読む(&mut args) {
