@@ -52,6 +52,14 @@ pub struct 設定 {
     pub 名乗り: Option<String>,
 }
 
+/// 今の時刻（秒）。
+#[must_use]
+pub fn いま() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
 /// 名乗りとして置ける形か。**画面の 1 行に収まる長さに切る。**
 ///
 /// # Errors

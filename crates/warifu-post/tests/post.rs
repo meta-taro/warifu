@@ -127,3 +127,55 @@ fn 預けた順に受け取る() {
     assert_eq!(出た[0].at(), 100);
     assert_eq!(出た[1].at(), 101);
 }
+
+// ── 預かり所とのやり取り ──
+
+use warifu_post::{Ask, Reply};
+
+#[test]
+fn 預けるときは_宛先と封だけを渡す() {
+    // **差出人を名乗らない。**名乗ると、預かり所が「誰が誰に」を読める（D69）
+    let 元 = Ask::Put {
+        to: 鍵([2u8; 32]),
+        sealed: 封("x"),
+    };
+    assert_eq!(Ask::from_bytes(&元.to_bytes()).unwrap(), 元);
+}
+
+#[test]
+fn 受け取りは_自分あてを尋ねるだけ() {
+    // **誰あてかは経路が決める。**尋ねる側が宛先を名乗ると、
+    // **他人あてを引き取れる**ことになる
+    let 元 = Ask::Take;
+    assert_eq!(Ask::from_bytes(&元.to_bytes()).unwrap(), 元);
+}
+
+#[test]
+fn 預かり所の返事を読める() {
+    let 元 = Reply::Kept;
+    assert_eq!(Reply::from_bytes(&元.to_bytes()).unwrap(), 元);
+    let 断り = Reply::Refused;
+    assert_eq!(Reply::from_bytes(&断り.to_bytes()).unwrap(), 断り);
+}
+
+#[test]
+fn 渡すときは_封を並べる() {
+    let 元 = Reply::Handed(vec![封("1"), 封("2")]);
+    assert_eq!(Reply::from_bytes(&元.to_bytes()).unwrap(), 元);
+}
+
+#[test]
+fn 何も無いことを_断りと混ぜない() {
+    // **「預かっていない」と「断った」は別。**混ぜると、
+    // 受け取りに来た人が「拒まれた」と読む
+    let 空 = Reply::Handed(Vec::new());
+    assert_ne!(空, Reply::Refused);
+    assert_eq!(Reply::from_bytes(&空.to_bytes()).unwrap(), 空);
+}
+
+#[test]
+fn 壊れた塊は読めない() {
+    assert!(Ask::from_bytes(b"").is_none());
+    assert!(Ask::from_bytes("なにこれ".as_bytes()).is_none());
+    assert!(Reply::from_bytes(b"").is_none());
+}

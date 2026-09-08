@@ -3968,6 +3968,8 @@ dependencies = [
  "warifu-mcp",
  "warifu-meeting",
  "warifu-net",
+ "warifu-post",
+ "warifu-postbox",
  "warifu-read",
  "warifu-vault",
 ]
@@ -4064,6 +4066,17 @@ name = "warifu-post"
 version = "0.1.0"
 dependencies = [
  "warifu-core",
+ "warifu-seal",
+]
+
+[[package]]
+name = "warifu-postbox"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "warifu-core",
+ "warifu-net",
+ "warifu-post",
  "warifu-seal",
 ]
 

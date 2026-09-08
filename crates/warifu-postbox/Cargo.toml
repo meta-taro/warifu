@@ -1,0 +1,21 @@
+[package]
+name = "warifu-postbox"
+description = "預かり所へ、封を預けに行き／受け取りに行く側。中身は預かり所に読めない。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+warifu-core.workspace = true
+warifu-net.workspace = true
+warifu-seal.workspace = true
+warifu-post.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync"] }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

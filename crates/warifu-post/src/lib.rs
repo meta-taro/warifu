@@ -18,9 +18,13 @@
 
 #![forbid(unsafe_code)]
 
+mod wire;
+
 use std::collections::HashMap;
 
 use warifu_core::PublicKey;
+
+pub use wire::{Ask, Reply};
 
 /// 何日まで預かるか。
 ///

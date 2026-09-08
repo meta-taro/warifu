@@ -38,6 +38,7 @@ use warifu_vault::Vault;
 mod agent;
 mod identity;
 mod mcp;
+mod relay;
 mod setup;
 
 /// 会議キーの既定の有効期間（秒）。**24 時間。**画面側と揃えてある。
@@ -96,6 +97,9 @@ fn 使い方() -> ExitCode {
          \x20 warifu agent [--as <名前>] [--desk <場所>] [--on <命令>...]\n\
          \x20            机に着いて待ち、届いたら命令を起こす（常駐）\n\
          \x20            届いた文字は命令の標準入力へ渡します。引数にはしません\n\
+         \x20 warifu relay --allow-file <場所>\n\
+         \x20            預かり所を立てる（相手が起動していない間、封を預かる）\n\
+         \x20            中身は読めません。使ってよい人の公開鍵を 1 行ずつ書きます\n\
          \x20 warifu setup [--yes]\n\
          \x20            MCP の口を、Claude Code の利用者ごとの設定へ入れる\n\
          \x20            （どのフォルダでも出るようになる。会話だけを許します）\n\
@@ -330,6 +334,10 @@ async fn 本体() -> ExitCode {
         Some("doctor") => 診る().await,
         Some("setup") => match setup::読む(&mut args) {
             Ok(設) => setup::入れる(&設),
+            Err(e) => Err(e.into()),
+        },
+        Some("relay") => match relay::読む(&mut args) {
+            Ok(設) => relay::立てる(&設).await,
             Err(e) => Err(e.into()),
         },
         Some("agent") => match agent::読む(&mut args) {
