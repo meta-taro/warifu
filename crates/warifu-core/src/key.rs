@@ -202,6 +202,22 @@ impl Device {
     pub fn sign(&self, message: &[u8]) -> Signature {
         Signature(self.signing.sign(message))
     }
+
+    /// **鍵合わせに使う種。**署名の鍵から導く。
+    ///
+    /// **鍵を 2 つにしない**（**D42** —— 身元は端末の鍵ひとつ）。
+    /// 2 つにすると、**配る身元が 2 つ**になり、
+    /// 「この公開鍵の人へ封をする」が成り立たなくなる。
+    ///
+    /// **この値をそのまま外へ出さない。**封をする層（`warifu-seal`）だけが使う。
+    /// 署名の鍵そのものではないが、**これが漏れれば読まれる。**
+    ///
+    /// 署名と鍵合わせで同じ鍵を使うのは、広く行われている形である
+    /// （libsodium の `crypto_sign_ed25519_sk_to_curve25519` と同じ導き方）。
+    #[must_use]
+    pub fn agreement_secret(&self) -> [u8; 32] {
+        self.signing.to_scalar_bytes()
+    }
 }
 
 impl fmt::Debug for Device {
