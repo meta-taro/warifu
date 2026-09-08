@@ -111,7 +111,7 @@ impl Chat {
     ///
     /// **返事を待つ。**待たずに「流しました」と返すのは、
     /// 押しても何も起きないボタンと同じである（**D49**）。
-    pub async fn 言う(&self, body: &str) -> Result<usize, crate::ToolError> {
+    pub async fn 言う(&self, body: &str) -> Result<(usize, u64, Vec<String>), crate::ToolError> {
         let 行 = ToDesk::say(body).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
         *self.返事待ち.lock().expect("毒されていない") = Some(返す);
@@ -127,7 +127,8 @@ impl Chat {
             .map_err(|_| crate::ToolError::Unavailable("机が閉じました".to_owned()))?;
 
         match 返事 {
-            FromDesk::Sent { to } => Ok(to),
+            // **通し番号と届いた席も返す。**あとで「誰が読んだか」を尋ねられる（**D76**）
+            FromDesk::Sent { to, id, 届いた } => Ok((to, id, 届いた)),
             // **画面には出ている。**同じ席の人は読んでいるので、そこまで言う。
             // 「届かなかった」だけだと、言い直しを促すことになる
             FromDesk::Nobody => Err(crate::ToolError::Unavailable(
@@ -136,6 +137,45 @@ impl Chat {
             )),
             FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
             // 発言や入退室は返事ではない。**ここへ来た時点で仕分けが壊れている**
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "机が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// **そこまで読んだ**と机へ告げる（**D76**）。
+    ///
+    /// **返事は待たない。**数えてもらうだけで、こちらの手は止めない。
+    async fn 読んだと告げる(&self, まで: u64) {
+        if まで == 0 {
+            return;
+        }
+        let _ = self.送り.send(ToDesk::Read { まで }).await;
+    }
+
+    /// **その発言の届き方**を尋ねる（**D76**）。届いた席と、読んだ席を返す。
+    ///
+    /// # Errors
+    /// 机が閉じているとき、返事が来ないとき。
+    pub async fn 届き方(&self, id: u64) -> Result<(Vec<String>, Vec<String>), crate::ToolError> {
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返す);
+
+        self.送り
+            .send(ToDesk::Status { id })
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("机が閉じています".to_owned()))?;
+
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("机が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("机が閉じました".to_owned()))?;
+
+        match 返事 {
+            FromDesk::Status {
+                届いた, 読んだ,
+            ..
+            } => Ok((届いた, 読んだ)),
             他 => Err(crate::ToolError::Unavailable(format!(
                 "机が想定しない返事をしました: {他:?}"
             ))),
@@ -211,6 +251,38 @@ impl Chat {
         let mut 箱 = self.聞いた.lock().expect("毒されていない");
         箱.drain(..).collect()
     }
+
+    /// 取り出したものを、**読んだと机へ告げる**（**D76**）。
+    ///
+    /// **渡した時点が「読んだ」である。**中身を理解したかは誰にも分からないので、
+    /// そこは名乗らない。
+    pub async fn 汲んで告げる(&self) -> Vec<FromDesk> {
+        let 出た = self.汲む();
+        if let Some(まで) = 最後の番号(&出た) {
+            self.読んだと告げる(まで).await;
+        }
+        出た
+    }
+
+    /// 待って取り出し、**読んだと机へ告げる**（**D76**）。
+    pub async fn 待って告げる(&self, 秒: u64) -> Vec<FromDesk> {
+        let 出た = self.待つ(秒).await;
+        if let Some(まで) = 最後の番号(&出た) {
+            self.読んだと告げる(まで).await;
+        }
+        出た
+    }
+}
+
+/// 取り出したものの中で、いちばん新しい発言の番号。**発言でなければ数えない。**
+fn 最後の番号(出た: &[FromDesk]) -> Option<u64> {
+    出た
+        .iter()
+        .filter_map(|一つ| match 一つ {
+            FromDesk::Heard { id, .. } if *id > 0 => Some(*id),
+            _ => None,
+        })
+        .max()
 }
 
 /// 来た 1 行を、**返事**と**発言**に仕分ける。
@@ -231,7 +303,11 @@ fn 仕分ける(
 
     if matches!(
         中身,
-        FromDesk::Sent { .. } | FromDesk::Nobody | FromDesk::Denied { .. } | FromDesk::Wrote { .. }
+        FromDesk::Sent { .. }
+            | FromDesk::Nobody
+            | FromDesk::Denied { .. }
+            | FromDesk::Wrote { .. }
+            | FromDesk::Status { .. }
     ) && let Some(返す) = 返し先.lock().expect("毒されていない").take()
     {
         // 待っている人が居なくなっていても構わない。**捨てて先へ進む**
@@ -262,14 +338,32 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
     発言
         .iter()
         .map(|一つ| match 一つ {
-            FromDesk::Heard { from, body, at } => format!("{at}\t{from}\t{body}"),
+            // **番号も出す。**あとで「その発言は読まれたか」を尋ねられる（**D76**）
+            // **番号の無い発言（古い机）には番号を出さない。**
+            // 出すと、尋ねられる番号があるように見える
+            FromDesk::Heard { id, from, body, at } if *id > 0 => {
+                format!("{at}\t{from}\t{body}\t#{id}")
+            }
+            FromDesk::Heard { from, body, at, .. } => format!("{at}\t{from}\t{body}"),
             FromDesk::Joined { who } => format!("\t{who}\t（入室）"),
             FromDesk::Left { who } => format!("\t{who}\t（退室）"),
-            FromDesk::Sent { to } => format!("\t\t（{to} 人へ流しました）"),
+            FromDesk::Sent { to, id, 届いた } => {
+                format!(
+                    "\t\t（#{id} を {to} 人へ流しました: {}）",
+                    届いた.join("・")
+                )
+            }
             FromDesk::Stop => "\t\t（止まれと言われました）".to_owned(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
+            FromDesk::Status {
+                id, 届いた, 読んだ
+            } => format!(
+                "\t\t（#{id} 届いた {} / 読んだ {}）",
+                届いた.join("・"),
+                読んだ.join("・")
+            ),
         })
         .collect::<Vec<_>>()
         .join("\n")
@@ -282,11 +376,25 @@ mod tests {
     #[test]
     fn 発言は_いつ_誰が_なにを_の順で出る() {
         let 行 = 並べる(&[FromDesk::Heard {
+            id: 1,
             from: "ABCDEFGH…".to_owned(),
             body: "直しました".to_owned(),
             at: "09:05".to_owned(),
         }]);
-        assert_eq!(行, "09:05\tABCDEFGH…\t直しました");
+        // **番号も出す。**あとで「その発言は読まれたか」を尋ねられる（**D76**）
+        assert_eq!(行, "09:05\tABCDEFGH…\t直しました\t#1");
+    }
+
+    #[test]
+    fn 番号の無い発言には番号を出さない() {
+        // **古い机は 0 を返す。**0 を「#0」として出すと、尋ねられる番号に見える
+        let 行 = 並べる(&[FromDesk::Heard {
+            id: 0,
+            from: "ABCDEFGH…".to_owned(),
+            body: "むかしの机から".to_owned(),
+            at: "09:05".to_owned(),
+        }]);
+        assert_eq!(行, "09:05\tABCDEFGH…\tむかしの机から");
     }
 
     #[test]
@@ -342,11 +450,23 @@ mod tests {
             &箱,
             &返し先,
             &Arc::new(Notify::new()),
-            &FromDesk::Sent { to: 2 }.書く(),
+            &FromDesk::Sent {
+                to: 2,
+                id: 1,
+                届いた: vec!["画面".to_owned()],
+            }
+            .書く(),
         );
 
         assert!(箱.lock().unwrap().is_empty(), "溜めに入っていない");
-        assert_eq!(待つ.await.unwrap(), FromDesk::Sent { to: 2 });
+        assert_eq!(
+            待つ.await.unwrap(),
+            FromDesk::Sent {
+                to: 2,
+                id: 1,
+                届いた: vec!["画面".to_owned()]
+            }
+        );
     }
 
     #[test]

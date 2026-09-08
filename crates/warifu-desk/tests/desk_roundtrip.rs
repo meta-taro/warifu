@@ -30,6 +30,7 @@ async fn エージェントが言ったことが_机に届き_返事が返る() 
         };
         // **机が差出人を刻む。**言ってきた側は名乗っていない
         let 返し = FromDesk::Heard {
+            id: 1,
             from: "mcp:local-agent".to_owned(),
             body,
             at: "09:05".to_owned(),
@@ -43,7 +44,7 @@ async fn エージェントが言ったことが_机に届き_返事が返る() 
         .unwrap();
     let 行 = 客.受ける().await.unwrap().expect("返事が来ること");
 
-    let FromDesk::Heard { from, body, at } = FromDesk::読む(&行).unwrap() else {
+    let FromDesk::Heard { from, body, at, .. } = FromDesk::読む(&行).unwrap() else {
         panic!("heard のはず");
     };
     assert_eq!(from, "mcp:local-agent");

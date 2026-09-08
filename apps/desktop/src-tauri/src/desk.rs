@@ -39,6 +39,24 @@ pub const 配る溜め: usize = 128;
 /// エージェントは `chat_read` で自分が言ったことを「誰かの発言」として読む。
 static 次の番号: AtomicU64 = AtomicU64::new(1);
 
+/// 発言に振る通し番号（**既読**を数えるため・**D76**）。
+static 次の発言: AtomicU64 = AtomicU64::new(1);
+
+/// 発言ごとに、**どの席へ届けたか。**
+///
+/// **「3 人へ流しました」だけでは、誰に届いたか分からない**（`issues/4`）。
+/// 古いものから捨てる —— **溜め込む所にしない。**
+static 届いた先: Mutex<BTreeMap<u64, Vec<String>>> = Mutex::new(BTreeMap::new());
+
+/// 席ごとに、**どこまで読んだか。**
+///
+/// **読んだのは、渡された時点である**（`chat_read` / `chat_wait` が呼び手へ渡したとき）。
+/// **中身を理解したかは誰にも分からない**ので、そこは名乗らない。
+static 読んだところ: Mutex<BTreeMap<u64, u64>> = Mutex::new(BTreeMap::new());
+
+/// 覚えておく発言の数。**画面に出す既読を数えるのに要るだけ持つ。**
+const 覚える発言: usize = 200;
+
 /// 席へ座らせる。**同じ呼び方が二つ並ばないようにする。**
 ///
 /// 名乗らないエージェントが 2 つ着くと、**どちらも同じ呼び方になる。**
@@ -263,6 +281,19 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+        // **そこまで読んだ**（**D76**）。返事は要らない —— 数えるだけ
+        ToDesk::Read { まで } => {
+            読んだ(自分, まで);
+            Ok(())
+        }
+        // **その発言の届き方を尋ねる**（**D76**）
+        ToDesk::Status { id } => {
+            let (届いた, 読んだ) = 届き方(id);
+            let _ = 口
+                .送る(&FromDesk::Status { id, 届いた, 読んだ }.書く())
+                .await;
+            Ok(())
+        }
         ToDesk::Say { .. } if 名乗り.is_none() => {
             // **名乗っていない席からは流さない。**
             // 流すと「どこの誰か分からない発言」が人の画面に並ぶ
@@ -279,7 +310,11 @@ async fn 応じる(
         ToDesk::Say { body } => {
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
             let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref())).await {
-                Ok(人数) => FromDesk::Sent { to: 人数 },
+                Ok((id, 届いた)) => FromDesk::Sent {
+                    to: 届いた.len(),
+                    id,
+                    届いた,
+                },
                 Err(訳) => {
                     記録!("机からの発言を流せませんでした: {訳}");
                     // 相手が居ないのと、会議そのものが無いのは違う。**混ぜない**
@@ -325,8 +360,11 @@ const 誰も居ない: &str = "まだ誰も居ません";
 /// エージェントには「誰にも届いていません」と返っていた**
 /// （2026-09-08 に実物で踏んだ）。返された側は言い直すか、諦める。
 async fn 流す(
-    app: &AppHandle, body: &str, 出所: u64, 呼び方: String
-) -> Result<usize, String> {
+    app: &AppHandle,
+    body: &str,
+    出所: u64,
+    呼び方: String,
+) -> Result<(u64, Vec<String>), String> {
     let bridge = app.state::<Bridge>();
     let 自分 = bridge.device.public_key();
 
@@ -335,10 +373,13 @@ async fn 流す(
     // **同じ席の AI が喋ったことにも気づけるようにする。**
     // 窓が前に居るときは鳴らないので、うるさくならない
     crate::notify::届いたと知らせる(app, &呼び方);
+    // **通し番号を振る。**あとで「誰が読んだか」を尋ねられるようにする（**D76**）
+    let id = 次の発言.fetch_add(1, Ordering::Relaxed);
     // 机に着いている**他の**エージェントにも同じ行を見せる（言った本人には返さない）
     let _ = bridge.desk.send((
         出所,
         FromDesk::Heard {
+            id,
             from: 呼び方.clone(),
             body: body.to_owned(),
             at: いま時刻(),
@@ -347,17 +388,21 @@ async fn 流す(
 
     // **この PC の画面 1 つ ＋ 机に着いている他の席。**
     // 画面はいつでも居る（机が開いているなら、窓も開いている）
-    let 机の他の席 = 席たち
+    let 他の席の名: Vec<String> = 席たち
         .lock()
         .expect("毒されていない")
-        .keys()
-        .filter(|席| **席 != 出所)
-        .count();
-    let この端末で見る人 = 1 + 机の他の席;
+        .iter()
+        .filter(|(席, _)| **席 != 出所)
+        .map(|(_, 名)| 名.clone())
+        .collect();
+    // **画面（人）も 1 つとして並べる。**「3 人」だけでは誰に届いたか分からない
+    let mut 届いた = vec![画面.to_owned()];
+    届いた.extend(他の席の名);
 
     let Some(meeting) = crate::いま見ている部屋(&bridge.いまの部屋).await else {
         // 会議が無くても、**この PC の人には届いている。**失敗にしない
-        return Ok(この端末で見る人);
+        届けた(id, 届いた.clone());
+        return Ok((id, 届いた));
     };
 
     // **その部屋に居る相手だけへ。**全員へ配ると、別の部屋の人にも届く
@@ -378,8 +423,19 @@ async fn 流す(
             })
             .await;
     }
-    Ok(この端末で見る人 + 送り先.len())
+    // 部屋の相手は**名前を持たない**（呼び名は画面の側にある）ので、人数だけを足す。
+    // **持っていないものを名乗らない**
+    for _ in 0..送り先.len() {
+        届いた.push(部屋の相手.to_owned());
+    }
+    届けた(id, 届いた.clone());
+    Ok((id, 届いた))
 }
+
+/// 画面（この PC の人）の呼び方。**席ではないが、届いた先ではある。**
+const 画面: &str = "画面";
+/// 部屋の相手の呼び方。**名前は画面の側にあるので、ここでは数えるだけ。**
+const 部屋の相手: &str = "部屋の相手";
 
 /// 会話に出たことを、机に着いている全員へ配る。
 ///
@@ -452,10 +508,55 @@ const fn 自分あてか(出所: u64, 自分: u64) -> bool {
 #[must_use]
 pub fn 聞いた(from: &str, body: &str) -> FromDesk {
     FromDesk::Heard {
+        id: 次の発言.fetch_add(1, Ordering::Relaxed),
         from: from.to_owned(),
         body: body.to_owned(),
         at: いま時刻(),
     }
+}
+
+/// **その発言を、どの席へ届けたか**を控える（**D76**）。
+///
+/// 古いものから捨てる。**溜め込む所にしない** ——
+/// ここが要るのは「さっき流したものが読まれたか」を返すためだけである。
+fn 届けた(id: u64, 先: Vec<String>) {
+    let mut 棚 = 届いた先.lock().expect("毒されていない");
+    棚.insert(id, 先);
+    while 棚.len() > 覚える発言 {
+        let 古い = *棚.keys().next().expect("空でない");
+        棚.remove(&古い);
+    }
+}
+
+/// **そこまで読んだ**と控える（**D76**）。
+fn 読んだ(席: u64, まで: u64) {
+    let mut 棚 = 読んだところ.lock().expect("毒されていない");
+    let いま = 棚.entry(席).or_insert(0);
+    // **戻らない。**古い番号で上書きしない
+    if まで > *いま {
+        *いま = まで;
+    }
+}
+
+/// その発言の**届き方**を返す（届いた席・読んだ席）。
+fn 届き方(id: u64) -> (Vec<String>, Vec<String>) {
+    let 届いた = 届いた先
+        .lock()
+        .expect("毒されていない")
+        .get(&id)
+        .cloned()
+        .unwrap_or_default();
+    let 読んだ棚 = 読んだところ.lock().expect("毒されていない");
+    let 席棚 = 席たち.lock().expect("毒されていない");
+    // **番号ではなく名前で返す。**呼び手に番号の意味は無い
+    let 読んだ: Vec<String> = 席棚
+        .iter()
+        .filter(|(席, 名)| {
+            届いた.contains(名) && 読んだ棚.get(*席).copied().unwrap_or(0) >= id
+        })
+        .map(|(_, 名)| 名.clone())
+        .collect();
+    (届いた, 読んだ)
 }
 
 /// **机が呼び方を刻む。**エージェントは「どこで動いているか」しか名乗れない。

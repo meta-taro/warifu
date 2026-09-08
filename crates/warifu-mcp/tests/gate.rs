@@ -184,7 +184,9 @@ fn 出している口を_数えて名前で押さえる() {
     // 2026-09-08 に chat_wait を足した —— **読むのと同じものが返る**ので、
     // 札も `chat.read` を使う（待つかどうかの違いでしかない）。
     // 2026-09-08 に profile_set を足した —— **書く口なので別の札**（`profile.write`）。
-    // 書けるのは**自分の席だけ**で、名乗り（どこで動いているか）は変えられない
+    // 書けるのは**自分の席だけ**で、名乗り（どこで動いているか）は変えられない。
+    // 2026-09-08 に chat_status を足した —— **自分が流したものの届き方を見る**だけなので、
+    // 札は `chat.read` を使う（新しく読めるものが増えるわけではない）
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -194,6 +196,7 @@ fn 出している口を_数えて名前で押さえる() {
             "calendar_slots",
             "chat_read",
             "chat_send",
+            "chat_status",
             "chat_wait",
             "inbox_list",
             "inbox_open",
@@ -385,7 +388,17 @@ async fn 机に着けば_流した行が机に届く() {
         assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen { 場所: None });
         let 行 = 行の口.受ける().await.unwrap().unwrap();
         // **机は必ず返事をする。**返さないと、送った側は待ち続ける（D49）
-        行の口.送る(&FromDesk::Sent { to: 1 }.書く()).await.unwrap();
+        行の口
+            .送る(
+                &FromDesk::Sent {
+                    to: 1,
+                    id: 1,
+                    届いた: vec!["画面".to_owned()],
+                }
+                .書く(),
+            )
+            .await
+            .unwrap();
         ToDesk::読む(&行).unwrap()
     });
 
@@ -439,7 +452,17 @@ async fn 画面が後から開いても_会話は使える() {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
         let 行 = 行の口.受ける().await.unwrap().unwrap();
-        行の口.送る(&FromDesk::Sent { to: 1 }.書く()).await.unwrap();
+        行の口
+            .送る(
+                &FromDesk::Sent {
+                    to: 1,
+                    id: 1,
+                    届いた: vec!["画面".to_owned()],
+                }
+                .書く(),
+            )
+            .await
+            .unwrap();
         ToDesk::読む(&行).unwrap()
     });
 
@@ -524,6 +547,7 @@ async fn 待っている間に届いたものを受け取る() {
         行の口
             .送る(
                 &FromDesk::Heard {
+                    id: 1,
                     from: "オーナー".to_owned(),
                     body: "気づきますか".to_owned(),
                     at: "12:00".to_owned(),

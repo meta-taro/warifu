@@ -139,7 +139,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let mut 数 = 回数::新しく();
     while let Some(行) = 口.受ける().await? {
         let (from, body, at) = match FromDesk::読む(&行) {
-            Ok(FromDesk::Heard { from, body, at }) => (from, body, at),
+            Ok(FromDesk::Heard { from, body, at, .. }) => (from, body, at),
             // **人が画面から止めた。**落とすしか止め方が無い状態にしない
             Ok(FromDesk::Stop) => {
                 eprintln!("止まれと言われました。降ります。");

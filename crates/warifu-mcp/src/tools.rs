@@ -51,6 +51,13 @@ pub struct ProfileArgs {
     pub bio: String,
 }
 
+/// [`crate::Warifu::chat_status`] の引数。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct StatusArgs {
+    /// どの発言か（`chat_send` の返りに出る番号）。
+    pub id: u64,
+}
+
 /// [`crate::Warifu::chat_wait`] の引数。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct WaitArgs {

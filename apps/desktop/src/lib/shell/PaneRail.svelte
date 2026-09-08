@@ -35,17 +35,24 @@
 <div class="rail" role="tablist" aria-orientation="vertical">
   {#each 面の並び as 一つ (一つ)}
     {@const 印 = 面の印(一つ, 状態)}
+    <!--
+      **見出しと状態を、1 つの名前に混ぜない**（`issues/3`）。
+      混ぜると `"部屋 相手を待っています"` が名前になり、**その名前では押せない。**
+      状態は `aria-describedby` の側へ回す。
+    -->
     <button
       type="button"
       role="tab"
       aria-selected={一つ === いまの面}
+      aria-label={t(見た目[一つ].label)}
+      aria-describedby={印 && 印の文言[印] ? `印-${一つ}` : undefined}
       class:on={一つ === いまの面}
       onclick={() => 選ぶ(一つ)}
     >
       <Icon name={見た目[一つ].icon} size={20} />
       <span class="name">{t(見た目[一つ].label)}</span>
       <!-- **色だけで言わない。**印には必ず文字を添える（DESIGN §2 原則 6） -->
-      {#if 印 && 印の文言[印]}<span class="mark">{t(印の文言[印])}</span>{/if}
+      {#if 印 && 印の文言[印]}<span class="mark" id="印-{一つ}">{t(印の文言[印])}</span>{/if}
     </button>
   {/each}
 </div>
