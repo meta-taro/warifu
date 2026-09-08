@@ -779,3 +779,64 @@ fn 同じ人のプロフィールは一つだけ持つ() {
         "たろう 2"
     );
 }
+
+// --- 顔（差し替える画像） ---------------------------------------------------
+
+/// 幅と高さだけを持つ、いちばん短い PNG の頭。
+fn pngの頭(幅: u32, 高さ: u32) -> Vec<u8> {
+    let mut v = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    v.extend_from_slice(&13u32.to_be_bytes()); // IHDR の長さ
+    v.extend_from_slice(b"IHDR");
+    v.extend_from_slice(&幅.to_be_bytes());
+    v.extend_from_slice(&高さ.to_be_bytes());
+    v
+}
+
+#[test]
+fn 顔は_png_だけ受ける() {
+    // **拡張子を信じない。**中身の頭を見る
+    assert_eq!(warifu_vault::顔として読む(&pngの頭(64, 64)), Ok((64, 64)));
+    assert!(warifu_vault::顔として読む("\u{ff}\u{d8}\u{ff} JPEG のつもり".as_bytes()).is_err());
+    assert!(warifu_vault::顔として読む(b"").is_err());
+}
+
+#[test]
+fn 縦横が大きすぎる顔は断る() {
+    // **小さいファイルでも、桁の大きい画像は描くときに膨らむ**
+    let 大きい = pngの頭(warifu_vault::AVATAR_MAX_SIDE + 1, 10);
+    assert!(matches!(
+        warifu_vault::顔として読む(&大きい),
+        Err(warifu_vault::BadImage::TooWide(..))
+    ));
+}
+
+#[test]
+fn 大きすぎるファイルは断る() {
+    let mut 重い = pngの頭(10, 10);
+    重い.resize(warifu_vault::AVATAR_MAX_BYTES + 1, 0);
+    assert!(matches!(
+        warifu_vault::顔として読む(&重い),
+        Err(warifu_vault::BadImage::TooBig(_))
+    ));
+}
+
+#[test]
+fn 縦横が_0_の画像は絵ではない() {
+    // 描こうとした側で割り算が壊れる
+    assert!(warifu_vault::顔として読む(&pngの頭(0, 10)).is_err());
+    assert!(warifu_vault::顔として読む(&pngの頭(10, 0)).is_err());
+}
+
+#[test]
+fn 顔のファイル名は置き場所の外へ出られない() {
+    // **人が書いた名乗りを、そのままファイル名にしない**
+    let 名 =
+        warifu_vault::顔のファイル名(&warifu_vault::Who::Desk("../../etc/passwd".into()));
+    assert!(!名.contains('/'), "{名}");
+    assert!(!名.contains(".."), "{名}");
+    assert!(名.ends_with(".png"), "{名}");
+    assert_eq!(
+        warifu_vault::顔のファイル名(&warifu_vault::Who::Me),
+        "me.png"
+    );
+}

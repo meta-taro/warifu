@@ -101,6 +101,9 @@ profile.ai.who	My PC agents	マイ PC エージェント	我的电脑代理	내 
 profile.bio	Short bio	短い紹介	简介	짧은 소개				
 profile.cancel	Cancel	やめる	取消	그만두기				
 profile.edit	Edit profile	プロフィールを書く	编辑资料	프로필 쓰기				
+profile.face	Face	顔	头像	얼굴				
+profile.face.clear	Back to the default face	既定の顔に戻す	恢复默认头像	기본 얼굴로 되돌리기				
+profile.face.drop	Drop a PNG here to replace the face (up to 512px, 64 KB).	ここに PNG を落とすと、顔を差し替えられます（512px・64 KB まで）。	把 PNG 拖到这里可以替换头像（最大 512px、64 KB）。	여기에 PNG 를 놓으면 얼굴을 바꿀 수 있습니다 (512px・64 KB 까지).				
 profile.name	Name	名前	名字	이름				
 profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
 profile.save	Save	決める	保存	정하기				

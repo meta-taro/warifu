@@ -90,6 +90,9 @@ export type MessageKey =
   | 'profile.none'
   | 'profile.ai.who'
   | 'profile.ai.hint'
+  | 'profile.face'
+  | 'profile.face.drop'
+  | 'profile.face.clear'
   | 'contacts.desk.how'
   | 'chat.shared'
   | 'chat.reach'
@@ -258,6 +261,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.none': 'まだ書いていません。',
     'profile.ai.who': 'マイ PC エージェント',
     'profile.ai.hint': 'この PC の持ち主と、その席のエージェント自身が書けます。ほかの席のエージェントは書き換えられません。どこで動いているか（席）は、立ち上げるときに人が決めます。',
+    'profile.face': '顔',
+    'profile.face.drop': 'ここに PNG を落とすと、顔を差し替えられます（512px・64 KB まで）。',
+    'profile.face.clear': '既定の顔に戻す',
     'contacts.desk.how': '机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
     'chat.reach': '届く先 {who}',
@@ -398,6 +404,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.none': 'Nothing written yet.',
     'profile.ai.who': 'My PC agents',
     'profile.ai.hint': 'Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.',
+    'profile.face': 'Face',
+    'profile.face.drop': 'Drop a PNG here to replace the face (up to 512px, 64 KB).',
+    'profile.face.clear': 'Back to the default face',
     'contacts.desk.how': 'To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
     'chat.shared': 'This is not a conversation with the person you picked.',
     'chat.reach': 'Goes to {who}',
@@ -538,6 +547,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.none': '还没有填写。',
     'profile.ai.who': '我的电脑代理',
     'profile.ai.hint': '由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。',
+    'profile.face': '头像',
+    'profile.face.drop': '把 PNG 拖到这里可以替换头像（最大 512px、64 KB）。',
+    'profile.face.clear': '恢复默认头像',
     'contacts.desk.how': '要让代理坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。',
     'chat.shared': '这里不是只和所选对方的会话。',
     'chat.reach': '送达 {who}',
@@ -678,6 +690,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.none': '아직 쓰지 않았습니다.',
     'profile.ai.who': '내 PC 에이전트',
     'profile.ai.hint': '이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.',
+    'profile.face': '얼굴',
+    'profile.face.drop': '여기에 PNG 를 놓으면 얼굴을 바꿀 수 있습니다 (512px・64 KB 까지).',
+    'profile.face.clear': '기본 얼굴로 되돌리기',
     'contacts.desk.how': '책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
     'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',
     'chat.reach': '가는 곳 {who}',

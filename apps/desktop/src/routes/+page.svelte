@@ -97,6 +97,9 @@
     setPostbox,
     profiles,
     setProfile,
+    setAvatar,
+    clearAvatar,
+    avatarBytes,
     type ProfileRow,
     fetchPostbox,
     setMenuLocale,
@@ -210,6 +213,8 @@
    * **書き換えられるのはこの端末の持ち主だけ**（`profile.rs`）。
    */
   let 名乗りたち = $state<ProfileRow[]>([]);
+  /** 差し替えた顔（`who` → 画面に出せる URL）。**閉じれば消える。** */
+  let 顔の画たち = $state<Record<string, string>>({});
   /**
    * **相手が名乗ったもの**（**D75**）。公開鍵 → 名前と紹介。
    *
@@ -500,6 +505,7 @@
       members = [{ key: me, me: true, host: true, path: 'unknown' }];
       void 名簿を読む();
       名乗りたち = (await profiles()) ?? [];
+      await 顔を読み直す();
       // **覚えているテーマを、画面の状態にも持つ**（当てるのは app.html が済ませている）
       テーマの選び = 読み取る(localStorage.getItem(覚える鍵));
       // **置いてある預かり所を、画面にも出す。**
@@ -611,7 +617,10 @@
       unsubs.push(
         // **机に着いたエージェントが、自分で名乗った。**画面にもすぐ出す
         await onEvent<void>(EVENT_PROFILES, () => {
-          void profiles().then((面々) => (名乗りたち = 面々 ?? []));
+          void profiles().then(async (面々) => {
+            名乗りたち = 面々 ?? [];
+            await 顔を読み直す();
+          });
         }),
       );
       unsubs.push(
@@ -940,6 +949,81 @@
    *
    * **名乗りは本人確認にしない**（D46）。相手が付けた呼び名があれば、そちらが勝つ。
    */
+  /**
+   * **画像を落として、顔を差し替える。**
+   *
+   * 落とせる先は「いま選んでいる行」である ——
+   * **選んでいなければ何もしない**（どこへ入るのか分からないものを受け取らない）。
+   *
+   * `@tauri-apps/api` の口を使う（**外の道具を足さない**）。
+   */
+  $effect(() => {
+    if (!inTauri()) return;
+    let 外す: (() => void) | undefined;
+    void (async () => {
+      const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+      外す = await getCurrentWebview().onDragDropEvent((e) => {
+        if (e.payload.type === 'over') {
+          落とせる = 顔を差し替えられる先 !== null;
+          return;
+        }
+        落とせる = false;
+        if (e.payload.type !== 'drop') return;
+        const 先 = 顔を差し替えられる先;
+        const 場所 = e.payload.paths[0];
+        if (!先 || !場所) return;
+        void 顔を差し替える(先, 場所);
+      });
+    })();
+    return () => 外す?.();
+  });
+
+  /** いま顔を差し替えられる相手（`me` か `desk:◯◯`）。**選んでいなければ `null`。** */
+  const 顔を差し替えられる先 = $derived.by(() => {
+    if (!選んだ相手) return null;
+    if (選んだ相手 === 自分の鍵) return 'me';
+    if (選んだ相手.startsWith(机の印) && 選んだ相手 !== 机の印) return 選んだ相手;
+    return null;
+  });
+  /** いま落とせる所にドラッグしているか。 */
+  let 落とせる = $state(false);
+
+  /**
+   * 顔を差し替える／既定へ戻す。
+   *
+   * **落としたファイルをそのまま指さない。**Rust 側が置き場所へ写してから指す ——
+   * 指したままにすると、**消えた・入れ替わったファイル**を指すことになる。
+   */
+  async function 顔を差し替える(who: string, 場所: string | null) {
+    notice = '';
+    try {
+      if (場所) await setAvatar(who, 場所);
+      else await clearAvatar(who);
+      名乗りたち = (await profiles()) ?? [];
+      await 顔を読み直す();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  /**
+   * 置いてある顔を読み直して、画面に出せる形にする。
+   *
+   * **画面から置き場所を辿らせない**（0700 の中にある）。Rust がバイト列で渡す。
+   */
+  async function 顔を読み直す() {
+    const 新しい: Record<string, string> = {};
+    for (const p of 名乗りたち) {
+      if (!p.avatar) continue;
+      const 中身 = await avatarBytes(p.who);
+      if (!中身) continue;
+      新しい[p.who] = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 'image/png' }));
+    }
+    // **前の URL は手放す。**放っておくと、差し替えるたびに溜まる
+    for (const url of Object.values(顔の画たち)) URL.revokeObjectURL(url);
+    顔の画たち = 新しい;
+  }
+
   async function 名乗りを書く(who: string, name: string, bio: string) {
     notice = '';
     try {
@@ -1274,6 +1358,8 @@
         {鍵なしで入れる}
         預かり所がある={!!預かり所}
         プロフィール={名乗りたち}
+        顔の画={顔の画たち}
+        顔を差し替える={(who, 場所) => void 顔を差し替える(who, 場所)}
         名乗られたもの={相手の名乗り}
         名乗りを書く={(who, name, bio) => void 名乗りを書く(who, name, bio)}
       />

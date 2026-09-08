@@ -1493,6 +1493,9 @@ pub fn run() {
             postbox::fetch_postbox,
             profile::profiles,
             profile::set_profile,
+            profile::set_avatar,
+            profile::clear_avatar,
+            profile::avatar_bytes,
             send_to_contact,
         ])
         .run(tauri::generate_context!())

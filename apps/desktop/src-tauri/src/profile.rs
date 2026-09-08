@@ -100,6 +100,127 @@ pub async fn set_profile(
     Ok(())
 }
 
+/// **顔を差し替える。**人が選んだ画像を、置き場所へ写して指す。
+///
+/// オーナー指示（2026-09-08）——「**ただユーザによって差し替え可能にもします。**」
+///
+/// **受け取ったファイルを、そのまま信じない。**
+/// 拡張子ではなく中身の頭を見て、大きさと縦横に上限を置く（`warifu-vault` の `顔として読む`）。
+///
+/// **外の場所を指させない。**置き場所（`avatars/`）へ写してから指す ——
+/// 指したままにすると、**消えた・入れ替わったファイル**を指すことになる。
+#[tauri::command]
+pub async fn set_avatar(app: tauri::AppHandle, who: String, path: String) -> Answer<()> {
+    let Some(誰) = Who::from_field(&who) else {
+        return Err(Failure {
+            message: "誰のプロフィールか読めません".into(),
+            code: None,
+        });
+    };
+    let 中身 = std::fs::read(&path).map_err(|e| Failure {
+        message: format!("画像を読めませんでした（{e}）"),
+        code: Some("avatar.unreadable".into()),
+    })?;
+    // **人に読める形で断る。**なぜ置けないかが分からないと、次の手が打てない
+    let (幅, 高さ) = warifu_vault::顔として読む(&中身).map_err(|e| Failure {
+        message: e.to_string(),
+        code: Some("avatar.bad".into()),
+    })?;
+
+    let vault = Vault::default_location().map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+    let 置き場 = vault.avatars_dir();
+    std::fs::create_dir_all(&置き場).map_err(|e| Failure {
+        message: format!("置き場所を作れませんでした（{e}）"),
+        code: None,
+    })?;
+    let 名 = warifu_vault::顔のファイル名(&誰);
+    std::fs::write(置き場.join(&名), &中身).map_err(|e| Failure {
+        message: format!("画像を置けませんでした（{e}）"),
+        code: None,
+    })?;
+
+    let mut 面々 = 読む()?;
+    // **名乗りがまだ無くても顔は置ける。**空のプロフィールを作って指す
+    let mut p = 面々
+        .find(&誰)
+        .cloned()
+        .unwrap_or(Profile::new(誰.clone(), "", "").map_err(|e| Failure {
+            message: e.to_string(),
+            code: None,
+        })?);
+    p.set_avatar(Some(&名)).map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+    面々.put(p);
+    vault.save_profiles(&面々).map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+
+    記録!("顔を差し替えました（{who} / {幅}×{高さ} / {} バイト）", 中身.len());
+    let _ = app.emit(crate::EVENT_PROFILES, ());
+    Ok(())
+}
+
+/// **顔を既定へ戻す。**置いた画像も消す。
+#[tauri::command]
+pub async fn clear_avatar(app: tauri::AppHandle, who: String) -> Answer<()> {
+    let Some(誰) = Who::from_field(&who) else {
+        return Err(Failure {
+            message: "誰のプロフィールか読めません".into(),
+            code: None,
+        });
+    };
+    let vault = Vault::default_location().map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+    // **置いた物も消す。**指すのをやめただけだと、消したつもりの画像が残る
+    let _ = std::fs::remove_file(vault.avatars_dir().join(warifu_vault::顔のファイル名(&誰)));
+
+    let mut 面々 = 読む()?;
+    if let Some(p) = 面々.find(&誰).cloned() {
+        let mut p = p;
+        let _ = p.set_avatar(None);
+        面々.put(p);
+        vault.save_profiles(&面々).map_err(|e| Failure {
+            message: e.to_string(),
+            code: None,
+        })?;
+    }
+    記録!("顔を既定へ戻しました（{who}）");
+    let _ = app.emit(crate::EVENT_PROFILES, ());
+    Ok(())
+}
+
+/// 置いてある顔の中身。**無ければ `None`。**
+///
+/// **画面へバイト列で渡す。**外の場所を画面に触らせない
+/// （置き場所は 0700 で、画面から辿らせるものではない）。
+#[tauri::command]
+pub async fn avatar_bytes(who: String) -> Answer<Option<Vec<u8>>> {
+    let Some(誰) = Who::from_field(&who) else {
+        return Ok(None);
+    };
+    let Ok(vault) = Vault::default_location() else {
+        return Ok(None);
+    };
+    let 面々 = 読む()?;
+    let Some(名) = 面々.find(&誰).and_then(|p| p.avatar().map(str::to_owned)) else {
+        return Ok(None);
+    };
+    // **指している名前を信じない。**置き場所の中の、決まった名前だけを読む
+    if 名 != warifu_vault::顔のファイル名(&誰) {
+        記録!("顔の指し先が置き場所の名前と違います（読みません）");
+        return Ok(None);
+    }
+    Ok(std::fs::read(vault.avatars_dir().join(&名)).ok())
+}
+
 /// **机に着いたエージェントが、自分の席のプロフィールを書く。**
 ///
 /// オーナー指示（2026-09-08）——

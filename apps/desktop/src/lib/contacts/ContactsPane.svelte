@@ -61,6 +61,10 @@
      * **本人確認ではない。**こちらが付けた呼び名があれば、そちらが勝つ（**D46**）。
      */
     名乗られたもの?: Readonly<Record<string, { 名前: string; 紹介: string }>>;
+    /** 差し替えた顔（`who` → 画面に出せる URL）。 */
+    顔の画?: Readonly<Record<string, string>>;
+    /** 顔を差し替える（`null` で既定へ戻す）。 */
+    顔を差し替える?: (who: string, 場所: string | null) => void;
   }
   const {
     locale,
@@ -77,6 +81,8 @@
     プロフィール = [],
     名乗りを書く = () => {},
     名乗られたもの = {},
+    顔の画 = {},
+    顔を差し替える = () => {},
   }: Props = $props();
 
   /**
@@ -229,9 +235,20 @@
     return 行.name.replace(/ のエージェント$/, '');
   }
 
-  /** 差し替えた顔があれば、その置き場所。 */
+  /** 差し替えた顔があれば、画面に出せる URL。 */
   function 顔の画像(行: 行): string | null {
-    return 名乗りを引く(行)?.avatar ?? null;
+    const 誰 = 行.種類 === '自分' ? 'me' : 行.key;
+    return 顔の画[誰] ?? null;
+  }
+
+  /** その行の顔を差し替えられるか（**この端末の人と、この端末のエージェントだけ**）。 */
+  function 顔を差し替えられるか(行: 行): boolean {
+    return 行.種類 === '自分' || (行.種類 === 'AI' && 行.key !== 机の印);
+  }
+
+  /** いま差し替えた顔を持っているか。 */
+  function 顔を差し替えているか(行: 行): boolean {
+    return !!顔の画像(行);
   }
 </script>
 
@@ -379,6 +396,21 @@
             </button>
           </div>
         </div>
+      {/if}
+
+      <!--
+        **顔は落として差し替える**（オーナー・2026-09-08「ユーザによって差し替え可能にも」）。
+        **PNG だけ・512px・64 KB まで** —— 受け取ったファイルをそのまま信じない
+      -->
+      {#if 顔を差し替えられるか(相手)}
+        <p class="hint">{t('profile.face.drop')}</p>
+        {#if 顔を差し替えているか(相手)}
+          <div class="tail">
+            <button type="button" class="quiet" onclick={() => 顔を差し替える(相手.種類 === '自分' ? 'me' : 相手.key, null)}>
+              {t('profile.face.clear')}
+            </button>
+          </div>
+        {/if}
       {/if}
 
       {#if 相手.種類 === 'AI' && 相手.key !== 机の印 && 名乗り書き中 !== 相手.key}

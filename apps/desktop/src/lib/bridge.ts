@@ -195,6 +195,21 @@ export interface ProfileRow {
  */
 export const profiles = () => invoke<ProfileRow[]>('profiles');
 
+/**
+ * **顔を差し替える。**人が選んだ画像を、置き場所へ写して指す。
+ *
+ * **受け取ったファイルをそのまま信じない** —— 拡張子ではなく中身の頭を見て、
+ * 大きさ（64 KiB）と縦横（512px）に上限を置く。**PNG だけ**を受ける。
+ */
+export const setAvatar = (who: string, path: string) =>
+  invoke<void>('set_avatar', { who, path });
+
+/** **顔を既定（鍵から描く絵）へ戻す。**置いた画像も消える。 */
+export const clearAvatar = (who: string) => invoke<void>('clear_avatar', { who });
+
+/** 置いてある顔の中身。**無ければ空。** */
+export const avatarBytes = (who: string) => invoke<number[] | null>('avatar_bytes', { who });
+
 /** プロフィールを書く。**名前も紹介も空にすると、その 1 人ぶんを消す。** */
 export const setProfile = (who: string, name: string, bio: string) =>
   invoke<void>('set_profile', { who, name, bio });

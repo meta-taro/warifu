@@ -36,6 +36,7 @@
 
 #![forbid(unsafe_code)]
 
+mod avatar;
 mod contacts;
 mod error;
 mod profile;
@@ -46,6 +47,9 @@ use std::path::{Path, PathBuf};
 use warifu_core::{PublicKey, Seed, base32};
 use zeroize::Zeroize as _;
 
+pub use avatar::{
+    AVATAR_MAX_BYTES, AVATAR_MAX_SIDE, BadImage, 顔として読む, 顔のファイル名
+};
 pub use contacts::{Contact, Contacts};
 pub use error::Error;
 pub use profile::{BIO_MAX, Bad, NAME_MAX, Profile, Profiles, Who};
