@@ -142,6 +142,40 @@ impl Chat {
         }
     }
 
+    /// **自分の席のプロフィールを書く。**書けたら、誰として書いたかを返す。
+    ///
+    /// **どの席かは口で決まる。**引数に「誰の」は無い ——
+    /// 有ると、**同じ机の別のエージェントに化けられる。**
+    ///
+    /// # Errors
+    /// 長すぎるとき、名乗っていないとき、机が返事をしないとき。
+    pub async fn 名乗る(&self, 名前: &str, 紹介: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::Profile {
+            名前: 名前.to_owned(),
+            紹介: 紹介.to_owned(),
+        };
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返す);
+
+        self.送り
+            .send(行)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("机が閉じています".to_owned()))?;
+
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("机が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("机が閉じました".to_owned()))?;
+
+        match 返事 {
+            FromDesk::Wrote { who } => Ok(who),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "机が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// まだ机と繋がっているか。
     ///
     /// **切れたまま送り続けない。**切れていれば、繋ぎ直す側が判断できる。
@@ -197,7 +231,7 @@ fn 仕分ける(
 
     if matches!(
         中身,
-        FromDesk::Sent { .. } | FromDesk::Nobody | FromDesk::Denied { .. }
+        FromDesk::Sent { .. } | FromDesk::Nobody | FromDesk::Denied { .. } | FromDesk::Wrote { .. }
     ) && let Some(返す) = 返し先.lock().expect("毒されていない").take()
     {
         // 待っている人が居なくなっていても構わない。**捨てて先へ進む**
@@ -235,6 +269,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Stop => "\t\t（止まれと言われました）".to_owned(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
+            FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
         })
         .collect::<Vec<_>>()
         .join("\n")

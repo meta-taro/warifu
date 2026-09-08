@@ -30,6 +30,8 @@ const 札の効き目: u64 = 60 * 60 * 24;
 const 許せる動作: &[&str] = &[
     "chat.send",
     "chat.read",
+    // **自分の席のプロフィールだけ**を書ける（**D75**）。名乗り（どこで動いているか）は変えられない
+    "profile.write",
     "inbox.list",
     "inbox.open.summary",
     "inbox.open.structured",

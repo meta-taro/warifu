@@ -9,38 +9,38 @@ const もう一人 = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 const 素: 素材 = { 自分, 机のAIたち: [], 会議の相手: [], 覚えた: [] };
 
 describe('連絡帳の並び', () => {
-  it('いちばん上は「この PC」（自分と、この PC の AI）', () => {
+  it('いちばん上は「この PC」（自分と、着いているエージェント）', () => {
     // `issues/012`「この PC で会議するとき、私とあなたはセットでしょっていう」
-    const [先頭] = 連絡帳を組む(素);
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen のエージェント'] });
     expect(先頭.title).toBe('contacts.this');
     expect(先頭.行たち.map((r) => r.種類)).toEqual(['自分', 'AI']);
   });
 
-  it('机に誰も着いていなくても、この PC の AI の行は消さない', () => {
-    // **消すと「そういう仕組みが無い」と読まれる。**居ないなら居ないと出す
+  it('誰も着いていなければ、まとめの行を作らない', () => {
+    // **「マイ PC エージェント」という 1 人は居ない**（オーナー・2026-09-08）——
+    // 行にすると、それが 1 人に見える。案内は画面側で出す
     const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: [] });
-    const ai = 先頭.行たち.find((r) => r.種類 === 'AI');
-    expect(ai?.key).toBe(机の印);
-    expect(ai?.いま会議に居る).toBe(false);
+    expect(先頭.行たち.some((r) => r.key === 机の印)).toBe(false);
+    expect(先頭.行たち.map((r) => r.種類)).toEqual(['自分']);
   });
 
   it('着いているエージェントを、1 つずつ行にする', () => {
     // **まとめて「この PC の AI  2」にすると、どれが着いているのか分からない**
     // （2026-09-08 オーナー指摘）
-    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen の AI', 'git-qa の AI'] });
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen のエージェント', 'git-qa のエージェント'] });
     const ai = 先頭.行たち.filter((r) => r.種類 === 'AI');
-    expect(ai.map((r) => r.name)).toEqual(['zumen の AI', 'git-qa の AI']);
+    expect(ai.map((r) => r.name)).toEqual(['zumen のエージェント', 'git-qa のエージェント']);
     expect(ai.every((r) => r.いま会議に居る)).toBe(true);
   });
 
   it('着いているエージェントが居るときは、まとめの行を出さない', () => {
     // **同じものを 2 か所に出さない**
-    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen の AI'] });
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen のエージェント'] });
     expect(先頭.行たち.some((r) => r.key === 机の印)).toBe(false);
   });
 
   it('行ごとに別の印を持つ（押し分けられる）', () => {
-    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['a の AI', 'b の AI'] });
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['a のエージェント', 'b のエージェント'] });
     const 印 = 先頭.行たち.filter((r) => r.種類 === 'AI').map((r) => r.key);
     expect(new Set(印).size).toBe(2);
   });
@@ -166,46 +166,47 @@ describe('この PC のエージェント', () => {
     // **まとめて「この PC の AI」1 行にしない**（オーナー・2026-09-08）
     const 区画 = 連絡帳を組む({
       自分: 'ME',
-      机のAIたち: ['zumen の AI', 'git-qa の AI'],
+      机のAIたち: ['zumen のエージェント', 'git-qa のエージェント'],
       会議の相手: [],
       覚えた: [],
     });
     const このPC = 区画.find((s) => s.title === 'contacts.this');
-    expect(このPC?.行たち.map((r) => r.name)).toEqual(['contacts.me', 'zumen の AI', 'git-qa の AI']);
+    expect(このPC?.行たち.map((r) => r.name)).toEqual(['contacts.me', 'zumen のエージェント', 'git-qa のエージェント']);
   });
 
   it('立ち上げていない席も、名乗りがあれば残る', () => {
     // 消えると、その 1 人ぶんの名乗りが編集できなくなる
     const 区画 = 連絡帳を組む({
       自分: 'ME',
-      机のAIたち: ['zumen の AI'],
-      名乗りのある席: ['zumen の AI', 'git-qa の AI'],
+      机のAIたち: ['zumen のエージェント'],
+      名乗りのある席: ['zumen のエージェント', 'git-qa のエージェント'],
       会議の相手: [],
       覚えた: [],
     });
     const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
-    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'zumen の AI', 'git-qa の AI']);
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'zumen のエージェント', 'git-qa のエージェント']);
     // **着いているかどうかは分ける**
-    expect(行たち.find((r) => r.name === 'zumen の AI')?.いま会議に居る).toBe(true);
-    expect(行たち.find((r) => r.name === 'git-qa の AI')?.いま会議に居る).toBe(false);
+    expect(行たち.find((r) => r.name === 'zumen のエージェント')?.いま会議に居る).toBe(true);
+    expect(行たち.find((r) => r.name === 'git-qa のエージェント')?.いま会議に居る).toBe(false);
   });
 
   it('同じ席を二度出さない', () => {
     const 区画 = 連絡帳を組む({
       自分: 'ME',
-      机のAIたち: ['zumen の AI'],
-      名乗りのある席: ['zumen の AI'],
+      机のAIたち: ['zumen のエージェント'],
+      名乗りのある席: ['zumen のエージェント'],
       会議の相手: [],
       覚えた: [],
     });
     const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
-    expect(行たち.filter((r) => r.name === 'zumen の AI').length).toBe(1);
+    expect(行たち.filter((r) => r.name === 'zumen のエージェント').length).toBe(1);
   });
 
-  it('誰も着いておらず、名乗りも無ければ「この PC の AI」を 1 行だけ出す', () => {
-    // 消すと「そういう仕組みが無い」と読まれる
+  it('誰も着いていなければ、人の行を出さない', () => {
+    // **「マイ PC エージェント」という 1 人は居ない。**
+    // 行にすると、それが 1 人に見える（オーナー・2026-09-08）
     const 区画 = 連絡帳を組む({ 自分: 'ME', 机のAIたち: [], 会議の相手: [], 覚えた: [] });
     const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
-    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'contacts.desk']);
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me']);
   });
 });

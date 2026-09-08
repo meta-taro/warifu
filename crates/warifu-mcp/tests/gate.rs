@@ -182,7 +182,9 @@ fn 出している口を_数えて名前で押さえる() {
     // 増やすときは、**その口に札の種類が要るか**を先に決める。
     // 2026-09-07 に chat_send / chat_read を足した（`chat.send` / `chat.read`）。
     // 2026-09-08 に chat_wait を足した —— **読むのと同じものが返る**ので、
-    // 札も `chat.read` を使う（待つかどうかの違いでしかない）
+    // 札も `chat.read` を使う（待つかどうかの違いでしかない）。
+    // 2026-09-08 に profile_set を足した —— **書く口なので別の札**（`profile.write`）。
+    // 書けるのは**自分の席だけ**で、名乗り（どこで動いているか）は変えられない
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -195,6 +197,7 @@ fn 出している口を_数えて名前で押さえる() {
             "chat_wait",
             "inbox_list",
             "inbox_open",
+            "profile_set",
             "rules_list",
         ],
         "口が増えたら、札の種類を決めてからここを直す"
@@ -319,6 +322,23 @@ async fn 札が無ければ_会話へ流せない() {
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "流れてはいけない".to_owned(),
+            },
+        ))
+        .await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("関所"), "{文}");
+    assert!(!文.contains("机"), "札の話に机の話を混ぜない: {文}");
+}
+
+#[tokio::test]
+async fn 札が無ければ_プロフィールも書けない() {
+    // **書く口なので、読む札では通らない**（`chat.read` を持っていても書けない）
+    let 口 = 用意(&["chat.send", "chat.read"]);
+    let 出た = 口
+        .profile_set(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::ProfileArgs {
+                name: "書けてはいけない".to_owned(),
+                bio: String::new(),
             },
         ))
         .await;

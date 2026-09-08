@@ -39,6 +39,18 @@ pub struct SayArgs {
     pub body: String,
 }
 
+/// [`crate::Warifu::profile_set`] の引数。
+///
+/// **「誰の」を書く場所が無いのは意図。**どの席かは繋いできた口で決まる ——
+/// 書けると、**同じ机の別のエージェントに化けられる。**
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ProfileArgs {
+    /// 表に出す名前。**空にすると消える。**
+    pub name: String,
+    /// 短い紹介。**空にすると消える。**
+    pub bio: String,
+}
+
 /// [`crate::Warifu::chat_wait`] の引数。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct WaitArgs {

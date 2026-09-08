@@ -10,7 +10,7 @@ use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
 use crate::chat::{Chat, 並べる};
-use crate::{OpenArgs, SayArgs, SlotsArgs, ToolError, WaitArgs};
+use crate::{OpenArgs, ProfileArgs, SayArgs, SlotsArgs, ToolError, WaitArgs};
 
 /// この口を叩いている相手の名前。
 ///
@@ -281,6 +281,22 @@ impl Warifu {
         let 人数 = 机.言う(&args.body).await?;
         // **何人へ流したかまで言う**（D49）。「流しました」だけでは 0 人と区別が付かない
         Ok(format!("{人数} 人へ流しました。"))
+    }
+
+    /// **自分の席のプロフィールを書く。**
+    #[tool(description = "自分の席のプロフィール（名前と短い紹介）を書く。\
+                       書けるのは自分の席だけで、ほかの席のものは書けない。\
+                       どこで動いているかの名乗りは、ここでは変えられない。\
+                       名前も紹介も空にすると消える。")]
+    pub async fn profile_set(
+        &self,
+        Parameters(args): Parameters<ProfileArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("profile.write")?;
+        let 机 = self.机().await?;
+        let 誰 = 机.名乗る(&args.name, &args.bio).await?;
+        // **誰として書いたかまで返す。**書いた側が、席を取り違えていないか確かめられる
+        Ok(format!("{誰} として書きました。"))
     }
 
     /// 届いている発言を読む。**読んだ分は消える。**

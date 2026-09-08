@@ -16,7 +16,7 @@
 //! 相手が付けた呼び名があれば、**そちらが勝つ**（**D46**）。
 //! 名乗った名前は誰でも真似できる。**確かめるのは鍵**である。
 
-use tauri::State;
+use tauri::{Emitter as _, State};
 use warifu_vault::{Profile, Profiles, Vault, Who};
 
 use crate::{Answer, Bridge, Failure};
@@ -97,6 +97,45 @@ pub async fn set_profile(
     // **名乗りが変わったことを、いま繋がっている相手へも伝える。**
     // 伝えないと、相手の画面は前の名前のままになる
     crate::profile::配る(&bridge).await;
+    Ok(())
+}
+
+/// **机に着いたエージェントが、自分の席のプロフィールを書く。**
+///
+/// オーナー指示（2026-09-08）——
+/// 「**エージェントが MCP で接続できたらエージェント自身に
+/// プロフィールをかけるようにしておくと、楽だとおもいます。**」
+///
+/// **書けるのは自分の席だけ。**どの席かは**繋いできた口で決まる**（`desk.rs`）ので、
+/// ここへ「誰の」は渡ってこない。
+///
+/// **名乗り（どこで動いているか）は変えられない。**あれは立ち上げるときに人が決める。
+///
+/// # Errors
+/// 上限を超えたとき、置き場所へ書けなかったとき。
+pub fn 席の名乗りを書く(
+    app: &tauri::AppHandle,
+    名乗り: &str,
+    名前: &str,
+    紹介: &str,
+) -> Result<(), String> {
+    let 誰 = Who::Desk(crate::desk::呼び方(Some(名乗り)));
+    let mut 面々 = Vault::default_location()
+        .and_then(|v| v.profiles())
+        .map_err(|e| e.to_string())?;
+
+    if 名前.trim().is_empty() && 紹介.trim().is_empty() {
+        面々.forget(&誰);
+    } else {
+        面々.put(Profile::new(誰, 名前, 紹介).map_err(|e| e.to_string())?);
+    }
+
+    Vault::default_location()
+        .and_then(|v| v.save_profiles(&面々))
+        .map_err(|e| e.to_string())?;
+    記録!("プロフィールを書きました（席: {名乗り}）");
+    // **画面にもすぐ出す。**出さないと、書けたのかどうかが人から見えない
+    let _ = app.emit(crate::EVENT_PROFILES, ());
     Ok(())
 }
 

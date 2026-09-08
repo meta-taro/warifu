@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { 届く先を並べる, 宛先を決める } from './reach';
 
-const 机 = 'この PC の AI';
+const 机 = 'マイ PC エージェント';
 
 describe('届く先', () => {
   it('誰も居なければ空', () => {
@@ -22,7 +22,7 @@ describe('届く先', () => {
     ).toEqual(['air', 'win', 'mini']);
   });
 
-  it('机に着いていれば、この PC の AI も並ぶ', () => {
+  it('机に着いていれば、マイ PC エージェント も並ぶ', () => {
     expect(届く先を並べる({ 会議の相手: ['air'], 机のAIたち: [机] })).toEqual([
       'air',
       机,

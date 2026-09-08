@@ -5,8 +5,8 @@ act.call	Bring into the room	部屋に入れる	请进房间	방에 들이기
 act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중…				
 act.chat	Chat	チャットする	聊天	채팅하기				
 act.desk.empty	No agent is at the desk.	机に誰も着いていません。	桌旁没有人。	책상에 아무도 없습니다.				
-act.desk.local	The AI on this computer is in the room from the start. There is nothing to bring in.	この PC の AI は、はじめから同じ部屋に居ます。入れる必要はありません。	这台电脑的 AI 从一开始就在同一个房间里，不需要请进来。	이 PC 의 AI 는 처음부터 같은 방에 있습니다. 들일 필요가 없습니다.				
-act.desk.stop	Stop this AI	この AI を止める	让这个 AI 停下	이 AI 를 멈추기				
+act.desk.local	Agents on this computer are in the room from the start. There is nothing to bring in.	マイ PC エージェントは、はじめから同じ部屋に居ます。入れる必要はありません。	这台电脑的代理从一开始就在同一个房间里，不需要请进来。	이 PC 의 에이전트는 처음부터 같은 방에 있습니다. 들일 필요가 없습니다.				
+act.desk.stop	Stop this agent	このエージェントを止める	让这个代理停下	이 에이전트를 멈추기				
 act.desk.stop.hint	It is told to stop. Nothing is killed — the other side steps down on its own. To run it again, start it there.	「止まれ」と伝えます。相手を殺すのではなく、受けた側が自分で降ります。もう一度動かすには、そちらで立ち上げ直してください。	会传达「停下」。不是杀掉对方，而是收到的一方自己退出。要再次运行，请在那边重新启动。	「멈추라」고 전합니다. 상대를 죽이는 것이 아니라, 받은 쪽이 스스로 내려옵니다. 다시 움직이려면 그쪽에서 다시 시작해 주세요.				
 act.mail	Send mail	メールを送る	发送邮件	메일 보내기				
 act.mail.none	Not possible yet. warifu has no way to send mail at all (it can only read).	まだ送れません。warifu にメールを送る経路が、まだ 1 本もありません（読む口だけがあります）。	还发不了。warifu 目前完全没有发送邮件的通道（只有读取的口）。	아직 보낼 수 없습니다. warifu 에는 메일을 보내는 경로가 하나도 없습니다 (읽는 입구만 있습니다).	★	「まだ送れません」は「いま経路が無い」という事実である。「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。この画面でいちばん重い事故は、送ったつもりで送られていないことである。また「準備中です」「近日対応」のような、待てば来ると読める訳にもしないこと。		
@@ -19,8 +19,8 @@ camera.busy	Another app is using the camera.	ほかのアプリがカメラを�
 camera.denied	Camera and microphone are not allowed. Allow them in your OS settings.	カメラとマイクが許可されていません。OS の設定で許可してください。	未允许使用摄像头和麦克风。请在系统设置中允许。	카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.				
 camera.missing	No camera or microphone found.	カメラかマイクが見つかりません。	找不到摄像头或麦克风。	카메라나 마이크를 찾을 수 없습니다.				
 camera.unknown	Could not use the camera.	カメラを使えませんでした。	无法使用摄像头。	카메라를 사용할 수 없습니다.				
-chat.agent	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
-chat.desk	The AI on this computer is here. You can talk to it even with nobody else in the room.	この PC の AI が居ます。部屋に人が居なくても話しかけられます。	这台电脑的 AI 在。即使房间里没有其他人，也可以对它说话。	이 PC 의 AI 가 있습니다. 방에 사람이 없어도 말을 걸 수 있습니다.				
+chat.agent	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
+chat.desk	An agent on this computer is here. You can talk to it even with nobody else in the room.	マイ PC エージェントが居ます。部屋に人が居なくても話しかけられます。	这台电脑的代理在。即使房间里没有其他人，也可以对它说话。	이 PC 의 에이전트가 있습니다. 방에 사람이 없어도 말을 걸 수 있습니다.				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じ部屋に居る人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
 chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들어왔습니다				
@@ -29,15 +29,15 @@ chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 �
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.nobody	Nobody is here yet. Hand out a key and wait for someone to come in.	まだ誰も居ません。鍵を渡して、入ってもらうと送れます。	还没有人进来。把密钥交给对方，等对方进来后即可发送。	아직 아무도 없습니다. 열쇠를 건네고 상대가 들어오면 보낼 수 있습니다.				
 chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
-chat.placeholder.desk	Talk to the AI on this computer	この PC の AI に話しかける	对这台电脑的 AI 说话	이 PC 의 AI 에게 말을 걸기				
+chat.placeholder.desk	Talk to an agent on this computer	マイ PC エージェントに話しかける	对这台电脑的代理说话	이 PC 의 에이전트에게 말을 걸기				
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
 chat.reach	Goes to {who}	届く先 {who}	送达 {who}	가는 곳 {who}				
-chat.reach.none	It goes nowhere yet. Someone coming into the room, or the AI on this computer, shows up here.	届く先はまだありません。部屋に人が入るか、この PC の AI が着くと出ます。	目前送不到任何人。有人进入房间，或这台电脑的 AI 到位后，就会显示在这里。	아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 AI 가 자리에 앉으면 여기에 나옵니다.				
+chat.reach.none	It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.	届く先はまだありません。部屋に人が入るか、マイ PC エージェントが着くと出ます。	目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。	아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.				
 chat.send	Send	送る	发送	보내기				
 chat.shared	This is not a conversation with the person you picked.	ここは、選んだ相手だけの会話ではありません。	这里不是只和所选对方的会话。	여기는 고른 상대만의 대화가 아닙니다.	★	**会話は 1 本しか無い。**選んだ相手の隣に並んでいても、その人だけに届くのではない。「この相手にだけ届きます」「非公開の会話です」「ダイレクトメッセージ」と読める訳にしないこと。**個別に届くと誤解した人は、見られたくないものを書く。**		
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
-contacts.desk	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
-contacts.desk.how	To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。	要让 AI 坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。	책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
+contacts.desk	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
+contacts.desk.how	To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。	要让代理坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。	책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
 contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
 contacts.empty	You have not remembered anyone yet. Name someone you met in a room and they stay here.	まだ誰も覚えていません。部屋で会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给房间里遇到的人取个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 방에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
 contacts.forget	Require a meeting key again	鍵なしで入れるのをやめる	恢复需要会议密钥	다시 회의 키를 받게 하기				
@@ -95,8 +95,8 @@ postbox.received	{n} message(s) had arrived while you were away.	留守中に届
 postbox.save	Set	置く	设置	두기				
 postbox.saved	Mailbox set.	預かり所を置きました。	已设置寄存处。	보관소를 두었습니다.				
 postbox.title	Mailbox (optional)	預かり所（任意）	寄存处（可选）	보관소 (선택)				
-profile.ai.hint	Written by the owner of this computer. The AI cannot change it itself — if it could, it could pose as another agent at the same desk.	この PC の持ち主が書きます。AI 自身は書き換えられません（書き換えられると、同じ机の別のエージェントに化けられるためです）。	由这台电脑的主人填写。AI 自己不能改——能改的话，就可以冒充同一张桌子上的其他智能体。	이 PC 의 주인이 씁니다. AI 스스로는 바꿀 수 없습니다 (바꿀 수 있으면 같은 책상의 다른 에이전트로 둔갑할 수 있기 때문입니다).				
-profile.ai.who	AI on this computer	この PC の AI	这台电脑的 AI	이 PC 의 AI				
+profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	この PC の持ち主と、その席のエージェント自身が書けます。ほかの席のエージェントは書き換えられません。どこで動いているか（席）は、立ち上げるときに人が決めます。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
+profile.ai.who	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 profile.bio	Short bio	短い紹介	简介	짧은 소개				
 profile.cancel	Cancel	やめる	取消	그만두기				
 profile.edit	Edit profile	プロフィールを書く	编辑资料	프로필 쓰기				

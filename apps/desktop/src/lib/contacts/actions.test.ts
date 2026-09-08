@@ -55,18 +55,18 @@ describe('選んだ相手に出す口（D49）', () => {
     expect(引く(居る, 'chat').押せる).toBe(true);
   });
 
-  it('この PC の AI は、机に着いていればチャットできる', () => {
+  it('マイ PC エージェント は、机に着いていればチャットできる', () => {
     const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: true };
     expect(引く(ai, 'chat').押せる).toBe(true);
   });
 
-  it('机に誰も着いていなければ、この PC の AI にも送れない', () => {
+  it('机に誰も着いていなければ、マイ PC エージェント にも送れない', () => {
     const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: false };
     expect(引く(ai, 'chat').押せる).toBe(false);
     expect(引く(ai, 'chat').訳).toBe('act.desk.empty');
   });
 
-  it('この PC の AI を「会議に呼ぶ」口は押せない（同じ机に着いている）', () => {
+  it('マイ PC エージェント を「会議に呼ぶ」口は押せない（同じ机に着いている）', () => {
     const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: true };
     expect(引く(ai, 'call').押せる).toBe(false);
     expect(引く(ai, 'call').訳).toBe('act.desk.local');

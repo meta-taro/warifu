@@ -54,6 +54,11 @@ const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
 /// **覚えるのも当てるのも画面側**（`localStorage` は Rust から読めない）。
 /// ここは「押された」ことだけを伝える。
 const EVENT_THEME: &str = "warifu://theme";
+/// **プロフィールが変わった。**画面は読み直す。
+///
+/// 机に着いたエージェントが自分で書くことがあるので、
+/// **画面が書いたときだけ**読み直す形にはできない。
+const EVENT_PROFILES: &str = "warifu://profiles";
 
 /// 経路の要所を書き出す。
 ///
