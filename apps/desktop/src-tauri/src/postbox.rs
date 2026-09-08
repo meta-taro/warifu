@@ -81,7 +81,9 @@ pub async fn 預ける(bridge: &Bridge, 相手: PublicKey, 本文: &str) -> Answ
 /// **画面が聞き始める前に渡してしまう**ことがあった ——
 /// 預かり所は渡したら手放すので、**そのまま消える**（2026-09-08 に実物で踏んだ）。
 async fn 取りに行く(bridge: &Bridge) -> Vec<(String, String, u64)> {
-    let Some(所) = 宛先() else { return Vec::new() };
+    let Some(所) = 宛先() else {
+        return Vec::new();
+    };
     let Ok(node) = bridge.node().await else {
         return Vec::new();
     };
