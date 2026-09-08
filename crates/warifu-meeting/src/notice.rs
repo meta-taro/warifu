@@ -31,6 +31,12 @@ const ADDRESS_MAX: usize = 1024;
 /// 会議の中の一言に 16 KiB は十分で、これを超えるなら別の手段で渡すべきものである。
 const TEXT_MAX: usize = 16 * 1024;
 
+/// 話し手の札の長さ（バイト）。
+///
+/// **画面の 1 行に収まる長さに切る。**`warifu-desk` が 32 文字で切っているのに合わせ、
+/// 日本語 1 文字 4 バイトを見込んで 128 バイトにする。
+const SPEAKER_MAX: usize = 128;
+
 /// 会議まわりで相手に渡すもの。
 ///
 /// **これを受け取っても、何も起きない。**読める形にして返すだけで、
@@ -96,6 +102,19 @@ pub enum Notice {
         /// **直接届いた文字では、経路で確定した相手と一致するはず**である。
         /// 一致しないものを通すかは、受け取る側が決める（この層は運ぶだけ）。
         from: PublicKey,
+        /// **その席の誰が言ったか**（人なら `None`）。
+        ///
+        /// 机（**D55**）で同じ PC の AI が喋れるようになったが、
+        /// 2026-09-08 まで**その発言は `from` に人の公開鍵を載せて飛んでいた。**
+        /// こちらの画面では「zumen の AI」と出るのに、
+        /// **相手の画面では人が打ったのと区別が付かなかった。**
+        ///
+        /// 机の中では「**繋いできた側は差出人を名乗れない。誰が言ったかは机が刻む**」を
+        /// 守っている。**線の向こうでも同じにする**ための札である。
+        ///
+        /// **`from` を置き換えるものではない。**席の持ち主は `from` のまま ——
+        /// 混ぜると、AI が別人の席から喋れることになる。
+        話し手: Option<String>,
         /// 中身。
         body: String,
     },
@@ -141,13 +160,27 @@ impl Notice {
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
             Self::Signal(s) => (SIGNAL, s.encode()?),
-            Self::Text { from, body, .. } => {
+            Self::Text {
+                from, 話し手, body,
+            ..
+            } => {
                 if body.is_empty() || body.len() > TEXT_MAX {
                     return Err(Error::Malformed);
                 }
-                // **差出人を先頭に固定長で置く。**後ろに置くと、中身との境目が要る
-                let mut 荷物 = Vec::with_capacity(32 + body.len());
+                let 札 = 話し手.as_deref().unwrap_or_default();
+                // **行と欄を壊すものを通さない。**通すと、受け取った側の画面が崩れる
+                if 札.len() > SPEAKER_MAX
+                    || 札.chars().any(|c| c.is_control() || c == '\t')
+                    || (話し手.is_some() && 札.trim().is_empty())
+                {
+                    return Err(Error::Malformed);
+                }
+                // **差出人を先頭に固定長で置く。**後ろに置くと、中身との境目が要る。
+                // 札は長さを 1 byte 前置きする（0 なら札なし＝人が言った）
+                let mut 荷物 = Vec::with_capacity(32 + 1 + 札.len() + body.len());
                 荷物.extend_from_slice(&from.to_bytes());
+                荷物.push(u8::try_from(札.len()).map_err(|_| Error::Malformed)?);
+                荷物.extend_from_slice(札.as_bytes());
                 荷物.extend_from_slice(body.as_bytes());
                 (TEXT, 荷物)
             }
@@ -195,18 +228,29 @@ impl Notice {
             LEAVE => Ok(Self::Leave { meeting }),
             SIGNAL => Ok(Self::Signal(Signal::decode(meeting, 荷物)?)),
             TEXT => {
-                // 差出人 32 byte ＋ 中身。**中身が空のものは通さない**
-                if 荷物.len() <= 32 || 荷物.len() > 32 + TEXT_MAX {
+                // 差出人 32 byte ＋ 札の長さ 1 byte ＋ 札 ＋ 中身。
+                // **中身が空のものは通さない**
+                if 荷物.len() < 34 || 荷物.len() > 32 + 1 + SPEAKER_MAX + TEXT_MAX {
                     return Err(Error::Malformed);
                 }
                 let from =
                     PublicKey::from_bytes(荷物[..32].try_into().map_err(|_| Error::Malformed)?)
                         .map_err(|_| Error::Malformed)?;
+                let 札の長さ = usize::from(荷物[32]);
+                if 札の長さ > SPEAKER_MAX || 荷物.len() <= 33 + 札の長さ {
+                    return Err(Error::Malformed);
+                }
+                let 話し手 = if 札の長さ == 0 {
+                    None
+                } else {
+                    Some(String::from_utf8_lossy(&荷物[33..33 + 札の長さ]).into_owned())
+                };
                 // **中身を検めない。**読めないバイト列でも、そのまま文字にして渡す
                 Ok(Self::Text {
                     meeting,
                     from,
-                    body: String::from_utf8_lossy(&荷物[32..]).into_owned(),
+                    話し手,
+                    body: String::from_utf8_lossy(&荷物[33 + 札の長さ..]).into_owned(),
                 })
             }
             INTRODUCE => {

@@ -32,7 +32,7 @@ export const EVENT_TEXT = 'warifu://text';
  */
 export const EVENT_DESK = 'warifu://desk';
 /**
- * **机に何人着いているか**が変わった（人数だけが届く）。
+ * **机に着いている顔ぶれ**が変わった（呼び方の並びが届く）。
  *
  * 会議に人が居なくても、**同じ席の AI が居るなら人は話しかけられる。**
  * これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
@@ -124,7 +124,7 @@ export const sendText = (body: string) => invoke<void>('send_text', { body });
  * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
  * 会議に人が居なくても、同じ席の AI が居るなら送れる。
  */
-export const deskSeats = () => invoke<number>('desk_seats');
+export const deskSeats = () => invoke<string[]>('desk_seats');
 
 /**
  * **覚えた相手を、割符なしで呼ぶ。**会議キーを手で渡さない。

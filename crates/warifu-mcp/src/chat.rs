@@ -52,10 +52,13 @@ impl Chat {
     ///
     /// **繋がらなければ、繋がったふりをしない。**
     /// 机が開いていない（＝人の画面が立っていない）ことは、失敗として返す。
-    pub async fn 着く(場所: &Path) -> std::io::Result<Self> {
+    pub async fn 着く(場所: &Path, 名乗り: Option<String>) -> std::io::Result<Self> {
         let mut 口 = 口::新しく(繋ぐ(場所).await?);
-        // まず「聞く」と言う。**これまでの会話を先にもらう**
-        口.送る(&ToDesk::Listen.書く()).await?;
+        // まず「聞く」と言う。**これまでの会話を先にもらう**。
+        // **どこで動いているかを一緒に名乗る** —— 1 台の PC で
+        // 複数のエージェントが同じ机に着くので、名乗らないと
+        // どれが喋ったのか人に分からない（2026-09-08）
+        口.送る(&ToDesk::Listen { 場所: 名乗り }.書く()).await?;
 
         let (送り, mut 受け) = mpsc::channel::<ToDesk>(送り待ちの数);
         let 聞いた = Arc::new(Mutex::new(VecDeque::new()));

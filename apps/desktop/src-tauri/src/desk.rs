@@ -17,13 +17,15 @@
 //! - **机は同じ機械の中だけ。**口の権限は `warifu-desk` が持つ（Unix は 0600）
 //! - **届いた文字は相手の言い分。**ここは運ぶだけで、解釈しない
 
+use std::collections::BTreeMap;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::broadcast;
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口, 机の場所};
 
-use crate::{Bridge, EVENT_DESK, EVENT_DESK_SEATS, key_to_string};
+use crate::{Bridge, EVENT_DESK, EVENT_DESK_SEATS};
 
 /// 机に着いている相手へ配る溜め。
 ///
@@ -36,6 +38,12 @@ pub const 配る溜め: usize = 128;
 /// **自分の発言を自分に返さないため**に要る。返すと、
 /// エージェントは `chat_read` で自分が言ったことを「誰かの発言」として読む。
 static 次の番号: AtomicU64 = AtomicU64::new(1);
+
+/// 席ごとの呼び方。**誰が着いているかを画面へ出すため。**
+///
+/// 「この PC の AI」1 行にまとめると、**どれが喋ったのか分からない**だけでなく、
+/// **どれが着いているのかも分からない**（2026-09-08 オーナー指摘）。
+static 席たち: Mutex<BTreeMap<u64, String>> = Mutex::new(BTreeMap::new());
 
 /// 机の外から出た発言（相手から届いた文字・人が打った行）に使う番号。
 ///
@@ -86,16 +94,25 @@ pub fn 開く(app: AppHandle) {
 fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
     tauri::async_runtime::spawn(async move {
         let 自分 = 次の番号.fetch_add(1, Ordering::Relaxed);
+        // **どこで動いているか。**`Listen` で名乗ってくるまでは分からない
+        let mut 名乗り: Option<String> = None;
         let mut 口 = 口::新しく(一本);
         let mut 聞く = app.state::<Bridge>().desk.subscribe();
         // **人数が変わったことを画面へ伝える。**伝えないと、
         // AI が居るのに「入ってきたら送れます」と出たままになる
+        席たち
+            .lock()
+            .expect("毒されていない")
+            .insert(自分, 呼び方(None));
         席の数を伝える(&app);
         loop {
             tokio::select! {
                 来た = 口.受ける() => {
                     let Ok(Some(行)) = 来た else { break };
-                    if 応じる(&app, &行, &mut 口, 自分).await.is_err() {
+                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り)
+                        .await
+                        .is_err()
+                    {
                         break;
                     }
                 }
@@ -117,6 +134,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             }
         }
         記録!("机から 1 人抜けました");
+        席たち.lock().expect("毒されていない").remove(&自分);
         // subscribe を落としてから数える。**落とす前だと自分を数えてしまう**
         drop(聞く);
         席の数を伝える(&app);
@@ -128,8 +146,20 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
 /// **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
 /// 会議に人が居なくても、同じ席の AI が居るなら人は話しかけられる。
 pub fn 席の数を伝える(app: &AppHandle) {
-    let 数 = app.state::<Bridge>().desk.receiver_count();
-    let _ = app.emit(EVENT_DESK_SEATS, 数);
+    let _ = app.emit(EVENT_DESK_SEATS, 着いている顔ぶれ());
+}
+
+/// いま机に着いている顔ぶれ。**呼び方の並び。**
+///
+/// 数だけでは「どれが着いているのか」が分からない。
+#[must_use]
+pub fn 着いている顔ぶれ() -> Vec<String> {
+    席たち
+        .lock()
+        .expect("毒されていない")
+        .values()
+        .cloned()
+        .collect()
 }
 
 /// いま机に何人着いているか。
@@ -144,6 +174,7 @@ async fn 応じる(
     行: &str,
     口: &mut 口<impl warifu_desk::一本>,
     自分: u64,
+    名乗り: &mut Option<String>,
 ) -> Result<(), ()> {
     let 中身 = match ToDesk::読む(行) {
         Ok(中身) => 中身,
@@ -156,11 +187,24 @@ async fn 応じる(
         }
     };
     match 中身 {
-        // 「聞く」は名乗りだけ。**過去は残していない**ので、返すものが無い（`issues/010`）
-        ToDesk::Listen => Ok(()),
+        // 「聞く」は名乗りだけ。**過去は残していない**ので、返すものが無い（`issues/010`）。
+        // **どこで動いているかを覚える** —— 1 台の PC で複数のエージェントが
+        // 同じ机に着くので、覚えないとどれが喋ったのか人に分からない（2026-09-08）
+        ToDesk::Listen { 場所 } => {
+            if let Some(名) = 場所 {
+                記録!("机: {名} から着きました");
+                *名乗り = Some(名.clone());
+                席たち
+                    .lock()
+                    .expect("毒されていない")
+                    .insert(自分, 呼び方(Some(&名)));
+                席の数を伝える(app);
+            }
+            Ok(())
+        }
         ToDesk::Say { body } => {
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
-            let 返事 = match 流す(app, &body, 自分).await {
+            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref())).await {
                 Ok(人数) => FromDesk::Sent { to: 人数 },
                 Err(訳) => {
                     記録!("机からの発言を流せませんでした: {訳}");
@@ -185,7 +229,9 @@ const 誰も居ない: &str = "まだ誰も居ません";
 ///
 /// **人の画面にも、繋がっている相手にも、同じ 1 行が出る。**
 /// 片方にしか出ないと、見ている人と話している人がずれる。
-async fn 流す(app: &AppHandle, body: &str, 出所: u64) -> Result<usize, String> {
+async fn 流す(
+    app: &AppHandle, body: &str, 出所: u64, 呼び方: String
+) -> Result<usize, String> {
     let bridge = app.state::<Bridge>();
     let meeting = {
         let slot = bridge.conference.lock().await;
@@ -197,18 +243,15 @@ async fn 流す(app: &AppHandle, body: &str, 出所: u64) -> Result<usize, Strin
     let 自分 = bridge.device.public_key();
 
     // 先に人の画面へ出す。**相手が居なくても、この PC の人には見える**
-    let _ = app.emit(
-        EVENT_DESK,
-        (key_to_string(自分), body.to_owned(), いま時刻()),
-    );
+    let _ = app.emit(EVENT_DESK, (呼び方.clone(), body.to_owned(), いま時刻()));
     // **同じ席の AI が喋ったことにも気づけるようにする。**
     // 窓が前に居るときは鳴らないので、うるさくならない
-    crate::notify::届いたと知らせる(app, "この PC の AI");
+    crate::notify::届いたと知らせる(app, &呼び方);
     // 机に着いている**他の**エージェントにも同じ行を見せる（言った本人には返さない）
     let _ = bridge.desk.send((
         出所,
         FromDesk::Heard {
-            from: key_to_string(自分),
+            from: 呼び方.clone(),
             body: body.to_owned(),
             at: いま時刻(),
         },
@@ -224,8 +267,11 @@ async fn 流す(app: &AppHandle, body: &str, 出所: u64) -> Result<usize, Strin
         let _ = tx
             .send(warifu_meeting::Notice::Text {
                 meeting,
-                // **自分が言ったと載せる**（D48）
+                // **席の持ち主は自分**（D48）。AI は自分の席から喋っている
                 from: 自分,
+                // **その席の誰が言ったかを、線の向こうへも運ぶ**（2026-09-08）。
+                // 載せないと、相手の画面では人が打ったのと区別が付かない
+                話し手: Some(呼び方.clone()),
                 body: body.to_owned(),
             })
             .await;
@@ -249,5 +295,19 @@ pub fn 聞いた(from: &str, body: &str) -> FromDesk {
         from: from.to_owned(),
         body: body.to_owned(),
         at: いま時刻(),
+    }
+}
+
+/// **机が呼び方を刻む。**エージェントは「どこで動いているか」しか名乗れない。
+///
+/// 名乗りをそのまま出さないのは、**人の発言と見分けが付かなくなる**のを避けるため
+/// （`ToDesk::Say` に差出人が無いのと同じ約束）。
+/// 「◯◯ の AI」という形に包むので、名乗りが何であれ**AI だと分かる。**
+#[must_use]
+pub fn 呼び方(名乗り: Option<&str>) -> String {
+    match 名乗り {
+        Some(名) => format!("{名} の AI"),
+        // 名乗らなかった。**どこか分からないことを、分かるように見せない**
+        None => "この PC の AI".to_owned(),
     }
 }

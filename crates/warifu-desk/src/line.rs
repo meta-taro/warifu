@@ -20,8 +20,25 @@ pub enum ToDesk {
         body: String,
     },
     /// これまでの会話をもらってから、以後を聞く。
-    Listen,
+    ///
+    /// **どこで起動しているエージェントかを名乗る。**
+    /// 1 台の PC で複数のエージェントが同じ机に着くので、
+    /// 「この PC の AI」だけでは**どれが喋ったのか分からない**
+    /// （2026-09-08 オーナー指摘）。
+    ///
+    /// **これは差出人の名乗りではない。**名乗れるのは「どこで動いているか」だけで、
+    /// 誰が言ったかを刻むのは机である（[`ToDesk::Say`] に `from` が無いのと同じ約束）。
+    /// 机はこれを「◯◯ の AI」という形に**包んで**出す。
+    Listen {
+        /// どこで動いているか（フォルダ名など）。名乗らなければ `None`。
+        場所: Option<String>,
+    },
 }
+
+/// 名乗れる長さ（文字）。
+///
+/// **画面の 1 行に収まる長さに切る。**長いものを通すと、連絡帳の並びが崩れる。
+pub const 名乗りの上限: usize = 32;
 
 /// 机 → エージェント。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,8 +117,10 @@ impl ToDesk {
     /// **知らない鍵が付いていたら受けない。**受けると、そこが差出人を騙る入口になる。
     pub fn 読む(行: &str) -> Result<Self, Error> {
         let 中身: Self = serde_json::from_str(行.trim()).map_err(|_| Error::Malformed)?;
-        if let Self::Say { body } = &中身 {
-            検める(body)?;
+        match &中身 {
+            Self::Say { body } => 検める(body)?,
+            Self::Listen { 場所: Some(名) } => 名乗りを検める(名)?,
+            Self::Listen { 場所: None } => {}
         }
         Ok(中身)
     }
@@ -122,6 +141,25 @@ impl FromDesk {
     pub fn 書く(&self) -> String {
         serde_json::to_string(self).expect("固定の形なので必ず通る")
     }
+}
+
+/// 名乗りが**置ける形か**を見る。
+///
+/// **中身が本当かは見ない。**同じ机に着けるのは同じ人のプロセスだけなので、
+/// ここは「画面が崩れないか」だけを見る。
+fn 名乗りを検める(名: &str) -> Result<(), Error> {
+    let 名 = 名.trim();
+    if 名.is_empty() {
+        return Err(Error::Empty);
+    }
+    // **区切りと見た目を壊すものを通さない**
+    if 名.chars().any(|c| c.is_control() || c == '\t') {
+        return Err(Error::Malformed);
+    }
+    if 名.chars().count() > 名乗りの上限 {
+        return Err(Error::TooLong(名.len()));
+    }
+    Ok(())
 }
 
 fn 検める(body: &str) -> Result<(), Error> {
@@ -186,10 +224,49 @@ mod tests {
 
     #[test]
     fn 聞きに行く行がある() {
+        let 元 = ToDesk::Listen { 場所: None };
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+    }
+
+    #[test]
+    fn どこで動いているかを名乗れる() {
+        // **1 台の PC で複数のエージェントが同じ机に着く。**
+        // 「この PC の AI」だけでは、どれが喋ったのか分からない
+        // （2026-09-08 オーナー指摘「このPCのどこで起動しているエージェントなのか」）
+        let 元 = ToDesk::Listen {
+            場所: Some("zumen".to_owned()),
+        };
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+    }
+
+    #[test]
+    fn 名乗らなくてもよい() {
+        // **名乗りは要求しない。**無ければ机が既定の呼び方をする
         assert_eq!(
-            ToDesk::読む(&ToDesk::Listen.書く()).unwrap(),
-            ToDesk::Listen
+            ToDesk::読む(r#"{"型":"listen","場所":null}"#).unwrap(),
+            ToDesk::Listen { 場所: None }
         );
+    }
+
+    #[test]
+    fn 画面を壊す名乗りは受けない() {
+        for 壊す in ["\t", "\n", "", "   "] {
+            let 行 = ToDesk::Listen {
+                場所: Some(壊す.to_owned()),
+            }
+            .書く();
+            assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
+        }
+    }
+
+    #[test]
+    fn 長すぎる名乗りは受けない() {
+        let 長い = "あ".repeat(名乗りの上限 + 1);
+        let 行 = ToDesk::Listen {
+            場所: Some(長い)
+        }
+        .書く();
+        assert!(ToDesk::読む(&行).is_err());
     }
 
     #[test]

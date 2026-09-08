@@ -358,7 +358,8 @@ async fn 机に着けば_流した行が机に届く() {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         // 1 本目は「聞く」の挨拶
         let 挨拶 = 行の口.受ける().await.unwrap().unwrap();
-        assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen);
+        // **どこで動いているかを名乗る**（2026-09-08）。名乗らない形も通る
+        assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen { 場所: None });
         let 行 = 行の口.受ける().await.unwrap().unwrap();
         // **机は必ず返事をする。**返さないと、送った側は待ち続ける（D49）
         行の口.送る(&FromDesk::Sent { to: 1 }.書く()).await.unwrap();

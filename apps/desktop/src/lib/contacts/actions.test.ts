@@ -6,7 +6,7 @@ const 人: 相手 = {
   種類: '人',
   住所を覚えている: true,
   いま会議に居る: false,
-  机の人数: 0,
+  机に着いている: false,
 };
 
 function 引く(相手: 相手, 種類: 'chat' | 'call' | 'mail') {
@@ -20,7 +20,7 @@ describe('選んだ相手に出す口（D49）', () => {
     // **送る経路が 1 本も無い**（SMTP はどこにも実装されていない）。
     // 押せる形にして断るのは、押した人には「壊れている」としか見えない
     expect(引く(人, 'mail').押せる).toBe(false);
-    expect(引く({ ...人, 種類: 'AI', 机の人数: 1 }, 'mail').押せる).toBe(false);
+    expect(引く({ ...人, 種類: 'AI', 机に着いている: true }, 'mail').押せる).toBe(false);
   });
 
   it('メールが押せない理由を必ず持つ', () => {
@@ -56,24 +56,24 @@ describe('選んだ相手に出す口（D49）', () => {
   });
 
   it('この PC の AI は、机に着いていればチャットできる', () => {
-    const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机の人数: 1 };
+    const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: true };
     expect(引く(ai, 'chat').押せる).toBe(true);
   });
 
   it('机に誰も着いていなければ、この PC の AI にも送れない', () => {
-    const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机の人数: 0 };
+    const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: false };
     expect(引く(ai, 'chat').押せる).toBe(false);
     expect(引く(ai, 'chat').訳).toBe('act.desk.empty');
   });
 
   it('この PC の AI を「会議に呼ぶ」口は押せない（同じ机に着いている）', () => {
-    const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机の人数: 2 };
+    const ai: 相手 = { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: true };
     expect(引く(ai, 'call').押せる).toBe(false);
     expect(引く(ai, 'call').訳).toBe('act.desk.local');
   });
 
   it('自分自身には、どの口も出さない', () => {
-    const 自分: 相手 = { 種類: '自分', 住所を覚えている: true, いま会議に居る: true, 机の人数: 1 };
+    const 自分: 相手 = { 種類: '自分', 住所を覚えている: true, いま会議に居る: true, 机に着いている: true };
     expect(できること(自分)).toEqual([]);
   });
 
@@ -83,8 +83,8 @@ describe('選んだ相手に出す口（D49）', () => {
       人,
       { ...人, 住所を覚えている: false },
       { ...人, いま会議に居る: true },
-      { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机の人数: 0 },
-      { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机の人数: 3 },
+      { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: false },
+      { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: true },
     ];
     for (const 一人 of 全部) {
       for (const 口 of できること(一人)) {
@@ -103,7 +103,7 @@ describe('選んだ相手に出す口（D49）', () => {
       人,
       { ...人, 住所を覚えている: false },
       { ...人, いま会議に居る: true },
-      { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机の人数: 0 },
+      { 種類: 'AI', 住所を覚えている: false, いま会議に居る: false, 机に着いている: false },
     ];
     for (const 一人 of 全部) {
       for (const 口 of できること(一人)) {

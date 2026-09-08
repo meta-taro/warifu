@@ -137,7 +137,8 @@
    * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
    * オーナーが「会議ありきのチャットじゃない」と言った所である（2026-09-06）。
    */
-  let 机の人数 = $state(0);
+  let 机のAIたち = $state<string[]>([]);
+  const 机の人数 = $derived(机のAIたち.length);
   /** 打ったものが誰かに届くか。**会議の人でも、同じ席の AI でもよい。** */
   const 届く先がある = $derived(送れるか({ 相手: remotes.length, 机の人数 }));
 
@@ -164,14 +165,13 @@
   const 届く先 = $derived(
     届く先を並べる({
       会議の相手: remotes.map((r) => 呼び名(名簿, r.key)),
-      机の人数,
-      机の呼び名: t('contacts.desk'),
+      机のAIたち,
     }),
   );
 
   const 連絡帳の素材 = $derived({
     自分: 自分の鍵,
-    机の人数,
+    机のAIたち,
     会議の相手: remotes.map((r) => r.key),
     覚えた,
   });
@@ -345,7 +345,7 @@
     void (async () => {
       // **窓より先に AI が着いていることがある。**知らせを待つだけだと、
       // その 1 人を数え損ねて「入ってきたら送れます」が出たままになる
-      机の人数 = (await deskSeats()) ?? 0;
+      机のAIたち = (await deskSeats()) ?? [];
       unsubs.push(
         await onEvent<string>(EVENT_JOINED, async (key) => {
           log(`入った人がいる（${短く(key)}）。通話を作る`);
@@ -405,14 +405,17 @@
       );
       unsubs.push(
         // **同じ席の AI が言ったこと。**人の発言と見分けが付く形で出す
-        await onEvent<[string, string, string]>(EVENT_DESK, ([key, body, at]) => {
-          log(話の記録('送信', 短く(key), body));
-          会話 = [...会話, { who: t('chat.agent'), body, mine: false, agent: true, at }];
+        // **どこで動いているエージェントかを、机が刻んで渡してくる。**
+        // 1 台の PC で複数のエージェントが同じ机に着くので、
+        // 「この PC の AI」だけでは、どれが喋ったのか分からない（2026-09-08）
+        await onEvent<[string, string, string]>(EVENT_DESK, ([呼び方, body, at]) => {
+          log(話の記録('送信', 呼び方, body));
+          会話 = [...会話, { who: 呼び方, body, mine: false, agent: true, at }];
         }),
       );
       unsubs.push(
-        await onEvent<number>(EVENT_DESK_SEATS, (数) => {
-          机の人数 = 数;
+        await onEvent<string[]>(EVENT_DESK_SEATS, (顔ぶれ) => {
+          机のAIたち = 顔ぶれ;
         }),
       );
       unsubs.push(
@@ -468,7 +471,7 @@
       `相手 ${remotes.length} 人`,
       // **机に AI が着いているかは、後から追えないと分からない。**
       // 「送れない」と言われたときに、居たのか居なかったのかが読めなくなる
-      `机 ${机の人数} 人`,
+      `机 ${机の人数} 人${机のAIたち.length ? `（${机のAIたち.join('・')}）` : ''}`,
       `送るもの ${送るものを言う(sendMode)}`,
       `会議キー ${meetingKey ? 'あり' : 'なし'}`,
       `経路 ${remotes.map((r) => r.path).join(',') || 'なし'}`,

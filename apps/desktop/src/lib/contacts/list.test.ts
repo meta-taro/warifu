@@ -6,7 +6,7 @@ const 自分 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const 相手 = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
 const もう一人 = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
 
-const 素: 素材 = { 自分, 机の人数: 0, 会議の相手: [], 覚えた: [] };
+const 素: 素材 = { 自分, 机のAIたち: [], 会議の相手: [], 覚えた: [] };
 
 describe('連絡帳の並び', () => {
   it('いちばん上は「この PC」（自分と、この PC の AI）', () => {
@@ -18,15 +18,31 @@ describe('連絡帳の並び', () => {
 
   it('机に誰も着いていなくても、この PC の AI の行は消さない', () => {
     // **消すと「そういう仕組みが無い」と読まれる。**居ないなら居ないと出す
-    const [先頭] = 連絡帳を組む({ ...素, 机の人数: 0 });
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: [] });
     const ai = 先頭.行たち.find((r) => r.種類 === 'AI');
     expect(ai?.key).toBe(机の印);
     expect(ai?.いま会議に居る).toBe(false);
   });
 
-  it('机に着いていれば、この PC の AI は繋がっている扱いになる', () => {
-    const [先頭] = 連絡帳を組む({ ...素, 机の人数: 2 });
-    expect(先頭.行たち.find((r) => r.種類 === 'AI')?.いま会議に居る).toBe(true);
+  it('着いているエージェントを、1 つずつ行にする', () => {
+    // **まとめて「この PC の AI  2」にすると、どれが着いているのか分からない**
+    // （2026-09-08 オーナー指摘）
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen の AI', 'git-qa の AI'] });
+    const ai = 先頭.行たち.filter((r) => r.種類 === 'AI');
+    expect(ai.map((r) => r.name)).toEqual(['zumen の AI', 'git-qa の AI']);
+    expect(ai.every((r) => r.いま会議に居る)).toBe(true);
+  });
+
+  it('着いているエージェントが居るときは、まとめの行を出さない', () => {
+    // **同じものを 2 か所に出さない**
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['zumen の AI'] });
+    expect(先頭.行たち.some((r) => r.key === 机の印)).toBe(false);
+  });
+
+  it('行ごとに別の印を持つ（押し分けられる）', () => {
+    const [先頭] = 連絡帳を組む({ ...素, 机のAIたち: ['a の AI', 'b の AI'] });
+    const 印 = 先頭.行たち.filter((r) => r.種類 === 'AI').map((r) => r.key);
+    expect(new Set(印).size).toBe(2);
   });
 
   it('会議に誰も居なければ、その区画そのものを出さない', () => {

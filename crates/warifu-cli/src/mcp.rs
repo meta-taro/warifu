@@ -45,6 +45,28 @@ pub struct 設定 {
     pub 許す: Vec<String>,
     /// 机の場所。既定は [`warifu_desk::机の場所`]。
     pub 机: PathBuf,
+    /// **どこで動いているか。**既定は起動した場所のフォルダ名。
+    ///
+    /// 1 台の PC で複数のエージェントが同じ机に着くので、
+    /// 名乗らないと**どれが喋ったのか人に分からない**（2026-09-08）。
+    pub 名乗り: Option<String>,
+}
+
+/// 起動した場所のフォルダ名。
+///
+/// **人が書かなくても、どこで動いているかは分かる。**
+/// 取れなければ名乗らない（机が既定の呼び方をする）。
+fn 居場所から名乗る() -> Option<String> {
+    let 名 = std::env::current_dir()
+        .ok()?
+        .file_name()?
+        .to_string_lossy()
+        .into_owned();
+    let 名 = 名.trim().to_owned();
+    if 名.is_empty() || 名.chars().count() > warifu_desk::名乗りの上限 {
+        return None;
+    }
+    Some(名)
 }
 
 /// 引数を読む。
@@ -52,6 +74,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
     let mut 設 = 設定 {
         許す: Vec::new(),
         机: warifu_desk::机の場所(),
+        名乗り: 居場所から名乗る(),
     };
     while let Some(一つ) = args.next() {
         match 一つ.as_str() {
@@ -67,6 +90,17 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             }
             "--desk" => {
                 設.机 = PathBuf::from(args.next().ok_or("--desk のあとに場所がありません")?);
+            }
+            "--as" => {
+                let 名 = args.next().ok_or("--as のあとに名前がありません")?;
+                let 名 = 名.trim().to_owned();
+                if 名.is_empty() || 名.chars().count() > warifu_desk::名乗りの上限 {
+                    return Err(format!(
+                        "名乗りは 1〜{} 文字にしてください",
+                        warifu_desk::名乗りの上限
+                    ));
+                }
+                設.名乗り = Some(名);
             }
             他 => return Err(format!("知らない指定です: {他}")),
         }
@@ -89,11 +123,15 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
 
     // 受信箱と規則はまだ空。**空であることを、繋がっていることと混ぜない**
     // （`issues/011` が決まるまで、inbox_* は「無い」を返す）
-    let 口 = Warifu::new(Vec::new(), RuleStore::new(), 関所, 今).机を覚える(&設.机);
+    let mut 口 = Warifu::new(Vec::new(), RuleStore::new(), 関所, 今).机を覚える(&設.机);
+    if let Some(名) = &設.名乗り {
+        口 = 口.名乗る(名);
+    }
 
     // **標準出力は MCP のもの。**言いたいことは標準エラーへ出す
     eprintln!(
-        "warifu mcp: 許した動作 {}／机 {}",
+        "warifu mcp: 名乗り {}／許した動作 {}／机 {}",
+        設.名乗り.as_deref().unwrap_or("（名乗らない）"),
         if 設.許す.is_empty() {
             "（なし。--allow を書かないと何も通りません）".to_owned()
         } else {

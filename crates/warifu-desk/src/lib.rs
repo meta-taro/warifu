@@ -32,7 +32,7 @@ mod pipe;
 mod place;
 mod talk;
 
-pub use line::{Error, FromDesk, ToDesk, 本文の上限};
+pub use line::{Error, FromDesk, ToDesk, 名乗りの上限, 本文の上限};
 pub use pipe::{一本, 受け口, 繋ぐ, 開いているか};
 pub use place::机の場所;
 pub use talk::口;

@@ -702,7 +702,10 @@ fn 汲む(
                         continue;
                     };
                     // **文字は名簿を動かさない。**そのまま画面へ渡す
-                    if let Notice::Text { from, body, .. } = &notice {
+                    if let Notice::Text {
+                        from, 話し手, body, ..
+                    } = &notice
+                    {
                         // **名乗った差出人と、繋いできた相手が違うなら通さない。**
                         // 主催から配られた文字（三者会議）はここへ来ない ——
                         // こちらが主催であり、配るのはこちらだからである
@@ -710,7 +713,13 @@ fn 汲む(
                             記録!("受信: 差出人が経路の相手と違う。捨てた");
                             continue;
                         }
-                        let _ = app.emit(EVENT_TEXT, (key_to_string(peer), body.clone()));
+                        // **札が付いていれば、その席の誰が言ったかまで画面へ渡す**
+                        // （2026-09-08）。付いていなければ人が言ったもの
+                        let 名 = match 話し手 {
+                            Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
+                            None => key_to_string(peer),
+                        };
+                        let _ = app.emit(EVENT_TEXT, (名, body.clone()));
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **同じ席の AI にも、同じ行を見せる。**
@@ -1043,6 +1052,7 @@ async fn send_text(bridge: State<'_, Bridge>, body: String) -> Answer<()> {
                 meeting,
                 // **自分が言ったと載せる**（D48）。相手はこれで誰の発言かが分かる
                 from: bridge.device.public_key(),
+                話し手: None,
                 body: body.clone(),
             })
             .await;
@@ -1075,12 +1085,13 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     Ok(())
 }
 
-/// **机に何人着いているか。**画面が「送れるかどうか」を決めるのに使う。
+/// **机に着いている顔ぶれ。**画面が一覧に出し、「送れるかどうか」も決める。
 ///
-/// 会議に人が居なくても、**同じ席の AI が居るなら送れる。**
+/// **数だけでは足りない。**1 台の PC で複数のエージェントが同じ机に着くので、
+/// どれが着いているのかが分からない（2026-09-08 オーナー指摘）。
 #[tauri::command]
-fn desk_seats(bridge: State<'_, Bridge>) -> usize {
-    desk::席の数(&bridge)
+fn desk_seats() -> Vec<String> {
+    desk::着いている顔ぶれ()
 }
 
 /// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。

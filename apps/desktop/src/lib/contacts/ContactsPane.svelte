@@ -79,7 +79,8 @@
           種類: 相手.種類,
           住所を覚えている: 相手.住所を覚えている,
           いま会議に居る: 相手.いま会議に居る,
-          机の人数: 素材.机の人数,
+          // AI の行は、その 1 つが着いているかどうかで決まる
+          机に着いている: 相手.いま会議に居る,
         })
       : [],
   );
@@ -117,9 +118,7 @@
           <Icon name={行.key === 机の印 ? 'desk' : 'people'} size={16} />
           <span class="name">{名(行)}</span>
           <!-- **在席は出さない。**相手が起動しているかは分からない -->
-          {#if 行.key === 机の印}
-            <span class="sub">{行.いま会議に居る ? `${素材.机の人数}` : '0'}</span>
-          {/if}
+          <!-- **在席は出さない。**着いているかどうかは、行が在ること自体で分かる -->
         </button>
       {/each}
     {/each}
@@ -175,7 +174,7 @@
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>
       {/if}
-      {#if 相手.種類 === 'AI' && 素材.机の人数 === 0}
+      {#if 相手.種類 === 'AI' && !相手.いま会議に居る}
         <!-- **「居ません」だけでは、どうすればよいか分からない。**手順まで出す -->
         <p class="hint">{t('contacts.desk.none')}</p>
         <p class="hint">{t('contacts.desk.how')}</p>
@@ -309,12 +308,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .row .sub {
-    font-family: var(--font-mono);
-    font-size: var(--text-2xs-size);
-    font-variant-numeric: tabular-nums;
-    color: var(--text-tertiary);
   }
   .key {
     margin: 0;

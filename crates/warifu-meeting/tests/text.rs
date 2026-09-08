@@ -15,6 +15,7 @@ fn 文字がそのまま往復する() {
     let n = Notice::Text {
         meeting: 会議,
         from: 鍵(1),
+        話し手: None,
         body: "こんにちは。聞こえますか".into(),
     };
     match 往復(&n) {
@@ -32,6 +33,7 @@ fn 空の文字は送らない() {
     let n = Notice::Text {
         meeting: MeetingId::generate(),
         from: 鍵(1),
+        話し手: None,
         body: String::new(),
     };
     assert!(matches!(n.to_intent(), Err(Error::Malformed)));
@@ -43,6 +45,7 @@ fn 長すぎる文字は組み立てない() {
     let n = Notice::Text {
         meeting: MeetingId::generate(),
         from: 鍵(1),
+        話し手: None,
         body: "あ".repeat(20_000),
     };
     assert!(matches!(n.to_intent(), Err(Error::Malformed)));
@@ -55,6 +58,7 @@ fn 改行も絵文字もそのまま通る() {
     let n = Notice::Text {
         meeting: MeetingId::generate(),
         from: 鍵(1),
+        話し手: None,
         body: 中身.into(),
     };
     match 往復(&n) {
@@ -69,6 +73,7 @@ fn 会議_id_がそのまま相関になる() {
     let n = Notice::Text {
         meeting: 会議,
         from: 鍵(1),
+        話し手: None,
         body: "x".into(),
     };
     assert_eq!(n.meeting(), 会議);
@@ -88,6 +93,7 @@ fn 文字は差出人を持って往復する() {
     let n = Notice::Text {
         meeting: 会議,
         from: 言った人,
+        話し手: None,
         body: "B です。三者会議に入りました".into(),
     };
     match 往復(&n) {
@@ -95,6 +101,7 @@ fn 文字は差出人を持って往復する() {
             meeting,
             from,
             body,
+            ..
         } => {
             assert_eq!(meeting, 会議);
             assert_eq!(from, 言った人, "配ると差出人が消える");
@@ -110,6 +117,7 @@ fn 差出人だけの文字は送らない() {
     let n = Notice::Text {
         meeting: MeetingId::generate(),
         from: 鍵(7),
+        話し手: None,
         body: String::new(),
     };
     assert!(matches!(n.to_intent(), Err(Error::Malformed)));

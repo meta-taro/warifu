@@ -28,6 +28,11 @@ pub struct Warifu {
     /// 机の場所。**画面より先にエージェントが起きることがある**ので、
     /// 場所だけ覚えて、繋ぐのは実際に使うときにする。
     机の場所: Option<std::path::PathBuf>,
+    /// **どこで動いているエージェントか**（フォルダ名など）。
+    ///
+    /// 1 台の PC で複数のエージェントが同じ机に着くので、
+    /// 名乗らないと、どれが喋ったのか人に分からない。
+    名乗り: Option<String>,
     /// いま着いている机。切れていれば繋ぎ直す。
     chat: Arc<tokio::sync::Mutex<Option<Chat>>>,
 }
@@ -52,6 +57,7 @@ impl Warifu {
     pub fn new(messages: Vec<Received>, rules: RuleStore, gate: Gate, now: u64) -> Self {
         Self {
             机の場所: None,
+            名乗り: None,
             chat: Arc::new(tokio::sync::Mutex::new(None)),
             inner: Arc::new(Mutex::new(Inner {
                 messages,
@@ -70,8 +76,18 @@ impl Warifu {
     /// 誰も読んでいない所へ書き続けることになる（D49 と同じ話）。
     pub async fn 机に着く(mut self, 場所: &std::path::Path) -> std::io::Result<Self> {
         self.机の場所 = Some(場所.to_path_buf());
-        *self.chat.lock().await = Some(Chat::着く(場所).await?);
+        let 名乗り = self.名乗り.clone();
+        *self.chat.lock().await = Some(Chat::着く(場所, 名乗り).await?);
         Ok(self)
+    }
+
+    /// **どこで動いているか**を名乗る。
+    ///
+    /// 名乗らなければ、机が既定の呼び方（「この PC の AI」）をする。
+    #[must_use]
+    pub fn 名乗る(mut self, 場所: &str) -> Self {
+        self.名乗り = Some(場所.to_owned());
+        self
     }
 
     /// 机の場所だけ覚える。**繋ぐのは、実際に会話を使うとき。**
@@ -140,7 +156,9 @@ impl Warifu {
         }
         // 切れている・まだ着いていない。**場所を知っているなら、黙って繋ぎ直す**
         let 場所 = self.机の場所.as_ref().ok_or_else(机が無い)?;
-        let 新しく = Chat::着く(場所).await.map_err(|_| 机が無い())?;
+        let 新しく = Chat::着く(場所, self.名乗り.clone())
+            .await
+            .map_err(|_| 机が無い())?;
         *席 = Some(新しく.clone());
         Ok(新しく)
     }
