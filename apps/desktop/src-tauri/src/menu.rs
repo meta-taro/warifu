@@ -14,7 +14,7 @@
 //! ここで OS の言語をもう一度取りに行くと、**2 か所が別の答えを出しうる**。
 //! 依存（`tauri-plugin-os` 等）も増やさずに済む。
 
-use tauri::menu::{Menu, MenuItemKind, PredefinedMenuItem, SubmenuBuilder};
+use tauri::menu::{CheckMenuItemBuilder, Menu, MenuItemKind, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Runtime};
 
 /// メニューに出す文言。**4 言語すべてに揃っていること**をテストで固定する。
@@ -31,6 +31,10 @@ pub struct Labels {
     pub copy: &'static str,
     pub paste: &'static str,
     pub select_all: &'static str,
+    pub view: &'static str,
+    pub theme_auto: &'static str,
+    pub theme_light: &'static str,
+    pub theme_dark: &'static str,
     pub window: &'static str,
     pub minimize: &'static str,
     pub zoom: &'static str,
@@ -57,6 +61,10 @@ pub fn labels(locale: &str) -> Labels {
             copy: "コピー",
             paste: "貼り付け",
             select_all: "すべてを選択",
+            view: "表示",
+            theme_auto: "OS に合わせる",
+            theme_light: "ライト",
+            theme_dark: "ダーク",
             window: "ウインドウ",
             minimize: "しまう",
             zoom: "拡大／縮小",
@@ -75,6 +83,10 @@ pub fn labels(locale: &str) -> Labels {
             copy: "复制",
             paste: "粘贴",
             select_all: "全选",
+            view: "显示",
+            theme_auto: "跟随系统",
+            theme_light: "浅色",
+            theme_dark: "深色",
             window: "窗口",
             minimize: "最小化",
             zoom: "缩放",
@@ -93,6 +105,10 @@ pub fn labels(locale: &str) -> Labels {
             copy: "복사하기",
             paste: "붙여넣기",
             select_all: "전체 선택",
+            view: "보기",
+            theme_auto: "OS 에 맞추기",
+            theme_light: "라이트",
+            theme_dark: "다크",
             window: "윈도우",
             minimize: "최소화",
             zoom: "확대/축소",
@@ -111,6 +127,10 @@ pub fn labels(locale: &str) -> Labels {
             copy: "Copy",
             paste: "Paste",
             select_all: "Select All",
+            view: "View",
+            theme_auto: "Match system",
+            theme_light: "Light",
+            theme_dark: "Dark",
             window: "Window",
             minimize: "Minimize",
             zoom: "Zoom",
@@ -119,15 +139,32 @@ pub fn labels(locale: &str) -> Labels {
     }
 }
 
+/// テーマの選び方。**「OS に合わせる」が既定。**
+///
+/// 画面側（`app.html` / `localStorage`）と綴りを揃える。
+pub const THEMES: [&str; 3] = ["auto", "light", "dark"];
+
+/// メニュー項目の id の頭。画面側はこの後ろを見て切り替える。
+pub const THEME_PREFIX: &str = "theme:";
+
 /// メニューを組み立てる。
 ///
-/// **`File` と `View` は置かない。**開くファイルも切り替える表示も無いのに枠だけ出すと、
+/// **`File` は置かない。**開くファイルが無いのに枠だけ出すと、
 /// 「何かできそう」に見えて空を開かせることになる。**無い機能の入口を作らない。**
+///
+/// **`View` は置く**（2026-09-08）。テーマの切り替えという**実際にある機能**が
+/// 乗ったためである。オーナー指示「**できればメニューバーで切り替えられるとなお良い**」。
 ///
 /// # Errors
 /// メニューの生成に失敗したとき。
-pub fn build<R: Runtime>(app: &AppHandle<R>, locale: &str) -> tauri::Result<Menu<R>> {
+pub fn build<R: Runtime>(app: &AppHandle<R>, locale: &str, theme: &str) -> tauri::Result<Menu<R>> {
     let t = labels(locale);
+    // **知らない値は「OS に合わせる」に落とす。**どれにも印が付かない状態を作らない
+    let theme = if THEMES.contains(&theme) {
+        theme
+    } else {
+        "auto"
+    };
 
     let app_menu = SubmenuBuilder::new(app, "warifu")
         .item(&PredefinedMenuItem::about(app, Some(t.about), None)?)
@@ -150,6 +187,27 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, locale: &str) -> tauri::Result<Menu
         .item(&PredefinedMenuItem::select_all(app, Some(t.select_all))?)
         .build()?;
 
+    // **「テーマ」という入れ子を作らない。**中身が 3 つしか無いので、
+    // 入れ子にすると 1 手増えるだけである（**押す回数を、整理のために増やさない**）。
+    // **いま選んでいるものに印が付く。**印が無いと、どれが効いているのか分からない
+    let view = SubmenuBuilder::new(app, t.view)
+        .item(
+            &CheckMenuItemBuilder::with_id(format!("{THEME_PREFIX}auto"), t.theme_auto)
+                .checked(theme == "auto")
+                .build(app)?,
+        )
+        .item(
+            &CheckMenuItemBuilder::with_id(format!("{THEME_PREFIX}light"), t.theme_light)
+                .checked(theme == "light")
+                .build(app)?,
+        )
+        .item(
+            &CheckMenuItemBuilder::with_id(format!("{THEME_PREFIX}dark"), t.theme_dark)
+                .checked(theme == "dark")
+                .build(app)?,
+        )
+        .build()?;
+
     let window = SubmenuBuilder::new(app, t.window)
         .item(&PredefinedMenuItem::minimize(app, Some(t.minimize))?)
         .item(&PredefinedMenuItem::maximize(app, Some(t.zoom))?)
@@ -158,7 +216,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, locale: &str) -> tauri::Result<Menu
         .build()?;
 
     let menu = Menu::new(app)?;
-    for item in [&app_menu, &edit, &window] {
+    for item in [&app_menu, &edit, &view, &window] {
         menu.append(&MenuItemKind::Submenu((*item).clone()))?;
     }
     Ok(menu)
@@ -181,12 +239,22 @@ mod tests {
                 ("copy", t.copy),
                 ("paste", t.paste),
                 ("select_all", t.select_all),
+                ("view", t.view),
+                ("theme_auto", t.theme_auto),
+                ("theme_light", t.theme_light),
+                ("theme_dark", t.theme_dark),
                 ("window", t.window),
                 ("close", t.close),
             ] {
                 assert!(!value.trim().is_empty(), "{l} の {name} が空");
             }
         }
+    }
+
+    #[test]
+    fn テーマは三つだけ() {
+        // **画面側（`app.html`）と綴りを揃える。**ずれると、選んでも何も起きない
+        assert_eq!(super::THEMES, ["auto", "light", "dark"]);
     }
 
     #[test]

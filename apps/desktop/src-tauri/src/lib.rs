@@ -49,6 +49,11 @@ const EVENT_DESK: &str = "warifu://desk";
 /// 会議に人が居なくても、**同じ席の AI が居るなら人は話しかけられる。**
 /// これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
 const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
+/// **メニューからテーマを選んだ。**`auto` / `light` / `dark` のどれかを渡す。
+///
+/// **覚えるのも当てるのも画面側**（`localStorage` は Rust から読めない）。
+/// ここは「押された」ことだけを伝える。
+const EVENT_THEME: &str = "warifu://theme";
 
 /// 経路の要所を書き出す。
 ///
@@ -400,7 +405,7 @@ async fn invite(
 /// 画面側が `navigator.languages` から決めた答えをそのまま渡す。
 /// ここで OS へ聞き直すと、**2 か所が別の答えを出しうる。**
 #[tauri::command]
-fn set_menu_locale(app: AppHandle, locale: String) -> Answer<()> {
+fn set_menu_locale(app: AppHandle, locale: String, theme: Option<String>) -> Answer<()> {
     // **メニューはメインスレッドでしか触れない。**macOS では別スレッドから差し替えると
     // 黙って何も起きない（例外も出ない）。1 回それで「英語のまま」を踏んだ。
     if !menu::LOCALES.contains(&locale.as_str()) {
@@ -408,8 +413,11 @@ fn set_menu_locale(app: AppHandle, locale: String) -> Answer<()> {
         // 「なぜか英語のまま」になるのを、ここで読めるようにしておく
         eprintln!("知らないロケール '{locale}' が来たので英語にします");
     }
+    // **いま選んでいるテーマに印を付ける。**画面側が持っている値をそのまま受ける
+    // （Rust からは `localStorage` を読めない）
+    let theme = theme.unwrap_or_else(|| "auto".to_owned());
     let handle = app.clone();
-    app.run_on_main_thread(move || match menu::build(&handle, &locale) {
+    app.run_on_main_thread(move || match menu::build(&handle, &locale, &theme) {
         Ok(m) => {
             if let Err(e) = handle.set_menu(m) {
                 // **握り潰さない。**差し替えに失敗したこと自体が読めないと、原因を追えない
@@ -1379,6 +1387,13 @@ pub fn run() {
         // **届いたことを窓の外へ押し出すため**（`notify.rs`）。
         // 押し出せないとチャットにならない（オーナー・2026-09-07）
         .plugin(tauri_plugin_notification::init())
+        // **メニューから来た操作を、画面へ渡す。**
+        // メニューは OS の側に居るので、画面の状態（いま何を選んでいるか）は知らない
+        .on_menu_event(|app, event| {
+            if let Some(選び) = event.id().0.strip_prefix(menu::THEME_PREFIX) {
+                let _ = app.emit(EVENT_THEME, 選び.to_owned());
+            }
+        })
         .setup(|app| {
             // 最初に呼んで、起点をここに固定する
             起動からの秒();

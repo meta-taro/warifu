@@ -26,6 +26,7 @@
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
+  import { 当てる色, 覚える鍵, 読み取る, type テーマ } from '$lib/window/theme';
   import {
     その部屋の会話,
     人の部屋,
@@ -66,6 +67,7 @@
     EVENT_TEXT,
     EVENT_DESK,
     EVENT_DESK_SEATS,
+    EVENT_THEME,
     deskSeats,
     connect,
     contacts,
@@ -171,6 +173,14 @@
   let 覚えた = $state<ContactRow[]>([]);
   /** 自分の公開鍵。**連絡帳の「この PC」に出す。** */
   let 自分の鍵 = $state('');
+  /**
+   * いま選んでいるテーマ（**OS に合わせる / ライト / ダーク**）。
+   *
+   * **描く前に当てるのは `app.html` の頭のスクリプト。**ここが持つのは
+   * 「メニューで選び直したあと」だけである。
+   */
+  let テーマの選び = $state<テーマ>('auto');
+
   /** いま会議キーなしで入れる相手。**覚えている相手とは別の集まり。** */
   let 鍵なしで入れる = $state<string[]>([]);
   /**
@@ -453,7 +463,9 @@
     }
     void (async () => {
       try {
-        await setMenuLocale(locale);
+        // **メニューには、いま選んでいるテーマの印も付ける。**
+        // 覚えているのは画面側なので、こちらから渡す
+        await setMenuLocale(locale, テーマの選び);
       } catch {
         // メニューが訳せなくても会議はできる。**止めない**
       }
@@ -464,6 +476,8 @@
       await 部屋を読み直す();
       members = [{ key: me, me: true, host: true, path: 'unknown' }];
       void 名簿を読む();
+      // **覚えているテーマを、画面の状態にも持つ**（当てるのは app.html が済ませている）
+      テーマの選び = 読み取る(localStorage.getItem(覚える鍵));
       // **置いてある預かり所を、画面にも出す。**
       // 留守中の分は Rust 側が起動時に取りに行く（`postbox.rs`）ので、
       // ここで取りに行くと二重になる
@@ -565,6 +579,10 @@
         await onEvent<string[]>(EVENT_DESK_SEATS, (顔ぶれ) => {
           机のAIたち = 顔ぶれ;
         }),
+      );
+      unsubs.push(
+        // **メニューでテーマを選んだ。**当てて、覚えて、印を付け直す
+        await onEvent<string>(EVENT_THEME, (選び) => void テーマを選ぶ(読み取る(選び))),
       );
       unsubs.push(
         await onEvent<string>(EVENT_LEFT, (key) => 片付ける(key)),
@@ -857,6 +875,28 @@
       );
     }
     notice = format(t('postbox.received'), { n: String(届いた.length) });
+  }
+
+  /**
+   * テーマを選び直す。
+   *
+   * **当てる・覚える・印を付け直す**の 3 つを 1 か所でやる。
+   * 分けると、**メニューの印だけが前のまま残る**（どれが効いているか読めなくなる）。
+   */
+  async function テーマを選ぶ(選び: テーマ) {
+    テーマの選び = 選び;
+    const 暗いか = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = 当てる色(選び, 暗いか);
+    try {
+      localStorage.setItem(覚える鍵, 選び);
+    } catch {
+      // **覚えられなくても、いまの見た目は変える。**次の起動で OS に戻るだけ
+    }
+    try {
+      await setMenuLocale(locale, 選び);
+    } catch {
+      // 印が付け直せなくても、色は変わっている。**止めない**
+    }
   }
 
   async function 入室する() {

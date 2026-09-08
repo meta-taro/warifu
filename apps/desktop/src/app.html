@@ -15,11 +15,20 @@
       */
       (() => {
         const 暗いか = window.matchMedia('(prefers-color-scheme: dark)');
+        // 人が選んでいれば、それが勝つ（メニューの「表示 → テーマ」）
+        let 選び = 'auto';
+        try {
+          const 覚え = localStorage.getItem('warifu-theme');
+          if (覚え === 'light' || 覚え === 'dark') 選び = 覚え;
+        } catch {
+          // 覚えを読めない置き方でも、OS に従えば画面は出る
+        }
         const 決める = () => {
-          document.documentElement.dataset.theme = 暗いか.matches ? 'dark' : 'light';
+          document.documentElement.dataset.theme =
+            選び === 'auto' ? (暗いか.matches ? 'dark' : 'light') : 選び;
         };
         決める();
-        // **OS の切り替えに、その場で従う。**開き直させない
+        // **OS の切り替えに、その場で従う**（「OS に合わせる」のときだけ）
         暗いか.addEventListener('change', 決める);
       })();
     </script>

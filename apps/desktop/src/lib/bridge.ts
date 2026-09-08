@@ -39,6 +39,13 @@ export const EVENT_DESK = 'warifu://desk';
  */
 export const EVENT_DESK_SEATS = 'warifu://desk-seats';
 
+/**
+ * **メニューからテーマを選んだ**（`auto` / `light` / `dark`）。
+ *
+ * メニューは OS の側に居るので、画面の状態を知らない。**当てるのは画面側。**
+ */
+export const EVENT_THEME = 'warifu://theme';
+
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {
@@ -87,7 +94,14 @@ export const invite = (ttlSecs: number, startsAt?: number) =>
  * 画面の中だけを訳しても足りない。macOS では窓の外にメニューが出る。
  * 言語は画面側が決めた答えを渡す — Rust 側で OS へ聞き直すと、2 か所が別の答えを出しうる。
  */
-export const setMenuLocale = (locale: string) => invoke<void>('set_menu_locale', { locale });
+/**
+ * メニューの言語と、**いま選んでいるテーマの印**を差し替える。
+ *
+ * テーマを渡すのは、**メニューに印を付けるため**である。
+ * 覚えているのは画面側（`localStorage`）で、**Rust からは読めない。**
+ */
+export const setMenuLocale = (locale: string, theme?: string) =>
+  invoke<void>('set_menu_locale', { locale, theme: theme ?? null });
 
 /** 自分の公開鍵。画面が「自分かどうか」を見分けるのに使う。 */
 export const myKey = () => invoke<string>('my_key');
