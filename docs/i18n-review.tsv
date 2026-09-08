@@ -36,6 +36,7 @@ chat.reach.none	It goes nowhere yet. Someone coming into the room, or an agent o
 chat.send	Send	送る	发送	보내기				
 chat.shared	This is not a conversation with the person you picked.	ここは、選んだ相手だけの会話ではありません。	这里不是只和所选对方的会话。	여기는 고른 상대만의 대화가 아닙니다.	★	**会話は 1 本しか無い。**選んだ相手の隣に並んでいても、その人だけに届くのではない。「この相手にだけ届きます」「非公開の会話です」「ダイレクトメッセージ」と読める訳にしないこと。**個別に届くと誤解した人は、見られたくないものを書く。**		
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
+contacts.claimed	They call themselves “{name}”.	本人は「{name}」と名乗っています。	对方自称“{name}”。	본인은 “{name}” 라고 밝히고 있습니다.				
 contacts.desk	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 contacts.desk.how	To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。	要让代理坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。	책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
 contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				

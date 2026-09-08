@@ -21,6 +21,8 @@ const LINK: &str = "meeting.link";
 const INTRODUCE: &str = "meeting.introduce";
 /// 会議の中で文字を送る（チャット）。
 const TEXT: &str = "meeting.text";
+/// **本人の名乗り**（プロフィール・**D75**）。
+const PROFILE: &str = "meeting.profile";
 
 /// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
 const LINK_LEN: usize = 20;
@@ -30,6 +32,12 @@ const ADDRESS_MAX: usize = 1024;
 /// 文字の長さの上限（バイト）。**受け取る側でも数える**（D15）。
 /// 会議の中の一言に 16 KiB は十分で、これを超えるなら別の手段で渡すべきものである。
 const TEXT_MAX: usize = 16 * 1024;
+
+/// 名乗りの名前の長さ（バイト）。**画面の 1 行に収まる長さ**
+/// （`warifu-vault` の 32 文字を、日本語 1 文字 4 バイトで見込む）。
+const PROFILE_NAME_MAX: usize = 128;
+/// 名乗りの紹介の長さ（バイト）。**140 文字を同じ見込みで。**
+const PROFILE_BIO_MAX: usize = 560;
 
 /// 話し手の札の長さ（バイト）。
 ///
@@ -118,6 +126,23 @@ pub enum Notice {
         /// 中身。
         body: String,
     },
+    /// **本人の名乗り**（**D75**）。名前と短い紹介を相手へ渡す。
+    ///
+    /// **これは本人確認ではない。**名乗った名前は誰でも真似できるので、
+    /// **受け取った側が付けた呼び名があれば、そちらが勝つ**（**D46**）。
+    /// 確かめるのは鍵である。
+    ///
+    /// **空にすると「名乗りを取り消す」意味になる**（消したことも伝わる必要がある）。
+    Profile {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰の名乗りか。**経路で確定した相手と一致するはず**である。
+        from: PublicKey,
+        /// 表に出す名前。
+        名前: String,
+        /// 短い紹介。
+        紹介: String,
+    },
     /// 測った回線を渡す。
     ///
     /// **これは申告ではなく観測**（`warifu-link` の `Meter`）。
@@ -141,7 +166,8 @@ impl Notice {
             | Self::Leave { meeting }
             | Self::Link { meeting, .. }
             | Self::Introduce { meeting, .. }
-            | Self::Text { meeting, .. } => *meeting,
+            | Self::Text { meeting, .. }
+            | Self::Profile { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -192,6 +218,26 @@ impl Notice {
                 塊.extend_from_slice(&who.to_bytes());
                 塊.extend_from_slice(address.as_bytes());
                 (INTRODUCE, 塊)
+            }
+            Self::Profile {
+                from, 名前, 紹介,
+            ..
+            } => {
+                // **行と欄を壊すものを通さない。**通すと、受け取った側の画面が崩れる
+                if 名前.len() > PROFILE_NAME_MAX
+                    || 紹介.len() > PROFILE_BIO_MAX
+                    || 名前.chars().any(|c| c.is_control())
+                    || 紹介.chars().any(char::is_control)
+                {
+                    return Err(Error::Malformed);
+                }
+                // `[差出人 32][名前の長さ 1][名前][紹介]`
+                let mut 塊 = Vec::with_capacity(32 + 1 + 名前.len() + 紹介.len());
+                塊.extend_from_slice(&from.to_bytes());
+                塊.push(u8::try_from(名前.len()).map_err(|_| Error::Malformed)?);
+                塊.extend_from_slice(名前.as_bytes());
+                塊.extend_from_slice(紹介.as_bytes());
+                (PROFILE, 塊)
             }
             Self::Link { report, .. } => {
                 let mut 塊 = Vec::with_capacity(LINK_LEN);
@@ -251,6 +297,26 @@ impl Notice {
                     from,
                     話し手,
                     body: String::from_utf8_lossy(&荷物[33 + 札の長さ..]).into_owned(),
+                })
+            }
+            PROFILE => {
+                // 差出人 32 byte ＋ 名前の長さ 1 byte ＋ 名前 ＋ 紹介。
+                // **空の名乗りは通す** —— 「取り消した」ことも伝わる必要がある
+                if 荷物.len() < 33 || 荷物.len() > 32 + 1 + PROFILE_NAME_MAX + PROFILE_BIO_MAX {
+                    return Err(Error::Malformed);
+                }
+                let from =
+                    PublicKey::from_bytes(荷物[..32].try_into().map_err(|_| Error::Malformed)?)
+                        .map_err(|_| Error::Malformed)?;
+                let 名前の長さ = usize::from(荷物[32]);
+                if 名前の長さ > PROFILE_NAME_MAX || 荷物.len() < 33 + 名前の長さ {
+                    return Err(Error::Malformed);
+                }
+                Ok(Self::Profile {
+                    meeting,
+                    from,
+                    名前: String::from_utf8_lossy(&荷物[33..33 + 名前の長さ]).into_owned(),
+                    紹介: String::from_utf8_lossy(&荷物[33 + 名前の長さ..]).into_owned(),
                 })
             }
             INTRODUCE => {

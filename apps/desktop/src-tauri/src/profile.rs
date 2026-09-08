@@ -139,13 +139,64 @@ pub fn 席の名乗りを書く(
     Ok(())
 }
 
-/// いまの名乗りを、繋がっている相手へ配る。
+/// いまの名乗り（この端末の人のぶん）を、繋がっている相手へ配る。
 ///
-/// **相手が付けた呼び名は上書きしない**（D46）。相手の画面では
+/// **相手が付けた呼び名は上書きしない**（**D46**）。相手の画面では
 /// 「本人の名乗り」として扱われる。
-pub async fn 配る(_bridge: &Bridge) {
-    // **まだ線には流していない。**次の段で `Notice` に載せる（`issues/016`）。
-    // ここを黙って空のままにしない —— 呼び出し側は「配った」と思うため、
-    // 記録に残して、実装が入っていないことを読めるようにしておく。
-    記録!("プロフィール: 相手へ配る所はまだありません（手元だけ）");
+///
+/// **空も配る。**消したことが伝わらないと、相手の画面に前の名前が残る。
+pub async fn 配る(bridge: &Bridge) {
+    let (名前, 紹介) = match 読む() {
+        Ok(面々) => match 面々.find(&Who::Me) {
+            Some(p) => (p.name().to_owned(), p.bio().to_owned()),
+            // **名乗りを消した。**空を配って、相手の画面からも消す
+            None => (String::new(), String::new()),
+        },
+        Err(e) => {
+            記録!("名乗りを読めませんでした（配りません）: {}", e.message);
+            return;
+        }
+    };
+
+    let Some(meeting) = crate::いま見ている部屋(&bridge.いまの部屋).await else {
+        return;
+    };
+    let 送り先 = crate::その部屋の相手(
+        &bridge.conferences,
+        &bridge.outbound,
+        meeting,
+        bridge.device.public_key(),
+    )
+    .await;
+    if 送り先.is_empty() {
+        return;
+    }
+    記録!("名乗りを配ります（{} 人へ）", 送り先.len());
+    for tx in &送り先 {
+        // 届かない相手が居ても止めない。**送る側を待たせない**
+        let _ = tx
+            .send(warifu_meeting::Notice::Profile {
+                meeting,
+                from: bridge.device.public_key(),
+                名前: 名前.clone(),
+                紹介: 紹介.clone(),
+            })
+            .await;
+    }
+}
+
+/// **その席の名乗り**を、線に載せる形にする。
+///
+/// 名乗っていれば `図面くん（zumen）`、名乗っていなければ席そのまま。
+/// **どこの席かを落とさない** —— 落とすと、相手の画面で取り違えられる（**D75**）。
+#[must_use]
+pub fn 席の名札(呼び方: &str) -> String {
+    let Ok(面々) = 読む() else {
+        return 呼び方.to_owned();
+    };
+    let 場所 = 呼び方.strip_suffix(" のエージェント").unwrap_or(呼び方);
+    match 面々.find(&Who::Desk(呼び方.to_owned())) {
+        Some(p) if !p.name().is_empty() => format!("{}（{場所}）", p.name()),
+        _ => 呼び方.to_owned(),
+    }
 }

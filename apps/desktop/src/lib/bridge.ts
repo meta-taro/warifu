@@ -54,6 +54,14 @@ export const EVENT_THEME = 'warifu://theme';
  */
 export const EVENT_PROFILES = 'warifu://profiles';
 
+/**
+ * **相手が名乗った**（**D75**）。`[公開鍵, 名前, 紹介]`。
+ *
+ * **本人が名乗ったものであって、本人確認ではない。**
+ * こちらが付けた呼び名があれば、**そちらが勝つ**（**D46**）。
+ */
+export const EVENT_CLAIMED = 'warifu://claimed';
+
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {

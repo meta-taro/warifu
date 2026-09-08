@@ -93,6 +93,21 @@ pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answ
         .await
         .map_err(|_| 居ません())?;
 
+    // **名乗りも渡す**（**D75**）。相手の画面に、こちらの名前と紹介が出る
+    if let Ok(名乗り) = crate::自分の名乗り() {
+        let _ = channel
+            .send(
+                &Notice::Profile {
+                    meeting,
+                    from: bridge.device.public_key(),
+                    名前: 名乗り.0,
+                    紹介: 名乗り.1,
+                }
+                .to_intent()?,
+            )
+            .await;
+    }
+
     // **自分の住所を名乗る。**相手は経路からこちらの住所を知れない（D41 と同じ理由）
     if let Ok(自分の住所) = node.address().await {
         let _ = channel

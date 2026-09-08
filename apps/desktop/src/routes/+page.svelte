@@ -69,6 +69,7 @@
     EVENT_DESK_SEATS,
     EVENT_THEME,
     EVENT_PROFILES,
+    EVENT_CLAIMED,
     deskSeats,
     connect,
     contacts,
@@ -209,6 +210,13 @@
    * **書き換えられるのはこの端末の持ち主だけ**（`profile.rs`）。
    */
   let 名乗りたち = $state<ProfileRow[]>([]);
+  /**
+   * **相手が名乗ったもの**（**D75**）。公開鍵 → 名前と紹介。
+   *
+   * **本人確認ではない。**こちらが付けた呼び名があれば、そちらが勝つ（D46）。
+   * 閉じれば消える（覚えるのは呼び名だけ —— 名乗りは相手の都合で変わる）。
+   */
+  let 相手の名乗り = $state<Record<string, { 名前: string; 紹介: string }>>({});
 
   /**
    * いま打ったものが届く先。**1 対 1 か 1 対 N かは、これを見れば分かる。**
@@ -604,6 +612,12 @@
         // **机に着いたエージェントが、自分で名乗った。**画面にもすぐ出す
         await onEvent<void>(EVENT_PROFILES, () => {
           void profiles().then((面々) => (名乗りたち = 面々 ?? []));
+        }),
+      );
+      unsubs.push(
+        // **相手が名乗った。**覚えはしない（呼び名だけを覚える・D46）
+        await onEvent<[string, string, string]>(EVENT_CLAIMED, ([key, 名前, 紹介]) => {
+          相手の名乗り = { ...相手の名乗り, [key]: { 名前, 紹介 } };
         }),
       );
       unsubs.push(
@@ -1260,6 +1274,7 @@
         {鍵なしで入れる}
         預かり所がある={!!預かり所}
         プロフィール={名乗りたち}
+        名乗られたもの={相手の名乗り}
         名乗りを書く={(who, name, bio) => void 名乗りを書く(who, name, bio)}
       />
       <!--

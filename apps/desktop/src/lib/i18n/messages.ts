@@ -69,6 +69,7 @@ export type MessageKey =
   | 'contacts.inmeeting'
   | 'contacts.saved'
   | 'contacts.late'
+  | 'contacts.claimed'
   | 'contacts.rooms'
   | 'room.members.some'
   | 'room.alone'
@@ -236,6 +237,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.inmeeting': 'いま同じ部屋に居る人',
     'contacts.saved': '覚えている相手',
     'contacts.late': '留守中に届いた相手',
+    'contacts.claimed': '本人は「{name}」と名乗っています。',
     'contacts.rooms': 'いま居る部屋',
     'room.members.some': '人が居ます。',
     'room.alone': 'まだ自分だけです。鍵を渡すと入ってもらえます。',
@@ -375,6 +377,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.inmeeting': 'In the room now',
     'contacts.saved': 'People you remember',
     'contacts.late': 'Arrived while you were away',
+    'contacts.claimed': 'They call themselves “{name}”.',
     'contacts.rooms': 'Rooms you are in',
     'room.members.some': 'People are here.',
     'room.alone': 'Just you so far. Hand out a key and someone can come in.',
@@ -514,6 +517,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.inmeeting': '现在同一个房间里的人',
     'contacts.saved': '记住的对方',
     'contacts.late': '离线期间来信的人',
+    'contacts.claimed': '对方自称“{name}”。',
     'contacts.rooms': '你所在的房间',
     'room.members.some': '有人在。',
     'room.alone': '目前只有你。把密钥交出去，对方就能进来。',
@@ -653,6 +657,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.inmeeting': '지금 같은 방에 있는 사람',
     'contacts.saved': '기억한 상대',
     'contacts.late': '부재 중에 온 상대',
+    'contacts.claimed': '본인은 “{name}” 라고 밝히고 있습니다.',
     'contacts.rooms': '지금 있는 방',
     'room.members.some': '사람이 있습니다.',
     'room.alone': '아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.',

@@ -8,10 +8,11 @@
   // **判断はここに置かない。**並びは `list.ts`、押せるかは `actions.ts` が決める。
 
   import type { Locale } from '$lib/i18n/locales';
-  import { MESSAGES, type MessageKey } from '$lib/i18n/messages';
+  import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import { 鍵の頭 } from '$lib/meeting/names';
   import Icon, { type IconName } from '$lib/ui/Icon.svelte';
   import Avatar from './Avatar.svelte';
+  import { 名乗りを添えるか, 呼ぶ名 } from './claimed';
   import type { ProfileRow } from '$lib/bridge';
   import { できること, type 口の種類 } from './actions';
   import { 机の印, 部屋か, 連絡帳を組む, type 行, type 素材 as 連絡帳の素材 } from './list';
@@ -54,6 +55,12 @@
     プロフィール?: readonly ProfileRow[];
     /** プロフィールを書く。**名前も紹介も空にすると消える。** */
     名乗りを書く?: (who: string, name: string, bio: string) => void;
+    /**
+     * **相手が名乗ったもの**（**D75**）。公開鍵 → 名前と紹介。
+     *
+     * **本人確認ではない。**こちらが付けた呼び名があれば、そちらが勝つ（**D46**）。
+     */
+    名乗られたもの?: Readonly<Record<string, { 名前: string; 紹介: string }>>;
   }
   const {
     locale,
@@ -69,6 +76,7 @@
     預かり所がある = false,
     プロフィール = [],
     名乗りを書く = () => {},
+    名乗られたもの = {},
   }: Props = $props();
 
   /**
@@ -144,11 +152,25 @@
    * （`zumen の AI` など）ので、訳そうとすると空になる（2026-09-08 に実物で出た）。
    */
   function 名(行: 行): string {
-    // **名乗っているなら、その名前で呼ぶ**（この端末の人と AI だけ・2026-09-08）
+    // **名乗っているなら、その名前で呼ぶ**（この端末の人とエージェントだけ・2026-09-08）
     const 名乗り = 名乗りを引く(行)?.name;
     if (名乗り) return 名乗り;
     if (行.種類 === '自分' || 行.key === 机の印) return t(行.name as MessageKey);
+    // **相手の名乗りは、呼び名を付けていないときだけ名前になる**（D46 / `claimed.ts`）
+    if (行.種類 === '人') {
+      return 呼ぶ名(呼び名を付けているか(行) ? 行.name : undefined, 名乗られたもの[行.key], 行.name);
+    }
     return 行.name;
+  }
+
+  /**
+   * その行に、こちらが付けた呼び名があるか。
+   *
+   * 連絡帳の行は、覚えていなければ**鍵の頭**が名前になっている
+   * （`呼び名` と同じ扱い）。**鍵の頭を「呼び名」と数えない。**
+   */
+  function 呼び名を付けているか(行: 行): boolean {
+    return !行.name.endsWith('…');
   }
 
   /** いま机に着いているエージェントが 1 人でも居るか。 */
@@ -385,6 +407,19 @@
         </p>
       {/if}
       {#if 相手.種類 === '人'}
+        <!--
+          **本人の名乗りは、呼び名と違うときだけ添える**（**D75** / `claimed.ts`）。
+          名乗った名前は誰でも真似できるので、**呼び名と食い違っていることが
+          その場で分かる必要がある。**
+        -->
+        {#if 名乗りを添えるか(呼び名を付けているか(相手) ? 相手.name : undefined, 名乗られたもの[相手.key])}
+          <p class="hint">
+            {format(t('contacts.claimed'), { name: 名乗られたもの[相手.key].名前 })}
+          </p>
+        {/if}
+        {#if 名乗られたもの[相手.key]?.紹介}
+          <p class="bio">{名乗られたもの[相手.key].紹介}</p>
+        {/if}
         <p class="key">
           <span class="label">{t('contacts.key.label')}</span>{鍵の頭(相手.key)}
         </p>

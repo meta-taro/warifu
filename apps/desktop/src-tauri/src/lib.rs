@@ -59,6 +59,11 @@ const EVENT_THEME: &str = "warifu://theme";
 /// 机に着いたエージェントが自分で書くことがあるので、
 /// **画面が書いたときだけ**読み直す形にはできない。
 const EVENT_PROFILES: &str = "warifu://profiles";
+/// **相手が名乗った**（**D75**）。`[公開鍵, 名前, 紹介]` で渡す。
+///
+/// **本人が名乗ったものであって、本人確認ではない。**
+/// こちらが付けた呼び名があれば、**そちらが勝つ**（**D46**）。
+const EVENT_CLAIMED: &str = "warifu://claimed";
 
 /// 経路の要所を書き出す。
 ///
@@ -308,6 +313,18 @@ pub(crate) async fn 相手が居る部屋(
         .map(|(id, _)| *id)
 }
 
+/// この端末の人の名乗り（名前・紹介）。**書いていなければ空。**
+///
+/// # Errors
+/// 置き場所を開けないとき。
+pub(crate) fn 自分の名乗り() -> Result<(String, String), warifu_vault::Error> {
+    let 面々 = warifu_vault::Vault::default_location()?.profiles()?;
+    Ok(面々
+        .find(&warifu_vault::Who::Me)
+        .map(|p| (p.name().to_owned(), p.bio().to_owned()))
+        .unwrap_or_default())
+}
+
 /// この端末の身元。**CLI と同じものを使う。**
 ///
 /// 画面と端末で別の身元になると、`warifu id` で見せた鍵と、
@@ -524,6 +541,22 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
             .to_intent()?,
         )
         .await?;
+
+    // **名乗りも渡す**（**D75**）。相手の画面に、こちらの名前と紹介が出る。
+    // **相手が呼び名を付けていれば、そちらが勝つ**（D46）ので、上書きにはならない
+    if let Ok(名乗り) = 自分の名乗り() {
+        let _ = channel
+            .send(
+                &Notice::Profile {
+                    meeting: meeting_id,
+                    from: bridge.device.public_key(),
+                    名前: 名乗り.0,
+                    紹介: 名乗り.1,
+                }
+                .to_intent()?,
+            )
+            .await;
+    }
 
     // **自分の住所を名乗る。**相手は経路からこちらの住所を知れない（D41 と同じ理由）。
     // これが無いと、主催側は相手を「呼び返す」ことが永遠にできない
@@ -834,6 +867,28 @@ fn 汲む(
                     }
                     // **紹介は名簿を動かさない**（D41）
                     記録!("受信: {}", 知らせの名(&notice));
+                    // **相手が名乗った**（**D75**）。**呼び名は上書きしない**（D46）——
+                    // こちらが付けた呼び名があれば、そちらが勝つ
+                    if let Notice::Profile {
+                        from, 名前, 紹介, ..
+                    } = &notice
+                    {
+                        if *from != peer {
+                            記録!("受信: 名乗りが経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        記録!(
+                            "受信: 名乗り（{} / 名前 {} 文字・紹介 {} 文字）",
+                            短く(&key_to_string(peer)),
+                            名前.chars().count(),
+                            紹介.chars().count()
+                        );
+                        let _ = app.emit(
+                            EVENT_CLAIMED,
+                            (key_to_string(peer), 名前.clone(), 紹介.clone()),
+                        );
+                        continue;
+                    }
                     if let Notice::Introduce { meeting, who, address } = &notice {
                         // **名乗りをそのまま連絡帳へ落とさない。**
                         // 「C さんの住所はここです」と言われるまま書くと、
