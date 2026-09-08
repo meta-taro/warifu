@@ -39,6 +39,15 @@ pub struct SayArgs {
     pub body: String,
 }
 
+/// [`crate::Warifu::chat_wait`] の引数。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct WaitArgs {
+    /// 何秒まで待つか。省くと 30 秒。**上限は 60 秒。**
+    ///
+    /// **永遠には待たない。**待っている間、そのエージェントは何もできない。
+    pub seconds: Option<u64>,
+}
+
 /// tool が返す失敗。
 ///
 /// **断った理由を、実行できなかった理由と混ぜない。**

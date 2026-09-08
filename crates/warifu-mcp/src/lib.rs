@@ -23,6 +23,11 @@
 //!
 //! 規則の承認（`RuleStore::approve`）も札の発行（`Gate::issue`）も、**tool にしていない。**
 //!
+//! **待てる口を並べているのは意図である**（`chat_wait`）。
+//! 覗きに行く口しか無いと、**エージェントは自分から気づけない** ——
+//! 人が打っても黙ったままになる（2026-09-07 に実物で起きた）。
+//! **道具として並んでいれば、エージェントは待つ。**
+//!
 //! 出した時点で、**AI が自分に許可を出せる。**
 //! 生成と適用を分けた意味（`decisions.md` **D19** / **D24**）が、そこで消える。
 //!
@@ -42,4 +47,4 @@ mod tools;
 
 pub use chat::Chat;
 pub use server::{Warifu, subject};
-pub use tools::{OpenArgs, SayArgs, SlotsArgs, ToolError};
+pub use tools::{OpenArgs, SayArgs, SlotsArgs, ToolError, WaitArgs};

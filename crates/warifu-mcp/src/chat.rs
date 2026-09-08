@@ -18,7 +18,7 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{Notify, mpsc, oneshot};
 use warifu_desk::{FromDesk, ToDesk, 口, 繋ぐ};
 
 /// 溜めておく発言の数。
@@ -40,6 +40,11 @@ const 返事を待つ秒: u64 = 5;
 pub struct Chat {
     送り: mpsc::Sender<ToDesk>,
     聞いた: Arc<Mutex<VecDeque<FromDesk>>>,
+    /// **何か届いたら起こす。**
+    ///
+    /// これが無いと、エージェントは `chat_read` を叩いたときにしか気づけない。
+    /// **人が打っても黙ったまま**になる（2026-09-07 に実物で起きた）。
+    来た: Arc<Notify>,
     /// 流した 1 行の返事を受け取る所。
     ///
     /// **返事を溜めに混ぜない。**混ぜると、`chat_read` が
@@ -65,6 +70,8 @@ impl Chat {
         let 溜め先 = Arc::clone(&聞いた);
         let 返事待ち: Arc<Mutex<Option<oneshot::Sender<FromDesk>>>> = Arc::new(Mutex::new(None));
         let 返し先 = Arc::clone(&返事待ち);
+        let 来た = Arc::new(Notify::new());
+        let 起こす = Arc::clone(&来た);
 
         tokio::spawn(async move {
             loop {
@@ -77,7 +84,7 @@ impl Chat {
                     }
                     来た = 口.受ける() => {
                         match 来た {
-                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &行),
+                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &起こす, &行),
                             // 相手が閉じた・読めない。**黙って繋がっているふりをしない**
                             Ok(None) | Err(_) => break,
                         }
@@ -95,6 +102,7 @@ impl Chat {
         Ok(Self {
             送り,
             聞いた,
+            来た,
             返事待ち,
         })
     }
@@ -142,6 +150,26 @@ impl Chat {
         !self.送り.is_closed()
     }
 
+    /// **何か届くまで待つ。**届いたらその分を返す。
+    ///
+    /// `chat_read` は「いま溜まっているか」を覗きに行くだけなので、
+    /// **エージェントは自分から気づけない。**人が打っても黙ったままになる。
+    /// **待てる口があれば、エージェントは待つ。**
+    ///
+    /// **永遠には待たない。**待ち続けると、その間そのエージェントは何もできない。
+    pub async fn 待つ(&self, 秒: u64) -> Vec<FromDesk> {
+        let 期限 = std::time::Duration::from_secs(秒);
+        let 待ち受け = self.来た.notified();
+        // **先に見る。**待ち受けを構えてから見ないと、
+        // 構える直前に届いたものを取りこぼす
+        let いま = self.汲む();
+        if !いま.is_empty() {
+            return いま;
+        }
+        let _ = tokio::time::timeout(期限, 待ち受け).await;
+        self.汲む()
+    }
+
     /// 溜まっている発言を取り出す。**取り出したら消える。**
     ///
     /// 消さないと、読むたびに同じ発言を新着として見ることになる。
@@ -158,6 +186,7 @@ impl Chat {
 fn 仕分ける(
     箱: &Arc<Mutex<VecDeque<FromDesk>>>,
     返し先: &Arc<Mutex<Option<oneshot::Sender<FromDesk>>>>,
+    起こす: &Arc<Notify>,
     行: &str,
 ) {
     // 読めない行は捨てる。**捨てたことは、次の Denied で分かる形にしない**
@@ -176,6 +205,8 @@ fn 仕分ける(
         return;
     }
     積む_直に(箱, 中身);
+    // **待っている人を起こす。**起こさないと、待てる口の意味が無い
+    起こす.notify_waiters();
 }
 
 fn 積む_直に(箱: &Arc<Mutex<VecDeque<FromDesk>>>, 中身: FromDesk) {
@@ -257,7 +288,7 @@ mod tests {
     fn 壊れた行は_会話を止めない() {
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let 返し先 = Arc::new(Mutex::new(None));
-        仕分ける(&箱, &返し先, "なにこれ");
+        仕分ける(&箱, &返し先, &Arc::new(Notify::new()), "なにこれ");
         assert!(
             箱.lock().unwrap().is_empty(),
             "捨てるだけで、断りを積まない"
@@ -271,7 +302,12 @@ mod tests {
         let (返す, 待つ) = oneshot::channel();
         let 返し先 = Arc::new(Mutex::new(Some(返す)));
 
-        仕分ける(&箱, &返し先, &FromDesk::Sent { to: 2 }.書く());
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &FromDesk::Sent { to: 2 }.書く(),
+        );
 
         assert!(箱.lock().unwrap().is_empty(), "溜めに入っていない");
         assert_eq!(待つ.await.unwrap(), FromDesk::Sent { to: 2 });
@@ -283,7 +319,12 @@ mod tests {
         // 会話が閉じたことに人が気づけない
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let 返し先 = Arc::new(Mutex::new(None));
-        仕分ける(&箱, &返し先, &FromDesk::Nobody.書く());
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &FromDesk::Nobody.書く(),
+        );
         assert_eq!(箱.lock().unwrap().len(), 1);
     }
 }

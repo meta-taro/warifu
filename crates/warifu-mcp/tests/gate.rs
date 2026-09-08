@@ -180,7 +180,9 @@ fn 承認の口を出していない() {
 #[test]
 fn 出している口を_数えて名前で押さえる() {
     // 増やすときは、**その口に札の種類が要るか**を先に決める。
-    // 2026-09-07 に chat_send / chat_read を足した（`chat.send` / `chat.read`）
+    // 2026-09-07 に chat_send / chat_read を足した（`chat.send` / `chat.read`）。
+    // 2026-09-08 に chat_wait を足した —— **読むのと同じものが返る**ので、
+    // 札も `chat.read` を使う（待つかどうかの違いでしかない）
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -190,6 +192,7 @@ fn 出している口を_数えて名前で押さえる() {
             "calendar_slots",
             "chat_read",
             "chat_send",
+            "chat_wait",
             "inbox_list",
             "inbox_open",
             "rules_list",
@@ -468,4 +471,90 @@ async fn 誰も居ないとき_流せたことにしない() {
     // **画面には出ていることまで言う。**言わないと、言い直しを促すことになる
     assert!(文.contains("画面には出ました"), "{文}");
     assert!(文.contains("誰にも届いていません"), "{文}");
+}
+
+#[tokio::test]
+async fn 札が無ければ_待つこともできない() {
+    // **待つ口も、読む口と同じ札で守る。**
+    // 待てば読めるなら、札を迂回できてしまう
+    let 口 = 用意(&[]);
+    let 出た = 口
+        .chat_wait(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::WaitArgs { seconds: Some(1) },
+        ))
+        .await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("関所"), "{文}");
+}
+
+#[tokio::test]
+async fn 待っている間に届いたものを受け取る() {
+    // **エージェントが自分から気づけるようにする。**
+    // `chat_read` は覗きに行くだけなので、人が打っても黙ったままになる
+    // （2026-09-07 に実物で起きた。オーナー「返事に気づけてないけど、どうする？」）
+    use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-wait.sock");
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    tokio::spawn(async move {
+        let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
+        // **少し置いてから**届ける。待っている最中に来ることを確かめる
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+        行の口
+            .送る(
+                &FromDesk::Heard {
+                    from: "オーナー".to_owned(),
+                    body: "気づきますか".to_owned(),
+                    at: "12:00".to_owned(),
+                }
+                .書く(),
+            )
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    });
+
+    let 口 = 用意(&["chat.read"])
+        .机に着く(&場所)
+        .await
+        .expect("着けること");
+    let 返り = 口
+        .chat_wait(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::WaitArgs { seconds: Some(5) },
+        ))
+        .await
+        .expect("待てること");
+
+    assert!(format!("{返り:?}").contains("気づきますか"), "{返り:?}");
+}
+
+#[tokio::test]
+async fn 何も来なければ_待って戻る() {
+    // **永遠に待たない。**待ち続けると、その間そのエージェントは何もできない
+    use warifu_desk::{受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-wait-none.sock");
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    tokio::spawn(async move {
+        let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    });
+
+    let 口 = 用意(&["chat.read"])
+        .机に着く(&場所)
+        .await
+        .expect("着けること");
+    let 返り = 口
+        .chat_wait(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::WaitArgs { seconds: Some(1) },
+        ))
+        .await
+        .expect("戻ること");
+
+    assert!(
+        format!("{返り:?}").contains("新しい発言はありません"),
+        "{返り:?}"
+    );
 }
