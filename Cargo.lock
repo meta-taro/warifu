@@ -4060,6 +4060,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-post"
+version = "0.1.0"
+dependencies = [
+ "warifu-core",
+ "warifu-seal",
+]
+
+[[package]]
 name = "warifu-quarantine"
 version = "0.1.0"
 
