@@ -736,6 +736,7 @@
       capacity={DEFAULT_CAPACITY}
       names={名簿}
       onRename={(key, label) => void 名前を付ける(key, label)}
+      {机のAIたち}
     />
 
     <ChatPanel
