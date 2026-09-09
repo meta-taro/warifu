@@ -59,6 +59,7 @@ contacts.presence.none	There is no way to tell whether they are running right no
 contacts.rooms	Rooms you are in	いま居る部屋	你所在的房间	지금 있는 방				
 contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
 contacts.this	This computer	この PC	这台电脑	이 PC				
+contacts.where	To talk to them, type in the box on the right.	話しかけるときは、右の欄に打ちます。	要跟对方说话，请在右边的框里输入。	말을 걸 때는 오른쪽 칸에 입력합니다.				
 door.refused	Refused.	断りました。	已拒绝。	거절했습니다.	★	**既に断り終えた**という完了の意味。「保留しています」「確認中です」と読める訳にしないこと。待てば通ると誤解すると、来ていない相手を待ち続ける（D31）。		
 edit.copy	Copy	コピー	复制	복사하기				
 edit.cut	Cut	切り取る	剪切	오려두기				

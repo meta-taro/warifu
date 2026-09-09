@@ -162,7 +162,6 @@
   );
 
   const 口の見た目: Record<口の種類, { icon: IconName; label: MessageKey }> = {
-    chat: { icon: 'chat', label: 'act.chat' },
     call: { icon: 'people', label: 'act.call' },
     mail: { icon: 'mail', label: 'act.mail' },
   };
@@ -580,6 +579,16 @@
         <!-- **「居ません」だけでは、どうすればよいか分からない。**手順まで出す -->
         <p class="hint">{t('contacts.desk.none')}</p>
         <p class="hint">{t('contacts.desk.how')}</p>
+      {/if}
+
+      <!--
+        **文字を打つ口は置かない**（2026-09-08 オーナー指摘
+        「これを押したら何が起こるかわかりません」）。
+        **行を選んだ時点で、その相手との会話は開いている** ——
+        押しても何も起きない口は、誤解しか生まない。**どこに打つかだけを言う。**
+      -->
+      {#if 相手.種類 !== '部屋'}
+        <p class="hint">{t('contacts.where')}</p>
       {/if}
 
       <div class="acts">
