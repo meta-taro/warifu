@@ -84,7 +84,16 @@ pub enum ToolError {
 impl core::fmt::Display for ToolError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::Denied(w) => write!(f, "関所が断りました: {w}"),
+            // **何が要るかまで言う**（`issues/4`・2026-09-08）。
+            // 「断られたことは分かるが、次に何をすればよいか分からない」を無くす。
+            //
+            // **D31（断る理由を相手に返さない）はここには当たらない。**
+            // あれは**網の向こうの知らない相手**の話で、この口は
+            // **同じ PC の中**の、札を出すのが目の前の人である相手である。
+            Self::Denied(w) => write!(
+                f,
+                "関所が断りました: {w}。この口には `--allow {w}` の札が要ります。                 札を出せるのはこの PC の人だけです（`warifu setup` か、                 エージェントの設定に書きます）。この口からは出せません。"
+            ),
             Self::BadArgs(w) => write!(f, "引数が読めません: {w}"),
             Self::Unavailable(w) => write!(f, "出せません: {w}"),
         }

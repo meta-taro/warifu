@@ -331,6 +331,23 @@ async fn 札が無ければ_会話へ流せない() {
     let 文 = format!("{:?}", 出た.unwrap_err());
     assert!(文.contains("関所"), "{文}");
     assert!(!文.contains("机"), "札の話に机の話を混ぜない: {文}");
+    // **何が要るかまで言う**（`issues/4`）。
+    // 「断られたことは分かるが、次に何をすればよいか分からない」を無くす
+    assert!(文.contains("--allow chat.send"), "要る札を言う: {文}");
+    assert!(文.contains("この PC の人"), "誰が出せるかを言う: {文}");
+}
+
+#[tokio::test]
+async fn 断り方に_総当たりの手がかりを足さない() {
+    // **要る札は「呼んだ口の名前」そのもの**である。
+    // 呼んだ側がすでに知っているものしか言わない —— **知らない札の名前は並べない**
+    let 口 = 用意(&[]);
+    let 出た = 口.chat_read().await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("--allow chat.read"), "{文}");
+    // ほかの口の札を、断りのついでに教えない
+    assert!(!文.contains("inbox"), "ほかの札を並べない: {文}");
+    assert!(!文.contains("calendar"), "ほかの札を並べない: {文}");
 }
 
 #[tokio::test]
