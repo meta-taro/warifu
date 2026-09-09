@@ -133,6 +133,10 @@ pnpm tauri build --bundles app
 `.dmg` だけで、**2 台目の Mac では `warifu relay` も `warifu mcp` も打てません**
 （2026-09-09 に気づきました）。
 
+**`v0.1.0-alpha.11` から、zip を開くとファイルが直に並びます。**
+alpha.10 は `target/release/warifu` と `apps/desktop/…/*.dmg` という
+**深いフォルダの中**に入っています（実物を落として確かめました）。中身は同じものです。
+
 **Windows も画面が使えます**（2026-09-06 から）。
 
 いま出ているのは **`v0.1.0-alpha.9`** です（2026-09-09 現在）。

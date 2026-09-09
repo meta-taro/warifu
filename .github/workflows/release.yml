@@ -104,21 +104,26 @@ jobs:
             xcrun stapler validate "$app"
           fi
 
-      # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
-      - name: できたものを並べる
-        run: |
-          ls -l apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-          ls -l target/release/warifu
-          ./target/release/warifu --version
-
       # **画面と CLI を 1 つにまとめる**（Windows の `warifu-windows` と同じ形）。
-      # 2 つに分かれていると、片方だけ落として「入っていない」と言われる
+      # 2 つに分かれていると、片方だけ落として「入っていない」と言われる。
+      #
+      # **1 か所へ集めてから上げる。**そのまま並べると、artifact の中が
+      # `target/release/warifu` と `apps/desktop/src-tauri/…/*.dmg` という
+      # **深い木**になる（2026-09-09 に落として実物で見た）。
+      # 受け取った人が探すことになるので、**平らにして渡す。**
+      - name: 配るものを 1 か所へ
+        run: |
+          mkdir -p dist
+          cp apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg dist/
+          cp target/release/warifu dist/
+          ls -l dist
+          # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
+          ./dist/warifu --version
+
       - uses: actions/upload-artifact@v4
         with:
           name: warifu-macos
-          path: |
-            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            target/release/warifu
+          path: dist/*
           if-no-files-found: error
 
   # **Windows 版を建てる。**画面（`.msi` / `.exe`）と CLI の両方。
@@ -158,19 +163,20 @@ jobs:
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
-      # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
-      - name: できたものを並べる
+      # **1 か所へ集めてから上げる**（Mac 側と同じ理由 —— 深い木にしない）
+      - name: 配るものを 1 か所へ
         shell: bash
         run: |
+          mkdir -p dist
           find apps/desktop/src-tauri/target/release/bundle -type f \
-            \( -name '*.msi' -o -name '*.exe' \) -exec ls -l {} \;
-          ls -l target/release/warifu.exe
+            \( -name '*.msi' -o -name '*.exe' \) -exec cp {} dist/ \;
+          cp target/release/warifu.exe dist/
+          ls -l dist
+          # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
+          ./dist/warifu.exe --version
 
       - uses: actions/upload-artifact@v4
         with:
           name: warifu-windows
-          path: |
-            apps/desktop/src-tauri/target/release/bundle/**/*.msi
-            apps/desktop/src-tauri/target/release/bundle/**/*.exe
-            target/release/warifu.exe
+          path: dist/*
           if-no-files-found: error
