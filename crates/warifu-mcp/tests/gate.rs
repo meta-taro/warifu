@@ -656,3 +656,60 @@ async fn 何も無いときは_いつから着いているかを言う() {
     机.abort();
     let _ = std::fs::remove_file(&場所);
 }
+
+#[tokio::test]
+async fn 待っている最中に机が閉じたら_繋ぎ直して待ち続ける() {
+    // **画面を入れ替えると、机に着いていた席は全部外れる**（`issues/2`）。
+    // そこで待ちが終わってしまうと、**人からは「エージェントが黙った」ようにしか見えない。**
+    use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-reseat.sock");
+    let _ = std::fs::remove_file(&場所);
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+
+    let 机 = tokio::spawn(async move {
+        // 1 人目（すぐ切る＝画面が入れ替わった）
+        {
+            let mut 口 = 行の口::新しく(待ち.受ける().await.unwrap());
+            let _挨拶 = 口.受ける().await.unwrap().unwrap();
+        }
+        // 2 人目（着き直したところへ、1 行流す）
+        let mut 口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        let _挨拶 = 口.受ける().await.unwrap().unwrap();
+        口.送る(
+            &FromDesk::Seated {
+                at: "09:10".to_owned(),
+                who: "zumen のエージェント".to_owned(),
+            }
+            .書く(),
+        )
+        .await
+        .unwrap();
+        口.送る(
+            &FromDesk::Heard {
+                id: 7,
+                from: "めたたろ".to_owned(),
+                body: "着き直したあとの発言".to_owned(),
+                at: "09:11".to_owned(),
+            }
+            .書く(),
+        )
+        .await
+        .unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    });
+
+    let 口 = 用意(&["chat.read"]).机に着く(&場所).await.expect("着ける");
+    let 出た = 口
+        .chat_wait(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::WaitArgs { seconds: Some(2) },
+        ))
+        .await
+        .expect("待てる");
+
+    // **繋ぎ直したことを言い、着き直したあとの発言も拾う**
+    assert!(出た.contains("着き直しました"), "{出た}");
+    assert!(出た.contains("着き直したあとの発言"), "{出た}");
+    机.abort();
+    let _ = std::fs::remove_file(&場所);
+}
