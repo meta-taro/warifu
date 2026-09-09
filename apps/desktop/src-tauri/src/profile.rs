@@ -318,9 +318,50 @@ pub fn 席の名札(呼び方: &str) -> String {
     let Ok(面々) = 読む() else {
         return 呼び方.to_owned();
     };
+    let 名前 = 面々.find(&Who::Desk(呼び方.to_owned())).map(|p| p.name().to_owned());
+    名札にする(呼び方, 名前.as_deref())
+}
+
+/// 名乗りと名前から、**画面に出す 1 つの呼び名**を作る。
+///
+/// **名前の決め方を 1 か所に置く。**2 か所に置くと、
+/// **会話と名簿で同じ席が別の名前で出る**（2026-09-09 に実物で見た ——
+/// 名簿は「かくにん係」、会話は「kakunin のエージェント」だった）。
+#[must_use]
+pub fn 名札にする(呼び方: &str, 名前: Option<&str>) -> String {
     let 場所 = 呼び方.strip_suffix(" のエージェント").unwrap_or(呼び方);
-    match 面々.find(&Who::Desk(呼び方.to_owned())) {
-        Some(p) if !p.name().is_empty() => format!("{}（{場所}）", p.name()),
+    match 名前 {
+        Some(名前) if !名前.is_empty() => format!("{名前}（{場所}）"),
         _ => 呼び方.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::名札にする;
+
+    #[test]
+    fn 名乗っていれば名前とどこの席かを並べる() {
+        assert_eq!(
+            名札にする("zumen のエージェント", Some("図面くん")),
+            "図面くん（zumen）"
+        );
+    }
+
+    #[test]
+    fn 名乗っていなければ席そのままにする() {
+        assert_eq!(名札にする("zumen のエージェント", None), "zumen のエージェント");
+    }
+
+    #[test]
+    fn 名前が空なら席そのままにする() {
+        assert_eq!(名札にする("zumen のエージェント", Some("")), "zumen のエージェント");
+    }
+
+    #[test]
+    fn どこの席かは落とさない() {
+        // 落とすと、**相手の画面で取り違えられる**（D75）
+        let 名札 = 名札にする("git-qa のエージェント", Some("図面くん"));
+        assert!(名札.contains("git-qa"), "{名札}");
     }
 }

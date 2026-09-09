@@ -26,6 +26,7 @@
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
+  import { 席の名札 } from '$lib/contacts/seat';
   import { 当てる色, 覚える鍵, 読み取る, type テーマ } from '$lib/window/theme';
   import {
     その部屋の会話,
@@ -280,6 +281,20 @@
     }),
   );
 
+  /**
+   * 席の名乗り（`zumen のエージェント`）→ その席が書いた名前。
+   *
+   * **識別は名乗りのまま、表示だけ名札にする**（**D77**）——
+   * 名札で識別すると、名前を書き換えた瞬間に宛先が外れる。
+   */
+  const 席の名前たち = $derived(
+    Object.fromEntries(
+      名乗りたち
+        .filter((p) => p.who.startsWith(机の印) && p.name)
+        .map((p) => [p.who.slice(机の印.length), p.name]),
+    ),
+  );
+
   const 届く先 = $derived(
     送り方.種類 === '預ける'
       ? // **預ける先は 1 人。**1 対 1 がその場で分かる
@@ -288,7 +303,9 @@
           会議の相手: remotes.map((r) => 呼び名(名簿, r.key)),
           机のAIたち,
           宛先,
-        }),
+        // **会話に出る名前と揃える。**連絡帳では「かくにん係」、
+        // 届く先では「kakunin のエージェント」だと、**2 人に見える**（D77）
+        }).map((名) => 席の名札(名, 席の名前たち[名])),
   );
 
   /** 打ったものが誰かに届くか。**会議の人でも、同じ席のエージェント でもよい。** */
