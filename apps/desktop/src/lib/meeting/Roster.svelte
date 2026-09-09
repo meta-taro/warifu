@@ -22,7 +22,13 @@
     locale: Locale;
     members: readonly Member[];
     capacity: number;
-    /** 公開鍵 → 呼び名。覚えていない相手は鍵の頭で出す */
+    /**
+     * 公開鍵 → 画面に出す名前。
+     *
+     * **呼ぶ名の決め方は 1 か所に置く**（`routes/+page.svelte` の `画面での名`）——
+     * 2 か所で決めると、**同じ人が会話と名簿で別の名前で出る**
+     * （2026-09-09 に実物で見た）。
+     */
     names?: Readonly<Record<string, string>>;
     /** 呼び名を付ける。**空にすると忘れる** */
     onRename?: (key: string, label: string) => void;

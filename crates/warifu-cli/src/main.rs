@@ -957,6 +957,9 @@ async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>
 
     let mut channel = Channel::new(session);
     channel.send(&Notice::Join { meeting }.to_intent()?).await?;
+    // **名乗りも渡す**（**D75**）。画面の側と同じ扱いで、相手の画面に名前が出る。
+    // **本人確認ではない** —— 相手が呼び名を付けていれば、そちらが勝つ（D46）
+    名乗りを渡す(&vault, &mut channel, meeting, device.public_key()).await;
 
     // **会議キーに書かれた会議へ入る。**自分で id を作らない
     let mut roster = Roster::with_capacity(device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
@@ -1171,6 +1174,35 @@ fn now_secs() -> u64 {
 /// `MeetingId` を使う所が上にしか無いので、型を持っておく足場。
 #[allow(dead_code)]
 fn _keep(_: MeetingId) {}
+
+/// **自分の名乗りを相手へ渡す**（**D75**）。
+///
+/// 画面（`warifu.app`）と**同じ置き場所**を読む。CLI しか使わない人にも名前を持たせる。
+/// **書いていなければ何も送らない** —— 空の名乗りを配ると、相手の画面の名前が消える。
+async fn 名乗りを渡す(
+    vault: &warifu_vault::Vault,
+    channel: &mut Channel,
+    meeting: warifu_meeting::MeetingId,
+    me: PublicKey,
+) {
+    let Ok(面々) = vault.profiles() else { return };
+    let Some(p) = 面々.find(&warifu_vault::Who::Me) else {
+        return;
+    };
+    if p.name().is_empty() && p.bio().is_empty() {
+        return;
+    }
+    let 知らせ = Notice::Profile {
+        meeting,
+        from: me,
+        名前: p.name().to_owned(),
+        紹介: p.bio().to_owned(),
+    };
+    if let Ok(intent) = 知らせ.to_intent() {
+        // 届かなくても会議は続く。**送る側を待たせない**
+        let _ = channel.send(&intent).await;
+    }
+}
 
 /// 相手の名乗りを、手元へ出す（**D75**）。
 ///
