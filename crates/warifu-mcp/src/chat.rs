@@ -50,6 +50,12 @@ pub struct Chat {
     /// **返事を溜めに混ぜない。**混ぜると、`chat_read` が
     /// 自分の送信結果を「誰かの発言」として読むことになる。
     返事待ち: Arc<Mutex<Option<oneshot::Sender<FromDesk>>>>,
+    /// **いつこの席に着いたか**（`HH:MM`・`issues/4` の 1 番）。
+    ///
+    /// **「届いていない」と「着く前だった」を、席から見分けられるようにする。**
+    /// 画面を入れ替えると机の席は全部外れる（`issues/2`）ので、
+    /// 黙って繋ぎ直すと、**切れている間の発言が無いことに気づけない。**
+    着いた: Arc<Mutex<Option<String>>>,
 }
 
 impl Chat {
@@ -72,6 +78,9 @@ impl Chat {
         let 返し先 = Arc::clone(&返事待ち);
         let 来た = Arc::new(Notify::new());
         let 起こす = Arc::clone(&来た);
+        // **いつ着いたかを机が返す**（`issues/4` の 1 番）
+        let 着いた: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let 着席 = Arc::clone(&着いた);
 
         tokio::spawn(async move {
             loop {
@@ -84,7 +93,7 @@ impl Chat {
                     }
                     来た = 口.受ける() => {
                         match 来た {
-                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &起こす, &行),
+                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &起こす, &着席, &行),
                             // 相手が閉じた・読めない。**黙って繋がっているふりをしない**
                             Ok(None) | Err(_) => break,
                         }
@@ -100,6 +109,7 @@ impl Chat {
         });
 
         Ok(Self {
+            着いた,
             送り,
             聞いた,
             来た,
@@ -141,6 +151,15 @@ impl Chat {
                 "机が想定しない返事をしました: {他:?}"
             ))),
         }
+    }
+
+    /// **いつこの席に着いたか**（`HH:MM`）。まだ返ってきていなければ `None`。
+    ///
+    /// **これより前の発言は取れない。**「届いていない」と「着く前だった」は別である
+    /// （`issues/4` の 1 番）。
+    #[must_use]
+    pub fn 着いた時刻(&self) -> Option<String> {
+        self.着いた.lock().expect("毒されていない").clone()
     }
 
     /// **そこまで読んだ**と机へ告げる（**D76**）。
@@ -256,6 +275,23 @@ impl Chat {
     ///
     /// **渡した時点が「読んだ」である。**中身を理解したかは誰にも分からないので、
     /// そこは名乗らない。
+    /// 何も無かったときに添える一言（`issues/4` の 1 番）。
+    ///
+    /// **「届いていない」と「着く前だった」を、席から見分けられるようにする。**
+    #[must_use]
+    pub fn 着いてからの一言(&self) -> String {
+        match self.着いた時刻() {
+            Some(at) => {
+                format!("（この席は {at} から着いています。それより前の発言は取れません）")
+            }
+            None => String::new(),
+        }
+    }
+
+    /// 取り出したものを、**読んだと机へ告げる**（**D76**）。
+    ///
+    /// **渡した時点が「読んだ」である。**中身を理解したかは誰にも分からないので、
+    /// そこは名乗らない。
     pub async fn 汲んで告げる(&self) -> Vec<FromDesk> {
         let 出た = self.汲む();
         if let Some(まで) = 最後の番号(&出た) {
@@ -293,6 +329,7 @@ fn 仕分ける(
     箱: &Arc<Mutex<VecDeque<FromDesk>>>,
     返し先: &Arc<Mutex<Option<oneshot::Sender<FromDesk>>>>,
     起こす: &Arc<Notify>,
+    着いた: &Arc<Mutex<Option<String>>>,
     行: &str,
 ) {
     // 読めない行は捨てる。**捨てたことは、次の Denied で分かる形にしない**
@@ -300,6 +337,12 @@ fn 仕分ける(
     let Ok(中身) = FromDesk::読む(行) else {
         return;
     };
+
+    // **着いた時刻は控えるだけ。**発言として積まない
+    if let FromDesk::Seated { at, .. } = &中身 {
+        *着いた.lock().expect("毒されていない") = Some(at.clone());
+        return;
+    }
 
     if matches!(
         中身,
@@ -357,6 +400,9 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
+            // **着いた知らせは、発言として並べない**（控えるだけ）。
+            // ここへ来るのは、仕分けを通らない使い方をされたときだけ
+            FromDesk::Seated { at, who } => format!("\t\t（{who} として {at} に着きました）"),
             FromDesk::Status {
                 id, 届いた, 読んだ
             } => format!(
@@ -432,7 +478,13 @@ mod tests {
     fn 壊れた行は_会話を止めない() {
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let 返し先 = Arc::new(Mutex::new(None));
-        仕分ける(&箱, &返し先, &Arc::new(Notify::new()), "なにこれ");
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            "なにこれ",
+        );
         assert!(
             箱.lock().unwrap().is_empty(),
             "捨てるだけで、断りを積まない"
@@ -450,6 +502,7 @@ mod tests {
             &箱,
             &返し先,
             &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
             &FromDesk::Sent {
                 to: 2,
                 id: 1,
@@ -479,6 +532,7 @@ mod tests {
             &箱,
             &返し先,
             &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
             &FromDesk::Nobody.書く(),
         );
         assert_eq!(箱.lock().unwrap().len(), 1);

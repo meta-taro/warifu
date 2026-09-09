@@ -619,3 +619,40 @@ async fn 何も来なければ_待って戻る() {
         "{返り:?}"
     );
 }
+
+#[tokio::test]
+async fn 何も無いときは_いつから着いているかを言う() {
+    // **「届いていない」と「着く前だった」を、席から見分けられるようにする**
+    // （`issues/4` の 1 番）。画面を入れ替えると席は全部外れるので、
+    // **黙って繋ぎ直すと、切れている間の発言が無いことに気づけない**
+    use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
+
+    let 場所 = std::env::temp_dir().join("warifu-mcp-seated.sock");
+    let _ = std::fs::remove_file(&場所);
+    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+
+    let 机 = tokio::spawn(async move {
+        let mut 口 = 行の口::新しく(待ち.受ける().await.unwrap());
+        // 「聞く」に対して、いつ着いたかを返す
+        let _挨拶 = 口.受ける().await.unwrap().unwrap();
+        口.送る(
+            &FromDesk::Seated {
+                at: "09:05".to_owned(),
+                who: "zumen のエージェント".to_owned(),
+            }
+            .書く(),
+        )
+        .await
+        .unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    });
+
+    let 口 = 用意(&["chat.read"]).机に着く(&場所).await.expect("着ける");
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    let 出た = 口.chat_read().await.expect("読める");
+    assert!(出た.contains("新しい発言はありません"), "{出た}");
+    assert!(出た.contains("09:05 から着いています"), "{出た}");
+
+    机.abort();
+    let _ = std::fs::remove_file(&場所);
+}
