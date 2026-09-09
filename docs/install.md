@@ -68,7 +68,31 @@ warifu.exe join <会議キー>    もらった鍵で入る
 足りなくなったら、そのまま `/key` と打てばもう 1 本出ます。
 （`/key` そのものを送りたいときは、頭に空白を 1 つ。）
 
-**Intel の Mac で使うなら****Intel の Mac で使うなら**、その機械の上で建ててください。
+### macOS —— **CLI（`warifu`）**
+
+`.dmg` は**画面だけ**です。**預かり所（`warifu relay`）・置き手紙（`warifu post`）・
+エージェントの口（`warifu mcp`）は CLI 側**にあります。同じ Artifact に入っています。
+
+**落としたままでは動きません。**macOS が検疫の印を付けるためです。
+
+```bash
+chmod +x ./warifu
+xattr -d com.apple.quarantine ./warifu    # ← これを忘れると「開発元を検証できません」
+./warifu --version                        # → warifu 0.1.0
+```
+
+**印を外すのは、落とした本人が中身を承知しているときだけ**にしてください。
+署名していない配布物なので、**外から来た同名のファイルに同じことをしない。**
+
+置き場所は好きな所で構いませんが、`PATH` の通った所に置くと打ちやすくなります。
+
+```bash
+mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば `warifu` で打てる
+```
+
+### Intel の Mac で使うなら
+
+その機械の上で建ててください。
 
 ```bash
 git clone https://github.com/meta-taro/warifu.git
@@ -102,13 +126,17 @@ pnpm tauri build --bundles app
 
 | Artifact | 中身 | 誰が使うか |
 |---|---|---|
-| **`warifu-macos-dmg`** | `warifu_0.1.0_aarch64.dmg`（約 8.5 MB） | **Apple Silicon の Mac** |
+| **`warifu-macos`** | `.dmg`（画面）＋ `warifu`（CLI） | **Apple Silicon の Mac** |
 | **`warifu-windows`** | `.msi` / `.exe`（画面）＋ `warifu.exe`（CLI） | **Windows（x64）** |
+
+**Mac にも CLI が入るのは `v0.1.0-alpha.10` からです。**それより前のタグは
+`.dmg` だけで、**2 台目の Mac では `warifu relay` も `warifu mcp` も打てません**
+（2026-09-09 に気づきました）。
 
 **Windows も画面が使えます**（2026-09-06 から）。
 
-いま出ているのは **`v0.1.0-alpha.2`** です。
-（`v0.1.0-alpha.1` は `release` が落ちたタグです。**なぜ alpha.2 なのかを辿れるように残してあります。**）
+いま出ているのは **`v0.1.0-alpha.9`** です（2026-09-09 現在）。
+（`v0.1.0-alpha.1` は `release` が落ちたタグです。**なぜ alpha.2 から始まるのかを辿れるように残してあります。**）
 
 ---
 

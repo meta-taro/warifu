@@ -44,6 +44,11 @@ SSYWJBFMA2ASFD4TJOHZWM2OQ6GRSU2E5NQSDU35YPACENJLKBOA
 
 ## 2. 立てる
 
+**`warifu`（CLI）が要ります。**画面（`.dmg` / `.msi`）には入っていません ——
+同じ Artifact の中の `warifu` / `warifu.exe` です（`docs/install.md`）。
+Mac に CLI が入るのは **`v0.1.0-alpha.10` から**です。
+
+
 ```bash
 warifu relay --allow-file ~/warifu-allow.txt
 ```

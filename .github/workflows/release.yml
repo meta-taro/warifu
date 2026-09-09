@@ -45,6 +45,15 @@ jobs:
       - name: フロントを建てる
         run: pnpm --filter @warifu/desktop build
 
+      # **Mac にも CLI を届ける。**
+      #
+      # 2026-09-09 に気づいた —— タグの成果物は Mac には `.dmg` しか無く、
+      # **`warifu relay` も `warifu post` も `warifu mcp` も、2 台目の Mac では
+      # 打てない状態だった**（Windows には最初から入れていた）。
+      # 預かり所を通す確認も、エージェントを繋ぐ確認も、CLI が無いと始まらない。
+      - name: CLI を建てる
+        run: cargo build --release -p warifu-cli
+
       # **揃っているかを先に言う。**後で「なぜ署名されていないのか」を探さずに済む
       - name: 署名の材料が揃っているか
         id: creds
@@ -95,10 +104,21 @@ jobs:
             xcrun stapler validate "$app"
           fi
 
+      # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
+      - name: できたものを並べる
+        run: |
+          ls -l apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          ls -l target/release/warifu
+          ./target/release/warifu --version
+
+      # **画面と CLI を 1 つにまとめる**（Windows の `warifu-windows` と同じ形）。
+      # 2 つに分かれていると、片方だけ落として「入っていない」と言われる
       - uses: actions/upload-artifact@v4
         with:
-          name: warifu-macos-dmg
-          path: apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          name: warifu-macos
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            target/release/warifu
           if-no-files-found: error
 
   # **Windows 版を建てる。**画面（`.msi` / `.exe`）と CLI の両方。
