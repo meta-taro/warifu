@@ -93,16 +93,51 @@ jobs:
         if: steps.creds.outputs.ready != 'true'
         run: pnpm --filter @warifu/desktop tauri build --bundles dmg
 
-      # **署名されたかを実物で確かめる。**「署名したつもり」で配らない
+      # **署名されたかを実物で確かめる。**「署名したつもり」で配らない。
+      #
+      # **`.dmg` を開いて、中の `.app` を検める。**
+      # `bundle/macos/warifu.app` を見てはいけない —— **Tauri は .dmg を作り終えると
+      # そこを片付ける**（`Cleaning …/bundle/macos/warifu.app`）。
+      #
+      # 2026-09-09 に踏んだ。しかも**それまで一度も検めていなかった** ——
+      # 署名なしの経路では `codesign -dv "" || true` が握り潰し、
+      # 厳格な検査は `if` で飛ばされていた。**「検めます」と書いてあるのに空振りしていた。**
+      # だから**署名なしのときも必ず何かを主張する**形にする。
       - name: 署名を検める
         run: |
-          app=$(find apps/desktop/src-tauri/target/release/bundle/macos -name '*.app' | head -1)
-          codesign -dv "$app" 2>&1 | grep -E 'Signature|TeamIdentifier' || true
+          set -euo pipefail
+          dmg=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' | head -1)
+          test -n "$dmg"
+          echo "── 配布物 ── $dmg"
+
+          hdiutil attach "$dmg" -nobrowse -quiet -mountpoint /tmp/verify
+          app=$(find /tmp/verify -maxdepth 1 -name '*.app' | head -1)
+          test -n "$app"
+
+          echo "── 中の .app ──"
+          codesign -dv "$app" 2>&1 | grep -E 'Identifier|Signature|TeamIdentifier|Authority' || true
+
           if [ "${{ steps.creds.outputs.ready }}" = "true" ]; then
+            # **adhoc のままなら、署名したつもりで終わっている**
+            if codesign -dv "$app" 2>&1 | grep -q 'Signature=adhoc'; then
+              echo "::error::署名したはずが adhoc のままです"
+              hdiutil detach /tmp/verify -quiet
+              exit 1
+            fi
             codesign --verify --deep --strict "$app"
             # 公証が貼られていること。貼られていないと、落とした人の Mac で開けない
             xcrun stapler validate "$app"
+            # **受け取る人と同じ目で見る。**Gatekeeper が通すかどうか
+            spctl -a -vv -t exec "$app"
+            echo "署名・公証とも通りました"
+          else
+            # **署名していないことを、はっきり主張する。**黙って通さない
+            codesign -dv "$app" 2>&1 | grep -q 'Signature=adhoc' \
+              || { echo "::error::署名なしのはずが adhoc ではありません"; hdiutil detach /tmp/verify -quiet; exit 1; }
+            echo "::warning::署名なしの .dmg です（受け取った人の Mac では開けません）"
           fi
+
+          hdiutil detach /tmp/verify -quiet
 
       # **画面と CLI を 1 つにまとめる**（Windows の `warifu-windows` と同じ形）。
       # 2 つに分かれていると、片方だけ落として「入っていない」と言われる。
