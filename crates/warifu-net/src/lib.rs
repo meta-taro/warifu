@@ -43,6 +43,6 @@ mod address;
 mod error;
 mod node;
 
-pub use address::Address;
+pub use address::{Address, RELAY_MAX};
 pub use error::Error;
-pub use node::{MAX_MESSAGE, Node, Session};
+pub use node::{MAX_MESSAGE, Node, Session, 中継の使い方};

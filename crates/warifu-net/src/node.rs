@@ -27,11 +27,35 @@ pub const MAX_MESSAGE: usize = 16 * 1024 * 1024;
 /// 繋がるまで試し続ける。**上限を切らないと、呼んだ側は永久に待つ。
 const CONNECT_LIMIT: Duration = Duration::from_secs(10);
 
+/// 中継の場所が出るまで待つ限度。
+///
+/// **中継は結んだ直後には決まっていない。**外へ出て、どこが近いかを測ってから決まる。
+/// 待たずに宛先を出すと、**中継を頼んだのに中継の入っていない宛先**が配られる
+/// （2026-09-09 に実物で踏んだ）。
+///
+/// **待ちきれなくても止めない。**出なかったという事実を、そのまま宛先に出す
+/// （`doctor` が「付けましたが出ていません」と言う）。
+const RELAY_WAIT: Duration = Duration::from_secs(5);
+
 /// 経路の結び目。1 台に 1 つ。
 #[derive(Debug, Clone)]
 pub struct Node {
     endpoint: Endpoint,
     key: PublicKey,
+    /// 中継を頼まれたか（**D78**）。**宛先を出すときに待つかどうかを決める。**
+    中継: 中継の使い方,
+}
+
+/// 中継を使うかどうか（**D78**・2026-09-09 オーナー判断）。
+///
+/// **既定は [`使わない`](中継の使い方::使わない)。**呼ぶ側が明示したときだけ使う。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum 中継の使い方 {
+    /// 相手と直接つながる経路しか使わない。**同じ網の相手にしか届かない。**
+    #[default]
+    使わない,
+    /// n0 の中継を使う。**網を越えて届く代わりに、繋いだことが中継の運用者に見える。**
+    使う,
 }
 
 impl Node {
@@ -43,14 +67,39 @@ impl Node {
     /// # Errors
     /// 結べなければ [`Error::Network`]。
     pub async fn bind_without_relay(device: &Device) -> Result<Self, Error> {
+        Self::bind(device, 中継の使い方::使わない).await
+    }
+
+    /// 中継を使うかどうかを決めて結び目を作る（**D78**）。
+    ///
+    /// **`使う` を選んだときだけ、外の中継が経路に入る。**
+    /// D13 の既定（中継なし）はそのままで、**選んだ人にだけ効く。**
+    ///
+    /// # 中継を使っても、名前解決は使わない
+    ///
+    /// iroh には `presets::N0`（中継 ＋ n0 の DNS）が用意されているが、**採らない。**
+    /// あれは**自分の居場所を n0 の DNS へ公開する** —— 公開鍵さえ知っていれば
+    /// 誰でも居場所を引ける形になる。割符は宛先を**人が手で渡す**約束なので、
+    /// ここで公開すると、その約束のほうが崩れる。
+    ///
+    /// **足すのは中継だけ**（`presets::Minimal` ＋ [`RelayMode::Default`]）。
+    ///
+    /// # Errors
+    /// 結べなければ [`Error::Network`]。
+    pub async fn bind(device: &Device, 中継: 中継の使い方) -> Result<Self, Error> {
         let mut raw = device.secret_key_bytes();
         let secret = SecretKey::from_bytes(&raw);
         raw.zeroize();
 
+        let 中継の設定 = match 中継 {
+            中継の使い方::使わない => RelayMode::Disabled,
+            中継の使い方::使う => RelayMode::Default,
+        };
+
         let endpoint = Endpoint::builder(presets::Minimal)
             .secret_key(secret)
             .alpns(vec![ALPN.to_vec()])
-            .relay_mode(RelayMode::Disabled)
+            .relay_mode(中継の設定)
             .bind()
             .await
             .map_err(Error::network("結ぶ"))?;
@@ -58,6 +107,7 @@ impl Node {
         Ok(Self {
             endpoint,
             key: device.public_key(),
+            中継,
         })
     }
 
@@ -72,17 +122,41 @@ impl Node {
     /// # Errors
     /// 経路が出てこないまま結び目が閉じたら [`Error::Network`]。
     pub async fn address(&self) -> Result<Address, Error> {
+        // **中継を頼んだなら、その場所が出るまで少しだけ待つ**（**D78**）。
+        // 中継は結んだ直後には決まっていないので、待たないと
+        // **中継の入っていない宛先**を配ることになる
+        if self.中継 == 中継の使い方::使う {
+            let _ = tokio::time::timeout(RELAY_WAIT, self.中継を待つ()).await;
+        }
         let mut watcher = self.endpoint.watch_addr();
         loop {
             let addr = watcher.get();
             let ips: Vec<_> = addr.ip_addrs().copied().collect();
-            if !ips.is_empty() {
-                return Ok(Address::from_parts(self.key, ips));
+            // **中継を使っていれば、その場所も渡す**（**D78**）。
+            // 渡さないと、相手は中継の在り処を知らないまま呼ぶことになる
+            let 中継 = addr.relay_urls().next().map(ToString::to_string);
+            // **中継だけでも宛先になる。**外向きの番地が 1 つも無い回線（CGNAT）では、
+            // 番地を待っていると永久に返らない
+            if !ips.is_empty() || 中継.is_some() {
+                return Ok(Address::新しく(self.key, ips, 中継));
             }
             watcher
                 .updated()
                 .await
                 .map_err(Error::network("宛先を待つ"))?;
+        }
+    }
+
+    /// 中継の場所が出るまで待つ。**出るまで返らない**（呼ぶ側が時間を切る）。
+    async fn 中継を待つ(&self) {
+        let mut watcher = self.endpoint.watch_addr();
+        loop {
+            if watcher.get().relay_urls().next().is_some() {
+                return;
+            }
+            if watcher.updated().await.is_err() {
+                return;
+            }
         }
     }
 
@@ -156,7 +230,14 @@ impl Node {
 
         let id =
             EndpointId::from_bytes(&to.public_key().to_bytes()).map_err(|_| Error::Malformed)?;
-        let addr = EndpointAddr::from_parts(id, to.ip_addrs().map(TransportAddr::Ip));
+        let mut addr = EndpointAddr::from_parts(id, to.ip_addrs().map(TransportAddr::Ip));
+        // **相手が中継を名乗っていれば、そこも経路の候補に入れる**（**D78**）。
+        // 読めない中継の場所は**黙って捨てる** —— 番地だけで繋がることはある
+        if let Some(relay) = to.relay() {
+            if let Ok(url) = relay.parse() {
+                addr = addr.with_relay_url(url);
+            }
+        }
 
         let connection = tokio::time::timeout(limit, self.endpoint.connect(addr, ALPN))
             .await

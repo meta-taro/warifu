@@ -18,6 +18,14 @@ const MAGIC: &[u8; 4] = b"WRFA";
 const KIND_ADDRESS: u8 = 0x03;
 const TAG_V4: u8 = 4;
 const TAG_V6: u8 = 6;
+/// 中継の場所（**D78**）。**`--relay` を付けた人の宛先にだけ入る。**
+const TAG_RELAY: u8 = 9;
+
+/// 中継の場所の長さの上限（バイト）。
+///
+/// **人の手を渡る文字列を、長さで縛る。**上限が無いと、
+/// 宛先ひとつが QR に入らない大きさまで伸ばせる。
+pub const RELAY_MAX: usize = 256;
 
 /// 相手に届くための宛先。
 ///
@@ -26,15 +34,30 @@ const TAG_V6: u8 = 6;
 pub struct Address {
     key: PublicKey,
     ips: Vec<SocketAddr>,
+    /// 中継の場所（**D78**）。**既定では入らない。**
+    ///
+    /// 入っているとき、この宛先は**外の網からも届きうる** ——
+    /// 代わりに、**繋いだことが中継の運用者に見える**（D10）。
+    relay: Option<String>,
 }
 
 impl Address {
     pub(crate) fn from_parts(key: PublicKey, ips: impl IntoIterator<Item = SocketAddr>) -> Self {
+        Self::新しく(key, ips, None)
+    }
+
+    pub(crate) fn 新しく(
+        key: PublicKey,
+        ips: impl IntoIterator<Item = SocketAddr>,
+        relay: Option<String>,
+    ) -> Self {
         let mut ips: Vec<SocketAddr> = ips.into_iter().collect();
         // 並びを 1 通りに決める。同じ宛先が別の文字列になると、突き合わせができない
         ips.sort_unstable();
         ips.dedup();
-        Self { key, ips }
+        // **長すぎるものは持たない。**持てば、そのまま人の手を渡ってしまう
+        let relay = relay.filter(|r| !r.is_empty() && r.len() <= RELAY_MAX);
+        Self { key, ips, relay }
     }
 
     /// 相手の公開鍵。
@@ -54,6 +77,20 @@ impl Address {
         Self::from_parts(key, ips)
     }
 
+    /// 中継の場所。**入っていなければ `None`**（既定はこちら）。
+    #[must_use]
+    pub fn relay(&self) -> Option<&str> {
+        self.relay.as_deref()
+    }
+
+    /// 中継の場所を添える。**確かめるために開けてある。**
+    #[must_use]
+    pub fn with_relay(mut self, relay: impl Into<String>) -> Self {
+        let relay: String = relay.into();
+        self.relay = (!relay.is_empty() && relay.len() <= RELAY_MAX).then_some(relay);
+        self
+    }
+
     /// **外から届きうるか。**
     ///
     /// warifu は**外部の中継を使わない**（**D13**）ので、
@@ -68,9 +105,12 @@ impl Address {
     ///
     /// **「届きうる」であって「届く」ではない。**外向きの候補があっても、
     /// 相手側の網や機器で止まることはある。**無いと分かることだけが確かである。**
+    ///
+    /// **中継が入っていれば、外からも届きうる**（**D78**）——
+    /// 中継は外の網に居るので、内側の番地しか無くても橋になる。
     #[must_use]
     pub fn 外から届きうる(&self) -> bool {
-        self.ips.iter().any(|a| 外向き(&a.ip()))
+        self.relay.is_some() || self.ips.iter().any(|a| 外向き(&a.ip()))
     }
 
     /// 公開鍵だけ差し替える。**経路の候補はそのまま。**
@@ -101,6 +141,14 @@ impl Address {
             }
             out.extend_from_slice(&ip.port().to_be_bytes());
         }
+        // **中継は最後に置く。**先に置くと、これを読めない版が
+        // 番地まで取り落とす（読めない版はどのみち受け取らないが、順を決めておく）
+        if let Some(relay) = &self.relay {
+            out.push(TAG_RELAY);
+            let len = u16::try_from(relay.len()).unwrap_or(u16::MAX);
+            out.extend_from_slice(&len.to_be_bytes());
+            out.extend_from_slice(relay.as_bytes());
+        }
         out
     }
 
@@ -113,8 +161,24 @@ impl Address {
         let key = PublicKey::from_bytes(key)?;
 
         let mut ips = Vec::new();
+        let mut relay = None;
         let mut at = 37;
         while at < bytes.len() {
+            // **中継はここで終わり。**長さのぶんだけ読んで、残りは無い
+            if bytes[at] == TAG_RELAY {
+                let len = usize::from(u16::from_be_bytes(take::<2>(bytes, at + 1)?));
+                if len == 0 || len > RELAY_MAX {
+                    return Err(Error::Malformed);
+                }
+                let raw = bytes.get(at + 3..at + 3 + len).ok_or(Error::Malformed)?;
+                relay = Some(
+                    core::str::from_utf8(raw)
+                        .map_err(|_| Error::Malformed)?
+                        .to_owned(),
+                );
+                at += 3 + len;
+                continue;
+            }
             let (ip, size) = match bytes[at] {
                 TAG_V4 => (IpAddr::V4(Ipv4Addr::from(take::<4>(bytes, at + 1)?)), 4),
                 TAG_V6 => (IpAddr::V6(Ipv6Addr::from(take::<16>(bytes, at + 1)?)), 16),
@@ -125,7 +189,7 @@ impl Address {
             at += 1 + size + 2;
         }
 
-        Ok(Self::from_parts(key, ips))
+        Ok(Self::新しく(key, ips, relay))
     }
 }
 
@@ -177,6 +241,7 @@ impl fmt::Debug for Address {
         f.debug_struct("Address")
             .field("public_key", &self.key)
             .field("ip_addrs", &self.ips)
+            .field("relay", &self.relay)
             .finish()
     }
 }

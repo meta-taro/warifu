@@ -27,6 +27,10 @@ pub struct 設定 {
     pub 預かり所: String,
     /// 誰あてか（`put` のとき）。**呼び名でも公開鍵でも引ける。**
     pub 宛先: Option<String>,
+    /// **中継を使うか**（**D78**）。**既定は使わない。**
+    ///
+    /// 預かり所が別の網に立っているなら、ここが要る。
+    pub 中継: bool,
 }
 
 /// `warifu post` でできること。
@@ -51,10 +55,13 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
     };
     let mut 預かり所 = None;
     let mut 宛先 = None;
+    let mut 中継 = false;
     while let Some(一つ) = args.next() {
         match 一つ.as_str() {
             "--at" => 預かり所 = args.next(),
             "--to" => 宛先 = args.next(),
+            // **付けたときだけ中継が入る**（**D78**）
+            "--relay" => 中継 = true,
             他 => return Err(format!("知らない指定です: {他}")),
         }
     }
@@ -67,6 +74,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
         何を,
         預かり所,
         宛先,
+        中継,
     })
 }
 
@@ -78,7 +86,7 @@ pub async fn 走る(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let (vault, device) = crate::identity::開く()?;
     let 所 =
         Address::from_str(&設.預かり所).map_err(|_| "預かり所の宛先として読めません".to_owned())?;
-    let node = Node::bind_without_relay(&device).await?;
+    let node = Node::bind(&device, crate::中継の選び方(設.中継)).await?;
 
     match 設.何を {
         何を::預ける => {
@@ -157,6 +165,21 @@ mod tests {
 
     fn 読ませる(引数: &[&str]) -> Result<設定, String> {
         読む(&mut 引数.iter().map(|s| (*s).to_owned()))
+    }
+
+    #[test]
+    fn 既定では中継を使わない() {
+        // **付けなければ今までどおり**（D78）
+        assert!(!読ませる(&["take", "--at", "WARIFU1-X"]).unwrap().中継);
+    }
+
+    #[test]
+    fn 中継を付けたときだけ使う() {
+        assert!(
+            読ませる(&["take", "--at", "WARIFU1-X", "--relay"])
+                .unwrap()
+                .中継
+        );
     }
 
     #[test]

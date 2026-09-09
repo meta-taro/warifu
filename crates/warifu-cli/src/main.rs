@@ -32,7 +32,7 @@ use warifu_app::{Conference, format_invite, is_own_invite, parse_invite};
 use warifu_core::{Device, PublicKey, Revocations};
 use warifu_intent::Channel;
 use warifu_meeting::{MeetingId, Notice, Roster};
-use warifu_net::{Address, Node};
+use warifu_net::{Address, Node, 中継の使い方};
 use warifu_vault::Vault;
 
 mod agent;
@@ -124,12 +124,15 @@ fn 使い方() -> ExitCode {
          --idle     何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
          \x20          （会話は黙っている時間のほうが長いため）\n\
          --remember つながった相手を、その呼び名で覚える\n\
+         --relay    **中継を使う**（別の網の相手へも届きうる・D78）\n\
+         \x20          付けると「誰がいつ誰に繋いだか」が中継の運用者（n0）に見えます\n\
+         \x20          付けなければ今までどおり、中継を使いません\n\
          \n\
          身元はこの端末に残ります。閉じても同じ人でいられます（warifu id で確認）。\n\
          映像は扱いません（それは画面の担当です）。\n\
          \n\
-         繋がらないときは warifu doctor。外部の中継を使わないので、\n\
-         同じ網に居ないと届かないことがあります。"
+         繋がらないときは warifu doctor。既定では外部の中継を使わないので、\n\
+         同じ網に居ないと届かないことがあります（--relay で中継を使えます）。"
     );
     ExitCode::from(2)
 }
@@ -149,6 +152,10 @@ struct Options {
     remember: Option<String>,
     /// **出す会議キーの本数**（＝入れる人数）。**1 本につき 1 人**（割符は D12 / D47）。
     keys: usize,
+    /// **中継を使うか**（**D78**）。**既定は使わない。**
+    ///
+    /// 付けると網を越えて届く代わりに、**繋いだことが中継の運用者（n0）に見える。**
+    relay: bool,
 }
 
 /// 秒数を人が読める形にする。
@@ -232,6 +239,7 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, Op
         until: None,
         remember: None,
         keys: 1,
+        relay: false,
     };
 
     /// 値を 1 つ取り出す。無ければ断る。
@@ -245,6 +253,8 @@ fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, Op
     while let Some(a) = args.next() {
         match a.as_str() {
             "--help" | "-h" | "help" => return Err(OptionError::WantsHelp),
+            // **付けたときだけ中継が入る**（**D78**）。既定は今までどおり
+            "--relay" => o.relay = true,
             "--idle" => {
                 let v = 値(args, "--idle")?;
                 o.idle = Some(v.parse().map_err(|_| OptionError::BadValue {
@@ -335,7 +345,11 @@ async fn 本体() -> ExitCode {
             },
             None => return 使い方(),
         },
-        Some("doctor") => 診る().await,
+        Some("doctor") => match 読む_options(&mut args) {
+            Ok(o) => 診る(o.relay).await,
+            Err(OptionError::WantsHelp) => return 使い方(),
+            Err(e) => Err(e.into()),
+        },
         Some("setup") => match setup::読む(&mut args) {
             Ok(設) => setup::入れる(&設),
             Err(e) => Err(e.into()),
@@ -457,6 +471,18 @@ fn 覚える(vault: &Vault, peer: PublicKey, 呼び名: Option<&String>) {
     }
 }
 
+/// `--relay` が付いているかを、経路の層の言葉に直す（**D78**）。
+///
+/// **既定は「使わない」。**ここを既定で「使う」にすると、
+/// D13 を黙って覆したことになる（判断はオーナー・2026-09-09）。
+const fn 中継の選び方(使う: bool) -> 中継の使い方 {
+    if 使う {
+        中継の使い方::使う
+    } else {
+        中継の使い方::使わない
+    }
+}
+
 /// 相手が誰かを言う。覚えていれば呼び名で。
 fn 誰か(vault: &Vault, peer: PublicKey) -> String {
     match vault.contacts() {
@@ -472,9 +498,18 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     let 開始 = o.from.unwrap_or_else(now_secs);
     let 終わり = o.until.unwrap_or_else(|| 開始.saturating_add(o.ttl));
     let ttl = 終わり.saturating_sub(now_secs());
-    let node = Arc::new(Node::bind_without_relay(&device).await?);
+    let node = Arc::new(Node::bind(&device, 中継の選び方(o.relay)).await?);
     let 宛先 = node.address().await?;
     let address = 宛先.to_string();
+
+    // **中継を使うと何が起きるかを、使う人にその場で言う**（**D10** / **D78**）。
+    // 「網を越えられます」だけ言って代償を伏せると、**知らないうちに預けたことになる**
+    if o.relay {
+        eprintln!("warifu: 中継を使います（別の網の相手へも届きうる）");
+        eprintln!(
+            "warifu: 中身は中継からも読めません。ただし**繋いだこと自体**（誰がいつ誰に）は中継の運用者に見えます"
+        );
+    }
 
     // **届かないのに「待っています」と言わない。**
     //
@@ -488,7 +523,9 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
             "warifu: この会議キーは、同じ網の相手にしか届きません（外向きの経路がありません）"
         );
         eprintln!("warifu: 経路の候補: {}", 経路の候補を言う(&宛先));
-        eprintln!("warifu: 別の網から入ってもらうなら、warifu doctor で調べてください");
+        // **次の一手を出す。**「届きません」だけでは、打つ手が分からない
+        eprintln!("warifu: 別の網から入ってもらうなら --relay を付けて立て直してください");
+        eprintln!("warifu: 詳しくは warifu doctor");
     }
 
     let 会議 = Arc::new(Mutex::new(Conference::host(
@@ -672,7 +709,7 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// **出すのは事実だけ。**直し方は言うが、**勝手に直さない**
 /// （ファイアウォールの規則を AI が作らない・baseline §13）。
-async fn 診る() -> Result<(), Box<dyn std::error::Error>> {
+async fn 診る(中継を使う: bool) -> Result<(), Box<dyn std::error::Error>> {
     let (vault, device) = 身元()?;
     println!("── 身元 ──");
     println!("  公開鍵      {}", device.public_key());
@@ -683,12 +720,34 @@ async fn 診る() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     println!("\n── 経路 ──");
-    let node = Node::bind_without_relay(&device).await?;
+    let node = Node::bind(&device, 中継の選び方(中継を使う)).await?;
     let 宛先 = node.address().await?;
     let 候補: Vec<_> = 宛先.ip_addrs().collect();
     println!("  候補        {} 件", 候補.len());
     for a in &候補 {
         println!("    {a}");
+    }
+    // **中継は番地とは別に出す。**「候補 3 件」に混ぜると、
+    // どれが外に出ているのか読めない
+    match 宛先.relay() {
+        Some(場所) => {
+            println!("  中継        使っています（--relay）");
+            println!("    {場所}");
+            println!("              → **別の網の相手からも届きうる**");
+            println!("              繋いだこと（誰がいつ誰に）は中継の運用者に見えます（D10）");
+        }
+        None if 中継を使う => {
+            // **付けたのに出ていない。**黙って「使えている」ことにしない。
+            //
+            // 2026-09-09 に手元で実測した形がこれである ——
+            // **中継までは出られている**（外の番地が見えるようになった）のに、
+            // **中継そのものは経路に入らない。**
+            // 「回線が無い」と書くと嘘になるので、**分かっていることだけを書く。**
+            println!("  中継        **決まっていません**（--relay を付けましたが出ていません）");
+            println!("              上の候補に外の番地が出ていれば、中継までは届いています");
+            println!("              中継越しの経路そのものは、まだ入っていません");
+        }
+        None => println!("  中継        使っていません（既定・D13）"),
     }
     if 宛先.外から届きうる() {
         println!("  外向き      あり");
@@ -696,8 +755,13 @@ async fn 診る() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!("  外向き      **ありません**");
         println!("              → **同じ網の相手にしか届きません**");
-        println!("              warifu は外部の中継を使いません（D13）");
         println!("              考えられるもの: CGNAT / VPN / 仮想の網だけが見えている");
+        // **次の一手を出す**（**D78**）。事実だけ出して手を止めない
+        println!();
+        println!("  → **--relay を付けると、中継越しに届く見込みがあります**");
+        println!("     例: warifu host --relay / warifu join <会議キー> --relay");
+        println!("     代わりに、**繋いだこと**（誰がいつ誰に）が中継の運用者に見えます（D10）");
+        println!("     中身は中継からも読めません");
     }
 
     println!("\n── 遮る物 ──");
@@ -946,7 +1010,7 @@ async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>
     // （叩かれた側は「割符に応じない相手」として待ち直すことになる）
     let acceptance = device.accept(&token, now_secs())?;
 
-    let node = Node::bind_without_relay(&device).await?;
+    let node = Node::bind(&device, 中継の選び方(o.relay)).await?;
     let to: Address = address.parse()?;
     let mut session = node.connect(&to, &Revocations::new()).await?;
     let peer = session.peer();
@@ -1231,6 +1295,40 @@ fn 名乗りを出す(peer: PublicKey, from: PublicKey, 名前: &str, 紹介: &s
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn 読ませる(引数: &[&str]) -> Result<Options, OptionError> {
+        読む_options(&mut 引数.iter().map(|s| (*s).to_owned()))
+    }
+
+    /// **付けなければ今までどおり**（**D78**）。
+    ///
+    /// ここが落ちたら、いま同じ網で動いている試験が全部止まる。
+    #[test]
+    fn 既定では中継を使わない() {
+        assert!(!読ませる(&[]).unwrap().relay);
+        assert!(!読ませる(&["--keys", "2"]).unwrap().relay);
+    }
+
+    #[test]
+    fn 中継を付けたときだけ使う() {
+        assert!(読ませる(&["--relay"]).unwrap().relay);
+        assert!(読ませる(&["--keys", "2", "--relay"]).unwrap().relay);
+    }
+
+    #[test]
+    fn 中継の選び方は既定で使わない() {
+        assert_eq!(中継の選び方(false), 中継の使い方::使わない);
+        assert_eq!(中継の選び方(true), 中継の使い方::使う);
+    }
+
+    /// **打ち間違いを黙って通さない。**`--relayy` が `--relay` になってはいけない
+    #[test]
+    fn 似た綴りは知らない引数として断る() {
+        assert!(matches!(
+            読ませる(&["--relayy"]),
+            Err(OptionError::Unknown(_))
+        ));
+    }
 
     /// **相手が落ちたら終わる。**標準入力の read が返らなくても、である。
     ///

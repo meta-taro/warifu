@@ -36,11 +36,18 @@ pub struct 設定 {
     ///
     /// **誰でも使える中継にしない。**書いていない相手は、繋いでも何も渡さない。
     pub 名簿: Option<PathBuf>,
+    /// **中継を使うか**（**D78**）。**既定は使わない。**
+    ///
+    /// 預かり所を別の網の人に使ってもらうなら、ここが要る。
+    pub 中継: bool,
 }
 
 /// 引数を読む。
 pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String> {
-    let mut 設 = 設定 { 名簿: None };
+    let mut 設 = 設定 {
+        名簿: None,
+        中継: false,
+    };
     while let Some(一つ) = args.next() {
         match 一つ.as_str() {
             "--allow-file" => {
@@ -48,6 +55,8 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                     args.next().ok_or("--allow-file のあとに場所がありません")?,
                 ));
             }
+            // **付けたときだけ中継が入る**（**D78**）
+            "--relay" => 設.中継 = true,
             他 => return Err(format!("知らない指定です: {他}")),
         }
     }
@@ -66,10 +75,16 @@ pub async fn 立てる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let (_, device) = crate::identity::開く()?;
-    let node = Node::bind_without_relay(&device).await?;
+    let node = Node::bind(&device, crate::中継の選び方(設.中継)).await?;
     let 宛先 = node.address().await?;
 
     println!("{宛先}");
+    if 設.中継 {
+        eprintln!("warifu relay: 中継を使います（別の網の人からも預けられる）");
+        eprintln!(
+            "預かった中身は中継からも読めません。繋いだこと自体は中継の運用者に見えます（D10）"
+        );
+    }
     eprintln!(
         "warifu relay: 立ちました（使ってよい人 {} 名）。上の宛先を配ってください。",
         許す.len()
@@ -143,6 +158,25 @@ mod tests {
             .profile("Personal")
             .device("PC")
             .public_key()
+    }
+
+    fn 読ませる(引数: &[&str]) -> Result<設定, String> {
+        読む(&mut 引数.iter().map(|s| (*s).to_owned()))
+    }
+
+    #[test]
+    fn 既定では中継を使わない() {
+        // **付けなければ今までどおり**（D78）
+        assert!(!読ませる(&["--allow-file", "/tmp/x"]).unwrap().中継);
+    }
+
+    #[test]
+    fn 中継を付けたときだけ使う() {
+        assert!(
+            読ませる(&["--allow-file", "/tmp/x", "--relay"])
+                .unwrap()
+                .中継
+        );
     }
 
     /// 名簿を 1 つ書いて、その場所を返す。**試験ごとに別の名前にする**
