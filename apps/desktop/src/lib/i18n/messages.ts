@@ -80,6 +80,22 @@ export type MessageKey =
   | 'contacts.key.label'
   | 'contacts.me.what'
   | 'contacts.me.share'
+  | 'meeting.link.label'
+  | 'meeting.link.copy'
+  | 'meeting.link.hint'
+  | 'meeting.qr.reveal'
+  | 'meeting.qr.hint'
+  | 'link.invited'
+  | 'link.invited.hint'
+  | 'link.invited.enter'
+  | 'link.invited.no'
+  | 'contacts.me.key.what'
+  | 'howto.title'
+  | 'howto.1'
+  | 'howto.2'
+  | 'howto.3'
+  | 'howto.4'
+  | 'howto.key'
   | 'contacts.me.copy'
   | 'contacts.me.copied'
   | 'contacts.me.name'
@@ -256,6 +272,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.key.label': '公開鍵',
     'contacts.me.what': 'これがこの PC のあなたです。閉じても同じ人でいられます。',
     'contacts.me.share': 'この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには鍵が要ります）。',
+    'meeting.link.label': '入ってもらうリンク',
+    'meeting.link.copy': 'リンクをコピーする',
+    'meeting.link.hint': 'これを相手に送ります。相手が押すと割符が開いて、入るかどうかを尋ねます（勝手には入りません）。相手にも割符が入っている必要があります。',
+    'meeting.qr.reveal': 'QR で見せる',
+    'meeting.qr.hint': '目の前の相手に読ませるときはこちら。読み取ると同じリンクになります。',
+    'link.invited': 'リンクで部屋に誘われています。入りますか？',
+    'link.invited.hint': 'このリンクは誰でも作れます。心当たりのない誘いには入らないでください。',
+    'link.invited.enter': '入る',
+    'link.invited.no': '入らない',
+    'contacts.me.key.what': '公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、預かり所の名簿に書いてもらうときに渡します。',
+    'howto.title': '知り合いとつながる手順',
+    'howto.1': '「部屋」を開いて［部屋をつくる］を押す',
+    'howto.2': '出てきた鍵（またはリンク）を、相手に渡す',
+    'howto.3': '相手が受け取って入ると、つながります',
+    'howto.4': 'つながったら呼び名を付ける。次からは連絡帳から呼べます（鍵は要りません）',
+    'howto.key': 'この手順で渡すのは「部屋の鍵」です。上の公開鍵ではありません。',
     'contacts.me.copy': '公開鍵をコピーする',
     'contacts.me.copied': 'コピーしました',
     'contacts.me.name': 'ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。',
@@ -404,6 +436,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.key.label': 'Public key',
     'contacts.me.what': 'This is you on this computer. You stay the same person after closing it.',
     'contacts.me.share': 'You can show this public key to anyone. On its own it lets nobody in — coming in needs a key.',
+    'meeting.link.label': 'Link to let them in',
+    'meeting.link.copy': 'Copy the link',
+    'meeting.link.hint': 'Send this to the other person. When they open it, warifu asks them whether to enter (it never enters on its own). They need warifu installed too.',
+    'meeting.qr.reveal': 'Show as a QR code',
+    'meeting.qr.hint': 'Use this when the other person is in front of you. Scanning it gives the same link.',
+    'link.invited': 'A link is inviting you into a room. Enter?',
+    'link.invited.hint': 'Anyone can make such a link. Do not enter an invitation you were not expecting.',
+    'link.invited.enter': 'Enter',
+    'link.invited.no': 'Do not enter',
+    'contacts.me.key.what': 'The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.',
+    'howto.title': 'How to connect with someone you know',
+    'howto.1': 'Open "Room" and press [Create a room]',
+    'howto.2': 'Hand the key (or the link) to the other person',
+    'howto.3': 'They take it and enter, and you are connected',
+    'howto.4': 'Once connected, give them a name. From then on you can call them from Contacts (no key needed)',
+    'howto.key': 'What you hand over here is the room key, not the public key above.',
     'contacts.me.copy': 'Copy public key',
     'contacts.me.copied': 'Copied',
     'contacts.me.name': 'The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.',
@@ -552,6 +600,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.key.label': '公钥',
     'contacts.me.what': '这是这台电脑上的你。关掉之后仍然是同一个人。',
     'contacts.me.share': '这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。',
+    'meeting.link.label': '让对方进入的链接',
+    'meeting.link.copy': '复制链接',
+    'meeting.link.hint': '把它发给对方。对方点开后，割符会询问是否进入（不会擅自进入）。对方也需要装有割符。',
+    'meeting.qr.reveal': '显示二维码',
+    'meeting.qr.hint': '对方就在眼前时用这个。扫出来是同一个链接。',
+    'link.invited': '有链接邀请你进入房间。要进入吗？',
+    'link.invited.hint': '这样的链接谁都能做。没有印象的邀请，请不要进入。',
+    'link.invited.enter': '进入',
+    'link.invited.no': '不进入',
+    'contacts.me.key.what': '公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。',
+    'howto.title': '与熟人建立连接的步骤',
+    'howto.1': '打开「房间」，按下［创建房间］',
+    'howto.2': '把出现的钥匙（或链接）交给对方',
+    'howto.3': '对方收到并进入后，就连上了',
+    'howto.4': '连上后给对方起个称呼。以后就能从通讯录直接呼叫（不再需要钥匙）',
+    'howto.key': '这一步交出去的是「房间的钥匙」，不是上面的公钥。',
     'contacts.me.copy': '复制公钥',
     'contacts.me.copied': '已复制',
     'contacts.me.name': '你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。',
@@ -700,6 +764,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.key.label': '공개키',
     'contacts.me.what': '이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.',
     'contacts.me.share': '이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).',
+    'meeting.link.label': '들어오게 할 링크',
+    'meeting.link.copy': '링크 복사',
+    'meeting.link.hint': '이것을 상대에게 보냅니다. 상대가 열면 와리후가 들어갈지 묻습니다(멋대로 들어가지 않습니다). 상대에게도 와리후가 설치되어 있어야 합니다.',
+    'meeting.qr.reveal': 'QR로 보여주기',
+    'meeting.qr.hint': '상대가 눈앞에 있을 때 씁니다. 읽으면 같은 링크가 됩니다.',
+    'link.invited': '링크로 방에 초대받았습니다. 들어가시겠습니까?',
+    'link.invited.hint': '이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.',
+    'link.invited.enter': '들어간다',
+    'link.invited.no': '들어가지 않는다',
+    'contacts.me.key.what': '공개키는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.',
+    'howto.title': '아는 사람과 연결하는 순서',
+    'howto.1': '「방」을 열고 ［방 만들기］를 누릅니다',
+    'howto.2': '나온 열쇠(또는 링크)를 상대에게 건넵니다',
+    'howto.3': '상대가 받아서 들어오면 연결됩니다',
+    'howto.4': '연결되면 부를 이름을 붙입니다. 다음부터는 주소록에서 부를 수 있습니다(열쇠가 필요 없습니다)',
+    'howto.key': '여기서 건네는 것은 「방의 열쇠」이며, 위의 공개키가 아닙니다.',
     'contacts.me.copy': '공개키 복사',
     'contacts.me.copied': '복사했습니다',
     'contacts.me.name': '여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).',
@@ -771,10 +851,20 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'chat.shared',
   'send.absent',
   'postbox.kept',
+  'link.invited.hint',
+  'meeting.link.hint',
 ] as const;
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
 export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
+  'link.invited.hint':
+    '**警告である。**「安全です」「割符が確認済みです」と読める訳にしないこと。' +
+    'このリンクは誰でも作れる。割符は差出人を確かめていない。' +
+    '確かめられるのは、心当たりがあるかどうかだけで、それは人にしか分からない。',
+  'meeting.link.hint':
+    '**「押すと入る」と読める訳にしないこと。**押すと割符が開いて、'
+    + '**入るかどうかを尋ねる**（そこで人が決める）。'
+    + 'また、相手に割符が入っていなければ、リンクは何も起こさない。',
   'send.absent':
     '**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。' +
     '預かり所を置いていない状態なので、打った言葉はどこにも残っていない。' +

@@ -32,10 +32,16 @@ warifu-vault = { path = "../../../crates/warifu-vault" }
 warifu-desk = { path = "../../../crates/warifu-desk" }
 warifu-postbox = { path = "../../../crates/warifu-postbox" }
 serde = { version = "1", features = ["derive"] }
+# `tauri::generate_context!` が、tauri.conf.json の plugins を読むのに要る
+serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 # 時刻を HH:MM で出すためだけに使う。**既に木にあるもの**を使い、供給元を増やさない
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 tauri-plugin-notification = "2.4.0"
+# **`warifu://` を受ける**（D79）。鍵を貼り付けさせない
+tauri-plugin-deep-link = "2.4.10"
+# **QR を作る**（D79）。目の前の相手に読ませる用
+fast_qr = { version = "0.14", default-features = false, features = ["svg"] }
 
 [profile.release]
 # 鍵を扱う側と同じ姿勢を保つ（root の Cargo.toml と揃える）

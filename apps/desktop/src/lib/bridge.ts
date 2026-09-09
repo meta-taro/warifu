@@ -55,6 +55,14 @@ export const EVENT_THEME = 'warifu://theme';
 export const EVENT_PROFILES = 'warifu://profiles';
 
 /**
+ * **`warifu://join/…` のリンクを受け取った**（**D79**）。
+ *
+ * **押しただけでは入らない。**届いた URL は他人が作れるので、
+ * 画面が人に尋ねてから入る。ここに来るのは**鍵の文字列だけ**である。
+ */
+export const EVENT_LINK = 'warifu://link';
+
+/**
  * **相手が名乗った**（**D75**）。`[公開鍵, 名前, 紹介]`。
  *
  * **本人が名乗ったものであって、本人確認ではない。**
@@ -132,6 +140,12 @@ export const hostMeeting = (capacity: number) => invoke<string>('host_meeting', 
  * **下の層（iroh）の英語をそのまま出さない** — 画面が辞書から訳す。
  */
 export const connect = (invite: string) => invoke<void>('connect', { invite });
+
+/** 部屋の鍵を、**渡せる 1 本のリンク**にする（**D79**）。 */
+export const roomLink = (key: string) => invoke<string>('room_link', { key });
+
+/** そのリンクを **QR**（SVG）にする。目の前の相手に読ませる用（**D79**）。 */
+export const roomQr = (key: string) => invoke<string>('room_qr', { key });
 
 /**
  * **会議から抜けると告げる。**

@@ -85,6 +85,7 @@ macro_rules! 記録 {
 mod call;
 mod contacts;
 mod desk;
+mod link;
 mod notify;
 mod postbox;
 mod profile;
@@ -1164,7 +1165,11 @@ async fn remember_note(key: String, note: String) -> Answer<()> {
         });
     }
     vault.save_contacts(&list)?;
-    記録!("名簿: 覚え書きを書いた（{} / {} 文字）", 短く(&key), note.chars().count());
+    記録!(
+        "名簿: 覚え書きを書いた（{} / {} 文字）",
+        短く(&key),
+        note.chars().count()
+    );
     Ok(())
 }
 
@@ -1486,11 +1491,29 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
     }
 }
 
+/// 部屋の鍵を、**渡せる 1 本のリンク**にする（**D79**）。
+#[tauri::command]
+fn room_link(key: String) -> String {
+    link::部屋のリンク(&key)
+}
+
+/// そのリンクを **QR** にする（**D79**）。目の前の相手に読ませる用。
+///
+/// # Errors
+/// QR に入らないとき。
+#[tauri::command]
+fn room_qr(key: String) -> Result<String, String> {
+    link::qrにする(&link::部屋のリンク(&key))
+}
+
 pub fn run() {
     tauri::Builder::default()
         // **届いたことを窓の外へ押し出すため**（`notify.rs`）。
         // 押し出せないとチャットにならない（オーナー・2026-09-07）
         .plugin(tauri_plugin_notification::init())
+        // **`warifu://` を受ける**（**D79**）。鍵を貼り付けさせない。
+        // **押しただけでは入らない** —— 受け取ったあと、画面が人に尋ねる
+        .plugin(tauri_plugin_deep_link::init())
         // **メニューから来た操作を、画面へ渡す。**
         // メニューは OS の側に居るので、画面の状態（いま何を選んでいるか）は知らない
         .on_menu_event(|app, event| {
@@ -1506,9 +1529,27 @@ pub fn run() {
             // **画面が立ったら机も開く。**人が別の操作をしなくても、
             // 同じ PC のエージェントが会話に着ける状態にする
             desk::開く(app.handle().clone());
+
+            // **窓が開いている間に来たリンク**を受ける
+            {
+                use tauri_plugin_deep_link::DeepLinkExt as _;
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
+                    link::受ける(&handle, &urls);
+                });
+                // **立ち上がる前に押されたリンク**も拾う。
+                // 落としたら、人は「押したのに何も起きない」を見る
+                if let Ok(Some(urls)) = app.deep_link().get_current() {
+                    let urls: Vec<String> = urls.iter().map(ToString::to_string).collect();
+                    link::受ける(app.handle(), &urls);
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            room_link,
+            room_qr,
             my_address,
             my_key,
             host_meeting,

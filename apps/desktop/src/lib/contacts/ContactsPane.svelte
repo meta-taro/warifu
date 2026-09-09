@@ -495,8 +495,29 @@
             {写した ? t('contacts.me.copied') : t('contacts.me.copy')}
           </button>
         </div>
+        <p class="hint">{t('contacts.me.key.what')}</p>
         <p class="hint">{t('contacts.me.share')}</p>
         <p class="hint">{t('contacts.me.name')}</p>
+
+        <!--
+          **手順を書く**（オーナー・2026-09-09
+          「公開鍵をコピーできるのは何の目的か、どんな手順で相手（知り合いの人間）と
+          つながれるかわかりません」）。
+
+          **鍵を出す口はあったが、順番が無かった。**押せる口を並べただけでは、
+          初めての人は**どれから押すのか**が分からない。
+        -->
+        <section class="howto">
+          <h4>{t('howto.title')}</h4>
+          <ol>
+            <li>{t('howto.1')}</li>
+            <li>{t('howto.2')}</li>
+            <li>{t('howto.3')}</li>
+            <li>{t('howto.4')}</li>
+          </ol>
+          <!-- **公開鍵と部屋の鍵を取り違えさせない。**別のものである -->
+          <p class="hint">{t('howto.key')}</p>
+        </section>
       {/if}
       {#if 相手.種類 === '部屋'}
         <!-- **部屋は押して見るもの。**口は出さない（居るだけ） -->
@@ -720,6 +741,34 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .howto {
+    margin-top: 1rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-sunken);
+  }
+
+  .howto h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .howto ol {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .howto .hint {
+    margin-top: 0.5rem;
+  }
+
   .key {
     margin: 0;
     font-family: var(--font-mono);

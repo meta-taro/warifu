@@ -71,6 +71,9 @@
     EVENT_DESK,
     EVENT_DESK_SEATS,
     EVENT_THEME,
+    EVENT_LINK,
+    roomLink,
+    roomQr,
     EVENT_PROFILES,
     EVENT_CLAIMED,
     deskSeats,
@@ -118,6 +121,18 @@
 
   /** 会議キー。**宛先と割符が 1 本になっている**（D39） */
   let meetingKey = $state('');
+  /** 渡せる 1 本のリンク（`warifu://join/…`・**D79**）。 */
+  let 部屋のリンク = $state('');
+  /** そのリンクの QR（SVG）。**目の前の相手に読ませる用。** */
+  let 部屋のQR = $state('');
+  /** リンクを写した手応え。 */
+  let リンクを写した = $state(false);
+  /**
+   * **受け取ったリンクの鍵**（**D79**）。**入るかどうかはまだ決まっていない。**
+   *
+   * 届いた URL は他人が作れる。**押しただけで部屋へ入る作りにしない。**
+   */
+  let 誘われた鍵 = $state('');
   let received = $state('');
   /** 会議キーの有効期間。既定 10 分。**長く置くほど、渡した先が分からなくなる** */
   /**
@@ -682,6 +697,14 @@
         await onEvent<string>(EVENT_THEME, (選び) => void テーマを選ぶ(読み取る(選び))),
       );
       unsubs.push(
+        // **`warifu://join/…` を押された**（**D79**）。
+        // **ここでは入らない。**届いた URL は他人が作れるので、人に尋ねる
+        await onEvent<string>(EVENT_LINK, (鍵) => {
+          誘われた鍵 = 鍵;
+          log(`リンクで誘われました（${鍵.length} 文字）`);
+        }),
+      );
+      unsubs.push(
         // **机に着いたエージェントが、自分で名乗った。**画面にもすぐ出す
         await onEvent<void>(EVENT_PROFILES, () => {
           void profiles().then(async (面々) => {
@@ -822,11 +845,60 @@
     notice = '';
     try {
       meetingKey = (await invite(KEY_TTL_SECS)) ?? '';
+      await リンクを作る();
       // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
       await 部屋を読み直す();
     } catch (e) {
       notice = 読める(e);
     }
+  }
+
+  /**
+   * 鍵から**渡せる形**を作る（**D79**）。
+   *
+   * オーナー指摘（2026-09-09）——
+   * 「**どんな手順で相手（知り合いの人間）とつながれるかわかりません**」
+   * 「**たとえば QR とか URL スキーマで相手におくれるとか**」
+   *
+   * **鍵を貼り付けさせない。**リンク 1 本か、QR を見せるだけにする。
+   */
+  async function リンクを作る() {
+    if (!meetingKey) {
+      部屋のリンク = '';
+      部屋のQR = '';
+      return;
+    }
+    try {
+      部屋のリンク = (await roomLink(meetingKey)) ?? '';
+      部屋のQR = (await roomQr(meetingKey)) ?? '';
+    } catch (e) {
+      // **黙って消さない。**QR が作れなくても、鍵そのものは渡せる
+      部屋のQR = '';
+      log(`リンクを作れませんでした（${読める(e)}）`);
+    }
+  }
+
+  /** リンクを写す。**鍵の全文を人に扱わせない。** */
+  async function リンクを写す() {
+    try {
+      await navigator.clipboard.writeText(部屋のリンク);
+    } catch {
+      notice = t('meeting.key.copy');
+      return;
+    }
+    リンクを写した = true;
+    setTimeout(() => (リンクを写した = false), COPIED_FOR_MS);
+  }
+
+  /**
+   * **誘われたリンクで入る**（**D79**）。**人が押したときだけ。**
+   */
+  async function 誘いに乗る() {
+    const 鍵 = 誘われた鍵;
+    誘われた鍵 = '';
+    if (!鍵) return;
+    received = 鍵;
+    await 入室する();
   }
 
   /** コピーできたことを見せる時間（ms）。押した手応えが無いと、人は二度押す。 */
@@ -1157,6 +1229,23 @@
   **画面には何も出ず、打った文字が黙って消えたように見えた**
   （2026-09-07 にオーナーが踏んだ「こんばんは〜ってうって送るを押したけど、消えたよ」）。
 -->
+<!--
+  **リンクで誘われた**（**D79**）。**押しただけでは入らない。**
+  届いた URL は他人が作れる ——「開いたら実行」を作らないための確認である。
+-->
+{#if 誘われた鍵}
+  <div class="invited" role="alertdialog" aria-live="polite">
+    <p class="what">{t('link.invited')}</p>
+    <p class="hint">{t('link.invited.hint')}</p>
+    <div class="tail">
+      <button type="button" onclick={() => void 誘いに乗る()}>{t('link.invited.enter')}</button>
+      <button type="button" class="quiet" onclick={() => (誘われた鍵 = '')}>
+        {t('link.invited.no')}
+      </button>
+    </div>
+  </div>
+{/if}
+
 {#if notice}
   <p class="notice top">{notice}</p>
 {/if}
@@ -1400,6 +1489,29 @@
             {copied ? t('meeting.key.copied') : t('meeting.key.copy')}
           </button>
         </div>
+        <!--
+          **渡すのはリンク 1 本**（**D79**・オーナー 2026-09-09
+          「たとえば QR とか URL スキーマで相手におくれるとか」）。
+          鍵の全文を人に扱わせると、途中で 1 文字落ちる。
+        -->
+        {#if 部屋のリンク}
+          <div class="field-head">
+            <span class="with-icon"><Icon name="link" />{t('meeting.link.label')}</span>
+            <button type="button" class="quiet" onclick={リンクを写す}>
+              <Icon name={リンクを写した ? 'check' : 'copy'} />
+              {リンクを写した ? t('meeting.key.copied') : t('meeting.link.copy')}
+            </button>
+          </div>
+          <p class="hint">{t('meeting.link.hint')}</p>
+          {#if 部屋のQR}
+            <details>
+              <summary>{t('meeting.qr.reveal')}</summary>
+              <!-- **目の前の相手に読ませる用。**画像ではなく SVG（テーマに合う） -->
+              <div class="qr">{@html 部屋のQR}</div>
+              <p class="hint">{t('meeting.qr.hint')}</p>
+            </details>
+          {/if}
+        {/if}
         <details>
           <summary>{t('meeting.key.reveal')}</summary>
           <!-- 触れた時点で全部選ぶ。**手で端から端まで引かせない** -->
@@ -1491,6 +1603,49 @@
 </main>
 
 <style>
+  /*
+    **リンクで誘われたときの確認**（D79）。
+    知らせ（notice）より強く出す —— これは押すかどうかを決める所である。
+  */
+  .invited {
+    margin: 0.5rem 0.75rem 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-sunken);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .invited .what {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .invited .tail {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /*
+    QR は**紙のように**出す。**地の白は SVG の側が持っている**
+    （静穏帯ごと白でないと、読み取り機が拾えない）。
+    ここでは大きさだけを決める。
+  */
+  .qr {
+    margin: 0.5rem 0;
+    width: fit-content;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .qr :global(svg) {
+    display: block;
+    width: 168px;
+    height: 168px;
+  }
+
   main {
     flex: 1;
     /* **レール（面の切り替え）と、面 1 つ。**面の中身は面ごとに決める */

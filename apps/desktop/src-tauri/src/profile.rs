@@ -318,7 +318,9 @@ pub fn 席の名札(呼び方: &str) -> String {
     let Ok(面々) = 読む() else {
         return 呼び方.to_owned();
     };
-    let 名前 = 面々.find(&Who::Desk(呼び方.to_owned())).map(|p| p.name().to_owned());
+    let 名前 = 面々
+        .find(&Who::Desk(呼び方.to_owned()))
+        .map(|p| p.name().to_owned());
     名札にする(呼び方, 名前.as_deref())
 }
 
@@ -350,12 +352,18 @@ mod tests {
 
     #[test]
     fn 名乗っていなければ席そのままにする() {
-        assert_eq!(名札にする("zumen のエージェント", None), "zumen のエージェント");
+        assert_eq!(
+            名札にする("zumen のエージェント", None),
+            "zumen のエージェント"
+        );
     }
 
     #[test]
     fn 名前が空なら席そのままにする() {
-        assert_eq!(名札にする("zumen のエージェント", Some("")), "zumen のエージェント");
+        assert_eq!(
+            名札にする("zumen のエージェント", Some("")),
+            "zumen のエージェント"
+        );
     }
 
     #[test]
