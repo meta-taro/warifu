@@ -403,6 +403,27 @@ export const shouldOfferTo = (peer: string) => invoke<boolean>('should_offer_to'
 export const sendSignal = (step: SignalPayload['step'], blob: string, to?: string) =>
   invoke<void>('send_signal', { payload: { step, blob, to } });
 
+/** 予定 1 つ（`warifu-vault` の `schedule.tsv`）。 */
+export interface AppointmentRow {
+  /** 始まり（Unix 秒）。 */
+  start: number;
+  /** 終わり（Unix 秒）。 */
+  end: number;
+  title: string;
+  note: string;
+}
+
+/** 予定を並べる。**始まりの早い順。** */
+export const scheduleList = () => invoke<AppointmentRow[]>('schedule_list');
+
+/** 予定を足す。**終わりが始まりより後であることは Rust 側でも確かめる。** */
+export const scheduleAdd = (start: number, end: number, title: string, note: string) =>
+  invoke<void>('schedule_add', { start, end, title, note });
+
+/** 予定を消す。**始まりと題で引く**（同じものが 2 つあっても 1 つだけ消す）。 */
+export const scheduleRemove = (start: number, title: string) =>
+  invoke<void>('schedule_remove', { start, title });
+
 /** 出来事を受け取る。Tauri の外では何も起きない（購読解除だけ返す）。 */
 export async function onEvent<T>(name: string, handler: (payload: T) => void): Promise<() => void> {
   if (!inTauri()) return () => {};

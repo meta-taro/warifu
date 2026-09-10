@@ -43,6 +43,15 @@
     type 部屋の会話,
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
+  import {
+    いま進んでいる,
+    これから,
+    終わったもの,
+    時刻にする,
+    日にする,
+    秒にする,
+    長さの分,
+  } from '$lib/schedule/schedule';
   import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
   import { 呼び名 } from '$lib/meeting/names';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
@@ -81,6 +90,9 @@
     EVENT_LINK,
     EVENT_CHECK_UPDATE,
     roomLink,
+    scheduleAdd,
+    scheduleList,
+    scheduleRemove,
     roomQr,
     EVENT_PROFILES,
     EVENT_CLAIMED,
@@ -862,6 +874,14 @@
     return () => clearInterval(札);
   });
 
+  // **予定を読み込み、1 分ごとに時計を進める。**
+  // 「いま進んでいます」は、時計が止まっていると出ない
+  $effect(() => {
+    void 予定を読む();
+    const 札 = setInterval(() => (いま秒 = Math.floor(Date.now() / 1000)), 60_000);
+    return () => clearInterval(札);
+  });
+
   // 窓を閉じるときに「抜けます」と告げる（相手の名簿から消えるように）。
   // **閉じる側を待たせない** — 届かなくても閉じる
   $effect(() => {
@@ -1188,6 +1208,91 @@
     await ビデオ会議を始める();
   }
 
+  /**
+   * 予定（**割符の中に持つ**・オーナー判断 2026-09-07）。
+   *
+   * **外のカレンダー API とは繋がない。**置き場所は `schedule.tsv`（0600）。
+   */
+  let 予定たち = $state<{ start: number; end: number; title: string; note: string }[]>([]);
+  /** いまの時刻（秒）。**1 分ごとに進める** —— 「いま進んでいます」を出すため。 */
+  let いま秒 = $state(Math.floor(Date.now() / 1000));
+  /**
+   * 書きかけの予定。
+   *
+   * **日と始まりは、はじめから入れておく**（オーナー・2026-09-10 の実測で
+   * 空欄のまま押して断られた）。人が毎回打つものではない ——
+   * 既定は**今日**と、**次の 30 分の区切り**。
+   */
+  let 予定の下書き = $state({
+    日: 日にする(Math.floor(Date.now() / 1000)),
+    始まり: 次の区切り(),
+    分: 60,
+    題: '',
+    覚え書き: '',
+  });
+
+  /** 次の 30 分の区切り（`HH:MM`）。 */
+  function 次の区切り(): string {
+    const いま = new Date();
+    const 分 = いま.getMinutes();
+    いま.setMinutes(分 < 30 ? 30 : 60, 0, 0);
+    return 時刻にする(Math.floor(いま.getTime() / 1000));
+  }
+  /** 消す前に確かめている予定。 */
+  let 消す予定 = $state<{ start: number; title: string } | null>(null);
+
+  const これからの予定 = $derived(これから(予定たち, いま秒));
+  const 終わった予定 = $derived(終わったもの(予定たち, いま秒));
+
+  async function 予定を読む() {
+    try {
+      // Tauri の外では `null` が返る（`invoke` の作り）。**空として扱う**
+      予定たち = (await scheduleList()) ?? [];
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  /**
+   * 予定を置く。
+   *
+   * **読めない日時は置かない**（`秒にする` が `null` を返す）——
+   * 0 にすると 1970 年の予定が入る。
+   */
+  async function 予定を置く() {
+    notice = '';
+    const 始まり = 秒にする(予定の下書き.日, 予定の下書き.始まり);
+    if (始まり === null || !予定の下書き.題.trim()) {
+      notice = t('schedule.bad');
+      return;
+    }
+    const 分 = Math.max(1, Math.min(60 * 24, Math.round(予定の下書き.分)));
+    try {
+      await scheduleAdd(始まり, 始まり + 分 * 60, 予定の下書き.題, 予定の下書き.覚え書き);
+      // **次に書くときも空にしない。**日はそのまま、始まりは置いた予定の終わりへ
+      予定の下書き = {
+        日: 予定の下書き.日,
+        始まり: 時刻にする(始まり + 分 * 60),
+        分: 分,
+        題: '',
+        覚え書き: '',
+      };
+      await 予定を読む();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  async function 予定を消す(start: number, title: string) {
+    notice = '';
+    try {
+      await scheduleRemove(start, title);
+      await 予定を読む();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   /** いま渡そうとしている 1 本（幕に出す）。**渡し終わっても消さない。** */
   let 渡す一本 = $state<出した鍵 | null>(null);
 
@@ -1367,7 +1472,9 @@
   /** いま顔を差し替えられる相手（`me` か `desk:◯◯`）。**選んでいなければ `null`。** */
   /** **Esc で渡す幕を閉じる。**ほかの幕と同じ振る舞いにする（DESIGN §10-A） */
   function 幕を閉じる(e: KeyboardEvent) {
-    if (e.key === 'Escape') 渡す一本 = null;
+    if (e.key !== 'Escape') return;
+    渡す一本 = null;
+    消す予定 = null;
   }
 
   const 顔を差し替えられる先 = $derived.by(() => {
@@ -2065,13 +2172,216 @@
     <div class="pane schedule" role="tabpanel">
       <div class="card">
         <h2><Icon name="calendar" size={18} />{t('schedule.title')}</h2>
-        <p class="hint">{t('schedule.none')}</p>
+        <!-- **これは自分の予定表である。**相手へ渡るのは空いている枠だけ -->
+        <p class="hint">{t('schedule.mine')}</p>
+
+        {#if これからの予定.length === 0}
+          <p class="hint">{t('schedule.empty')}</p>
+        {:else}
+          <ul class="plans">
+            {#each これからの予定 as 一つ (一つ.start + 一つ.title)}
+              <li class:now={いま進んでいる(一つ, いま秒)}>
+                <span class="when">
+                  {日にする(一つ.start)}
+                  <b>{時刻にする(一つ.start)}</b>
+                  <span class="len">{長さの分(一つ)} 分</span>
+                </span>
+                <span class="what">
+                  {一つ.title}
+                  {#if いま進んでいる(一つ, いま秒)}
+                    <span class="tag">{t('schedule.now')}</span>
+                  {/if}
+                </span>
+                {#if 一つ.note}<span class="memo">{一つ.note}</span>{/if}
+                <button
+                  type="button"
+                  class="quiet"
+                  onclick={() => (消す予定 = { start: 一つ.start, title: 一つ.title })}
+                >
+                  {t('schedule.remove')}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </div>
+
+      <div class="card">
+        <h2><Icon name="pencil" size={18} />{t('schedule.add')}</h2>
+        <div class="plan-form">
+          <label>
+            {t('schedule.date')}
+            <!-- **手打ちさせない。**形の間違いが起きない口を使う -->
+            <input type="date" bind:value={予定の下書き.日} />
+          </label>
+          <label>
+            {t('schedule.time')}
+            <input type="time" bind:value={予定の下書き.始まり} />
+          </label>
+          <label>
+            {t('schedule.minutes')}
+            <input type="number" min="1" max="1440" bind:value={予定の下書き.分} />
+          </label>
+        </div>
+        <label class="wide">
+          {t('schedule.what')}
+          <input type="text" bind:value={予定の下書き.題} />
+        </label>
+        <label class="wide">
+          {t('schedule.note')}
+          <input type="text" bind:value={予定の下書き.覚え書き} />
+        </label>
+        <button type="button" onclick={() => void 予定を置く()}>
+          <Icon name="calendar" />{t('schedule.save')}
+        </button>
+      </div>
+
+      {#if 終わった予定.length > 0}
+        <div class="card">
+          <h2><Icon name="book" size={18} />{t('schedule.past')}</h2>
+          <ul class="plans past">
+            {#each 終わった予定 as 一つ (一つ.start + 一つ.title)}
+              <li>
+                <span class="when">{日にする(一つ.start)} <b>{時刻にする(一つ.start)}</b></span>
+                <span class="what">{一つ.title}</span>
+                <button
+                  type="button"
+                  class="quiet"
+                  onclick={() => (消す予定 = { start: 一つ.start, title: 一つ.title })}
+                >
+                  {t('schedule.remove')}
+                </button>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
     </div>
+
+    <!-- **消す前に確かめる。**覚え書きも一緒に消える -->
+    {#if 消す予定}
+      <div class="幕" role="dialog" aria-modal="true" aria-label={t('schedule.remove.confirm')}>
+        <div class="箱">
+          <p class="what">{t('schedule.remove.confirm')}</p>
+          <p class="hint">{t('schedule.remove.hint')}</p>
+          <div class="tail">
+            <button
+              type="button"
+              onclick={() => {
+                if (消す予定) void 予定を消す(消す予定.start, 消す予定.title);
+                消す予定 = null;
+              }}
+            >
+              {t('schedule.remove')}
+            </button>
+            <button type="button" class="quiet" onclick={() => (消す予定 = null)}>
+              {t('profile.cancel')}
+            </button>
+          </div>
+        </div>
+      </div>
+    {/if}
   {/if}
 </main>
 
 <style>
+  /* ── 予定 ────────────────────────────────────────────────
+     **時刻は等幅で縦に揃える**（桁が動くと読み違える） */
+  .pane.schedule {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .pane.schedule > :global(.card) {
+    width: 100%;
+    max-width: 720px;
+    flex: none;
+  }
+  .plans {
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .plans li {
+    display: grid;
+    grid-template-columns: 190px 1fr auto;
+    align-items: baseline;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--bg-elevated);
+  }
+  /* **いま進んでいる予定は、地で示す**（色だけで言わず、札も付ける） */
+  .plans li.now {
+    background: var(--accent-subtle);
+  }
+  .plans .when {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .plans .when b {
+    margin: 0 4px;
+    font-size: var(--text-md-size);
+    color: var(--text-primary);
+  }
+  .plans .len {
+    color: var(--text-tertiary);
+  }
+  .plans .what {
+    min-width: 0;
+    font-weight: 600;
+  }
+  .plans .tag {
+    margin-left: 6px;
+    padding: 1px 8px;
+    font-size: var(--text-2xs-size);
+    font-weight: 400;
+    color: var(--accent);
+    background: var(--bg-app);
+    border-radius: var(--radius-full);
+  }
+  .plans .memo {
+    grid-column: 2;
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+  }
+  .plans.past li {
+    color: var(--text-secondary);
+  }
+  .plan-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+  }
+  .plan-form label,
+  label.wide {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+  }
+  label.wide {
+    margin-top: var(--space-3);
+  }
+  /* 狭いときは、日時と題を縦に積む */
+  @media (max-width: 720px) {
+    .plans li {
+      grid-template-columns: 1fr auto;
+    }
+    .plans .memo {
+      grid-column: 1;
+    }
+  }
+
   /* **誰に渡したか**の札。番号のすぐ隣に置く（D84） */
   .one-key .for {
     margin-left: 8px;

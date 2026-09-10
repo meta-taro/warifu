@@ -1367,55 +1367,11 @@
     transform: scale(1.06);
   }
 
-  .幕 {
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    display: grid;
-    place-items: center;
-    padding: var(--space-5);
-    background: color-mix(in oklab, #14100c 62%, transparent);
-    backdrop-filter: blur(3px);
-  }
-  .大きい顔 {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-6) var(--space-6) var(--space-5);
-    border-radius: 20px;
-    background: var(--bg-elevated);
-    box-shadow: var(--shadow-lg);
-    cursor: default;
-  }
-  .大きい顔 .who {
-    margin: 0;
-    font-size: var(--text-md-size);
-    font-weight: 600;
-    letter-spacing: var(--tracking-tight);
-    color: var(--text-primary);
-  }
-  .箱 .quiet {
-    color: var(--text-secondary);
-  }
-
-  .箱 {
-    width: 320px;
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    padding: var(--space-5);
-    border-radius: var(--radius-lg);
-    background: var(--bg-elevated);
-    box-shadow: var(--shadow-lg);
-  }
-  .箱 .what {
-    margin: 0;
-    font-size: var(--text-md-size);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
+  /*
+    **幕・箱・大きい顔の見た目は `lib/styles/overlay.css` に置いた。**
+    Svelte の `<style>` はその部品の中だけに当たるので、
+    ここに書くと `+page.svelte` の幕が素のままになる（2026-09-10 に実物で出た）。
+  */
   /* つなぎ方。**叩く行は等幅で、そのまま写せる形に置く** */
   .つなぎ方 {
     width: 560px;

@@ -109,7 +109,7 @@ help.this.off	Grey dot — an agent that connected before and whose profile rema
 help.this.on	Green dot (bottom right of the face) — an agent attached to this computer right now. What you type reaches it.	緑の丸（顔の右下）—— いまこの PC の口に着いているエージェントです。打てば届きます。	绿色圆点（头像右下角）—— 现在正连在这台电脑上的智能体。你打的内容会送到。	초록 동그라미(얼굴 오른쪽 아래) —— 지금 이 PC에 붙어 있는 에이전트입니다. 입력하면 도착합니다.				
 help.this.others	No dot is shown for “People remembered” below. Whether they are running cannot be known from here.	下の「連絡先」には丸を出しません。相手が起動しているかは、こちらから分からないためです。	下面的「记住的对象」不显示圆点。因为从这里无法知道对方是否在运行。	아래 “기억하고 있는 상대”에는 동그라미를 표시하지 않습니다. 상대가 켜져 있는지는 여기서 알 수 없기 때문입니다.				
 help.this.title	Rows under “This computer”	この PC の行	「这台电脑」里的行	“이 PC”의 행				
-home.calendar	There is no way yet to read a calendar.	予定表を読む口が、まだ 1 本もありません。	还没有任何读取日程表的入口。	일정표를 읽는 창구가 아직 하나도 없습니다.				
+home.calendar	You can write and keep your own appointments. You cannot see theirs (only free slots are ever handed over).	自分の予定を書いて置けます。相手の予定は見えません（渡るのは空いている枠だけです）。	可以写下并保存自己的日程。看不到对方的日程（交给对方的只有空闲时段）。	내 일정을 써서 둘 수 있습니다. 상대의 일정은 볼 수 없습니다(넘어가는 것은 빈 시간뿐입니다).				
 home.call	On the same network it connects. A different network needs --relay, and we have not once seen that connect.	同じ網なら繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.				
 home.chat	Pick someone and the conversation is with that person only.	相手を選ぶと、その人とだけの会話になります。	选择一位对象，就变成只和那个人的会话。	상대를 고르면 그 사람과만 하는 대화가 됩니다.				
 home.contacts	Contacts	連絡先	联系人	연락처				
@@ -221,8 +221,23 @@ roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capac
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
 roster.name.save	Save	決める	保存	저장				
+schedule.add	Write an appointment	予定を書く	写一个日程	일정 쓰기				
+schedule.bad	Write the date and time in this shape (date 2026-09-11, start 9:30).	日と時刻を、この形で書いてください（日は 2026-09-11、始まりは 9:30）。	请按这个格式写日期和时间（日期 2026-09-11，开始 9:30）。	날짜와 시각을 이 형식으로 써 주세요(날짜 2026-09-11, 시작 9:30).				
+schedule.date	Date	日	日期	날짜				
+schedule.empty	No appointments yet. Write one below and press Save to see it here.	まだ予定はありません。下に書いて［置く］を押すと、ここに並びます。	还没有日程。在下面写好后按保存，就会显示在这里。	아직 일정이 없습니다. 아래에 쓰고 저장을 누르면 여기에 나옵니다.				
+schedule.mine	What you put here stays on this machine. It is not handed to anyone (only free slots are).	ここに置いた予定は、この機械の中だけにあります。相手には渡りません（相手に渡るのは、空いている枠だけです）。	放在这里的日程只留在这台机器上，不会交给对方（交给对方的只有空闲时段）。	여기에 둔 일정은 이 기기 안에만 있습니다. 상대에게 넘어가지 않습니다(넘어가는 것은 빈 시간뿐입니다).				
+schedule.minutes	Length (min)	長さ（分）	时长（分钟）	길이(분)				
 schedule.none	The schedule pane does not work yet. There is no way for the window to read a calendar.	予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。	日程还不能用。画面还没有读取日程表的口。	일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.				
+schedule.note	Note (yours only)	覚え書き（自分だけ）	备注（只有你能看）	메모(나만 봄)				
+schedule.now	Happening now	いま進んでいます	正在进行	진행 중				
+schedule.past	Past appointments	終わった予定	已结束的日程	끝난 일정				
+schedule.remove	Delete	消す	删除	삭제				
+schedule.remove.confirm	Delete this appointment?	この予定を消しますか？	要删除这个日程吗？	이 일정을 삭제할까요?				
+schedule.remove.hint	It cannot be brought back. The note goes with it.	消すと戻せません。覚え書きも一緒に消えます。	删除后无法恢复。备注也会一起删除。	삭제하면 되돌릴 수 없습니다. 메모도 함께 지워집니다.				
+schedule.save	Save	置く	保存	저장				
+schedule.time	Start	始まり	开始	시작				
 schedule.title	Schedule	予定	日程	일정				
+schedule.what	What it is	何の予定か	是什么日程	무슨 일정인지				
 send.absent	Not here right now. Set up a mailbox and messages will reach them later.	いま届きません。留守中の受け取りを設定すると、留守でも届きます。	对方现在不在。设置寄存处后，离线期间也能送达。	지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.	★	**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態なので、打った言葉はどこにも残っていない。「預かり所を置くと」は条件であって、約束ではない。		
 setup.action	Check camera and microphone	カメラとマイクを確かめる	检查摄像头和麦克风	카메라와 마이크 확인				
 setup.blur	Blur my background	背景をぼかす	虚化背景	배경 흐리게				

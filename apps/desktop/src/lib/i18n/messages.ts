@@ -227,6 +227,21 @@ export type MessageKey =
   | 'act.desk.stop.hint'
   | 'schedule.title'
   | 'schedule.none'
+  | 'schedule.add'
+  | 'schedule.date'
+  | 'schedule.time'
+  | 'schedule.minutes'
+  | 'schedule.what'
+  | 'schedule.note'
+  | 'schedule.save'
+  | 'schedule.empty'
+  | 'schedule.past'
+  | 'schedule.now'
+  | 'schedule.remove'
+  | 'schedule.remove.confirm'
+  | 'schedule.remove.hint'
+  | 'schedule.mine'
+  | 'schedule.bad'
   | 'chat.placeholder.nobody'
   | 'call.mic'
   | 'call.camera'
@@ -408,7 +423,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.chat': '相手を選ぶと、その人とだけの会話になります。',
     'home.group': 'ルームを作って、人数ぶんの鍵を渡します。1 本につき 1 人です。',
     'home.call': '同じ網なら繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。',
-    'home.calendar': '予定表を読む口が、まだ 1 本もありません。',
+    'home.calendar': '自分の予定を書いて置けます。相手の予定は見えません（渡るのは空いている枠だけです）。',
     'home.next': 'はじめの一歩',
     'home.next.hint': 'まだ誰もつながっていません。左の「この PC」のあなたの行を押すと、鍵の渡し方が出ます。',
     'contacts.key.label': '公開鍵',
@@ -517,6 +532,21 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.desk.stop.hint': '「止まれ」と伝えます。相手を殺すのではなく、受けた側が自分で降ります。もう一度動かすには、そちらで立ち上げ直してください。',
     'schedule.title': '予定',
     'schedule.none': '予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。',
+    'schedule.add': '予定を書く',
+    'schedule.date': '日',
+    'schedule.time': '始まり',
+    'schedule.minutes': '長さ（分）',
+    'schedule.what': '何の予定か',
+    'schedule.note': '覚え書き（自分だけ）',
+    'schedule.save': '置く',
+    'schedule.empty': 'まだ予定はありません。下に書いて［置く］を押すと、ここに並びます。',
+    'schedule.past': '終わった予定',
+    'schedule.now': 'いま進んでいます',
+    'schedule.remove': '消す',
+    'schedule.remove.confirm': 'この予定を消しますか？',
+    'schedule.remove.hint': '消すと戻せません。覚え書きも一緒に消えます。',
+    'schedule.mine': 'ここに置いた予定は、この機械の中だけにあります。相手には渡りません（相手に渡るのは、空いている枠だけです）。',
+    'schedule.bad': '日と時刻を、この形で書いてください（日は 2026-09-11、始まりは 9:30）。',
     'chat.placeholder.nobody': '入ってきたら送れます',
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
@@ -670,7 +700,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.chat': 'Pick someone and the conversation is with that person only.',
     'home.group': 'Create a room and hand out one key per person. One key, one person.',
     'home.call': 'On the same network it connects. A different network needs --relay, and we have not once seen that connect.',
-    'home.calendar': 'There is no way yet to read a calendar.',
+    'home.calendar': 'You can write and keep your own appointments. You cannot see theirs (only free slots are ever handed over).',
     'home.next': 'First step',
     'home.next.hint': 'Nobody here yet. Press your own row under “This computer” on the left to see how to hand over a key.',
     'contacts.key.label': 'Public key',
@@ -779,6 +809,21 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.desk.stop.hint': 'It is told to stop. Nothing is killed — the other side steps down on its own. To run it again, start it there.',
     'schedule.title': 'Schedule',
     'schedule.none': 'The schedule pane does not work yet. There is no way for the window to read a calendar.',
+    'schedule.add': 'Write an appointment',
+    'schedule.date': 'Date',
+    'schedule.time': 'Start',
+    'schedule.minutes': 'Length (min)',
+    'schedule.what': 'What it is',
+    'schedule.note': 'Note (yours only)',
+    'schedule.save': 'Save',
+    'schedule.empty': 'No appointments yet. Write one below and press Save to see it here.',
+    'schedule.past': 'Past appointments',
+    'schedule.now': 'Happening now',
+    'schedule.remove': 'Delete',
+    'schedule.remove.confirm': 'Delete this appointment?',
+    'schedule.remove.hint': 'It cannot be brought back. The note goes with it.',
+    'schedule.mine': 'What you put here stays on this machine. It is not handed to anyone (only free slots are).',
+    'schedule.bad': 'Write the date and time in this shape (date 2026-09-11, start 9:30).',
     'chat.placeholder.nobody': 'You can send once someone joins',
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
@@ -932,7 +977,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.chat': '选择一位对象，就变成只和那个人的会话。',
     'home.group': '建一个 room，按人数发钥匙。一把钥匙一个人。',
     'home.call': '同一个网络里可以连上。不同网络需要 --relay，但我们还没有见过它真的连上过。',
-    'home.calendar': '还没有任何读取日程表的入口。',
+    'home.calendar': '可以写下并保存自己的日程。看不到对方的日程（交给对方的只有空闲时段）。',
     'home.next': '第一步',
     'home.next.hint': '还没有任何人。按左边「这台电脑」里你自己的那一行，就会显示钥匙的交付方法。',
     'contacts.key.label': '公钥',
@@ -1041,6 +1086,21 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.desk.stop.hint': '会传达「停下」。不是杀掉对方，而是收到的一方自己退出。要再次运行，请在那边重新启动。',
     'schedule.title': '日程',
     'schedule.none': '日程还不能用。画面还没有读取日程表的口。',
+    'schedule.add': '写一个日程',
+    'schedule.date': '日期',
+    'schedule.time': '开始',
+    'schedule.minutes': '时长（分钟）',
+    'schedule.what': '是什么日程',
+    'schedule.note': '备注（只有你能看）',
+    'schedule.save': '保存',
+    'schedule.empty': '还没有日程。在下面写好后按保存，就会显示在这里。',
+    'schedule.past': '已结束的日程',
+    'schedule.now': '正在进行',
+    'schedule.remove': '删除',
+    'schedule.remove.confirm': '要删除这个日程吗？',
+    'schedule.remove.hint': '删除后无法恢复。备注也会一起删除。',
+    'schedule.mine': '放在这里的日程只留在这台机器上，不会交给对方（交给对方的只有空闲时段）。',
+    'schedule.bad': '请按这个格式写日期和时间（日期 2026-09-11，开始 9:30）。',
     'chat.placeholder.nobody': '有人进入后即可发送',
     'call.mic': '麦克风',
     'call.camera': '摄像头',
@@ -1194,7 +1254,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.chat': '상대를 고르면 그 사람과만 하는 대화가 됩니다.',
     'home.group': '룸을 만들어 인원 수만큼 키를 나눕니다. 키 하나에 한 사람입니다.',
     'home.call': '같은 망이면 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.',
-    'home.calendar': '일정표를 읽는 창구가 아직 하나도 없습니다.',
+    'home.calendar': '내 일정을 써서 둘 수 있습니다. 상대의 일정은 볼 수 없습니다(넘어가는 것은 빈 시간뿐입니다).',
     'home.next': '첫걸음',
     'home.next.hint': '아직 아무도 없습니다. 왼쪽 “이 PC”의 내 행을 누르면 키를 건네는 방법이 나옵니다.',
     'contacts.key.label': '공개키',
@@ -1303,6 +1363,21 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.desk.stop.hint': '「멈추라」고 전합니다. 상대를 죽이는 것이 아니라, 받은 쪽이 스스로 내려옵니다. 다시 움직이려면 그쪽에서 다시 시작해 주세요.',
     'schedule.title': '일정',
     'schedule.none': '일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.',
+    'schedule.add': '일정 쓰기',
+    'schedule.date': '날짜',
+    'schedule.time': '시작',
+    'schedule.minutes': '길이(분)',
+    'schedule.what': '무슨 일정인지',
+    'schedule.note': '메모(나만 봄)',
+    'schedule.save': '저장',
+    'schedule.empty': '아직 일정이 없습니다. 아래에 쓰고 저장을 누르면 여기에 나옵니다.',
+    'schedule.past': '끝난 일정',
+    'schedule.now': '진행 중',
+    'schedule.remove': '삭제',
+    'schedule.remove.confirm': '이 일정을 삭제할까요?',
+    'schedule.remove.hint': '삭제하면 되돌릴 수 없습니다. 메모도 함께 지워집니다.',
+    'schedule.mine': '여기에 둔 일정은 이 기기 안에만 있습니다. 상대에게 넘어가지 않습니다(넘어가는 것은 빈 시간뿐입니다).',
+    'schedule.bad': '날짜와 시각을 이 형식으로 써 주세요(날짜 2026-09-11, 시작 9:30).',
     'chat.placeholder.nobody': '누군가 들어오면 보낼 수 있습니다',
     'call.mic': '마이크',
     'call.camera': '카메라',
