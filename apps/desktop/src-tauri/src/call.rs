@@ -78,9 +78,9 @@ pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answ
     );
 
     let events = {
-        crate::部屋を足す(
+        crate::ルームを足す(
             &bridge.conferences,
-            &bridge.いまの部屋,
+            &bridge.いまのルーム,
             Conference::joined(bridge.device.public_key(), meeting, roster),
         )
         .await;
@@ -145,10 +145,10 @@ async fn 招待を待つ(channel: &mut Channel) -> Answer<(warifu_meeting::Meeti
 /// `Notice::Invite` は型も試験も前からあったのに、**誰も送っていなかった。**
 /// 割符つきで来た相手には送らない —— そちらは会議キーに id が入っている。
 pub fn 招く(
-    conferences: &crate::部屋たち, いまの部屋: &crate::見ている部屋
+    conferences: &crate::ルームたち, いまのルーム: &crate::見ているルーム
 ) -> Option<Notice> {
-    // **いま見ている部屋へ招く。**部屋を複数持つので、どこへ招くかを決める必要がある
-    let id = (*いまの部屋.try_lock().ok()?)?;
+    // **いま見ているルームへ招く。**ルームを複数持つので、どこへ招くかを決める必要がある
+    let id = (*いまのルーム.try_lock().ok()?)?;
     let 棚 = conferences.try_lock().ok()?;
     let c = 棚.get(&id)?;
     let mut roster = Roster::with_capacity(c.me(), c.capacity()).ok()?;

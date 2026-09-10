@@ -5,7 +5,7 @@
 //! その口を走らせる経路が 1 本も無かった（2026-09-07 に気づいた）。
 //!
 //! ```text
-//!   Claude Code など ── stdio ── warifu mcp ── 机 ── 割符の画面（人）
+//!   Claude Code など ── stdio ── warifu mcp ── この機械 ── 割符の画面（人）
 //!                                   ↑ 関所
 //! ```
 //!
@@ -21,7 +21,7 @@ use warifu_read::RuleStore;
 
 /// 札の効き目（秒）。**24 時間。**
 ///
-/// 短くすると、離席のたびに人が出し直すことになる（D54 と同じ理由）。
+/// 短くすると、離エージェントのたびに人が出し直すことになる（D54 と同じ理由）。
 const 札の効き目: u64 = 60 * 60 * 24;
 
 /// `--allow` に書ける動作。**知らない名前は、黙って無視せず断る。**
@@ -30,7 +30,7 @@ const 札の効き目: u64 = 60 * 60 * 24;
 const 許せる動作: &[&str] = &[
     "chat.send",
     "chat.read",
-    // **自分の席のプロフィールだけ**を書ける（**D75**）。名乗り（どこで動いているか）は変えられない
+    // **自分のエージェントのプロフィールだけ**を書ける（**D75**）。名乗り（どこで動いているか）は変えられない
     "profile.write",
     "inbox.list",
     "inbox.open.summary",
@@ -45,11 +45,11 @@ const 許せる動作: &[&str] = &[
 pub struct 設定 {
     /// 人が許した動作。
     pub 許す: Vec<String>,
-    /// 机の場所。既定は [`warifu_desk::机の場所`]。
-    pub 机: PathBuf,
+    /// この機械の場所。既定は [`warifu_desk::この機械の場所`]。
+    pub この機械: PathBuf,
     /// **どこで動いているか。**既定は起動した場所のフォルダ名。
     ///
-    /// 1 台の PC で複数のエージェントが同じ机に着くので、
+    /// 1 台の PC で複数のエージェントが同じこの機械につながるので、
     /// 名乗らないと**どれが喋ったのか人に分からない**（2026-09-08）。
     pub 名乗り: Option<String>,
 }
@@ -80,7 +80,7 @@ pub fn 名乗りを検める(名: &str) -> Result<String, String> {
 /// 起動した場所のフォルダ名。
 ///
 /// **人が書かなくても、どこで動いているかは分かる。**
-/// 取れなければ名乗らない（机が既定の呼び方をする）。
+/// 取れなければ名乗らない（この機械が既定の呼び方をする）。
 pub fn 居場所から名乗る() -> Option<String> {
     let 名 = std::env::current_dir()
         .ok()?
@@ -98,7 +98,7 @@ pub fn 居場所から名乗る() -> Option<String> {
 pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String> {
     let mut 設 = 設定 {
         許す: Vec::new(),
-        机: warifu_desk::机の場所(),
+        この機械: warifu_desk::この機械の場所(),
         名乗り: 居場所から名乗る(),
     };
     while let Some(一つ) = args.next() {
@@ -114,7 +114,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                 設.許す.push(動作);
             }
             "--desk" => {
-                設.机 = PathBuf::from(args.next().ok_or("--desk のあとに場所がありません")?);
+                設.この機械 = PathBuf::from(args.next().ok_or("--desk のあとに場所がありません")?);
             }
             "--as" => {
                 let 名 = args.next().ok_or("--as のあとに名前がありません")?;
@@ -141,21 +141,22 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
 
     // 受信箱と規則はまだ空。**空であることを、繋がっていることと混ぜない**
     // （`issues/011` が決まるまで、inbox_* は「無い」を返す）
-    let mut 口 = Warifu::new(Vec::new(), RuleStore::new(), 関所, 今).机を覚える(&設.机);
+    let mut 口 =
+        Warifu::new(Vec::new(), RuleStore::new(), 関所, 今).この機械を覚える(&設.この機械);
     if let Some(名) = &設.名乗り {
         口 = 口.名乗る(名);
     }
 
     // **標準出力は MCP のもの。**言いたいことは標準エラーへ出す
     eprintln!(
-        "warifu mcp: 名乗り {}／許した動作 {}／机 {}",
+        "warifu mcp: 名乗り {}／許した動作 {}／この機械 {}",
         設.名乗り.as_deref().unwrap_or("（名乗らない）"),
         if 設.許す.is_empty() {
             "（なし。--allow を書かないと何も通りません）".to_owned()
         } else {
             設.許す.join(" ")
         },
-        設.机.display()
+        設.この機械.display()
     );
 
     let 務め = 口.serve(rmcp::transport::stdio()).await?;

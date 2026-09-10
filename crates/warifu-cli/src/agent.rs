@@ -1,4 +1,4 @@
-//! `warifu agent` —— **机に着いて待ち、届いたら動く常駐。**
+//! `warifu agent` —— **この機械につながって待ち、届いたら動く常駐。**
 //!
 //! `chat_wait`（**D65**）で、エージェントは**自分の手番の中では**待てるようになった。
 //! だが**手番の外では動かない。**呼ばれていないエージェントは、そもそも待ちに行かない。
@@ -30,11 +30,11 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use tokio::io::AsyncWriteExt as _;
-use warifu_desk::{FromDesk, ToDesk, 口, 机の場所, 繋ぐ};
+use warifu_desk::{FromDesk, ToDesk, この機械の場所, 口, 繋ぐ};
 
 /// 起こした命令を待つ長さ（秒）。
 ///
-/// **終わらない命令に机を塞がせない。**
+/// **終わらない命令にこの機械を塞がせない。**
 const 命令を待つ秒: u64 = 300;
 
 /// 窓のあいだに動いてよい回数。
@@ -73,8 +73,8 @@ impl 回数 {
 
 /// `warifu agent` の設定。
 pub struct 設定 {
-    /// 机の場所。
-    pub 机: PathBuf,
+    /// この機械の場所。
+    pub この機械: PathBuf,
     /// どこで動いているか（名乗り）。
     pub 名乗り: Option<String>,
     /// 届いたときに起こす命令。**人が書く。**
@@ -84,14 +84,14 @@ pub struct 設定 {
 /// 引数を読む。
 pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String> {
     let mut 設 = 設定 {
-        机: 机の場所(),
+        この機械: この機械の場所(),
         名乗り: crate::mcp::居場所から名乗る(),
         命令: None,
     };
     while let Some(一つ) = args.next() {
         match 一つ.as_str() {
             "--desk" => {
-                設.机 = PathBuf::from(args.next().ok_or("--desk のあとに場所がありません")?)
+                設.この機械 = PathBuf::from(args.next().ok_or("--desk のあとに場所がありません")?)
             }
             "--as" => {
                 let 名 = args.next().ok_or("--as のあとに名前がありません")?;
@@ -112,12 +112,11 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
     Ok(設)
 }
 
-/// 机に着いて待つ。**閉じるまで戻らない。**
+/// この機械に着いて待つ。**閉じるまで戻らない。**
 pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
-    let mut 口 =
-        口::新しく(繋ぐ(&設.机).await.map_err(|e| {
-            format!("机が開いていません（この PC で割符の画面を開いてください）: {e}")
-        })?);
+    let mut 口 = 口::新しく(繋ぐ(&設.この機械).await.map_err(|e| {
+        format!("この機械が開いていません（この PC で割符の画面を開いてください）: {e}")
+    })?);
     口.送る(
         &ToDesk::Listen {
             場所: 設.名乗り.clone(),
@@ -127,9 +126,9 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     .await?;
 
     eprintln!(
-        "warifu agent: 名乗り {}／机 {}／届いたら {}",
+        "warifu agent: 名乗り {}／この機械 {}／届いたら {}",
         設.名乗り.as_deref().unwrap_or("（名乗らない）"),
-        設.机.display(),
+        設.この機械.display(),
         設.命令.as_ref().map_or_else(
             || "（何もしない。記録するだけ）".to_owned(),
             |c| c.join(" ")
@@ -161,7 +160,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // **自分が言ったことで動かない。**返した文字がまた自分へ返ると、
-        // 止まらなくなる（机は言った本人に返さないが、**別の席の自分**は別物である）
+        // 止まらなくなる（この機械は言った本人に返さないが、**別のエージェントの自分**は別物である）
         if 設
             .名乗り
             .as_deref()

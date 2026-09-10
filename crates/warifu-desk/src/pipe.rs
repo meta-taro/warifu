@@ -1,4 +1,4 @@
-//! 机の口の開け方。**OS ごとに違うのは、ここだけに閉じ込める。**
+//! この機械の口の開け方。**OS ごとに違うのは、ここだけに閉じ込める。**
 //!
 //! - Unix — ドメインソケット。**所有者だけが読み書きできる（0600）**
 //! - Windows — 名前付きパイプ
@@ -10,7 +10,7 @@ use std::path::Path;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-/// 机に繋がった 1 本。
+/// この機械に繋がった 1 本。
 pub trait 一本: AsyncRead + AsyncWrite + Unpin + Send + 'static {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send + 'static> 一本 for T {}
 
@@ -26,17 +26,17 @@ mod 中身 {
         /// 口を開く。**先に古い口を片付ける。**
         ///
         /// 落ちたあとのソケットが残っていると bind できない。
-        /// 残骸を理由に机が開かないのは、直しようが無い形で止まる。
+        /// 残骸を理由にこの機械が開かないのは、直しようが無い形で止まる。
         pub async fn 開く(場所: &Path) -> io::Result<Self> {
             if let Some(親) = 場所.parent() {
                 std::fs::create_dir_all(親)?;
             }
-            // **繋がるなら消さない。**もう 1 つ動いている机を横取りしない
+            // **繋がるなら消さない。**もう 1 つ動いているこの機械を横取りしない
             if 場所.exists() {
                 if UnixStream::connect(場所).await.is_ok() {
                     return Err(io::Error::new(
                         io::ErrorKind::AddrInUse,
-                        "机はもう開いています",
+                        "この機械はもう開いています",
                     ));
                 }
                 std::fs::remove_file(場所)?;
@@ -65,7 +65,7 @@ mod 中身 {
         std::fs::set_permissions(場所, std::fs::Permissions::from_mode(0o600))
     }
 
-    /// 机へ繋ぐ。
+    /// この機械へ繋ぐ。
     pub async fn 繋ぐ(場所: &Path) -> io::Result<UnixStream> {
         UnixStream::connect(場所).await
     }
@@ -97,10 +97,9 @@ mod 中身 {
 
         /// 1 本受ける。
         pub async fn 受ける(&mut self) -> io::Result<NamedPipeServer> {
-            let 待つ = self
-                .次
-                .take()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "机の口が閉じています"))?;
+            let 待つ = self.次.take().ok_or_else(|| {
+                io::Error::new(io::ErrorKind::BrokenPipe, "この機械の口が閉じています")
+            })?;
             待つ.connect().await?;
             // 次の 1 本を先に用意する。**用意しないと、次の客が繋げない**
             self.次 = Some(ServerOptions::new().create(&self.名)?);
@@ -108,7 +107,7 @@ mod 中身 {
         }
     }
 
-    /// 机へ繋ぐ。
+    /// この機械へ繋ぐ。
     pub async fn 繋ぐ(
         場所: &Path,
     ) -> io::Result<tokio::net::windows::named_pipe::NamedPipeClient> {
@@ -118,7 +117,7 @@ mod 中身 {
 
 pub use 中身::{受け口, 繋ぐ};
 
-/// 机が開いているかを、繋いで確かめる。
+/// この機械が開いているかを、繋いで確かめる。
 ///
 /// **開いていないことと、開いているが応じないことを混ぜない。**
 pub async fn 開いているか(場所: &Path) -> bool {

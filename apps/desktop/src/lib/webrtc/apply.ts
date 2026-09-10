@@ -24,7 +24,7 @@ export type Send = (step: 'offer' | 'answer' | 'candidate', blob: string) => voi
  * 手を 1 つ打つ。
  *
  * 作った素性は **自分に入れてから送る**。順序を逆にすると、
- * 相手の返事が自分の状態より先に着く場合がある。
+ * 相手の返事が自分の状態より先につながる場合がある。
  */
 export async function applyAction(pc: PeerLike, action: Action, send: Send): Promise<void> {
   switch (action.kind) {

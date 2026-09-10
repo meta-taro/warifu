@@ -184,7 +184,7 @@ fn 出している口を_数えて名前で押さえる() {
     // 2026-09-08 に chat_wait を足した —— **読むのと同じものが返る**ので、
     // 札も `chat.read` を使う（待つかどうかの違いでしかない）。
     // 2026-09-08 に profile_set を足した —— **書く口なので別の札**（`profile.write`）。
-    // 書けるのは**自分の席だけ**で、名乗り（どこで動いているか）は変えられない。
+    // 書けるのは**自分のエージェントだけ**で、名乗り（どこで動いているか）は変えられない。
     // 2026-09-08 に chat_status を足した —— **自分が流したものの届き方を見る**だけなので、
     // 札は `chat.read` を使う（新しく読めるものが増えるわけではない）。
     // 2026-09-10 に about / changes を足した —— **札は要らない**（**D82**）。
@@ -320,12 +320,12 @@ fn 求めた長さが窓より長ければ空き枠は出ない() {
     assert!(空き.contains("空いている枠はありません"), "{空き}");
 }
 
-// ── 会話（机） ──
+// ── 会話（この機械） ──
 
 #[tokio::test]
 async fn 札が無ければ_会話へ流せない() {
-    // **机に着く前に断られること。**札の判定が机の有無より後だと、
-    // 机が無いだけで通ったように見える
+    // **この機械につながる前に断られること。**札の判定がこの機械の有無より後だと、
+    // この機械が無いだけで通ったように見える
     let 口 = 用意(&[]);
     let 出た = 口
         .chat_send(rmcp::handler::server::wrapper::Parameters(
@@ -336,7 +336,10 @@ async fn 札が無ければ_会話へ流せない() {
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
     assert!(文.contains("関所"), "{文}");
-    assert!(!文.contains("机"), "札の話に机の話を混ぜない: {文}");
+    assert!(
+        !文.contains("この機械"),
+        "札の話にこの機械の話を混ぜない: {文}"
+    );
     // **何が要るかまで言う**（`issues/4`）。
     // 「断られたことは分かるが、次に何をすればよいか分からない」を無くす
     assert!(文.contains("--allow chat.send"), "要る札を言う: {文}");
@@ -370,12 +373,15 @@ async fn 札が無ければ_プロフィールも書けない() {
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
     assert!(文.contains("関所"), "{文}");
-    assert!(!文.contains("机"), "札の話に机の話を混ぜない: {文}");
+    assert!(
+        !文.contains("この機械"),
+        "札の話にこの機械の話を混ぜない: {文}"
+    );
 }
 
 #[tokio::test]
-async fn 札があっても_机が無ければ流せない() {
-    // **札の問題と、机が開いていない問題を混ぜない。**
+async fn 札があっても_この機械が無ければ流せない() {
+    // **札の問題と、この機械が開いていない問題を混ぜない。**
     // 混ぜると、札を足せば直ると読めてしまう
     let 口 = 用意(&["chat.send"]);
     let 出た = 口
@@ -386,7 +392,7 @@ async fn 札があっても_机が無ければ流せない() {
         ))
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
-    assert!(文.contains("机が開いていません"), "{文}");
+    assert!(文.contains("この機械が開いていません"), "{文}");
 }
 
 #[tokio::test]
@@ -397,20 +403,20 @@ async fn 札が無ければ_会話を読めない() {
 }
 
 #[tokio::test]
-async fn 机に着けば_流した行が机に届く() {
+async fn この機械につなげば_流した行がこの機械に届く() {
     // **ここが「エージェントが喋ると人の画面に出る」の実体。**
     use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-chat-test.sock");
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
-    let 机 = tokio::spawn(async move {
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
+    let この機械 = tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         // 1 本目は「聞く」の挨拶
         let 挨拶 = 行の口.受ける().await.unwrap().unwrap();
         // **どこで動いているかを名乗る**（2026-09-08）。名乗らない形も通る
         assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen { 場所: None });
         let 行 = 行の口.受ける().await.unwrap().unwrap();
-        // **机は必ず返事をする。**返さないと、送った側は待ち続ける（D49）
+        // **この機械は必ず返事をする。**返さないと、送った側は待ち続ける（D49）
         行の口
             .送る(
                 &FromDesk::Sent {
@@ -426,9 +432,9 @@ async fn 机に着けば_流した行が机に届く() {
     });
 
     let 口 = 用意(&["chat.send"])
-        .机に着く(&場所)
+        .この機械につながる(&場所)
         .await
-        .expect("着けること");
+        .expect("つながれること");
     let 返り = 口
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
@@ -440,7 +446,7 @@ async fn 机に着けば_流した行が机に届く() {
     // **何人へ流したかまで返る**（D49）。「流しました」だけでは 0 人と区別が付かない
     assert!(format!("{返り:?}").contains("1 人へ流しました"), "{返り:?}");
 
-    let 届いた = 机.await.unwrap();
+    let 届いた = この機械.await.unwrap();
     assert_eq!(
         届いた,
         ToDesk::Say {
@@ -458,8 +464,8 @@ async fn 画面が後から開いても_会話は使える() {
     let 場所 = std::env::temp_dir().join("warifu-mcp-late-desk.sock");
     let _ = std::fs::remove_file(&場所);
 
-    // まだ机は開いていない
-    let 口 = 用意(&["chat.send"]).机を覚える(&場所);
+    // まだこの機械は開いていない
+    let 口 = 用意(&["chat.send"]).この機械を覚える(&場所);
     let 早すぎた = 口
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
@@ -467,11 +473,11 @@ async fn 画面が後から開いても_会話は使える() {
             },
         ))
         .await;
-    assert!(早すぎた.is_err(), "机が無いのに流れました");
+    assert!(早すぎた.is_err(), "この機械が無いのに流れました");
 
     // ここで人が画面を開いた
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
-    let 机 = tokio::spawn(async move {
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
+    let この機械 = tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
         let 行 = 行の口.受ける().await.unwrap().unwrap();
@@ -498,7 +504,7 @@ async fn 画面が後から開いても_会話は使える() {
     .expect("開いたあとは流せること");
 
     assert_eq!(
-        机.await.unwrap(),
+        この機械.await.unwrap(),
         ToDesk::Say {
             body: "いま繋がりました".to_owned()
         }
@@ -507,13 +513,13 @@ async fn 画面が後から開いても_会話は使える() {
 
 #[tokio::test]
 async fn 誰も居ないとき_流せたことにしない() {
-    // **2026-09-07、実物で再発した。**画面を建てて机に着き、
+    // **2026-09-07、実物で再発した。**画面を建ててこの機械に着き、
     // 会議に人が 1 人も居ない状態で chat_send を叩いたら
     // 「流しました。」と返った。**実際は誰にも届いていない**（D49）
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-nobody.sock");
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
@@ -522,9 +528,9 @@ async fn 誰も居ないとき_流せたことにしない() {
     });
 
     let 口 = 用意(&["chat.send"])
-        .机に着く(&場所)
+        .この機械につながる(&場所)
         .await
-        .expect("着けること");
+        .expect("つながれること");
     let 出た = 口
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
@@ -561,7 +567,7 @@ async fn 待っている間に届いたものを受け取る() {
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-wait.sock");
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
@@ -583,9 +589,9 @@ async fn 待っている間に届いたものを受け取る() {
     });
 
     let 口 = 用意(&["chat.read"])
-        .机に着く(&場所)
+        .この機械につながる(&場所)
         .await
-        .expect("着けること");
+        .expect("つながれること");
     let 返り = 口
         .chat_wait(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::WaitArgs { seconds: Some(5) },
@@ -602,7 +608,7 @@ async fn 何も来なければ_待って戻る() {
     use warifu_desk::{受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-wait-none.sock");
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         let _挨拶 = 行の口.受ける().await.unwrap().unwrap();
@@ -610,9 +616,9 @@ async fn 何も来なければ_待って戻る() {
     });
 
     let 口 = 用意(&["chat.read"])
-        .机に着く(&場所)
+        .この機械につながる(&場所)
         .await
-        .expect("着けること");
+        .expect("つながれること");
     let 返り = 口
         .chat_wait(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::WaitArgs { seconds: Some(1) },
@@ -627,19 +633,19 @@ async fn 何も来なければ_待って戻る() {
 }
 
 #[tokio::test]
-async fn 何も無いときは_いつから着いているかを言う() {
-    // **「届いていない」と「着く前だった」を、席から見分けられるようにする**
-    // （`issues/4` の 1 番）。画面を入れ替えると席は全部外れるので、
+async fn 何も無いときは_いつからつながっているかを言う() {
+    // **「届いていない」と「つながる前だった」を、エージェントから見分けられるようにする**
+    // （`issues/4` の 1 番）。画面を入れ替えるとエージェントは全部外れるので、
     // **黙って繋ぎ直すと、切れている間の発言が無いことに気づけない**
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-seated.sock");
     let _ = std::fs::remove_file(&場所);
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
 
-    let 机 = tokio::spawn(async move {
+    let この機械 = tokio::spawn(async move {
         let mut 口 = 行の口::新しく(待ち.受ける().await.unwrap());
-        // 「聞く」に対して、いつ着いたかを返す
+        // 「聞く」に対して、いつつながったかを返す
         let _挨拶 = 口.受ける().await.unwrap().unwrap();
         口.送る(
             &FromDesk::Seated {
@@ -653,27 +659,30 @@ async fn 何も無いときは_いつから着いているかを言う() {
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     });
 
-    let 口 = 用意(&["chat.read"]).机に着く(&場所).await.expect("着ける");
+    let 口 = 用意(&["chat.read"])
+        .この機械につながる(&場所)
+        .await
+        .expect("つながれる");
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     let 出た = 口.chat_read().await.expect("読める");
     assert!(出た.contains("新しい発言はありません"), "{出た}");
-    assert!(出た.contains("09:05 から着いています"), "{出た}");
+    assert!(出た.contains("09:05 からつながっています"), "{出た}");
 
-    机.abort();
+    この機械.abort();
     let _ = std::fs::remove_file(&場所);
 }
 
 #[tokio::test]
-async fn 待っている最中に机が閉じたら_繋ぎ直して待ち続ける() {
-    // **画面を入れ替えると、机に着いていた席は全部外れる**（`issues/2`）。
+async fn 待っている最中にこの機械が閉じたら_繋ぎ直して待ち続ける() {
+    // **画面を入れ替えると、この機械に着いていたエージェントは全部外れる**（`issues/2`）。
     // そこで待ちが終わってしまうと、**人からは「エージェントが黙った」ようにしか見えない。**
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
     let 場所 = std::env::temp_dir().join("warifu-mcp-reseat.sock");
     let _ = std::fs::remove_file(&場所);
-    let mut 待ち = 受け口::開く(&場所).await.expect("机が開くこと");
+    let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
 
-    let 机 = tokio::spawn(async move {
+    let この機械 = tokio::spawn(async move {
         // 1 人目（すぐ切る＝画面が入れ替わった）
         {
             let mut 口 = 行の口::新しく(待ち.受ける().await.unwrap());
@@ -705,7 +714,10 @@ async fn 待っている最中に机が閉じたら_繋ぎ直して待ち続け�
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     });
 
-    let 口 = 用意(&["chat.read"]).机に着く(&場所).await.expect("着ける");
+    let 口 = 用意(&["chat.read"])
+        .この機械につながる(&場所)
+        .await
+        .expect("つながれる");
     let 出た = 口
         .chat_wait(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::WaitArgs { seconds: Some(2) },
@@ -716,6 +728,6 @@ async fn 待っている最中に机が閉じたら_繋ぎ直して待ち続け�
     // **繋ぎ直したことを言い、着き直したあとの発言も拾う**
     assert!(出た.contains("着き直しました"), "{出た}");
     assert!(出た.contains("着き直したあとの発言"), "{出た}");
-    机.abort();
+    この機械.abort();
     let _ = std::fs::remove_file(&場所);
 }

@@ -24,7 +24,7 @@ export const EVENT_INTRODUCED = 'warifu://introduced';
 /** 文字が届いた。`[誰から, 中身]` で届く。 */
 export const EVENT_TEXT = 'warifu://text';
 /**
- * **この PC のこのPCから出た発言**（`[公開鍵, 中身, 時刻]`）。
+ * **この PC のこの機械から出た発言**（`[公開鍵, 中身, 時刻]`）。
  *
  * 同じエージェントのエージェント（`warifu mcp` で繋いだエージェント）が言ったもの。
  * **相手から届いた文字（{@link EVENT_TEXT}）と分ける** ——
@@ -32,7 +32,7 @@ export const EVENT_TEXT = 'warifu://text';
  */
 export const EVENT_DESK = 'warifu://desk';
 /**
- * **このPCにつながっている顔ぶれ**が変わった（呼び方の並びが届く）。
+ * **この機械につながっている顔ぶれ**が変わった（呼び方の並びが届く）。
  *
  * 会議に人が居なくても、**同じエージェントのエージェント が居るなら人は話しかけられる。**
  * これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
@@ -49,7 +49,7 @@ export const EVENT_THEME = 'warifu://theme';
 /**
  * **プロフィールが変わった。**画面は読み直す。
  *
- * このPCにつながったエージェントが**自分で書く**ことがあるので、
+ * この機械につながったエージェントが**自分で書く**ことがあるので、
  * 画面が書いたときだけ読み直す形にはできない。
  */
 export const EVENT_PROFILES = 'warifu://profiles';
@@ -172,13 +172,13 @@ export const leave = () => invoke<void>('leave');
  * 文字を送る。
  *
  * `to` に**同じ PC の AI の呼び方**を渡すと、**そのエージェントにだけ**届く。
- * 渡さなければ、ルームに居る全員とこのPCの AI 全員へ。
+ * 渡さなければ、ルームに居る全員とこの機械の AI 全員へ。
  */
 export const sendText = (body: string, to?: string | null) =>
   invoke<void>('send_text', { body, to: to ?? null });
 
 /**
- * いまこのPCに何人着いているか。
+ * いまこの機械に何人つながっているか。
  *
  * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
  * 会議に人が居なくても、同じエージェントのエージェント が居るなら送れる。
@@ -212,7 +212,7 @@ export interface ProfileRow {
  *
  * **人と、マイ PC エージェント**（エージェントごと）。書き換えられるのは**この端末の持ち主だけ**で、
  * MCP の口には無い —— **AI が自分の名前を書き換えられると、
- * 同じPCの別のエージェントに化けられる。**
+ * 同じ機械の別のエージェントに化けられる。**
  */
 export const profiles = () => invoke<ProfileRow[]>('profiles');
 

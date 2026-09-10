@@ -38,15 +38,15 @@ const EVENT_CLOSED: &str = "warifu://closed";
 const EVENT_INTRODUCED: &str = "warifu://introduced";
 /// 文字が届いた。`[誰から, 中身]` で渡す。
 const EVENT_TEXT: &str = "warifu://text";
-/// **この PC の机から出た発言。**`[公開鍵, 中身, 時刻]` で渡す。
+/// **この PC のこの機械から出た発言。**`[公開鍵, 中身, 時刻]` で渡す。
 ///
 /// 相手から届いた文字（[`EVENT_TEXT`]）と分けるのは、
-/// **同じ席の AI の発言だと人に分かる必要がある**ため。
+/// **同じエージェントの AI の発言だと人に分かる必要がある**ため。
 /// 混ぜると、誰が言ったのか画面から読めなくなる。
 const EVENT_DESK: &str = "warifu://desk";
-/// **机に何人着いているか**が変わった。人数だけを渡す。
+/// **この機械に何人つながっているか**が変わった。人数だけを渡す。
 ///
-/// 会議に人が居なくても、**同じ席の AI が居るなら人は話しかけられる。**
+/// 会議に人が居なくても、**同じエージェントの AI が居るなら人は話しかけられる。**
 /// これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
 const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
 /// **メニューからテーマを選んだ。**`auto` / `light` / `dark` のどれかを渡す。
@@ -58,7 +58,7 @@ const EVENT_THEME: &str = "warifu://theme";
 const EVENT_CHECK_UPDATE: &str = "warifu://check-update";
 /// **プロフィールが変わった。**画面は読み直す。
 ///
-/// 机に着いたエージェントが自分で書くことがあるので、
+/// この機械につながったエージェントが自分で書くことがあるので、
 /// **画面が書いたときだけ**読み直す形にはできない。
 const EVENT_PROFILES: &str = "warifu://profiles";
 /// **相手が名乗った**（**D75**）。`[公開鍵, 名前, 紹介]` で渡す。
@@ -231,66 +231,66 @@ pub struct Bridge {
     /// **主催者は、繋がれた相手の住所を知らない**（相手から来たので）。
     /// だから**入る側が自分で名乗る。**それをここに覚えて、次の人へ紹介する。
     addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
-    /// いま居る部屋。**複数持てる**（`issues/015`）。
+    /// いま居るルーム。**複数持てる**（`issues/015`）。
     ///
-    /// 「相手を選ぶ ＝ その人との部屋を開く」が成り立つには、
-    /// **air と 2 人で話しながら、3 人の部屋にも居る**ことができなければならない。
-    /// 1 つしか持てないと、部屋を移るたびに前の部屋が切れる。
+    /// 「相手を選ぶ ＝ その人とのルームを開く」が成り立つには、
+    /// **air と 2 人で話しながら、3 人のルームにも居る**ことができなければならない。
+    /// 1 つしか持てないと、ルームを移るたびに前のルームが切れる。
     ///
-    /// **鍵は部屋の id。**`Notice` は前から部屋の id を持っているので、
-    /// 届いた知らせをどの部屋のものか振り分けられる。
+    /// **鍵はルームの id。**`Notice` は前からルームの id を持っているので、
+    /// 届いた知らせをどのルームのものか振り分けられる。
     conferences: Arc<Mutex<HashMap<MeetingId, Conference>>>,
-    /// **画面がいま見ている部屋。**打ったものはここへ流れる。
+    /// **画面がいま見ているルーム。**打ったものはここへ流れる。
     ///
-    /// 部屋そのものとは別に持つ —— **見ていない部屋も生きている。**
-    いまの部屋: Arc<Mutex<Option<MeetingId>>>,
+    /// ルームそのものとは別に持つ —— **見ていないルームも生きている。**
+    いまのルーム: Arc<Mutex<Option<MeetingId>>>,
     /// 相手ごとの送り出し口（**M6**）。
     ///
     /// 1 本しか持たない形にすると、3 人目が来た時点で**前の相手へ届かなくなる。**
     /// 鍵をそのまま鍵にする（`PublicKey` は `Hash` を持たないのでバイト列で持つ）。
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
-    /// 机に着いている相手へ配る口（`desk.rs`）。
+    /// この機械につながっている相手へ配る口（`desk.rs`）。
     ///
     /// **人が打った行も、相手から届いた行も、ここを通す。**
-    /// 通さないと、同じ席の AI は人の発言が見えないまま返事をすることになる。
-    /// 添えている数は**出所の番号**（`desk::机の外` なら机の外から出たもの）。
+    /// 通さないと、同じエージェントの AI は人の発言が見えないまま返事をすることになる。
+    /// 添えている数は**出所の番号**（`desk::この機械の外` ならこの機械の外から出たもの）。
     /// **言った本人には返さない**ために持つ。
     desk: tokio::sync::broadcast::Sender<(u64, warifu_desk::FromDesk)>,
 }
 
-/// いま居る部屋たち。**複数持てる**（`issues/015`）。
-pub(crate) type 部屋たち = Arc<Mutex<HashMap<MeetingId, Conference>>>;
-/// 画面がいま見ている部屋。
-pub(crate) type 見ている部屋 = Arc<Mutex<Option<MeetingId>>>;
+/// いま居るルームたち。**複数持てる**（`issues/015`）。
+pub(crate) type ルームたち = Arc<Mutex<HashMap<MeetingId, Conference>>>;
+/// 画面がいま見ているルーム。
+pub(crate) type 見ているルーム = Arc<Mutex<Option<MeetingId>>>;
 
-/// 部屋を足して、**見ている部屋にする。**
-pub(crate) async fn 部屋を足す(
-    部屋: &部屋たち,
-    いま: &見ている部屋,
+/// ルームを足して、**見ているルームにする。**
+pub(crate) async fn ルームを足す(
+    ルーム: &ルームたち,
+    いま: &見ているルーム,
     c: Conference,
 ) -> MeetingId {
     let id = c.id();
-    部屋.lock().await.insert(id, c);
+    ルーム.lock().await.insert(id, c);
     *いま.lock().await = Some(id);
     id
 }
 
-/// いま見ている部屋の id。**無ければ `None`。**
-pub(crate) async fn いま見ている部屋(いま: &見ている部屋) -> Option<MeetingId> {
+/// いま見ているルームの id。**無ければ `None`。**
+pub(crate) async fn いま見ているルーム(いま: &見ているルーム) -> Option<MeetingId> {
     *いま.lock().await
 }
 
-/// **その部屋に居る相手だけ**へ送る口を集める。
+/// **そのルームに居る相手だけ**へ送る口を集める。
 ///
-/// 部屋を複数持つので、**全員へ配ると別の部屋の人にも届く。**
-pub(crate) async fn その部屋の相手(
-    部屋: &部屋たち,
+/// ルームを複数持つので、**全員へ配ると別のルームの人にも届く。**
+pub(crate) async fn そのルームの相手(
+    ルーム: &ルームたち,
     outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     meeting: MeetingId,
     me: PublicKey,
 ) -> Vec<mpsc::Sender<Notice>> {
     let 面々: Vec<[u8; 32]> = {
-        let 棚 = 部屋.lock().await;
+        let 棚 = ルーム.lock().await;
         let Some(c) = 棚.get(&meeting) else {
             return Vec::new();
         };
@@ -304,14 +304,14 @@ pub(crate) async fn その部屋の相手(
     面々.iter().filter_map(|k| out.get(k).cloned()).collect()
 }
 
-/// **その相手が居る部屋**を探す。居なければ `None`。
+/// **その相手が居るルーム**を探す。居なければ `None`。
 ///
-/// 部屋を複数持つので（`issues/015`）、「その人へ言う」には
-/// **どの部屋の話か**を決めないと `Notice` が組めない。
-pub(crate) async fn 相手が居る部屋(
-    部屋: &部屋たち, 相手: PublicKey
+/// ルームを複数持つので（`issues/015`）、「その人へ言う」には
+/// **どのルームの話か**を決めないと `Notice` が組めない。
+pub(crate) async fn 相手が居るルーム(
+    ルーム: &ルームたち, 相手: PublicKey
 ) -> Option<MeetingId> {
-    let 棚 = 部屋.lock().await;
+    let 棚 = ルーム.lock().await;
     棚.iter()
         .find(|(_, c)| c.members().contains(&相手))
         .map(|(id, _)| *id)
@@ -356,7 +356,7 @@ impl Bridge {
             door: Arc::new(Mutex::new(contacts::戸口を開く())),
             addresses: Arc::new(Mutex::new(HashMap::new())),
             conferences: Arc::new(Mutex::new(HashMap::new())),
-            いまの部屋: Arc::new(Mutex::new(None)),
+            いまのルーム: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(HashMap::new())),
             desk: tokio::sync::broadcast::Sender::new(desk::配る溜め),
         }
@@ -404,12 +404,12 @@ async fn invite(
     // **会議 id を鍵に載せる。**載せないと入る側が別の id を名乗り、
     // こちらが「別の会議あて」として捨てる（2026-09-04 に実機で踏んだ）
     let meeting = {
-        // **部屋が無ければ建てる。**鍵は部屋への招待なので、部屋が要る
-        if let Some(id) = いま見ている部屋(&bridge.いまの部屋).await {
+        // **ルームが無ければ建てる。**鍵はルームへの招待なので、ルームが要る
+        if let Some(id) = いま見ているルーム(&bridge.いまのルーム).await {
             id
         } else {
             let c = Conference::host(bridge.device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
-            部屋を足す(&bridge.conferences, &bridge.いまの部屋, c).await
+            ルームを足す(&bridge.conferences, &bridge.いまのルーム, c).await
         }
     };
     let 開始 = starts_at.unwrap_or_else(now_secs);
@@ -466,7 +466,7 @@ fn my_key(bridge: State<'_, Bridge>) -> String {
 #[tauri::command]
 async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<String> {
     let conference = Conference::host(bridge.device.public_key(), capacity)?;
-    let id = 部屋を足す(&bridge.conferences, &bridge.いまの部屋, conference).await;
+    let id = ルームを足す(&bridge.conferences, &bridge.いまのルーム, conference).await;
     Ok(id.to_string())
 }
 
@@ -520,9 +520,9 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
             message: e.to_string(),
             code: None,
         })?;
-        部屋を足す(
+        ルームを足す(
             &bridge.conferences,
-            &bridge.いまの部屋,
+            &bridge.いまのルーム,
             Conference::joined(bridge.device.public_key(), meeting, roster),
         )
         .await;
@@ -630,7 +630,7 @@ async fn stop_knowing(bridge: State<'_, Bridge>, key: String) -> Answer<bool> {
 async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let node = bridge.node().await?;
     let conferences = Arc::clone(&bridge.conferences);
-    let いまの部屋 = Arc::clone(&bridge.いまの部屋);
+    let いまのルーム = Arc::clone(&bridge.いまのルーム);
     let outbound = Arc::clone(&bridge.outbound);
     let me = bridge.device.public_key();
 
@@ -696,7 +696,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // 相手は会議 id を知りようがない（会議キーを持っていない）。
             // 割符つきで来た相手には送らない —— そちらは鍵に id が入っている
             if !合った
-                && let Some(招待) = call::招く(&conferences, &いまの部屋)
+                && let Some(招待) = call::招く(&conferences, &いまのルーム)
                 && let Ok(intent) = 招待.to_intent()
             {
                 if channel.send(&intent).await.is_err() {
@@ -705,11 +705,11 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 記録!("待受: 割符なしの相手へ会議を教えた");
             }
             {
-                // **部屋が 1 つも無ければ建てる。**受けた相手を入れる先が要る
+                // **ルームが 1 つも無ければ建てる。**受けた相手を入れる先が要る
                 if conferences.lock().await.is_empty() {
                     match Conference::host(me, warifu_app::DEFAULT_CAPACITY) {
                         Ok(c) => {
-                            部屋を足す(&conferences, &いまの部屋, c).await;
+                            ルームを足す(&conferences, &いまのルーム, c).await;
                         }
                         Err(_) => continue,
                     }
@@ -718,7 +718,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // **迎える側も名乗る**（**D75**）。
             // 呼ぶ側だけが名乗ると、**片方向にしか名前が出ない**
             if let Ok((名前, 紹介)) = 自分の名乗り()
-                && let Some(id) = いま見ている部屋(&いまの部屋).await
+                && let Some(id) = いま見ているルーム(&いまのルーム).await
                 && let Ok(intent) = (Notice::Profile {
                     meeting: id,
                     from: me,
@@ -808,7 +808,7 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
 #[allow(clippy::too_many_arguments)]
 fn 汲む(
     app: AppHandle,
-    conferences: 部屋たち,
+    conferences: ルームたち,
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
     me: PublicKey,
@@ -862,7 +862,7 @@ fn 汲む(
                             記録!("受信: 差出人が経路の相手と違う。捨てた");
                             continue;
                         }
-                        // **札が付いていれば、その席の誰が言ったかまで画面へ渡す**
+                        // **札が付いていれば、そのエージェントの誰が言ったかまで画面へ渡す**
                         // （2026-09-08）。付いていなければ人が言ったもの
                         let 名 = match 話し手 {
                             Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
@@ -871,7 +871,7 @@ fn 汲む(
                         let _ = app.emit(EVENT_TEXT, (名, body.clone()));
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
-                        // **同じ席の AI にも、同じ行を見せる。**
+                        // **同じエージェントの AI にも、同じ行を見せる。**
                         // 見せないと、人にだけ見えている話に AI が返事をすることになる
                         desk::配る(
                             &app.state::<Bridge>(),
@@ -939,10 +939,10 @@ fn 汲む(
                         }
                         continue;
                     }
-                    // **どの部屋あてかで振り分ける。**知らない部屋のものは受け取らない
+                    // **どのルームあてかで振り分ける。**知らないルームのものは受け取らない
                     let mut 棚 = conferences.lock().await;
                     let Some(c) = 棚.get_mut(&notice.meeting()) else {
-                        記録!("受信: 知らない部屋あてだった。捨てた");
+                        記録!("受信: 知らないルームあてだった。捨てた");
                         continue;
                     };
                     match c.on_notice(peer, &notice) {
@@ -998,8 +998,8 @@ fn 汲む(
         {
             let mut 棚 = conferences.lock().await;
             for c in 棚.values_mut() {
-                let 部屋 = c.id();
-                let _ = c.on_notice(peer, &Notice::Leave { meeting: 部屋 });
+                let ルーム = c.id();
+                let _ = c.on_notice(peer, &Notice::Leave { meeting: ルーム });
             }
         }
 
@@ -1016,7 +1016,7 @@ fn 汲む(
 #[tauri::command]
 async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answer<()> {
     let step = step_from_str(&payload.step)?;
-    let meeting = いま見ている部屋(&bridge.いまの部屋).await;
+    let meeting = いま見ているルーム(&bridge.いまのルーム).await;
     let Some(meeting) = meeting else {
         return Err(Failure {
             message: "まだ会議がありません".into(),
@@ -1091,7 +1091,7 @@ async fn 他へ配る(
 /// 既存の面々へ「入った人の住所」を、入った人へ「既存の面々の住所」を送る。
 /// **住所を知らない相手は飛ばす** — まだ名乗っていないだけなので、断りではない。
 async fn 紹介を配る(
-    conferences: &部屋たち,
+    conferences: &ルームたち,
     outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     addresses: &Arc<Mutex<HashMap<[u8; 32], String>>>,
     me: PublicKey,
@@ -1247,40 +1247,40 @@ fn log(message: String) {
 /// 身元は続くようになった（**D42**）ので、次は履歴を置く形を決める（`issues/010`）。
 #[tauri::command]
 async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) -> Answer<()> {
-    // **人が打った行は、まず机へ配る。**
-    // 会議に人が 1 人も居なくても、**同じ席の AI には届く** ——
+    // **人が打った行は、まずこの機械へ配る。**
+    // 会議に人が 1 人も居なくても、**同じエージェントの AI には届く** ——
     // 「会議ありきのチャットじゃない」（オーナー・2026-09-06）。
     // AI は画面に書けるのに人は返せない、という片側だけの経路にしない。
     //
-    // **2026-09-07 に実物で踏んだ。**画面は「机 1 人」でボタンを押せるのに、
+    // **2026-09-07 に実物で踏んだ。**画面は「この機械 1 人」でボタンを押せるのに、
     // ここが会議の相手だけを見ていたので「まだ誰も居ません」と断っていた。
     let 話 = desk::聞いた(&key_to_string(bridge.device.public_key()), &body);
 
-    // **宛先が決まっていれば、その席にだけ渡して終わる。**
-    // 3 つも 4 つも机に着いていると、zumen だけに聞きたくても全員に飛ぶ ——
+    // **宛先が決まっていれば、そのエージェントにだけ渡して終わる。**
+    // 3 つも 4 つもこの機械につながっていると、zumen だけに聞きたくても全員に飛ぶ ——
     // それでは 1 対 1 が成り立たない（2026-09-08）
     if let Some(宛先) = &to {
-        if !desk::席へ配る(&bridge, 宛先, 話) {
+        if !desk::エージェントへ配る(&bridge, 宛先, 話) {
             return Err(Failure {
                 message: "その相手はもう居ません".into(),
                 code: Some("desk.gone".into()),
             });
         }
-        記録!("送信: 文字（{} バイト）を 1 席へ", body.len());
+        記録!("送信: 文字（{} バイト）を 1 エージェントへ", body.len());
         return Ok(());
     }
 
-    let 机に居る = desk::席の数(&bridge) > 0;
-    if 机に居る {
+    let この機械に居る = desk::エージェントの数(&bridge) > 0;
+    if この機械に居る {
         desk::配る(&bridge, 話);
     }
 
-    let meeting = いま見ている部屋(&bridge.いまの部屋).await;
+    let meeting = いま見ているルーム(&bridge.いまのルーム).await;
     let Some(meeting) = meeting else {
-        // 机に居るなら、届いている。**届いたものを失敗にしない**
-        if 机に居る {
+        // この機械に居るなら、届いている。**届いたものを失敗にしない**
+        if この機械に居る {
             記録!(
-                "送信: 文字（{} バイト）を机へ（会議はまだ無い）",
+                "送信: 文字（{} バイト）をこの機械へ（会議はまだ無い）",
                 body.len()
             );
             return Ok(());
@@ -1290,8 +1290,8 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
             code: None,
         });
     };
-    // **その部屋に居る相手だけへ。**全員へ配ると、別の部屋の人にも届く
-    let 送り先 = その部屋の相手(
+    // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く
+    let 送り先 = そのルームの相手(
         &bridge.conferences,
         &bridge.outbound,
         meeting,
@@ -1299,9 +1299,9 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
     )
     .await;
     if 送り先.is_empty() {
-        if 机に居る {
+        if この機械に居る {
             記録!(
-                "送信: 文字（{} バイト）を机へ（部屋に人は居ない）",
+                "送信: 文字（{} バイト）をこの機械へ（ルームに人は居ない）",
                 body.len()
             );
             return Ok(());
@@ -1333,11 +1333,11 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
 
 /// **覚えている相手へ、1 対 1 で言う。**
 ///
-/// 同じ部屋に居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
+/// 同じルームに居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
 /// 預かり所を置いていなければ「いま居ません」で終わる ——
 /// **黙って中央へ繋ぎに行かない**（D68）。
 ///
-/// **机へは配らない。**これは 1 人へ宛てた言葉である（D66 と同じ構え）。
+/// **この機械へは配らない。**これは 1 人へ宛てた言葉である（D66 と同じ構え）。
 #[tauri::command]
 async fn send_to_contact(bridge: State<'_, Bridge>, key: String, body: String) -> Answer<()> {
     let 相手: PublicKey = key.parse().map_err(|_| Failure {
@@ -1345,7 +1345,7 @@ async fn send_to_contact(bridge: State<'_, Bridge>, key: String, body: String) -
         code: None,
     })?;
 
-    if let Some(meeting) = 相手が居る部屋(&bridge.conferences, 相手).await {
+    if let Some(meeting) = 相手が居るルーム(&bridge.conferences, 相手).await {
         let tx = bridge.outbound.lock().await.get(&相手.to_bytes()).cloned();
         if let Some(tx) = tx {
             let 送れた = tx
@@ -1359,7 +1359,7 @@ async fn send_to_contact(bridge: State<'_, Bridge>, key: String, body: String) -
                 .await
                 .is_ok();
             if 送れた {
-                記録!("送信: 文字（{} バイト）を 1 人へ（同じ部屋）", body.len());
+                記録!("送信: 文字（{} バイト）を 1 人へ（同じルーム）", body.len());
                 return Ok(());
             }
             // 経路が死んでいた。**落としてしまわず、預かり所へ回す**
@@ -1379,13 +1379,13 @@ async fn send_to_contact(bridge: State<'_, Bridge>, key: String, body: String) -
 /// **全員へ送る。**抜けたことは、繋がっている全員に関係がある。
 #[tauri::command]
 async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
-    let meeting = いま見ている部屋(&bridge.いまの部屋).await;
+    let meeting = いま見ているルーム(&bridge.いまのルーム).await;
     let Some(meeting) = meeting else {
         // まだ会議が無い。**断りではない**ので黙って戻る
         return Ok(());
     };
-    // **その部屋の相手だけへ。**別の部屋には居続ける
-    let 送り先 = その部屋の相手(
+    // **そのルームの相手だけへ。**別のルームには居続ける
+    let 送り先 = そのルームの相手(
         &bridge.conferences,
         &bridge.outbound,
         meeting,
@@ -1396,28 +1396,28 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
         // 届かない相手が居ても止めない。**抜ける側を待たせない**
         let _ = tx.send(Notice::Leave { meeting }).await;
     }
-    // **抜けた部屋は畳む。**居ない部屋を持ち続けない
+    // **抜けたルームは畳む。**居ないルームを持ち続けない
     bridge.conferences.lock().await.remove(&meeting);
-    let mut いま = bridge.いまの部屋.lock().await;
+    let mut いま = bridge.いまのルーム.lock().await;
     if *いま == Some(meeting) {
         *いま = bridge.conferences.lock().await.keys().next().copied();
     }
     Ok(())
 }
 
-/// **机に着いている顔ぶれ。**画面が一覧に出し、「送れるかどうか」も決める。
+/// **この機械につながっている顔ぶれ。**画面が一覧に出し、「送れるかどうか」も決める。
 ///
-/// **数だけでは足りない。**1 台の PC で複数のエージェントが同じ机に着くので、
-/// どれが着いているのかが分からない（2026-09-08 オーナー指摘）。
+/// **数だけでは足りない。**1 台の PC で複数のエージェントが同じこの機械につながるので、
+/// どれがつながっているのかが分からない（2026-09-08 オーナー指摘）。
 #[tauri::command]
 fn desk_seats() -> Vec<String> {
-    desk::着いている顔ぶれ()
+    desk::つながっている顔ぶれ()
 }
 
-/// 部屋 1 つ分。**画面が一覧に出す。**
+/// ルーム 1 つ分。**画面が一覧に出す。**
 #[derive(Debug, serde::Serialize)]
 pub struct RoomRow {
-    /// 部屋の id（全桁）。**押したときに使う。**
+    /// ルームの id（全桁）。**押したときに使う。**
     id: String,
     /// いま居る人数（自分を含む）。
     members: usize,
@@ -1425,9 +1425,9 @@ pub struct RoomRow {
     host: bool,
 }
 
-/// **いま居る部屋を並べる。**
+/// **いま居るルームを並べる。**
 ///
-/// 部屋を複数持てるようになった以上（`issues/015`）、
+/// ルームを複数持てるようになった以上（`issues/015`）、
 /// **一覧が無ければ切り替えようがない。**持てても見えなければ意味がない。
 #[tauri::command]
 async fn rooms(bridge: State<'_, Bridge>) -> Answer<Vec<RoomRow>> {
@@ -1446,9 +1446,9 @@ async fn rooms(bridge: State<'_, Bridge>) -> Answer<Vec<RoomRow>> {
     Ok(並び)
 }
 
-/// **見る部屋を選ぶ。**
+/// **見るルームを選ぶ。**
 ///
-/// 見ていない部屋も生きている —— 選び直すだけで、経路は切れない。
+/// 見ていないルームも生きている —— 選び直すだけで、経路は切れない。
 #[tauri::command]
 async fn look_at_room(bridge: State<'_, Bridge>, id: String) -> Answer<bool> {
     let 選ぶ = bridge
@@ -1459,20 +1459,20 @@ async fn look_at_room(bridge: State<'_, Bridge>, id: String) -> Answer<bool> {
         .find(|k| k.to_string() == id)
         .copied();
     let Some(選ぶ) = 選ぶ else {
-        // **知らない部屋を見ていることにしない**
+        // **知らないルームを見ていることにしない**
         return Ok(false);
     };
-    *bridge.いまの部屋.lock().await = Some(選ぶ);
+    *bridge.いまのルーム.lock().await = Some(選ぶ);
     Ok(true)
 }
 
-/// **いま見ている部屋の id。**画面が会話を部屋ごとに分けるのに使う。
+/// **いま見ているルームの id。**画面が会話をルームごとに分けるのに使う。
 ///
-/// 部屋を複数持つので（`issues/015`）、**どの部屋の会話を出すか**を
+/// ルームを複数持つので（`issues/015`）、**どのルームの会話を出すか**を
 /// 画面が知っている必要がある。
 #[tauri::command]
 async fn current_room(bridge: State<'_, Bridge>) -> Answer<Option<String>> {
-    Ok(いま見ている部屋(&bridge.いまの部屋)
+    Ok(いま見ているルーム(&bridge.いまのルーム)
         .await
         .map(|id| id.to_string()))
 }
@@ -1483,7 +1483,7 @@ async fn current_room(bridge: State<'_, Bridge>) -> Answer<Option<String>> {
 /// **落とすしか止め方が無い状態にしない**（`issues/014`）。
 #[tauri::command]
 async fn stop_agent(bridge: State<'_, Bridge>, name: String) -> Answer<bool> {
-    Ok(desk::席を止める(&bridge, &name))
+    Ok(desk::エージェントを止める(&bridge, &name))
 }
 
 /// 相手が offer を出す側か（**D38**）。画面が交渉の向きを決めるのに使う。
@@ -1498,7 +1498,7 @@ async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool
         message: "公開鍵の長さが違います".into(),
         code: None,
     })?)?;
-    let Some(meeting) = いま見ている部屋(&bridge.いまの部屋).await else {
+    let Some(meeting) = いま見ているルーム(&bridge.いまのルーム).await else {
         return Err(Failure {
             message: "まだ会議がありません".into(),
             code: None,
@@ -1547,10 +1547,10 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
     }
 }
 
-/// 部屋の鍵を、**渡せる 1 本のリンク**にする（**D79**）。
+/// ルームの鍵を、**渡せる 1 本のリンク**にする（**D79**）。
 #[tauri::command]
 fn room_link(key: String) -> String {
-    link::部屋のリンク(&key)
+    link::ルームのリンク(&key)
 }
 
 /// そのリンクを **QR** にする（**D79**）。目の前の相手に読ませる用。
@@ -1559,7 +1559,7 @@ fn room_link(key: String) -> String {
 /// QR に入らないとき。
 #[tauri::command]
 fn room_qr(key: String) -> Result<String, String> {
-    link::qrにする(&link::部屋のリンク(&key))
+    link::qrにする(&link::ルームのリンク(&key))
 }
 
 pub fn run() {
@@ -1592,8 +1592,8 @@ pub fn run() {
             起動からの秒();
             記録!("起動しました。ここから経路の要所を書き出します（+秒 は起動からの経過）");
             app.manage(Bridge::new());
-            // **画面が立ったら机も開く。**人が別の操作をしなくても、
-            // 同じ PC のエージェントが会話に着ける状態にする
+            // **画面が立ったらこの機械も開く。**人が別の操作をしなくても、
+            // 同じ PC のエージェントが会話につながれる状態にする
             desk::開く(app.handle().clone());
 
             // **窓が開いている間に来たリンク**を受ける

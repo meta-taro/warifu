@@ -1,12 +1,12 @@
-//! 机に着いて、会話へ出入りする。
+//! この機械に着いて、会話へ出入りする。
 //!
 //! **これがエージェント同士のチャットの実体。**
-//! GUI（人）と同じ会話を、同じ PC の机ごしに囲む。
+//! GUI（人）と同じ会話を、同じ PC のこの機械ごしに囲む。
 //!
 //! ```text
 //!   人（GUI）── 会話 ── iroh P2P ── 相手の PC
 //!        │
-//!        机（同じ機械の中だけ）
+//!        この機械（同じ機械の中だけ）
 //!        │
 //!   AI（この層）  chat_send / chat_read
 //! ```
@@ -32,10 +32,10 @@ const 送り待ちの数: usize = 32;
 /// 流した返事を待つ長さ。
 ///
 /// **待たずに「流しました」と返さない**（**D49**）。
-/// ただし永遠には待たない —— 机が黙ったまま止まると、tool が戻らなくなる。
+/// ただし永遠には待たない —— この機械が黙ったまま止まると、tool が戻らなくなる。
 const 返事を待つ秒: u64 = 5;
 
-/// 机に着いている状態。
+/// この機械につながっている状態。
 #[derive(Clone)]
 pub struct Chat {
     送り: mpsc::Sender<ToDesk>,
@@ -50,24 +50,24 @@ pub struct Chat {
     /// **返事を溜めに混ぜない。**混ぜると、`chat_read` が
     /// 自分の送信結果を「誰かの発言」として読むことになる。
     返事待ち: Arc<Mutex<Option<oneshot::Sender<FromDesk>>>>,
-    /// **いつこの席に着いたか**（`HH:MM`・`issues/4` の 1 番）。
+    /// **いつこのエージェントにつながったか**（`HH:MM`・`issues/4` の 1 番）。
     ///
-    /// **「届いていない」と「着く前だった」を、席から見分けられるようにする。**
-    /// 画面を入れ替えると机の席は全部外れる（`issues/2`）ので、
+    /// **「届いていない」と「つながる前だった」を、エージェントから見分けられるようにする。**
+    /// 画面を入れ替えるとこの機械のエージェントは全部外れる（`issues/2`）ので、
     /// 黙って繋ぎ直すと、**切れている間の発言が無いことに気づけない。**
-    着いた: Arc<Mutex<Option<String>>>,
+    つながった: Arc<Mutex<Option<String>>>,
 }
 
 impl Chat {
-    /// 机へ繋いで、会話を聞き始める。
+    /// この機械へ繋いで、会話を聞き始める。
     ///
     /// **繋がらなければ、繋がったふりをしない。**
-    /// 机が開いていない（＝人の画面が立っていない）ことは、失敗として返す。
-    pub async fn 着く(場所: &Path, 名乗り: Option<String>) -> std::io::Result<Self> {
+    /// この機械が開いていない（＝人の画面が立っていない）ことは、失敗として返す。
+    pub async fn つながる(場所: &Path, 名乗り: Option<String>) -> std::io::Result<Self> {
         let mut 口 = 口::新しく(繋ぐ(場所).await?);
         // まず「聞く」と言う。**これまでの会話を先にもらう**。
         // **どこで動いているかを一緒に名乗る** —— 1 台の PC で
-        // 複数のエージェントが同じ机に着くので、名乗らないと
+        // 複数のエージェントが同じこの機械につながるので、名乗らないと
         // どれが喋ったのか人に分からない（2026-09-08）
         口.送る(&ToDesk::Listen { 場所: 名乗り }.書く()).await?;
 
@@ -78,9 +78,9 @@ impl Chat {
         let 返し先 = Arc::clone(&返事待ち);
         let 来た = Arc::new(Notify::new());
         let 起こす = Arc::clone(&来た);
-        // **いつ着いたかを机が返す**（`issues/4` の 1 番）
-        let 着いた: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-        let 着席 = Arc::clone(&着いた);
+        // **いつつながったかをこの機械が返す**（`issues/4` の 1 番）
+        let つながった: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let つながった写し = Arc::clone(&つながった);
 
         tokio::spawn(async move {
             loop {
@@ -93,7 +93,7 @@ impl Chat {
                     }
                     来た = 口.受ける() => {
                         match 来た {
-                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &起こす, &着席, &行),
+                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &起こす, &つながった写し, &行),
                             // 相手が閉じた・読めない。**黙って繋がっているふりをしない**
                             Ok(None) | Err(_) => break,
                         }
@@ -103,13 +103,13 @@ impl Chat {
             積む_直に(
                 &溜め先,
                 FromDesk::Denied {
-                    why: "机が閉じました".to_owned(),
+                    why: "この機械が閉じました".to_owned(),
                 },
             );
         });
 
         Ok(Self {
-            着いた,
+            つながった,
             送り,
             聞いた,
             来た,
@@ -129,17 +129,17 @@ impl Chat {
         self.送り
             .send(行)
             .await
-            .map_err(|_| crate::ToolError::Unavailable("机が閉じています".to_owned()))?;
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
 
         let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
             .await
-            .map_err(|_| crate::ToolError::Unavailable("机が返事をしません".to_owned()))?
-            .map_err(|_| crate::ToolError::Unavailable("机が閉じました".to_owned()))?;
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
 
         match 返事 {
-            // **通し番号と届いた席も返す。**あとで「誰が読んだか」を尋ねられる（**D76**）
+            // **通し番号と届いたエージェントも返す。**あとで「誰が読んだか」を尋ねられる（**D76**）
             FromDesk::Sent { to, id, 届いた } => Ok((to, id, 届いた)),
-            // **画面には出ている。**同じ席の人は読んでいるので、そこまで言う。
+            // **画面には出ている。**同じエージェントの人は読んでいるので、そこまで言う。
             // 「届かなかった」だけだと、言い直しを促すことになる
             FromDesk::Nobody => Err(crate::ToolError::Unavailable(
                 "この PC の画面には出ましたが、会議には誰も居ないので誰にも届いていません"
@@ -148,21 +148,21 @@ impl Chat {
             FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
             // 発言や入退室は返事ではない。**ここへ来た時点で仕分けが壊れている**
             他 => Err(crate::ToolError::Unavailable(format!(
-                "机が想定しない返事をしました: {他:?}"
+                "この機械が想定しない返事をしました: {他:?}"
             ))),
         }
     }
 
-    /// **いつこの席に着いたか**（`HH:MM`）。まだ返ってきていなければ `None`。
+    /// **いつこのエージェントにつながったか**（`HH:MM`）。まだ返ってきていなければ `None`。
     ///
-    /// **これより前の発言は取れない。**「届いていない」と「着く前だった」は別である
+    /// **これより前の発言は取れない。**「届いていない」と「つながる前だった」は別である
     /// （`issues/4` の 1 番）。
     #[must_use]
-    pub fn 着いた時刻(&self) -> Option<String> {
-        self.着いた.lock().expect("毒されていない").clone()
+    pub fn つながった時刻(&self) -> Option<String> {
+        self.つながった.lock().expect("毒されていない").clone()
     }
 
-    /// **そこまで読んだ**と机へ告げる（**D76**）。
+    /// **そこまで読んだ**とこの機械へ告げる（**D76**）。
     ///
     /// **返事は待たない。**数えてもらうだけで、こちらの手は止めない。
     async fn 読んだと告げる(&self, まで: u64) {
@@ -172,10 +172,10 @@ impl Chat {
         let _ = self.送り.send(ToDesk::Read { まで }).await;
     }
 
-    /// **その発言の届き方**を尋ねる（**D76**）。届いた席と、読んだ席を返す。
+    /// **その発言の届き方**を尋ねる（**D76**）。届いたエージェントと、読んだエージェントを返す。
     ///
     /// # Errors
-    /// 机が閉じているとき、返事が来ないとき。
+    /// この機械が閉じているとき、返事が来ないとき。
     pub async fn 届き方(&self, id: u64) -> Result<(Vec<String>, Vec<String>), crate::ToolError> {
         let (返す, 待つ) = oneshot::channel();
         *self.返事待ち.lock().expect("毒されていない") = Some(返す);
@@ -183,12 +183,12 @@ impl Chat {
         self.送り
             .send(ToDesk::Status { id })
             .await
-            .map_err(|_| crate::ToolError::Unavailable("机が閉じています".to_owned()))?;
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
 
         let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
             .await
-            .map_err(|_| crate::ToolError::Unavailable("机が返事をしません".to_owned()))?
-            .map_err(|_| crate::ToolError::Unavailable("机が閉じました".to_owned()))?;
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
 
         match 返事 {
             FromDesk::Status {
@@ -196,18 +196,18 @@ impl Chat {
             ..
             } => Ok((届いた, 読んだ)),
             他 => Err(crate::ToolError::Unavailable(format!(
-                "机が想定しない返事をしました: {他:?}"
+                "この機械が想定しない返事をしました: {他:?}"
             ))),
         }
     }
 
-    /// **自分の席のプロフィールを書く。**書けたら、誰として書いたかを返す。
+    /// **自分のエージェントのプロフィールを書く。**書けたら、誰として書いたかを返す。
     ///
-    /// **どの席かは口で決まる。**引数に「誰の」は無い ——
-    /// 有ると、**同じ机の別のエージェントに化けられる。**
+    /// **どのエージェントかは口で決まる。**引数に「誰の」は無い ——
+    /// 有ると、**同じ機械の別のエージェントに化けられる。**
     ///
     /// # Errors
-    /// 長すぎるとき、名乗っていないとき、机が返事をしないとき。
+    /// 長すぎるとき、名乗っていないとき、この機械が返事をしないとき。
     pub async fn 名乗る(&self, 名前: &str, 紹介: &str) -> Result<String, crate::ToolError> {
         let 行 = ToDesk::Profile {
             名前: 名前.to_owned(),
@@ -219,23 +219,23 @@ impl Chat {
         self.送り
             .send(行)
             .await
-            .map_err(|_| crate::ToolError::Unavailable("机が閉じています".to_owned()))?;
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
 
         let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
             .await
-            .map_err(|_| crate::ToolError::Unavailable("机が返事をしません".to_owned()))?
-            .map_err(|_| crate::ToolError::Unavailable("机が閉じました".to_owned()))?;
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
 
         match 返事 {
             FromDesk::Wrote { who } => Ok(who),
             FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
             他 => Err(crate::ToolError::Unavailable(format!(
-                "机が想定しない返事をしました: {他:?}"
+                "この機械が想定しない返事をしました: {他:?}"
             ))),
         }
     }
 
-    /// まだ机と繋がっているか。
+    /// まだこの機械と繋がっているか。
     ///
     /// **切れたまま送り続けない。**切れていれば、繋ぎ直す側が判断できる。
     #[must_use]
@@ -271,24 +271,26 @@ impl Chat {
         箱.drain(..).collect()
     }
 
-    /// 取り出したものを、**読んだと机へ告げる**（**D76**）。
+    /// 取り出したものを、**読んだとこの機械へ告げる**（**D76**）。
     ///
     /// **渡した時点が「読んだ」である。**中身を理解したかは誰にも分からないので、
     /// そこは名乗らない。
     /// 何も無かったときに添える一言（`issues/4` の 1 番）。
     ///
-    /// **「届いていない」と「着く前だった」を、席から見分けられるようにする。**
+    /// **「届いていない」と「つながる前だった」を、エージェントから見分けられるようにする。**
     #[must_use]
-    pub fn 着いてからの一言(&self) -> String {
-        match self.着いた時刻() {
+    pub fn つながってからの一言(&self) -> String {
+        match self.つながった時刻() {
             Some(at) => {
-                format!("（この席は {at} から着いています。それより前の発言は取れません）")
+                format!(
+                    "（このエージェントは {at} からつながっています。それより前の発言は取れません）"
+                )
             }
             None => String::new(),
         }
     }
 
-    /// 取り出したものを、**読んだと机へ告げる**（**D76**）。
+    /// 取り出したものを、**読んだとこの機械へ告げる**（**D76**）。
     ///
     /// **渡した時点が「読んだ」である。**中身を理解したかは誰にも分からないので、
     /// そこは名乗らない。
@@ -300,7 +302,7 @@ impl Chat {
         出た
     }
 
-    /// 待って取り出し、**読んだと机へ告げる**（**D76**）。
+    /// 待って取り出し、**読んだとこの機械へ告げる**（**D76**）。
     pub async fn 待って告げる(&self, 秒: u64) -> Vec<FromDesk> {
         let 出た = self.待つ(秒).await;
         if let Some(まで) = 最後の番号(&出た) {
@@ -329,7 +331,7 @@ fn 仕分ける(
     箱: &Arc<Mutex<VecDeque<FromDesk>>>,
     返し先: &Arc<Mutex<Option<oneshot::Sender<FromDesk>>>>,
     起こす: &Arc<Notify>,
-    着いた: &Arc<Mutex<Option<String>>>,
+    つながった: &Arc<Mutex<Option<String>>>,
     行: &str,
 ) {
     // 読めない行は捨てる。**捨てたことは、次の Denied で分かる形にしない**
@@ -338,9 +340,9 @@ fn 仕分ける(
         return;
     };
 
-    // **着いた時刻は控えるだけ。**発言として積まない
+    // **つながった時刻は控えるだけ。**発言として積まない
     if let FromDesk::Seated { at, .. } = &中身 {
-        *着いた.lock().expect("毒されていない") = Some(at.clone());
+        *つながった.lock().expect("毒されていない") = Some(at.clone());
         return;
     }
 
@@ -382,7 +384,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
         .iter()
         .map(|一つ| match 一つ {
             // **番号も出す。**あとで「その発言は読まれたか」を尋ねられる（**D76**）
-            // **番号の無い発言（古い机）には番号を出さない。**
+            // **番号の無い発言（古いこの機械）には番号を出さない。**
             // 出すと、尋ねられる番号があるように見える
             FromDesk::Heard { id, from, body, at } if *id > 0 => {
                 format!("{at}\t{from}\t{body}\t#{id}")
@@ -400,7 +402,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
-            // **着いた知らせは、発言として並べない**（控えるだけ）。
+            // **つながった知らせは、発言として並べない**（控えるだけ）。
             // ここへ来るのは、仕分けを通らない使い方をされたときだけ
             FromDesk::Seated { at, who } => format!("\t\t（{who} として {at} に着きました）"),
             FromDesk::Status {
@@ -433,14 +435,14 @@ mod tests {
 
     #[test]
     fn 番号の無い発言には番号を出さない() {
-        // **古い机は 0 を返す。**0 を「#0」として出すと、尋ねられる番号に見える
+        // **古いこの機械は 0 を返す。**0 を「#0」として出すと、尋ねられる番号に見える
         let 行 = 並べる(&[FromDesk::Heard {
             id: 0,
             from: "ABCDEFGH…".to_owned(),
-            body: "むかしの机から".to_owned(),
+            body: "むかしのこの機械から".to_owned(),
             at: "09:05".to_owned(),
         }]);
-        assert_eq!(行, "09:05\tABCDEFGH…\tむかしの机から");
+        assert_eq!(行, "09:05\tABCDEFGH…\tむかしのこの機械から");
     }
 
     #[test]

@@ -500,7 +500,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'help.close': '閉じる',
     'help.this.title': 'この PC の行',
     'help.this.me': 'あなた —— この PC の持ち主です。いつも出ます（顔の右下はいつも緑）。',
-    'help.this.on': '緑の丸（顔の右下）—— いまこの PC の口に着いているエージェントです。打てば届きます。',
+    'help.this.on': '緑の丸（顔の右下）—— いまこの PC の口につながっているエージェントです。打てば届きます。',
     'help.this.off': 'グレーの丸 —— 以前つながって名乗りが残っているエージェントです。打っても届きません。そちらで立ち上げ直すと、緑に戻ります。',
     'help.this.others': '下の「連絡先」には丸を出しません。相手が起動しているかは、こちらから分からないためです。',
     'contacts.forget': '鍵なしで入れるのをやめる',

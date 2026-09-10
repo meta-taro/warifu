@@ -31,7 +31,7 @@ pub struct SlotsArgs {
 
 /// [`crate::Warifu::chat_send`] の引数。
 ///
-/// **差出人を書く場所が無いのは意図。**誰が言ったかは机が刻む
+/// **差出人を書く場所が無いのは意図。**誰が言ったかはこの機械が刻む
 /// （[`warifu_desk::ToDesk`] と同じ約束）。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct SayArgs {
@@ -41,8 +41,8 @@ pub struct SayArgs {
 
 /// [`crate::Warifu::profile_set`] の引数。
 ///
-/// **「誰の」を書く場所が無いのは意図。**どの席かは繋いできた口で決まる ——
-/// 書けると、**同じ机の別のエージェントに化けられる。**
+/// **「誰の」を書く場所が無いのは意図。**どのエージェントかは繋いできた口で決まる ——
+/// 書けると、**同じ機械の別のエージェントに化けられる。**
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct ProfileArgs {
     /// 表に出す名前。**空にすると消える。**
