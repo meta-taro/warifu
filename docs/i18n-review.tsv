@@ -50,6 +50,16 @@ chat.reach.none	It goes nowhere yet. Someone coming into the room, or an agent o
 chat.send	Send	送る	发送	보내기				
 chat.shared	This is not a conversation with the person you picked.	ここは、選んだ相手だけの会話ではありません。	这里不是只和所选对方的会话。	여기는 고른 상대만의 대화가 아닙니다.	★	**会話は 1 本しか無い。**選んだ相手の隣に並んでいても、その人だけに届くのではない。「この相手にだけ届きます」「非公開の会話です」「ダイレクトメッセージ」と読める訳にしないこと。**個別に届くと誤解した人は、見られたくないものを書く。**		
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
+connect.copied	Copied	写しました	已复制	복사했습니다				
+connect.copy	Copy	コピー	复制	복사				
+connect.docs	You write which actions are allowed (denied by default). See docs/mcp.md.	許す動作は人が書きます（既定は拒否）。詳しくは docs/mcp.md。	允许哪些动作由人来写（默认拒绝）。详见 docs/mcp.md。	허용할 동작은 사람이 씁니다(기본은 거부). 자세히는 docs/mcp.md.				
+connect.lead	Run the lines below on that agent’s machine, then restart the agent (the port is read at startup).	下を 1 行ずつ、そのエージェントの端末で叩きます。叩き終わったら、エージェントを立ち上げ直してください（口は起動時に読まれます）。	在那个智能体的机器上逐行执行下面的命令，然后重启智能体（入口在启动时读取）。	아래를 그 에이전트의 기기에서 한 줄씩 실행한 뒤, 에이전트를 다시 시작하세요(창구는 시작할 때 읽습니다).				
+connect.open	Show how to connect	つなぎ方を出す	显示连接方法	연결 방법 보기				
+connect.step1	1. Add the warifu port to that agent’s settings	1. 割符の口を、そのエージェントの設定に足す	1. 把割符的入口写进那个智能体的设置	1. 와리후의 창구를 그 에이전트 설정에 추가				
+connect.step2	2. Restart the agent (settings are read at startup)	2. エージェントを立ち上げ直す（設定は起動時に読まれます）	2. 重启智能体（设置在启动时读取）	2. 에이전트를 다시 시작(설정은 시작할 때 읽습니다)				
+connect.step3	3. The dot turns green and what you type reaches it	3. これで丸が緑になり、打った言葉が届きます	3. 圆点会变绿，你打的内容就会送到	3. 동그라미가 초록이 되고, 입력한 말이 도착합니다				
+connect.title	Connect this agent	このエージェントをつなぐ	连接这个智能体	이 에이전트를 연결하기				
+connect.wake	React without waiting (woken by what arrives)	待たずに反応させる（届いた言葉で起こす）	不等待就反应（由送到的内容唤起）	기다리지 않고 반응하기(도착한 말로 깨우기)				
 contacts.claimed	They call themselves “{name}”.	本人は「{name}」と名乗っています。	对方自称“{name}”。	본인은 “{name}” 라고 밝히고 있습니다.				
 contacts.desk	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 contacts.desk.how	To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。	要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。	연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
@@ -182,6 +192,10 @@ revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{devi
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a key and someone can come in.	まだ自分だけです。鍵を渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
 room.host	You made this room	あなたが作ったルームです	这个房间由你建立	당신이 만든 방입니다				
+room.leave	Leave this room	このルームを抜ける	退出这个 room	이 룸에서 나가기				
+room.leave.confirm	Leave this room?	このルームを抜けますか？	要退出这个 room 吗？	이 룸에서 나갈까요?				
+room.leave.do	Leave	抜ける	退出	나가기				
+room.leave.hint	Everyone in the room is told you left. The conversation here is not kept. To come back you need a key again.	抜けたことは、このルームの全員に伝わります。ここの会話は残りません。入り直すには、鍵をもう一度もらってください。	room 里的所有人都会知道你退出了。这里的会话不会保留。要再进来需要重新拿到钥匙。	나간 것은 이 룸의 모두에게 전해집니다. 여기의 대화는 남지 않습니다. 다시 들어오려면 키를 다시 받아야 합니다.				
 room.members.some	People are here.	人が入っています。	有人在。	사람이 있습니다.				
 room.name	Room name	ルームの名前	房间名	방 이름				
 room.name.hint	The name lives only in this window (it goes away when you close it). It is not sent to anyone.	名前はこの画面の中だけです（閉じると消えます）。相手には送りません。	名字只存在于这个窗口里（关闭后消失）。不会发送给别人。	이름은 이 화면 안에만 있습니다 (닫으면 사라집니다). 상대에게는 보내지 않습니다.				

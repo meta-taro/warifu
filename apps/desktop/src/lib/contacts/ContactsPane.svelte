@@ -17,6 +17,7 @@
   import { できること, type 口の種類, type 状態 } from './actions';
   import { いまの様子, できることの案内, はじめの一歩を出すか } from './home';
   import { 在席の印 } from './presence';
+  import { macの実体, 口を足す, 起こす } from './connect';
   import {
     机の印,
     部屋か,
@@ -89,6 +90,13 @@
     覚え書きを書く?: (key: string, note: string) => void;
     /** 部屋に名前を付ける（**画面の中だけ**）。 */
     部屋に名前を付ける?: (id: string, 名前: string) => void;
+    /**
+     * そのルームを抜ける。
+     *
+     * **抜ける口が画面に無かった**（窓を閉じるときだけ内部で抜けていた）——
+     * オーナー・2026-09-10「**たとえば、ルームぬけれるの？ みたいなところとかね**」。
+     */
+    ルームを抜ける?: (id: string) => void;
   }
   const {
     locale,
@@ -109,6 +117,7 @@
     顔を差し替える = () => {},
     覚え書きを書く = () => {},
     部屋に名前を付ける = () => {},
+    ルームを抜ける = () => {},
   }: Props = $props();
 
   /**
@@ -182,6 +191,28 @@
    * ないです**」。**印だけでは足りない** —— 何が ● で何が ○ かを書く。
    */
   let 説明を開いている = $state(false);
+
+  /**
+   * つなぎ方を出しているか（切れているエージェント用）。
+   *
+   * **グレーを緑にする道が、画面のどこにも無かった** ——
+   * `warifu mcp` を知っている人だけが繋げる形だった（オーナー・2026-09-10
+   * 「人はどう操作すると想定するか、そのためにはどんな機能がいるか」）。
+   */
+  let つなぎ方を開いている = $state(false);
+
+  /** ルームを抜ける前の確かめ。**抜けると全員に伝わる。** */
+  let 抜けるか確かめている = $state(false);
+
+  /** 写した行（押した所に「写しました」と出す）。 */
+  let 写した行 = $state<string | null>(null);
+
+  /** その行を写す。**中身は端末で叩くコマンドだけ**（秘密は入らない）。 */
+  async function 行を写す(中身: string) {
+    await navigator.clipboard.writeText(中身);
+    写した行 = 中身;
+    setTimeout(() => (写した行 = null), 1500);
+  }
 
   /** 顔を大きく出しているか（オーナー・2026-09-10「クリックしたら、大きく表示」）。 */
   let 顔を大きく = $state(false);
@@ -374,6 +405,8 @@
     顔を大きく = false;
     説明を開いている = false;
     戻すか確かめている = false;
+    つなぎ方を開いている = false;
+    抜けるか確かめている = false;
   }}
 />
 
@@ -747,6 +780,12 @@
           </button>
         </div>
         <p class="hint">{t('room.name.hint')}</p>
+        <!-- **抜ける口を置く。**入ったら出られない部屋にしない -->
+        <div class="tail">
+          <button type="button" class="quiet" onclick={() => (抜けるか確かめている = true)}>
+            {t('room.leave')}
+          </button>
+        </div>
       {/if}
       {#if 相手.種類 === '人'}
         <!--
@@ -799,9 +838,16 @@
         <p class="why">{t('act.desk.stop.hint')}</p>
       {/if}
       {#if 相手.種類 === 'AI' && !相手.いま会議に居る}
-        <!-- **「居ません」だけでは、どうすればよいか分からない。**手順まで出す -->
+        <!--
+          **「切れています」だけでは、どうすればよいか分からない。**
+          叩くものを画面が出す（`connect.ts`）—— **割符が代わりに叩かない**（D56）
+        -->
         <p class="hint">{t('contacts.desk.none')}</p>
-        <p class="hint">{t('contacts.desk.how')}</p>
+        <div class="tail">
+          <button type="button" class="primary" onclick={() => (つなぎ方を開いている = true)}>
+            <Icon name="link" size={16} />{t('connect.open')}
+          </button>
+        </div>
       {/if}
 
       <!--
@@ -864,6 +910,71 @@
         <p class="foot">{t('help.this.others')}</p>
         <div class="tail">
           <button type="button" class="quiet" onclick={() => (説明を開いている = false)}>
+            {t('help.close')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- **抜ける前に確かめる。**抜けたことは全員に伝わる -->
+  {#if 抜けるか確かめている && 相手 && 部屋のid(相手.key)}
+    <div class="幕" role="dialog" aria-modal="true" aria-label={t('room.leave.confirm')}>
+      <div class="箱">
+        <p class="what">{t('room.leave.confirm')}</p>
+        <p class="hint">{t('room.leave.hint')}</p>
+        <div class="tail">
+          <button
+            type="button"
+            onclick={() => {
+              const id = 部屋のid(相手.key);
+              if (id) ルームを抜ける(id);
+              抜けるか確かめている = false;
+            }}
+          >
+            {t('room.leave.do')}
+          </button>
+          <button type="button" class="quiet" onclick={() => (抜けるか確かめている = false)}>
+            {t('profile.cancel')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- **つなぎ方。**叩くものを出す（写せる） -->
+  {#if つなぎ方を開いている && 相手}
+    <div class="幕" role="dialog" aria-modal="true" aria-label={t('connect.title')}>
+      <div class="箱 つなぎ方">
+        <p class="what">{t('connect.title')}</p>
+        <p class="hint">{t('connect.lead')}</p>
+
+        <p class="step">{t('connect.step1')}</p>
+        {#each [口を足す(), 口を足す(macの実体)] as 一行 (一行)}
+          <div class="cmd">
+            <code>{一行}</code>
+            <button type="button" class="quiet" onclick={() => void 行を写す(一行)}>
+              <Icon name={写した行 === 一行 ? 'check' : 'copy'} size={14} />
+              {写した行 === 一行 ? t('connect.copied') : t('connect.copy')}
+            </button>
+          </div>
+        {/each}
+
+        <p class="step">{t('connect.step2')}</p>
+        <p class="step">{t('connect.step3')}</p>
+
+        <p class="step">{t('connect.wake')}</p>
+        <div class="cmd">
+          <code>{起こす(相手.name)}</code>
+          <button type="button" class="quiet" onclick={() => void 行を写す(起こす(相手.name))}>
+            <Icon name={写した行 === 起こす(相手.name) ? 'check' : 'copy'} size={14} />
+            {写した行 === 起こす(相手.name) ? t('connect.copied') : t('connect.copy')}
+          </button>
+        </div>
+
+        <p class="foot">{t('connect.docs')}</p>
+        <div class="tail">
+          <button type="button" class="quiet" onclick={() => (つなぎ方を開いている = false)}>
             {t('help.close')}
           </button>
         </div>
@@ -1206,6 +1317,45 @@
     font-weight: 600;
     color: var(--text-primary);
   }
+  /* つなぎ方。**叩く行は等幅で、そのまま写せる形に置く** */
+  .つなぎ方 {
+    width: 560px;
+  }
+  .つなぎ方 .step {
+    margin: var(--space-3) 0 0;
+    font-size: var(--text-sm-size);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .つなぎ方 .foot {
+    margin: var(--space-4) calc(-1 * var(--space-5)) 0;
+    padding: var(--space-3) var(--space-5) 0;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+  }
+  .cmd {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--bg-sunken);
+  }
+  .cmd code {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs-size);
+    color: var(--text-primary);
+  }
+  .cmd button {
+    flex: none;
+  }
+
   .箱 .tail {
     margin-top: var(--space-3);
     justify-content: flex-end;

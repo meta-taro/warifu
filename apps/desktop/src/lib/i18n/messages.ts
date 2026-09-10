@@ -152,8 +152,22 @@ export type MessageKey =
   | 'contacts.note.hint'
   | 'room.name'
   | 'room.nth'
+  | 'room.leave'
+  | 'room.leave.confirm'
+  | 'room.leave.hint'
+  | 'room.leave.do'
   | 'room.name.hint'
   | 'contacts.desk.how'
+  | 'connect.open'
+  | 'connect.title'
+  | 'connect.lead'
+  | 'connect.step1'
+  | 'connect.step2'
+  | 'connect.step3'
+  | 'connect.wake'
+  | 'connect.copy'
+  | 'connect.copied'
+  | 'connect.docs'
   | 'chat.shared'
   | 'chat.reach'
   | 'chat.reach.none'
@@ -406,8 +420,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
     'room.name': 'ルームの名前',
     'room.nth': 'ルーム {n}（{m} 人）',
+    'room.leave': 'このルームを抜ける',
+    'room.leave.confirm': 'このルームを抜けますか？',
+    'room.leave.hint': '抜けたことは、このルームの全員に伝わります。ここの会話は残りません。入り直すには、鍵をもう一度もらってください。',
+    'room.leave.do': '抜ける',
     'room.name.hint': '名前はこの画面の中だけです（閉じると消えます）。相手には送りません。',
     'contacts.desk.how': '繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。',
+    'connect.open': 'つなぎ方を出す',
+    'connect.title': 'このエージェントをつなぐ',
+    'connect.lead': '下を 1 行ずつ、そのエージェントの端末で叩きます。叩き終わったら、エージェントを立ち上げ直してください（口は起動時に読まれます）。',
+    'connect.step1': '1. 割符の口を、そのエージェントの設定に足す',
+    'connect.step2': '2. エージェントを立ち上げ直す（設定は起動時に読まれます）',
+    'connect.step3': '3. これで丸が緑になり、打った言葉が届きます',
+    'connect.wake': '待たずに反応させる（届いた言葉で起こす）',
+    'connect.copy': 'コピー',
+    'connect.copied': '写しました',
+    'connect.docs': '許す動作は人が書きます（既定は拒否）。詳しくは docs/mcp.md。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
     'chat.reach': '届く先 {who}',
     'chat.reach.none': '届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。',
@@ -632,8 +660,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
     'room.name': 'Room name',
     'room.nth': 'Room {n} ({m} people)',
+    'room.leave': 'Leave this room',
+    'room.leave.confirm': 'Leave this room?',
+    'room.leave.hint': 'Everyone in the room is told you left. The conversation here is not kept. To come back you need a key again.',
+    'room.leave.do': 'Leave',
     'room.name.hint': 'The name lives only in this window (it goes away when you close it). It is not sent to anyone.',
     'contacts.desk.how': 'To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
+    'connect.open': 'Show how to connect',
+    'connect.title': 'Connect this agent',
+    'connect.lead': 'Run the lines below on that agent’s machine, then restart the agent (the port is read at startup).',
+    'connect.step1': '1. Add the warifu port to that agent’s settings',
+    'connect.step2': '2. Restart the agent (settings are read at startup)',
+    'connect.step3': '3. The dot turns green and what you type reaches it',
+    'connect.wake': 'React without waiting (woken by what arrives)',
+    'connect.copy': 'Copy',
+    'connect.copied': 'Copied',
+    'connect.docs': 'You write which actions are allowed (denied by default). See docs/mcp.md.',
     'chat.shared': 'This is not a conversation with the person you picked.',
     'chat.reach': 'Goes to {who}',
     'chat.reach.none': 'It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.',
@@ -858,8 +900,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
     'room.name': '房间名',
     'room.nth': 'Room {n}（{m} 人）',
+    'room.leave': '退出这个 room',
+    'room.leave.confirm': '要退出这个 room 吗？',
+    'room.leave.hint': 'room 里的所有人都会知道你退出了。这里的会话不会保留。要再进来需要重新拿到钥匙。',
+    'room.leave.do': '退出',
     'room.name.hint': '名字只存在于这个窗口里（关闭后消失）。不会发送给别人。',
     'contacts.desk.how': '要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。',
+    'connect.open': '显示连接方法',
+    'connect.title': '连接这个智能体',
+    'connect.lead': '在那个智能体的机器上逐行执行下面的命令，然后重启智能体（入口在启动时读取）。',
+    'connect.step1': '1. 把割符的入口写进那个智能体的设置',
+    'connect.step2': '2. 重启智能体（设置在启动时读取）',
+    'connect.step3': '3. 圆点会变绿，你打的内容就会送到',
+    'connect.wake': '不等待就反应（由送到的内容唤起）',
+    'connect.copy': '复制',
+    'connect.copied': '已复制',
+    'connect.docs': '允许哪些动作由人来写（默认拒绝）。详见 docs/mcp.md。',
     'chat.shared': '这里不是只和所选对方的会话。',
     'chat.reach': '送达 {who}',
     'chat.reach.none': '目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。',
@@ -1084,8 +1140,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
     'room.name': '방 이름',
     'room.nth': '룸 {n}({m}명)',
+    'room.leave': '이 룸에서 나가기',
+    'room.leave.confirm': '이 룸에서 나갈까요?',
+    'room.leave.hint': '나간 것은 이 룸의 모두에게 전해집니다. 여기의 대화는 남지 않습니다. 다시 들어오려면 키를 다시 받아야 합니다.',
+    'room.leave.do': '나가기',
     'room.name.hint': '이름은 이 화면 안에만 있습니다 (닫으면 사라집니다). 상대에게는 보내지 않습니다.',
     'contacts.desk.how': '연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
+    'connect.open': '연결 방법 보기',
+    'connect.title': '이 에이전트를 연결하기',
+    'connect.lead': '아래를 그 에이전트의 기기에서 한 줄씩 실행한 뒤, 에이전트를 다시 시작하세요(창구는 시작할 때 읽습니다).',
+    'connect.step1': '1. 와리후의 창구를 그 에이전트 설정에 추가',
+    'connect.step2': '2. 에이전트를 다시 시작(설정은 시작할 때 읽습니다)',
+    'connect.step3': '3. 동그라미가 초록이 되고, 입력한 말이 도착합니다',
+    'connect.wake': '기다리지 않고 반응하기(도착한 말로 깨우기)',
+    'connect.copy': '복사',
+    'connect.copied': '복사했습니다',
+    'connect.docs': '허용할 동작은 사람이 씁니다(기본은 거부). 자세히는 docs/mcp.md.',
     'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',
     'chat.reach': '가는 곳 {who}',
     'chat.reach.none': '아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.',
