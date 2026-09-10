@@ -9,7 +9,7 @@ act.call.desk.none	Not connected. Once connected, it is in the same conversation
 act.call.net	On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.	同じ網なら、そのまま繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.	★	**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。`--relay` は付けられるが、繋がる保証はまだ無い。		
 act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중…				
 act.chat	Chat	チャット	聊天	채팅				
-act.chat.desk	A conversation with the agent on this computer only. Type in the box on the right and only that agent receives it.	この PC のエージェントとだけの会話です。右の欄に打つと、そのエージェントにだけ届きます。	只和这台电脑的智能体的会话。在右边的框里输入，只有那个智能体会收到。	이 PC의 에이전트와만 하는 대화입니다. 오른쪽 칸에 입력하면 그 에이전트에게만 갑니다.				
+act.chat.desk	A conversation with the agent on this computer only. Type in the conversation box and only that agent receives it.	この PC のエージェントとだけの会話です。会話の欄に打つと、そのエージェントにだけ届きます。	只和这台电脑的智能体的会话。在会话框里输入，只有那个智能体会收到。	이 PC의 에이전트와만 하는 대화입니다. 대화 칸에 입력하면 그 에이전트에게만 갑니다.				
 act.chat.desk.none	They are not connected right now, so what you type will not reach them.	いま繋がっていないので、打っても届きません。	现在没有连上，所以你打的内容不会送到。	지금 연결되어 있지 않아서, 입력해도 도착하지 않습니다.				
 act.chat.live	Messages arrive only while the two of you are connected. If they are not running, what you type is kept nowhere. Set up a poste restante and it can be left for them.	繋がっている間だけ届きます。相手が起動していないときは、打ったものはどこにも残りません。預かり所を置くと、留守のときも預けられます。	只在双方连着的时候才会送到。对方没启动时，你打的内容不会留在任何地方。设置寄存处后，对方不在也可以先寄存。	연결되어 있는 동안에만 도착합니다. 상대가 켜져 있지 않으면 입력한 내용은 어디에도 남지 않습니다. 보관소를 두면 상대가 없을 때도 맡길 수 있습니다.	★	**まだ届いていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態では、繋がっていない間に打った言葉はどこにも残らない。「預かり所を置くと」は条件であって、約束ではない。		
 act.chat.postbox	A conversation with this person only. While they are away it is left sealed at the poste restante (7 days).	この相手とだけの会話です。相手が留守のときは、預かり所へ封のまま預けます（7 日）。	只和这位对象的会话。对方不在时，会封着寄存在寄存处（7 天）。	이 상대와만 하는 대화입니다. 상대가 없을 때는 봉한 채로 보관소에 맡깁니다(7일).				
@@ -87,7 +87,7 @@ contacts.presence.none	There is no way to tell whether they are running right no
 contacts.rooms	Rooms you are in	ルーム	你所在的房间	지금 있는 방				
 contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
 contacts.this	This computer	この PC	这台电脑	이 PC				
-contacts.where	To talk to them, type in the box on the right.	話しかけるときは、右の欄に打ちます。	要跟对方说话，请在右边的框里输入。	말을 걸 때는 오른쪽 칸에 입력합니다.				
+contacts.where	To talk to them, type in the conversation box.	話しかけるときは、会話の欄に打ちます。	要跟对方说话，请在会话框里输入。	말을 걸 때는 대화 칸에 입력합니다.				
 crop.apply	Use this	これにする	就用这个	이걸로 한다				
 crop.hint	Drag to move and change the size. What is inside the circle becomes the face.	つまんで動かし、大きさを変えられます。丸の中が顔になります。	可以拖动移动、调整大小。圆圈内的部分会成为头像。	끌어서 움직이고 크기를 바꿀 수 있습니다. 원 안이 얼굴이 됩니다.				
 crop.title	Choose the part to use	顔にする所を選ぶ	选择用作头像的部分	얼굴로 쓸 부분을 고릅니다				
