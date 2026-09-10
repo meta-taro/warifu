@@ -43,6 +43,7 @@
     type 部屋の会話,
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
+  import { 届きを見る } from '$lib/chat/delivery';
   import { 呼び名 } from '$lib/meeting/names';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
@@ -1040,11 +1041,14 @@
       return;
     }
     log(話の記録('送信', `${短く(key)}（預かり所）`, body));
+    // **預けた、と行に書く。**届いたとは書かない（相手が次に起動したときに届く）
+    const 札 = 届きを見る({ 種類: '預ける', key }, 0);
     部屋の会話たち = 会話に足す(部屋の会話たち, 人の部屋(key), {
       who: t('tile.me'),
       body,
       mine: true,
       at: いま時刻(),
+      届き: { 札: 札.札, 訳: 札.訳 },
     });
     notice = t('postbox.kept');
   }
@@ -1065,11 +1069,15 @@
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
       log(話の記録('送信', 宛先 ?? (会議中 ? `${remotes.length} 人` : '机'), body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
+      // **どこまで行ったかを、その行に持たせる**（`chat/delivery.ts`）。
+      // 既読ではない —— 渡した／預けた／届かない の 3 つだけ
+      const 札 = 届きを見る(送り方, remotes.length);
       const 私の行 = {
         who: t('tile.me'),
         body,
         mine: true,
         at: いま時刻(),
+        届き: { 札: 札.札, 訳: 札.訳 },
       };
       if (送り方.種類 === '机') {
         // **その席にしか届いていない**（**D86**）。
@@ -1149,6 +1157,28 @@
       鍵たち = 鍵を足す(鍵たち, 本);
       渡す一本 = 本;
       // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
+      await 部屋を読み直す();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  /**
+   * そのルームに人を呼ぶ（鍵を 1 本出して、渡す形で見せる）。
+   *
+   * **鍵を出す口はルームの面にしか無かった** ——
+   * ルームに誰も居ない画面で、人は何をすればよいか分からなかった。
+   */
+  async function ルームに呼ぶ(id: string) {
+    notice = '';
+    try {
+      // **その部屋の鍵を出す。**いま見ている部屋に対して出るので、先に移す
+      await 部屋へ移る(id);
+      const 鍵 = (await invite(KEY_TTL_SECS)) ?? '';
+      if (!鍵) return;
+      const 本 = { 鍵, ...(await 渡す形にする(鍵)) };
+      鍵たち = 鍵を足す(鍵たち, 本);
+      渡す一本 = 本;
       await 部屋を読み直す();
     } catch (e) {
       notice = 読める(e);
@@ -1871,6 +1901,7 @@
         部屋に名前を付ける={部屋に名前を付ける}
         ルームを抜ける={(id) => void ルームを抜ける(id)}
         鍵を渡す={(相手) => void その人に鍵を渡す(相手)}
+        ルームに呼ぶ={(id) => void ルームに呼ぶ(id)}
         鍵を渡してあるか={(key) => 渡してあるか(鍵たち, key)}
       />
       <!--
@@ -1907,10 +1938,17 @@
   {#if 渡す一本}
     <div class="幕" role="dialog" aria-modal="true" aria-label={t('key.hand')}>
       <div class="箱">
+        <!-- **宛先を書いて出した 1 本か、ルームへ呼ぶ 1 本か**で言い方を変える -->
         <p class="what">
-          {format(t('key.hand.title'), { name: 渡す一本.宛先?.名 ?? '' })}
+          {渡す一本.宛先
+            ? format(t('key.hand.title'), { name: 渡す一本.宛先.名 })
+            : t('room.invite.title')}
         </p>
-        <p class="hint">{format(t('key.hand.hint'), { name: 渡す一本.宛先?.名 ?? '' })}</p>
+        <p class="hint">
+          {渡す一本.宛先
+            ? format(t('key.hand.hint'), { name: 渡す一本.宛先.名 })
+            : t('room.invite.hint')}
+        </p>
         <div class="row">
           {#if 渡す一本.リンク}
             <button type="button" onclick={() => void 写し取る('渡す:リンク', 渡す一本?.リンク ?? '')}>
@@ -2345,9 +2383,27 @@
     background: var(--neutral-bg);
     color: var(--text-tertiary);
   }
+  /*
+    **狭いときは縦に積む**（2026-09-10・縦長の窓で実測）。
+    レールを横に寝かせても `main` が横並びのままだと、
+    **タブが列の中で宙に浮く。**面の中身も、横に並べると痩せて読めない
+  */
   @media (max-width: 860px) {
     main {
-      grid-template-columns: 1fr;
+      flex-direction: column;
+    }
+    .pane {
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    /* 連絡帳の会話は、狭いときは幅いっぱい（300px の柱にしない） */
+    .pane.contacts > :global(.card) {
+      width: 100%;
+      flex: none;
+      min-height: 240px;
+    }
+    .pane.meeting > :global(aside) {
+      width: 100%;
     }
   }
 </style>

@@ -87,7 +87,11 @@
         {#if line.at}<span class="at">{line.at}</span>{/if}{#if line.留守中}<span class="late"
             >{t('chat.late')}</span
           >{/if}{#if !line.system}<b>{line.who}</b
-          >{/if}{line.body}
+          >{/if}{line.body}{#if line.届き}<span
+            class="mark"
+            class:none={line.届き.札 === 'mark.none'}
+            title={t(line.届き.訳 as MessageKey)}>{t(line.届き.札 as MessageKey)}</span
+          >{/if}
       </p>
     {/each}
   </div>
@@ -195,6 +199,22 @@
     word-break: break-word;
   }
   /* **会議からの知らせ。**人の発言と見分けが付く形にする */
+  /* **どこまで行ったかの札。**既読ではない（読んだかは分からない） */
+  .mark {
+    margin-left: 6px;
+    padding: 0 6px;
+    font-size: var(--text-2xs-size);
+    color: var(--text-tertiary);
+    background: var(--bg-sunken);
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    cursor: help;
+  }
+  .mark.none {
+    color: var(--warning-fg);
+    background: var(--warning-bg);
+  }
+
   .line.system {
     color: var(--text-tertiary);
     font-style: italic;

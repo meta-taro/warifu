@@ -76,6 +76,12 @@ export type MessageKey =
   | 'postbox.saved'
   | 'postbox.cleared'
   | 'postbox.kept'
+  | 'mark.sent'
+  | 'mark.sent.hint'
+  | 'mark.kept'
+  | 'mark.kept.hint'
+  | 'mark.none'
+  | 'mark.none.hint'
   | 'postbox.received'
   | 'pane.contacts'
   | 'pane.meeting'
@@ -92,6 +98,9 @@ export type MessageKey =
   | 'contacts.rooms'
   | 'room.members.some'
   | 'room.alone'
+  | 'room.invite'
+  | 'room.invite.title'
+  | 'room.invite.hint'
   | 'room.host'
   | 'contacts.empty'
   | 'contacts.pick'
@@ -170,6 +179,9 @@ export type MessageKey =
   | 'connect.step2'
   | 'connect.step3'
   | 'connect.wake'
+  | 'connect.paste'
+  | 'connect.paste.hint'
+  | 'connect.paste.body'
   | 'connect.copy'
   | 'connect.copied'
   | 'connect.docs'
@@ -349,6 +361,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'postbox.saved': '預かり所を置きました。',
     'postbox.cleared': '預かり所を外しました。',
     'postbox.kept': 'いま相手に届かないので、預かり所へ預けました。相手が起動したときに届きます。',
+    'mark.sent': '渡した',
+    'mark.sent.hint': '相手の機械へ渡しました。読んだかどうかは分かりません（既読を集める機械が無いためです）。',
+    'mark.kept': '預けた',
+    'mark.kept.hint': '相手が留守だったので、預かり所へ封のまま置きました。届くのは相手が次に起動したときです。',
+    'mark.none': '届かない',
+    'mark.none.hint': '経路も預かり所も無いので、どこにも残っていません。',
     'postbox.received': '留守中に届いていた分が {n} 通ありました。',
     'pane.contacts': '連絡帳',
     'pane.meeting': 'ルーム',
@@ -365,6 +383,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.rooms': 'ルーム',
     'room.members.some': '人が入っています。',
     'room.alone': 'まだ自分だけです。鍵を渡すと入ってもらえます。',
+    'room.invite': 'このルームに人を呼ぶ',
+    'room.invite.title': 'このルームに渡す 1 本',
+    'room.invite.hint': 'この 1 本で 1 人が入れます。リンクか QR、または鍵の文字を、呼びたい相手に渡してください。もう 1 人呼ぶなら、もう 1 本出します。',
     'room.host': 'あなたが作ったルームです',
     'contacts.empty': 'まだ誰も覚えていません。ルームで会った相手に呼び名を付けると、ここに残ります。',
     'contacts.pick': '相手を選ぶと、できることが出ます。',
@@ -438,11 +459,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.how': '繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。',
     'connect.open': 'つなぎ方を出す',
     'connect.title': 'このエージェントをつなぐ',
-    'connect.lead': '下を 1 行ずつ、そのエージェントの端末で叩きます。叩き終わったら、エージェントを立ち上げ直してください（口は起動時に読まれます）。',
+    'connect.lead': 'これは、そのエージェントの端末で叩くものです（動いている Claude の中ではありません）。叩いて設定を書いたら、エージェントを立ち上げ直してください —— 割符の口は起動時に読まれます。',
     'connect.step1': '1. 割符の口を、そのエージェントの設定に足す',
     'connect.step2': '2. エージェントを立ち上げ直す（設定は起動時に読まれます）',
     'connect.step3': '3. これで丸が緑になり、打った言葉が届きます',
     'connect.wake': '待たずに反応させる（届いた言葉で起こす）',
+    'connect.paste': 'もう動いているエージェントに貼る',
+    'connect.paste.hint': 'すでに立ち上げてあるエージェントには、下の文をそのまま貼って頼めます（この PC のエージェント向け）。設定を書いても、立ち上げ直すまでは口が開きません。',
+    'connect.paste.body': '割符（warifu）に繋がってください。手順は 2 つです。1) 端末で次を実行: {cmd} 2) 書けたら、私を立ち上げ直すようにこの PC の持ち主へ伝えてください（MCP の口は起動時に読まれます）。立ち上げ直したあと、warifu の chat_read で届いた発言を読めます。',
     'connect.copy': 'コピー',
     'connect.copied': '写しました',
     'connect.docs': '許す動作は人が書きます（既定は拒否）。詳しくは docs/mcp.md。',
@@ -594,6 +618,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'postbox.saved': 'Mailbox set.',
     'postbox.cleared': 'Mailbox removed.',
     'postbox.kept': 'They are not here, so it was left at the mailbox. It arrives when they start up.',
+    'mark.sent': 'Handed over',
+    'mark.sent.hint': 'Handed to their machine. Whether they read it is unknown (there is no machine collecting read receipts).',
+    'mark.kept': 'Left',
+    'mark.kept.hint': 'They were away, so it was left sealed at the poste restante. It arrives when they next start up.',
+    'mark.none': 'Not delivered',
+    'mark.none.hint': 'There was no route and no poste restante, so it is kept nowhere.',
     'postbox.received': '{n} message(s) had arrived while you were away.',
     'pane.contacts': 'Contacts',
     'pane.meeting': 'Room',
@@ -610,6 +640,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.rooms': 'Rooms you are in',
     'room.members.some': 'People are here.',
     'room.alone': 'Just you so far. Hand out a key and someone can come in.',
+    'room.invite': 'Invite someone to this room',
+    'room.invite.title': 'One key for this room',
+    'room.invite.hint': 'This one key lets one person in. Hand the link, the QR or the key text to the person you want. To invite another person, issue another key.',
     'room.host': 'You made this room',
     'contacts.empty': 'You have not remembered anyone yet. Name someone you met in a room and they stay here.',
     'contacts.pick': 'Pick someone to see what you can do.',
@@ -683,11 +716,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.how': 'To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
     'connect.open': 'Show how to connect',
     'connect.title': 'Connect this agent',
-    'connect.lead': 'Run the lines below on that agent’s machine, then restart the agent (the port is read at startup).',
+    'connect.lead': 'Run these in a terminal on that agent’s machine (not inside a running Claude session). After the settings are written, restart the agent — the warifu port is read at startup.',
     'connect.step1': '1. Add the warifu port to that agent’s settings',
     'connect.step2': '2. Restart the agent (settings are read at startup)',
     'connect.step3': '3. The dot turns green and what you type reaches it',
     'connect.wake': 'React without waiting (woken by what arrives)',
+    'connect.paste': 'Paste into an agent that is already running',
+    'connect.paste.hint': 'For an agent that is already up, paste the text below and ask it (agents on this computer). Writing the settings is not enough — the port opens only after a restart.',
+    'connect.paste.body': 'Please connect to warifu. Two steps. 1) Run this in a terminal: {cmd} 2) Once written, ask the owner of this computer to restart you (the MCP port is read at startup). After the restart you can read what arrived with warifu’s chat_read.',
     'connect.copy': 'Copy',
     'connect.copied': 'Copied',
     'connect.docs': 'You write which actions are allowed (denied by default). See docs/mcp.md.',
@@ -839,6 +875,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'postbox.saved': '已设置寄存处。',
     'postbox.cleared': '已移除寄存处。',
     'postbox.kept': '对方不在，已寄存。对方启动时会送到。',
+    'mark.sent': '已交付',
+    'mark.sent.hint': '已交到对方的机器。是否读过无法知道（没有收集已读的机器）。',
+    'mark.kept': '已寄存',
+    'mark.kept.hint': '对方不在，已封着寄存在寄存处。对方下次启动时才会送到。',
+    'mark.none': '未送达',
+    'mark.none.hint': '既没有通路也没有寄存处，所以没有留在任何地方。',
     'postbox.received': '离线期间收到了 {n} 条。',
     'pane.contacts': '通讯录',
     'pane.meeting': '房间',
@@ -855,6 +897,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.rooms': '你所在的房间',
     'room.members.some': '有人在。',
     'room.alone': '目前只有你。把密钥交出去，对方就能进来。',
+    'room.invite': '邀请人进这个 room',
+    'room.invite.title': '给这个 room 的一把钥匙',
+    'room.invite.hint': '这一把钥匙可以让一个人进来。请把链接、二维码或钥匙文字交给你想邀请的人。要再邀请一个人，就再出一把。',
     'room.host': '这个房间由你建立',
     'contacts.empty': '还没有记住任何人。给房间里遇到的人取个称呼，就会留在这里。',
     'contacts.pick': '选择一位，就会显示可以做的事。',
@@ -928,11 +973,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.how': '要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。',
     'connect.open': '显示连接方法',
     'connect.title': '连接这个智能体',
-    'connect.lead': '在那个智能体的机器上逐行执行下面的命令，然后重启智能体（入口在启动时读取）。',
+    'connect.lead': '这些要在那个智能体的机器上用终端执行（不是在运行中的 Claude 里面）。写好设置后请重启智能体 —— 割符的入口在启动时读取。',
     'connect.step1': '1. 把割符的入口写进那个智能体的设置',
     'connect.step2': '2. 重启智能体（设置在启动时读取）',
     'connect.step3': '3. 圆点会变绿，你打的内容就会送到',
     'connect.wake': '不等待就反应（由送到的内容唤起）',
+    'connect.paste': '粘贴给已经启动的智能体',
+    'connect.paste.hint': '对已经启动的智能体，可以把下面这段话直接粘贴过去请它处理（针对这台电脑的智能体）。写好设置也要重启之后入口才会打开。',
+    'connect.paste.body': '请连接到 warifu。两步。1) 在终端执行：{cmd} 2) 写好之后，请告诉这台电脑的主人重启你（MCP 入口在启动时读取）。重启后可以用 warifu 的 chat_read 读取送到的发言。',
     'connect.copy': '复制',
     'connect.copied': '已复制',
     'connect.docs': '允许哪些动作由人来写（默认拒绝）。详见 docs/mcp.md。',
@@ -1084,6 +1132,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'postbox.saved': '보관소를 두었습니다.',
     'postbox.cleared': '보관소를 내렸습니다.',
     'postbox.kept': '지금 없어서 보관소에 맡겼습니다. 상대가 실행하면 전달됩니다.',
+    'mark.sent': '전달함',
+    'mark.sent.hint': '상대의 기기로 전달했습니다. 읽었는지는 알 수 없습니다(읽음을 모으는 기계가 없습니다).',
+    'mark.kept': '맡김',
+    'mark.kept.hint': '상대가 없어서 봉한 채로 보관소에 두었습니다. 상대가 다음에 켤 때 도착합니다.',
+    'mark.none': '도착 안 함',
+    'mark.none.hint': '통로도 보관소도 없어서 어디에도 남지 않았습니다.',
     'postbox.received': '부재 중에 {n} 통이 와 있었습니다.',
     'pane.contacts': '연락처',
     'pane.meeting': '방',
@@ -1100,6 +1154,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.rooms': '지금 있는 방',
     'room.members.some': '사람이 있습니다.',
     'room.alone': '아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.',
+    'room.invite': '이 룸에 사람을 부르기',
+    'room.invite.title': '이 룸에 줄 키 한 개',
+    'room.invite.hint': '이 키 한 개로 한 사람이 들어올 수 있습니다. 링크나 QR, 또는 키 문자를 부르고 싶은 상대에게 건네주세요. 한 사람 더 부르려면 한 개 더 발급합니다.',
     'room.host': '당신이 만든 방입니다',
     'contacts.empty': '아직 아무도 기억하지 않았습니다. 방에서 만난 상대에게 이름을 붙이면 여기에 남습니다.',
     'contacts.pick': '상대를 고르면 할 수 있는 일이 나옵니다.',
@@ -1173,11 +1230,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.desk.how': '연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
     'connect.open': '연결 방법 보기',
     'connect.title': '이 에이전트를 연결하기',
-    'connect.lead': '아래를 그 에이전트의 기기에서 한 줄씩 실행한 뒤, 에이전트를 다시 시작하세요(창구는 시작할 때 읽습니다).',
+    'connect.lead': '이것은 그 에이전트의 기기에서 터미널로 실행하는 것입니다(실행 중인 Claude 안이 아닙니다). 설정을 쓴 뒤 에이전트를 다시 시작해 주세요 —— 와리후의 창구는 시작할 때 읽습니다.',
     'connect.step1': '1. 와리후의 창구를 그 에이전트 설정에 추가',
     'connect.step2': '2. 에이전트를 다시 시작(설정은 시작할 때 읽습니다)',
     'connect.step3': '3. 동그라미가 초록이 되고, 입력한 말이 도착합니다',
     'connect.wake': '기다리지 않고 반응하기(도착한 말로 깨우기)',
+    'connect.paste': '이미 실행 중인 에이전트에 붙여넣기',
+    'connect.paste.hint': '이미 켜져 있는 에이전트에는 아래 문장을 그대로 붙여 넣어 부탁할 수 있습니다(이 PC의 에이전트용). 설정을 써도 다시 시작하기 전에는 창구가 열리지 않습니다.',
+    'connect.paste.body': 'warifu에 연결해 주세요. 두 단계입니다. 1) 터미널에서 실행: {cmd} 2) 다 쓰면, 이 PC의 주인에게 나를 다시 시작해 달라고 전해 주세요(MCP 창구는 시작할 때 읽습니다). 다시 시작한 뒤 warifu의 chat_read로 도착한 발언을 읽을 수 있습니다.',
     'connect.copy': '복사',
     'connect.copied': '복사했습니다',
     'connect.docs': '허용할 동작은 사람이 씁니다(기본은 거부). 자세히는 docs/mcp.md.',
@@ -1258,6 +1318,8 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'chat.shared',
   'send.absent',
   'postbox.kept',
+  'mark.sent',
+  'mark.kept',
   'link.invited.hint',
   'meeting.link.hint',
 ] as const;
@@ -1276,6 +1338,12 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。' +
     '預かり所を置いていない状態なので、打った言葉はどこにも残っていない。' +
     '「預かり所を置くと」は条件であって、約束ではない。',
+  'mark.sent':
+    '**渡したのは相手の機械までである。**「既読」「読みました」と読める訳にしないこと。' +
+    '割符には既読を集める機械が無い。**読んだかどうかは、こちらには分からない。**',
+  'mark.kept':
+    '**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。' +
+    '預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。',
   'postbox.kept':
     '**相手にはまだ届いていない。**「送信しました」「配達済み」と読める訳にしないこと。' +
     '届くのは相手が次に起動したときであり、いつになるかは分からない。' +

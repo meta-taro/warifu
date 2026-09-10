@@ -104,6 +104,14 @@
      * 鍵をもらうのを待つしかなかった。**こちらから渡せる。**
      */
     鍵を渡す?: (相手: 行) => void;
+    /**
+     * そのルームに人を呼ぶ（鍵を 1 本出して渡す）。
+     *
+     * **ルームに誰も居ないとき、何もできなかった**（オーナー・2026-09-10
+     * 「ルームに誰もいないとき、これなにしたらいいかわからないですが？」）——
+     * 鍵を出す口はルームの面にしか無く、**このルームに呼ぶ**道が無かった。
+     */
+    ルームに呼ぶ?: (id: string) => void;
     /** もうその人に鍵を渡してあるか。 */
     鍵を渡してあるか?: (key: string) => boolean;
   }
@@ -128,6 +136,7 @@
     部屋に名前を付ける = () => {},
     ルームを抜ける = () => {},
     鍵を渡す = () => {},
+    ルームに呼ぶ = () => {},
     鍵を渡してあるか = () => false,
   }: Props = $props();
 
@@ -770,6 +779,19 @@
         <p class="hint">
           {相手.いま会議に居る ? t('room.members.some') : t('room.alone')}
         </p>
+        <!-- **その場で呼べる。**鍵を出す口を、ルームの面まで探しに行かせない -->
+        <div class="tail">
+          <button
+            type="button"
+            class="primary"
+            onclick={() => {
+              const id = 部屋のid(相手.key);
+              if (id) ルームに呼ぶ(id);
+            }}
+          >
+            <Icon name="key" size={16} />{t('room.invite')}
+          </button>
+        </div>
         <!--
           **部屋に名前を付けられる**（オーナー・2026-09-08
           「部屋名も決められないと、どの部屋？って人間はなります」）。
@@ -987,6 +1009,23 @@
         <p class="step">{t('connect.step2')}</p>
         <p class="step">{t('connect.step3')}</p>
 
+        <!--
+          **もう動いているエージェントには、貼って頼める**（オーナー・2026-09-10
+          「すでに立ち上げているエージェントにコピペして依頼するみたいな案内もほしいかも」）。
+          **この PC のエージェント向け** —— 別の端末のものは、そちらで叩いてもらう
+        -->
+        <p class="step">{t('connect.paste')}</p>
+        <p class="hint">{t('connect.paste.hint')}</p>
+        {#each [format(t('connect.paste.body'), { cmd: 口を足す() })] as 文 (文)}
+          <div class="cmd paste">
+            <code>{文}</code>
+            <button type="button" class="quiet" onclick={() => void 行を写す(文)}>
+              <Icon name={写した行 === 文 ? 'check' : 'copy'} size={14} />
+              {写した行 === 文 ? t('connect.copied') : t('connect.copy')}
+            </button>
+          </div>
+        {/each}
+
         <p class="step">{t('connect.wake')}</p>
         <div class="cmd">
           <code>{起こす(相手.name)}</code>
@@ -1179,6 +1218,26 @@
     font-family: var(--font-sans);
     color: var(--text-tertiary);
   }
+  /*
+    **狭いときは、一覧と相手を縦に積む**（2026-09-10・縦長で実測）。
+    260px ＋ 相手を横に並べると、札が窮屈で題が折れる
+  */
+  @media (max-width: 720px) {
+    .pane {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
+    }
+    .list {
+      max-height: 320px;
+    }
+  }
+  /* もっと狭ければ、札は 1 列 */
+  @media (max-width: 520px) {
+    .acts {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /* ── 在席の丸 ─────────────────────────────────────────────
      **色だけで言わない。**押したときの説明（title）と ? の説明で言う */
   .face {
@@ -1366,6 +1425,11 @@
     padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
     background: var(--bg-sunken);
+  }
+  /* 貼る文は長い。**折り返して全部見せる**（コマンドは 1 行のまま） */
+  .cmd.paste code {
+    white-space: pre-wrap;
+    overflow-x: visible;
   }
   .cmd code {
     flex: 1;

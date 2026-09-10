@@ -88,6 +88,8 @@
   }
   .name {
     font-size: var(--text-2xs-size);
+    /* **折らない。**「ルーム」が「ルー／ム」に割れていた（2026-09-10・縦長で実測） */
+    white-space: nowrap;
   }
   .mark {
     font-size: var(--text-2xs-size);
@@ -97,13 +99,19 @@
   @media (max-width: 860px) {
     .rail {
       flex-direction: row;
-      width: auto;
+      /* **上に敷く帯にする。**幅を持たせないと、縦に寝た列の中で真ん中に浮く
+         （2026-09-10 に縦長で実測。3 つのタブが宙に並んでいた） */
+      width: 100%;
+      justify-content: flex-start;
+      padding: 6px var(--space-2);
       border-right: none;
       border-bottom: 1px solid var(--border);
     }
     button {
-      flex: 1;
+      flex: none;
       flex-direction: row;
+      gap: 6px;
+      padding: 6px 10px;
     }
   }
 </style>
