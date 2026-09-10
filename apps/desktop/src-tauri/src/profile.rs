@@ -120,7 +120,7 @@ pub async fn set_avatar(app: tauri::AppHandle, who: String, path: String) -> Ans
 
 /// 落とした画像を**画面へ渡す**（**D87**）。
 ///
-/// 画面側が開いて、**切り取って WebP にしてから**置きに来る。
+/// 画面側が開いて、**切り取って WebP か JPEG にしてから**置きに来る。
 /// だからここは形を見ない —— **大きさだけを見る。**
 ///
 /// **上限を置く。**落としたものを丸ごと webview へ渡すので、
@@ -149,9 +149,9 @@ pub async fn read_image(path: String) -> Answer<Vec<u8>> {
     })
 }
 
-/// **切り取って WebP にしたものを置く**（**D87**）。
+/// **切り取ったものを置く**（**D87**）。
 ///
-/// 画面側が canvas で 512×512 に切り取り、WebP にして渡してくる。
+/// 画面側が canvas で 512px 角に切り取り、WebP（出せなければ JPEG）にして渡してくる。
 /// **それでも中身は見る** —— 渡ってきたものを信じない構えは変えない。
 #[tauri::command]
 pub async fn set_avatar_bytes(app: tauri::AppHandle, who: String, bytes: Vec<u8>) -> Answer<()> {

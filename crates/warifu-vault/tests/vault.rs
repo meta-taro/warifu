@@ -792,12 +792,57 @@ fn pngの頭(幅: u32, 高さ: u32) -> Vec<u8> {
     v
 }
 
+/// 幅と高さだけを持つ、いちばん短い JPEG の頭（SOI ＋ SOF0）。
+fn jpegの頭(幅: u16, 高さ: u16) -> Vec<u8> {
+    let mut v = vec![0xff, 0xd8]; // SOI
+    v.extend_from_slice(&[0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]); // APP0（中身は空）
+    v.extend_from_slice(&[0xff, 0xc0, 0x00, 0x11, 0x08]); // SOF0・長さ 17・精度 8
+    v.extend_from_slice(&高さ.to_be_bytes());
+    v.extend_from_slice(&幅.to_be_bytes());
+    v.extend_from_slice(&[0x03]); // 成分 3 つ
+    v.extend_from_slice(&[0; 9]);
+    v
+}
+
 #[test]
 fn 顔は_png_だけ受ける() {
     // **拡張子を信じない。**中身の頭を見る
     assert_eq!(warifu_vault::顔として読む(&pngの頭(64, 64)), Ok((64, 64)));
-    assert!(warifu_vault::顔として読む("\u{ff}\u{d8}\u{ff} JPEG のつもり".as_bytes()).is_err());
     assert!(warifu_vault::顔として読む(b"").is_err());
+    // **頭だけ JPEG に似ていても、縦横が読めないものは断る**
+    assert!(warifu_vault::顔として読む(&[0xff, 0xd8, 0xff]).is_err());
+}
+
+#[test]
+fn 顔は_jpeg_も受ける() {
+    // **WebP を出せない webview がある**（2026-09-10・オーナー
+    // 「クロップですが、64 KB に収まりませんでしたとでて保存できません」）。
+    // 画面側が JPEG へ落ちるので、**ここで受け取れなければ置けない**
+    assert_eq!(
+        warifu_vault::顔として読む(&jpegの頭(512, 512)),
+        Ok((512, 512))
+    );
+    assert_eq!(warifu_vault::顔として読む(&jpegの頭(40, 80)), Ok((40, 80)));
+}
+
+#[test]
+fn 縦横が大きすぎる_jpeg_も断る() {
+    let 大きい = jpegの頭(
+        u16::try_from(warifu_vault::AVATAR_MAX_SIDE).unwrap() + 1,
+        10,
+    );
+    assert!(matches!(
+        warifu_vault::顔として読む(&大きい),
+        Err(warifu_vault::BadImage::TooWide(..))
+    ));
+}
+
+#[test]
+fn 縦横の合図が無い_jpeg_は断る() {
+    // SOF が無いまま終わるファイル。**読めないものを 0×0 で通さない**
+    let mut 頭 = vec![0xff, 0xd8];
+    頭.extend_from_slice(&[0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]);
+    assert!(warifu_vault::顔として読む(&頭).is_err());
 }
 
 #[test]
