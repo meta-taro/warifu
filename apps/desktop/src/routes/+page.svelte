@@ -43,7 +43,7 @@
     type 部屋の会話,
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
-  import { 届きを見る } from '$lib/chat/delivery';
+  import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
   import { 呼び名 } from '$lib/meeting/names';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
@@ -1924,7 +1924,11 @@
           {会議中}
           {机の人数}
           送る={(body) => void 話す(body)}
-          相手ごとではない={送り方.種類 !== '預ける'}
+          相手ごとではない={送り方.種類 === '部屋'}
+          打てない訳={打てない訳(送り方, {
+            席が着いている: 送り方.種類 === '机' && 机のAIたち.includes(送り方.宛先),
+            届く先の数: remotes.length,
+          })}
           {届く先}
         />
       {/if}
