@@ -213,7 +213,20 @@ Notarizing Finished with status Accepted (Processing complete)
 Signing warifu_0.1.0_aarch64.dmg
 ```
 
-**それなのに CI は落ちた。**落ちたのは検証のほうで、しかも理由が悪い ——
+**alpha.15 で通った。**落として、受け取る人と同じ目で見た ——
+
+```
+Identifier      app.warifu.desktop        ← 固定された（前は毎回違う値）
+TeamIdentifier  SNZK24Z6S4
+origin          Developer ID Application: Dokokade Inc. (SNZK24Z6S4)
+spctl           accepted / source=Notarized Developer ID
+stapler         The validate action worked!
+```
+
+**受け取る側の手間が消えた。**右クリックの回避操作が要らなくなり、
+**更新のたびに許可を聞き直されることもなくなった**（識別子が固定されたため）。
+
+**alpha.14 では CI が落ちた。**落ちたのは検証のほうで、しかも理由が悪い ——
 
 - Tauri は `.dmg` を作り終えると **`bundle/macos/warifu.app` を片付ける**。
   検証はそこを見ていたので、空振りした

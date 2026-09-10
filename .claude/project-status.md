@@ -2237,6 +2237,32 @@ Windows には最初から入れていた —— **Mac だけ塞がっていた�
 | **alpha.10** | Mac の成果物に CLI を追加。ただし zip の中が**深い木**だった |
 | **alpha.11** | `dist/` へ集めて**平らに**した（Mac / Windows とも）＋ Windows でも `--version` を打つ |
 | **alpha.12** | **`--relay` が入った**（D78）。落とした実物で `doctor --relay` が動くことを確認 |
+| **alpha.13** | **リンク（`warifu://`）と QR**（D79）。配布物でリンクの確認が出ることを確認 |
+| **alpha.14** | **初めて署名した。署名と公証は通ったが、検証コードが落ちた**（`.app` は .dmg 作成後に片付けられる／それまで一度も検証していなかった） |
+| **alpha.15** | **最初の「配れる配布物」。**署名・公証・Gatekeeper とも通過 |
+
+#### 2026-09-10 —— **配布物に署名した**（D80・オーナー判断）
+
+**きっかけは「許可が消える」だった。**署名していないと macOS から見て毎回
+「別のアプリ」になり、**更新のたびにローカルネットワークの許可を聞き直される**
+（同じ commit から建てても識別子が変わる）。
+
+オーナーが Apple の Developer ID を用意し、**Secrets 6 つを投入**（人の工程）。
+手順は `docs/signing.md` —— **秘密の値は 1 つも書いていない。**
+
+**落とした実物で確かめた**（2026-09-10 11:37）——
+
+```
+Identifier      app.warifu.desktop        ← 固定された
+TeamIdentifier  SNZK24Z6S4
+spctl           accepted / source=Notarized Developer ID
+stapler         The validate action worked!
+```
+
+**`docs/install.md` の「右クリックで開く」は、alpha.15 からは不要**になったので
+そう書き直した（alpha.14 までの手順は残してある）。
+
+**Windows はまだ署名していない。**「WindowsによってPCが保護されました」は出たままである。
 
 **実物で確かめた**（落として開いた・2026-09-09 14:30）——
 
