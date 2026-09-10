@@ -129,6 +129,11 @@ howto.3	They take it and enter, and you are connected	相手が受け取って�
 howto.4	Once connected, give them a name. From then on you can call them from Contacts (no key needed)	つながったら呼び名を付ける。次からは連絡帳から呼べます（鍵は要りません）	连上后给对方起个称呼。以后就能从通讯录直接呼叫（不再需要钥匙）	연결되면 부를 이름을 붙입니다. 다음부터는 주소록에서 부를 수 있습니다(열쇠가 필요 없습니다)				
 howto.key	What you hand over here is the room key, not the public key above.	この手順で渡すのは「ルームの鍵」です。上の公開鍵ではありません。	这一步交出去的是「房间的钥匙」，不是上面的公钥。	여기서 건네는 것은 「방의 열쇠」이며, 위의 공개키가 아닙니다.				
 howto.title	How to connect with someone you know	知り合いとつながる手順	与熟人建立连接的步骤	아는 사람과 연결하는 순서				
+key.hand	Hand a key to this person	この人に鍵を渡す	给这个人一把钥匙	이 사람에게 키를 건네기				
+key.hand.again	A key has already been handed to this person. If it went astray you can issue another (the earlier one still works).	この人にはもう 1 本渡してあります。渡し損じたときは、もう 1 本出せます（前の 1 本も生きています）。	已经给这个人交过一把钥匙。如果没交到，可以再出一把（之前那把仍然有效）。	이 사람에게는 이미 키를 건넸습니다. 잘 전달되지 않았다면 한 개 더 발급할 수 있습니다(앞의 것도 유효합니다).				
+key.hand.for	handed to {name}	{name} へ渡した	已交给 {name}	{name}에게 건넴				
+key.hand.hint	This is one key for {name}. One key lets in one person only. Hand over the link, the QR or the key text by another route (in person, by phone, in another chat).	これは {name} ぶんの 1 本です。1 本につき 1 人しか入れません。リンクか QR、または鍵の文字を、別の手段（対面・電話・ほかのチャット）で渡してください。	这是给 {name} 的一把钥匙。一把钥匙只能让一个人进来。请通过其他方式（当面、电话、别的聊天）把链接、二维码或钥匙文字交给对方。	{name}에게 줄 키 한 개입니다. 키 하나로는 한 사람만 들어올 수 있습니다. 링크나 QR, 또는 키 문자를 다른 방법(직접·전화·다른 채팅)으로 건네주세요.				
+key.hand.title	One key for {name}	{name} に渡す 1 本	给 {name} 的一把钥匙	{name}에게 줄 키 한 개				
 link.closed	The other person left.	相手が退出しました。	对方已离开。	상대방이 나갔습니다.				
 link.direct	Direct	直接	直连	직접				
 link.invited	A link is inviting you into a room. Enter?	リンクでルームに誘われています。入りますか？	有链接邀请你进入房间。要进入吗？	링크로 방에 초대받았습니다. 들어가시겠습니까?				

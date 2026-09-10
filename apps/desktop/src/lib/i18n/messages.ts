@@ -43,6 +43,11 @@ export type MessageKey =
   | 'meeting.key.count'
   | 'meeting.key.each'
   | 'meeting.key.nth'
+  | 'key.hand'
+  | 'key.hand.title'
+  | 'key.hand.hint'
+  | 'key.hand.for'
+  | 'key.hand.again'
   | 'meeting.key.howmany'
   | 'meeting.start.action'
   | 'meeting.join.title'
@@ -283,6 +288,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.count': '{n} 本出しました',
     'meeting.key.each': '1 本につき 1 人です。呼ぶ人ごとに、別の鍵を渡してください。',
     'meeting.key.nth': '{n} 本目',
+    'key.hand': 'この人に鍵を渡す',
+    'key.hand.title': '{name} に渡す 1 本',
+    'key.hand.hint': 'これは {name} ぶんの 1 本です。1 本につき 1 人しか入れません。リンクか QR、または鍵の文字を、別の手段（対面・電話・ほかのチャット）で渡してください。',
+    'key.hand.for': '{name} へ渡した',
+    'key.hand.again': 'この人にはもう 1 本渡してあります。渡し損じたときは、もう 1 本出せます（前の 1 本も生きています）。',
     'meeting.key.howmany': '何人ぶん',
     'meeting.key.hint': 'これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。',
     'meeting.start.action': 'ルームをつくる',
@@ -523,6 +533,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.count': '{n} issued',
     'meeting.key.each': 'One key lets one person in. Hand each person their own key.',
     'meeting.key.nth': 'Key {n}',
+    'key.hand': 'Hand a key to this person',
+    'key.hand.title': 'One key for {name}',
+    'key.hand.hint': 'This is one key for {name}. One key lets in one person only. Hand over the link, the QR or the key text by another route (in person, by phone, in another chat).',
+    'key.hand.for': 'handed to {name}',
+    'key.hand.again': 'A key has already been handed to this person. If it went astray you can issue another (the earlier one still works).',
     'meeting.key.howmany': 'How many',
     'meeting.key.hint': 'Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.',
     'meeting.start.action': 'Make a room',
@@ -763,6 +778,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.count': '已发 {n} 把',
     'meeting.key.each': '一把钥匙只能让一个人进入。请给每个人各自的钥匙。',
     'meeting.key.nth': '第 {n} 把',
+    'key.hand': '给这个人一把钥匙',
+    'key.hand.title': '给 {name} 的一把钥匙',
+    'key.hand.hint': '这是给 {name} 的一把钥匙。一把钥匙只能让一个人进来。请通过其他方式（当面、电话、别的聊天）把链接、二维码或钥匙文字交给对方。',
+    'key.hand.for': '已交给 {name}',
+    'key.hand.again': '已经给这个人交过一把钥匙。如果没交到，可以再出一把（之前那把仍然有效）。',
     'meeting.key.howmany': '几人份',
     'meeting.key.hint': '把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。',
     'meeting.start.action': '建一个房间',
@@ -1003,6 +1023,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.count': '{n} 개 냈습니다',
     'meeting.key.each': '열쇠 하나에 한 사람입니다. 부를 사람마다 다른 열쇠를 건네세요.',
     'meeting.key.nth': '{n} 번째',
+    'key.hand': '이 사람에게 키를 건네기',
+    'key.hand.title': '{name}에게 줄 키 한 개',
+    'key.hand.hint': '{name}에게 줄 키 한 개입니다. 키 하나로는 한 사람만 들어올 수 있습니다. 링크나 QR, 또는 키 문자를 다른 방법(직접·전화·다른 채팅)으로 건네주세요.',
+    'key.hand.for': '{name}에게 건넴',
+    'key.hand.again': '이 사람에게는 이미 키를 건넸습니다. 잘 전달되지 않았다면 한 개 더 발급할 수 있습니다(앞의 것도 유효합니다).',
     'meeting.key.howmany': '몇 사람 분',
     'meeting.key.hint': '들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.',
     'meeting.start.action': '방 만들기',

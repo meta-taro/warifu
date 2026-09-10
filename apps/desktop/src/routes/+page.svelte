@@ -44,6 +44,7 @@
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
   import { 呼び名 } from '$lib/meeting/names';
+  import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
   import {
@@ -127,14 +128,6 @@
   const t = (key: MessageKey) => MESSAGES[locale][key];
 
   /** 出した鍵 1 本ぶん（**D84**）。**渡す口ごと**に持つ。 */
-  interface 出した鍵 {
-    /** 会議キー。**宛先と割符が 1 本になっている**（D39） */
-    鍵: string;
-    /** 渡せる 1 本のリンク（`warifu://join/…`・**D79**）。 */
-    リンク: string;
-    /** そのリンクの QR（SVG）。**目の前の相手に読ませる用。** */
-    qr: string;
-  }
 
   /**
    * **出した鍵ぜんぶ**（**D84**・オーナー指摘 2026-09-10
@@ -923,7 +916,7 @@
       for (let i = 0; i < 本数; i += 1) {
         const 鍵 = (await invite(KEY_TTL_SECS)) ?? '';
         if (!鍵) continue;
-        鍵たち = [...鍵たち, { 鍵, ...(await 渡す形にする(鍵)) }];
+        鍵たち = 鍵を足す(鍵たち, { 鍵, ...(await 渡す形にする(鍵)) });
       }
       // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
       await 部屋を読み直す();
@@ -1133,6 +1126,35 @@
     if (次) 面 = 次;
   }
 
+  /** いま渡そうとしている 1 本（幕に出す）。**渡し終わっても消さない。** */
+  let 渡す一本 = $state<出した鍵 | null>(null);
+
+  /**
+   * **その人ぶんの鍵を 1 本出して、渡す形で見せる**（**D84** の本題）。
+   *
+   * オーナー ——「**手動だとミスります。いかにアプリ側で普段はよしなに
+   * 裏側でそれをやるかどうかです**」。だから**出すときに宛先を書く。**
+   * 人に「何本目を誰に渡したか」を数えさせない。
+   */
+  async function その人に鍵を渡す(相手: 連絡帳の行) {
+    notice = '';
+    try {
+      const 鍵 = (await invite(KEY_TTL_SECS)) ?? '';
+      if (!鍵) return;
+      const 本: 出した鍵 = {
+        鍵,
+        ...(await 渡す形にする(鍵)),
+        宛先: { key: 相手.key, 名: 画面での名(相手.key) || 相手.name },
+      };
+      鍵たち = 鍵を足す(鍵たち, 本);
+      渡す一本 = 本;
+      // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
+      await 部屋を読み直す();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   /**
    * そのルームを抜ける。
    *
@@ -1259,6 +1281,11 @@
   });
 
   /** いま顔を差し替えられる相手（`me` か `desk:◯◯`）。**選んでいなければ `null`。** */
+  /** **Esc で渡す幕を閉じる。**ほかの幕と同じ振る舞いにする（DESIGN §10-A） */
+  function 幕を閉じる(e: KeyboardEvent) {
+    if (e.key === 'Escape') 渡す一本 = null;
+  }
+
   const 顔を差し替えられる先 = $derived.by(() => {
     if (!選んだ相手) return null;
     if (選んだ相手 === 自分の鍵) return 'me';
@@ -1485,6 +1512,8 @@
 {#if notice}
   <p class="notice top">{notice}</p>
 {/if}
+
+<svelte:window onkeydown={幕を閉じる} />
 
 <main>
   <PaneRail {locale} いまの面={面} {状態} 選ぶ={(次) => (面 = 次)} />
@@ -1744,7 +1773,13 @@
         {#each 鍵たち as 本, i (本.鍵)}
           <div class="one-key">
             <div class="field-head">
-              <span class="nth">{format(t('meeting.key.nth'), { n: i + 1 })}</span>
+              <span class="nth">
+                {format(t('meeting.key.nth'), { n: i + 1 })}
+                <!-- **誰に渡したかを、その 1 本のそばに出す**（人に数えさせない・D84） -->
+                {#if 本.宛先}
+                  <span class="for">{format(t('key.hand.for'), { name: 本.宛先.名 })}</span>
+                {/if}
+              </span>
               <span class="tail">
                 {#if 本.リンク}
                   <button
@@ -1835,6 +1870,8 @@
         覚え書きを書く={(key, note) => void 覚え書きを書く(key, note)}
         部屋に名前を付ける={部屋に名前を付ける}
         ルームを抜ける={(id) => void ルームを抜ける(id)}
+        鍵を渡す={(相手) => void その人に鍵を渡す(相手)}
+        鍵を渡してあるか={(key) => 渡してあるか(鍵たち, key)}
       />
       <!--
         **自分を選んでいる間は、会話の枠を出さない。**
@@ -1863,6 +1900,43 @@
     </div>
   {/if}
 
+  <!--
+    **渡す 1 本。**出したらすぐ、渡せる形（リンク・QR・文字）で見せる（**D84**）。
+    幕はほかと同じ（まんなか・透過の黒）
+  -->
+  {#if 渡す一本}
+    <div class="幕" role="dialog" aria-modal="true" aria-label={t('key.hand')}>
+      <div class="箱">
+        <p class="what">
+          {format(t('key.hand.title'), { name: 渡す一本.宛先?.名 ?? '' })}
+        </p>
+        <p class="hint">{format(t('key.hand.hint'), { name: 渡す一本.宛先?.名 ?? '' })}</p>
+        <div class="row">
+          {#if 渡す一本.リンク}
+            <button type="button" onclick={() => void 写し取る('渡す:リンク', 渡す一本?.リンク ?? '')}>
+              <Icon name={写した印 === '渡す:リンク' ? 'check' : 'link'} />
+              {写した印 === '渡す:リンク' ? t('meeting.key.copied') : t('meeting.link.copy')}
+            </button>
+          {/if}
+          <button type="button" class="quiet" onclick={() => void 写し取る('渡す:鍵', 渡す一本?.鍵 ?? '')}>
+            <Icon name={写した印 === '渡す:鍵' ? 'check' : 'copy'} />
+            {写した印 === '渡す:鍵' ? t('meeting.key.copied') : t('meeting.key.copy')}
+          </button>
+        </div>
+        {#if 渡す一本.qr}
+          <!-- **目の前の相手に読ませる用。**畳まずに出す（渡すために開いた幕である） -->
+          <div class="qr">{@html 渡す一本.qr}</div>
+        {/if}
+        <p class="hint">{t('meeting.link.hint')}</p>
+        <div class="tail">
+          <button type="button" class="quiet" onclick={() => (渡す一本 = null)}>
+            {t('help.close')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <!-- 予定。**まだ動かないことを、理由つきで出す**（§2 原則 7） -->
   {#if 面 === '予定'}
     <div class="pane schedule" role="tabpanel">
@@ -1875,6 +1949,17 @@
 </main>
 
 <style>
+  /* **誰に渡したか**の札。番号のすぐ隣に置く（D84） */
+  .one-key .for {
+    margin-left: 8px;
+    padding: 1px 8px;
+    font-size: var(--text-2xs-size);
+    font-weight: 400;
+    color: var(--accent);
+    background: var(--accent-subtle);
+    border-radius: var(--radius-full);
+  }
+
   /* **鍵 1 本ぶんの区画**（D84）。本ごとに渡す口を持つ */
   .one-key {
     margin-top: 0.5rem;
