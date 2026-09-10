@@ -1111,6 +1111,13 @@
     background: var(--bg-subtle);
   }
   .person {
+    /*
+      **窓の幅ではなく、この欄の幅で切り替える**（オーナー・2026-09-10
+      「これまんなかつぶれちゃうので、れすぽんしぶぐあいをチェックしてください」）。
+      窓が広くても、この欄は 340px しかないことがある ——
+      そのとき札を 2 列にすると、**題が 1 文字ずつ縦に折れる**
+    */
+    container-type: inline-size;
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
@@ -1478,6 +1485,8 @@
 
   /* できることの札。**枠線 1 本を共有して並べる**（1 枚ずつ影を付けない） */
   .acts {
+    /* **縮ませない。**縮むと最後の札が切れる（2026-09-10 に実物で出た） */
+    flex: none;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
@@ -1486,6 +1495,15 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     overflow: hidden;
+  }
+  /* **欄が狭ければ 1 列。**題を折らせない */
+  @container (max-width: 460px) {
+    .acts {
+      grid-template-columns: 1fr;
+    }
+    .now dl {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
   }
   .act {
     display: flex;
@@ -1501,6 +1519,11 @@
   }
   .act .title {
     font-weight: 600;
+    /* **1 文字ずつ縦に折れるのを止める。**溢れたら省略する */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .act .why {
     margin: 0;

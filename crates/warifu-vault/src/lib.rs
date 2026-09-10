@@ -40,6 +40,7 @@ mod avatar;
 mod contacts;
 mod error;
 mod profile;
+mod schedule;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -53,6 +54,7 @@ pub use avatar::{
 pub use contacts::{Contact, Contacts, NOTE_MAX};
 pub use error::Error;
 pub use profile::{BIO_MAX, Bad, NAME_MAX, Profile, Profiles, Who};
+pub use schedule::{Appointment, SCHEDULE_NOTE_MAX, TITLE_MAX};
 
 /// 環境変数でこの場所を差し替えられる。**別の身元で試すときに使う。**
 pub const HOME_ENV: &str = "WARIFU_HOME";
@@ -73,6 +75,9 @@ const CONTACTS_HEADER_V2: &str = "warifu-contacts-v2";
 /// （オーナー・2026-09-08）。**v1 / v2 も読める。**書くときは必ずこれ。
 const CONTACTS_HEADER_V3: &str = "warifu-contacts-v3";
 const KNOWN_HEADER: &str = "warifu-known-v1";
+
+/// 予定の見出し。**中身は 4 欄**（始まり・終わり・題・覚え書き）。
+const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -253,6 +258,58 @@ impl Vault {
             ));
         }
         self.write_private(&self.contacts_path(), &out, "名簿を書く")
+    }
+
+    /// 予定のファイル。
+    #[must_use]
+    pub fn schedule_path(&self) -> PathBuf {
+        self.dir.join("schedule.tsv")
+    }
+
+    /// 予定を読む。**始まりの早い順に並べて返す。**
+    ///
+    /// 無ければ空を返す（**無いことと壊れていることを混ぜない**）。
+    /// 読めない行は**その行だけ捨てる** —— 1 行の壊れで予定ごと消えるのは事故である。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn schedule(&self) -> Result<Vec<Appointment>, Error> {
+        let path = self.schedule_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "予定を読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != SCHEDULE_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{SCHEDULE_HEADER} を待っていました）"),
+            ));
+        }
+        let mut 一覧: Vec<Appointment> = lines
+            .filter(|line| !line.trim().is_empty())
+            .filter_map(Appointment::from_line)
+            .collect();
+        // **人は時間順に読む。**入れた順ではない
+        一覧.sort_by_key(Appointment::start);
+        Ok(一覧)
+    }
+
+    /// 予定を書き出す。**自分だけが読める形で置く**（0600）。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_schedule(&self, 予定: &[Appointment]) -> Result<(), Error> {
+        let mut out = String::from(SCHEDULE_HEADER);
+        out.push('\n');
+        let mut 並べ替え = 予定.to_vec();
+        並べ替え.sort_by_key(Appointment::start);
+        for 一つ in &並べ替え {
+            out.push_str(&一つ.to_line());
+            out.push('\n');
+        }
+        self.write_private(&self.schedule_path(), &out, "予定を書く")
     }
 
     /// 戸口の知り合いを読む。

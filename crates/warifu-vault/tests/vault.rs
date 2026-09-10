@@ -964,3 +964,125 @@ fn 覚え書きの無い旧版も読める() {
     assert_eq!(名簿.find(鍵([8u8; 32])).unwrap().note(), "");
     fs::remove_dir_all(&dir).ok();
 }
+
+// --- 予定（**割符の中に持つ**・オーナー判断 2026-09-07） -------------------
+
+#[test]
+fn 予定を書いて読み直せる() {
+    let dir = 仮の置き場("schedule-roundtrip");
+    let vault = Vault::at(&dir);
+    let 予定 = vec![
+        warifu_vault::Appointment::new(1_756_803_600, 1_756_807_200, "打ち合わせ", "図面の確認"),
+        warifu_vault::Appointment::new(1_756_890_000, 1_756_893_600, "朝会", ""),
+    ];
+    vault.save_schedule(&予定).unwrap();
+    let 読んだ = Vault::at(&dir).schedule().unwrap();
+    assert_eq!(読んだ.len(), 2);
+    assert_eq!(読んだ[0].title(), "打ち合わせ");
+    assert_eq!(読んだ[0].start(), 1_756_803_600);
+    assert_eq!(読んだ[0].end(), 1_756_807_200);
+    assert_eq!(読んだ[0].note(), "図面の確認");
+}
+
+#[test]
+fn 予定は始まりの早い順に並ぶ() {
+    // **人は時間順に読む。**入れた順ではない
+    let dir = 仮の置き場("schedule-order");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[
+            warifu_vault::Appointment::new(2_000, 3_000, "あと", ""),
+            warifu_vault::Appointment::new(1_000, 1_500, "さき", ""),
+        ])
+        .unwrap();
+    let 読んだ = vault.schedule().unwrap();
+    assert_eq!(
+        読んだ.iter().map(|a| a.title()).collect::<Vec<_>>(),
+        vec!["さき", "あと"]
+    );
+}
+
+#[test]
+fn 予定が無いときは空を返す() {
+    // **無いことと壊れていることを混ぜない**
+    let dir = 仮の置き場("schedule-empty");
+    assert!(Vault::at(&dir).schedule().unwrap().is_empty());
+}
+
+#[test]
+fn 見出しが違うファイルは予定として読まない() {
+    let dir = 仮の置き場("schedule-header");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        vault.schedule_path(),
+        "別のファイル\n1000\t2000\tなにか\t\n",
+    )
+    .unwrap();
+    assert!(vault.schedule().is_err());
+}
+
+#[test]
+fn 読めない行があっても予定ごと落とさない() {
+    let dir = 仮の置き場("schedule-broken");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[warifu_vault::Appointment::new(1_000, 2_000, "生きてる", "")])
+        .unwrap();
+    let mut 中身 = std::fs::read_to_string(vault.schedule_path()).unwrap();
+    中身.push_str("これは壊れた行\n");
+    中身.push_str("9999\tおわりが数でない\tだめ\t\n");
+    std::fs::write(vault.schedule_path(), 中身).unwrap();
+    let 読んだ = vault.schedule().unwrap();
+    assert_eq!(読んだ.len(), 1);
+    assert_eq!(読んだ[0].title(), "生きてる");
+}
+
+#[test]
+fn 終わりが始まりより前の予定は読まない() {
+    // **描く側で幅が負になる。**画面が壊れる前に落とす
+    let dir = 仮の置き場("schedule-reversed");
+    let vault = Vault::at(&dir);
+    vault.save_schedule(&[]).unwrap();
+    let mut 中身 = std::fs::read_to_string(vault.schedule_path()).unwrap();
+    中身.push_str("2000\t1000\t逆さま\t\n");
+    std::fs::write(vault.schedule_path(), 中身).unwrap();
+    assert!(vault.schedule().unwrap().is_empty());
+}
+
+#[test]
+fn 予定のファイルは自分だけが読める() {
+    let dir = 仮の置き場("schedule-mode");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[warifu_vault::Appointment::new(1_000, 2_000, "秘密", "")])
+        .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.schedule_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "予定は自分だけが読める");
+    }
+}
+
+#[test]
+fn 題や覚え書きに区切りや改行を書いても壊れない() {
+    // **人が書く文字を、そのままファイルに流さない**（TSV が崩れる）
+    let dir = 仮の置き場("schedule-escape");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[warifu_vault::Appointment::new(
+            1_000,
+            2_000,
+            "打ち合わせ\tと\n続き",
+            "覚え\t書き",
+        )])
+        .unwrap();
+    let 読んだ = vault.schedule().unwrap();
+    assert_eq!(読んだ.len(), 1);
+    assert!(!読んだ[0].title().contains('\t'));
+    assert!(!読んだ[0].title().contains('\n'));
+}

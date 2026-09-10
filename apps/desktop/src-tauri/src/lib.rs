@@ -91,6 +91,7 @@ mod link;
 mod notify;
 mod postbox;
 mod profile;
+mod schedule;
 
 /// **決まった場所へ書き置く。**
 ///
@@ -1641,6 +1642,9 @@ pub fn run() {
             postbox::postbox,
             postbox::set_postbox,
             postbox::fetch_postbox,
+            schedule::schedule_list,
+            schedule::schedule_add,
+            schedule::schedule_remove,
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,
