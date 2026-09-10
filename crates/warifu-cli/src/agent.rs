@@ -112,7 +112,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
     Ok(設)
 }
 
-/// この機械に着いて待つ。**閉じるまで戻らない。**
+/// この機械につながって待つ。**閉じるまで戻らない。**
 pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let mut 口 = 口::新しく(繋ぐ(&設.この機械).await.map_err(|e| {
         format!("この機械が開いていません（この PC で割符の画面を開いてください）: {e}")

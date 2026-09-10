@@ -1,4 +1,4 @@
-//! この機械に着いて、会話へ出入りする。
+//! この機械につながって、会話へ出入りする。
 //!
 //! **これがエージェント同士のチャットの実体。**
 //! GUI（人）と同じ会話を、同じ PC のこの機械ごしに囲む。
@@ -404,7 +404,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
             // **つながった知らせは、発言として並べない**（控えるだけ）。
             // ここへ来るのは、仕分けを通らない使い方をされたときだけ
-            FromDesk::Seated { at, who } => format!("\t\t（{who} として {at} に着きました）"),
+            FromDesk::Seated { at, who } => format!("\t\t（{who} として {at} につながりました）"),
             FromDesk::Status {
                 id, 届いた, 読んだ
             } => format!(
