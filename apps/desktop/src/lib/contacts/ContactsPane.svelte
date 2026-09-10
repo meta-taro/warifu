@@ -365,11 +365,13 @@
 <div class="pane">
   <div class="list">
     {#each 区画 as 一区画 (一区画.title)}
-      <h2>
-        {t(一区画.title as MessageKey)}
+      <h2 class:withask={一区画.title === 'contacts.this'}>
         <!--
           **「この PC」だけに ? を置く。**ここは説明なしには読めない ——
-          ● と ○ が何を指すのか、なぜ相手の人には印が無いのか（オーナー・2026-09-10）
+          緑とグレーが何を指すのか、なぜ相手の人には丸が無いのか（オーナー・2026-09-10）。
+
+          **見出しの左の端に置き、押すと浮いて出る**（畳んで開く形にしない ——
+          オーナー・2026-09-10「ポップアップです。あこーでぃおんにしないでください」）
         -->
         {#if 一区画.title === 'contacts.this'}
           <button
@@ -380,21 +382,8 @@
             aria-expanded={説明を開いている}
             onclick={() => (説明を開いている = !説明を開いている)}>?</button>
         {/if}
+        {t(一区画.title as MessageKey)}
       </h2>
-      {#if 一区画.title === 'contacts.this' && 説明を開いている}
-        <div class="help">
-          <p class="what">{t('help.this.title')}</p>
-          <p><span class="badge on" aria-hidden="true"></span>{t('help.this.me')}</p>
-          <p><span class="badge on" aria-hidden="true"></span>{t('help.this.on')}</p>
-          <p><span class="badge off" aria-hidden="true"></span>{t('help.this.off')}</p>
-          <p class="hint">{t('help.this.others')}</p>
-          <div class="tail">
-            <button type="button" class="quiet" onclick={() => (説明を開いている = false)}>
-              {t('help.close')}
-            </button>
-          </div>
-        </div>
-      {/if}
       {#if 一区画.行たち.length === 0}
         <p class="hint">{t('contacts.empty')}</p>
       {/if}
@@ -833,6 +822,38 @@
     {/if}
   </div>
 
+  <!--
+    **説明はまんなかに出す**（オーナー・2026-09-10「ぽっぷする、まんなかに、
+    バックは透過の黒とか。普通そう実装する」）。**畳んで開く形にしない。**
+  -->
+  {#if 説明を開いている}
+    <div class="幕" role="dialog" aria-modal="true" aria-label={t('help.this.title')}>
+      <div class="箱 help">
+        <p class="what">{t('help.this.title')}</p>
+        <dl>
+          <div>
+            <dt><span class="badge on" aria-hidden="true"></span></dt>
+            <dd>{t('help.this.me')}</dd>
+          </div>
+          <div>
+            <dt><span class="badge on" aria-hidden="true"></span></dt>
+            <dd>{t('help.this.on')}</dd>
+          </div>
+          <div>
+            <dt><span class="badge off" aria-hidden="true"></span></dt>
+            <dd>{t('help.this.off')}</dd>
+          </div>
+        </dl>
+        <p class="foot">{t('help.this.others')}</p>
+        <div class="tail">
+          <button type="button" class="quiet" onclick={() => (説明を開いている = false)}>
+            {t('help.close')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   <!-- **顔を大きく。**押した所を大きくするだけで、他には何もしない -->
   {#if 顔を大きく && 相手 && 相手.種類 !== '部屋'}
     <div
@@ -1007,6 +1028,177 @@
     font-family: var(--font-sans);
     color: var(--text-tertiary);
   }
+  /* ── 在席の丸 ─────────────────────────────────────────────
+     **色だけで言わない。**押したときの説明（title）と ? の説明で言う */
+  .face {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    line-height: 0;
+  }
+  .badge {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    /* 地と同じ色で縁を取る。**顔の上に乗っても輪郭が読める** */
+    box-shadow: 0 0 0 2px var(--bg-subtle);
+  }
+  .badge.on {
+    background: #3fa45b;
+  }
+  .badge.off {
+    background: var(--text-tertiary);
+  }
+  .row.on .badge {
+    box-shadow: 0 0 0 2px var(--bg-app);
+  }
+
+  /* ── 「?」 ─────────────────────────────────────────────
+     **縁を持たない淡い丸。**見出しの左の端に置く */
+  .list h2.withask {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ask {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    padding: 0;
+    display: inline-grid;
+    place-items: center;
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-tertiary);
+    background: var(--bg-sunken);
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: help;
+    transition:
+      color var(--dur-fast) var(--ease),
+      background var(--dur-fast) var(--ease);
+  }
+  .ask:hover,
+  .ask[aria-expanded='true'] {
+    color: var(--accent);
+    background: var(--accent-subtle);
+  }
+
+  /* 説明の中身。**幕はほかの窓と同じ**（`.幕` / `.箱`） */
+  .help {
+    width: 380px;
+    font-size: var(--text-sm-size);
+    line-height: var(--text-base-line);
+    color: var(--text-secondary);
+  }
+  .help dl {
+    display: grid;
+    gap: var(--space-3);
+    margin: var(--space-2) 0 0;
+  }
+  .help dl > div {
+    display: grid;
+    grid-template-columns: 10px 1fr;
+    gap: var(--space-3);
+    align-items: start;
+  }
+  .help dt,
+  .help dd {
+    margin: 0;
+  }
+  .help dd {
+    color: var(--text-primary);
+  }
+  /* **相手に丸が無い理由。**線で仕切って、上の 3 行と分ける */
+  .help .foot {
+    margin: var(--space-4) calc(-1 * var(--space-5)) 0;
+    padding: var(--space-3) var(--space-5) 0;
+    border-top: 1px solid var(--border);
+  }
+  .help .badge {
+    position: static;
+    display: block;
+    width: 10px;
+    height: 10px;
+    margin-top: 6px;
+    box-shadow: none;
+  }
+
+  /* ── 顔を大きく／戻す確かめ ──────────────────────────── */
+  /* 押せる顔。**枠も地も持たせない**（顔そのものが押す所である） */
+  .face.big {
+    padding: 0;
+    border: none;
+    background: none;
+    border-radius: var(--radius-full);
+    cursor: zoom-in;
+    transition: transform var(--dur-fast) var(--ease);
+  }
+  .face.big:hover {
+    transform: scale(1.06);
+  }
+
+  .幕 {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    padding: var(--space-5);
+    background: color-mix(in oklab, #14100c 62%, transparent);
+    backdrop-filter: blur(3px);
+  }
+  .大きい顔 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-6) var(--space-6) var(--space-5);
+    border-radius: 20px;
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-lg);
+    cursor: default;
+  }
+  .大きい顔 .who {
+    margin: 0;
+    font-size: var(--text-md-size);
+    font-weight: 600;
+    letter-spacing: var(--tracking-tight);
+    color: var(--text-primary);
+  }
+  .大きい顔 .quiet,
+  .箱 .quiet {
+    color: var(--text-secondary);
+  }
+
+  .箱 {
+    width: 320px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-lg);
+  }
+  .箱 .what {
+    margin: 0;
+    font-size: var(--text-md-size);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .箱 .tail {
+    margin-top: var(--space-3);
+    justify-content: flex-end;
+  }
+
   /* いまの様子。**数字は等幅で並べる**（桁が動くと読み違える） */
   .now dl {
     display: grid;
