@@ -188,16 +188,13 @@
     border-radius: var(--radius-sm);
     padding: 1px 6px;
   }
+  /* **形は `forms.css`。**行の中に収めるぶんだけ詰める */
   .roster li input[type='text'] {
     flex: 1;
     min-width: 0;
-    box-sizing: border-box;
+    min-height: 28px;
     font-size: var(--text-xs-size);
-    color: var(--text-primary);
-    background: var(--bg-app);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 4px var(--space-2);
+    padding: 3px var(--space-2);
   }
   .roster li button.quiet {
     flex: none;

@@ -2,6 +2,8 @@
   import '$lib/styles/tokens.css';
   // 幕（まんなかに出す窓）。**部品ごとの style では当たらない**ので、ここで入れる
   import '$lib/styles/overlay.css';
+  // 打ち込む所の見た目。**唯一の出典**（部品側で上書きするのは幅と行数だけ）
+  import '$lib/styles/forms.css';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
 

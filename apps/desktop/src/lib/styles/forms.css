@@ -1,0 +1,149 @@
+/*
+ * 打ち込む所（input / textarea / select）の見た目。**画面ぜんぶで同じにする。**
+ * ------------------------------------------------------------------
+ * オーナー指示（2026-09-10）——「**インプットのデザインをモダンにできないですかね**」
+ *
+ * それまでは部品ごとに書いていたので、**同じ画面の中で高さも角も違っていた**
+ * （`.rename input` は素のまま、会議キーの `textarea` だけ枠があるなど）。
+ *
+ * **ここが唯一の出典。**部品側で上書きするのは、幅と行数だけにする。
+ *
+ * 守ること ——
+ *
+ * - **色はトークンから取る**（`tokens.css`）。ここに 16 進を書かない
+ * - **押せる所と打てる所を、見た目で分ける**（打てる所は沈んだ地、押せる所は木の色）
+ * - **焦点は必ず見える**（`:focus-visible` で操作の色の輪。消さない・§12）
+ * - **触れない所は、触れないように見せる**（`:disabled` は薄く、地を沈める）
+ */
+
+/* 打てる所ぜんぶに共通の形 */
+input[type='text'],
+input[type='number'],
+input[type='date'],
+input[type='time'],
+input[type='search'],
+input[type='url'],
+textarea,
+select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 11px;
+  font: inherit;
+  font-size: var(--text-sm-size);
+  line-height: var(--text-sm-line);
+  color: var(--text-primary);
+  /* **沈んだ地。**押せるもの（木の色）と見た目で分ける */
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+/* 触れる前から、押せそうに見せすぎない —— 触れたときだけ縁を強める */
+input[type='text']:hover:not(:disabled),
+input[type='number']:hover:not(:disabled),
+input[type='date']:hover:not(:disabled),
+input[type='time']:hover:not(:disabled),
+textarea:hover:not(:disabled),
+select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+/* **打っている所が、ひと目で分かる。**操作の色の縁と、薄い輪 */
+input[type='text']:focus,
+input[type='number']:focus,
+input[type='date']:focus,
+input[type='time']:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-app);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* キーボードで来たときは、輪を必ず出す（§12） */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+::placeholder {
+  color: var(--text-tertiary);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: var(--text-tertiary);
+  background: var(--bg-subtle);
+  cursor: not-allowed;
+}
+
+textarea {
+  min-height: 64px;
+  padding: 9px 11px;
+  resize: vertical;
+}
+
+/* 選ぶ所は、自前の三角を右に置く（機械ごとの見た目に振られない） */
+select {
+  appearance: none;
+  padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% + 1px),
+    calc(100% - 11px) calc(50% + 1px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+select:focus {
+  /* 焦点のときは地が変わるので、三角の地も塗り直す */
+  background-color: var(--bg-app);
+}
+
+/* 数を入れる所は、桁を揃える（読み違えない） */
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 日と時刻。**暦の絵は、地の明暗に合わせる**（`color-scheme` が効く） */
+input[type='date'],
+input[type='time'] {
+  font-variant-numeric: tabular-nums;
+}
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
+  opacity: 0.6;
+  cursor: pointer;
+}
+input[type='date']:hover::-webkit-calendar-picker-indicator,
+input[type='time']:hover::-webkit-calendar-picker-indicator {
+  opacity: 1;
+}
+
+/* ☑ は操作の色で。**自前で描かない**（機械の読み上げが拾えなくなる） */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+input[type='checkbox']:disabled,
+input[type='radio']:disabled {
+  cursor: not-allowed;
+}
+
+/* 幅を測る所（会議キーなど）は、部品側で `font-family` を上書きする */

@@ -270,19 +270,12 @@
     display: flex;
     gap: var(--space-2);
   }
+  /* **形は `forms.css`。**ここは幅と伸び方だけ（打ち込みは伸ばさない） */
   .say textarea {
     flex: 1;
     min-width: 0;
     min-height: 34px;
     max-height: 120px;
-    box-sizing: border-box;
-    padding: 7px 10px;
-    font: inherit;
-    font-size: var(--text-sm-size);
-    color: var(--text-primary);
-    background: var(--bg-app);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
     resize: none;
   }
   button {

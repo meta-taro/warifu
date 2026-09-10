@@ -1555,28 +1555,16 @@
     gap: 6px;
     padding: 2px 0;
   }
+  /* **形は `forms.css`。**ここは幅だけ */
   .rename input {
     flex: 1;
     min-width: 0;
-    box-sizing: border-box;
-    padding: 5px 8px;
-    font: inherit;
-    font-size: var(--text-sm-size);
-    color: var(--text-primary);
-    background: var(--bg-app);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
   }
   /* **プロフィールは縦に積む。**名前と紹介は別の物である */
   .rename.profile {
     flex-direction: column;
   }
   .rename.profile textarea {
-    box-sizing: border-box;
-    padding: 5px 8px;
-    font: inherit;
-    font-size: var(--text-sm-size);
-    line-height: var(--text-sm-line);
     color: var(--text-primary);
     background: var(--bg-app);
     border: 1px solid var(--border);

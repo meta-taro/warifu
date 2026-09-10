@@ -2723,37 +2723,19 @@
   button.quiet:hover:not(:disabled) {
     background: var(--accent-subtle);
   }
-  textarea,
-  select {
-    width: 100%;
-    /* 会議キーは 1 文字の違いが意味を変える（DESIGN.md §5） */
+  /*
+    **打ち込む所の形は `lib/styles/forms.css` に置いた**（オーナー・2026-09-10
+    「インプットのデザインをモダンにできないですかね」）。
+    ここに残すのは**この画面だけの事情** —— 会議キーは等幅で出す
+    （1 文字の違いが意味を変える・DESIGN.md §5）。
+  */
+  textarea {
     font-family: var(--font-mono);
     font-size: var(--text-xs-size);
     line-height: var(--text-xs-line);
-    color: var(--text-primary);
-    background: var(--bg-app);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: var(--space-2);
   }
-  textarea {
-    resize: vertical;
-  }
-  /* **`width: 100%` に padding と枠を足すと、その分だけ横へ溢れる。**
-     右の列が窓ごとスクロールしていた頃は隠れていたが、列の中だけを動かすようにしたら
-     横スクロールバーになって出てきた（2026-09-06 の実測） */
-  textarea,
-  select {
-    box-sizing: border-box;
-  }
-  select {
-    font-family: var(--font-ui);
-  }
-  textarea:focus-visible,
-  select:focus-visible,
-  button:focus-visible,
-  input:focus-visible {
-    outline: 3px solid var(--accent-subtle);
+  button:focus-visible {
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
   button {
