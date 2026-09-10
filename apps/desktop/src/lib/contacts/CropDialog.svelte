@@ -6,7 +6,7 @@
 
   import { MESSAGES, type MessageKey } from '../i18n/messages';
   import type { Locale } from '../i18n/locales';
-  import { まん中の枠, 枠を収める, webpにする, type 切り取り } from './crop';
+  import { まん中の枠, 寄れる下限, 枠を収める, webpにする, 見せる倍率, type 切り取り } from './crop';
 
   interface Props {
     locale: Locale;
@@ -29,9 +29,20 @@
   let 枠 = $state<切り取り>({ x: 0, y: 0, 辺: 0 });
   let 掴んでいる = $state(false);
   let 断り = $state('');
+  /** 最後に見た指の位置。**`movementX` に頼らない**（webview で 0 のことがある）。 */
+  let 直前 = { x: 0, y: 0 };
 
-  /** 元の画像 → 画面の倍率。**枠の動きを画面の px で扱うため。** */
-  const 倍率 = $derived(幅 && 高さ ? 見せる辺 / Math.min(幅, 高さ) : 1);
+  /**
+   * 元の画像 → 画面の倍率。
+   *
+   * **枠の中身だけが窓に映る。**だから倍率は枠で決まる
+   * （短辺で固定していたのが 2026-09-10 の不具合）。
+   */
+  const 倍率 = $derived(見せる倍率(見せる辺, 枠.辺));
+
+  /** つまめる範囲。**16px まで寄らせない**（伸ばした粗さしか出ない）。 */
+  const 下限 = $derived(寄れる下限(幅, 高さ));
+  const 上限 = $derived(Math.max(下限, Math.min(幅, 高さ) || 下限));
 
   function 読めた() {
     if (!絵) return;
@@ -79,10 +90,16 @@
       style="width:{見せる辺}px;height:{見せる辺}px"
       onpointerdown={(e) => {
         掴んでいる = true;
+        直前 = { x: e.clientX, y: e.clientY };
         e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onpointerup={() => (掴んでいる = false)}
-      onpointermove={(e) => 掴んでいる && 動かす(e.movementX, e.movementY)}
+      onpointercancel={() => (掴んでいる = false)}
+      onpointermove={(e) => {
+        if (!掴んでいる) return;
+        動かす(e.clientX - 直前.x, e.clientY - 直前.y);
+        直前 = { x: e.clientX, y: e.clientY };
+      }}
     >
       <img
         bind:this={絵}
@@ -101,12 +118,13 @@
 
     <label class="ざっくり">
       {t('crop.zoom')}
+      <!-- **右へ動かすと寄る。**棒の値は枠の辺の裏返しである -->
       <input
         type="range"
-        min={16}
-        max={Math.min(幅, 高さ) || 16}
-        value={枠.辺}
-        oninput={(e) => 大きさを変える(Number(e.currentTarget.value))}
+        min={下限}
+        max={上限}
+        value={下限 + 上限 - 枠.辺}
+        oninput={(e) => 大きさを変える(下限 + 上限 - Number(e.currentTarget.value))}
       />
     </label>
 

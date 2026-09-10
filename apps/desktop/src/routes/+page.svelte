@@ -1986,7 +1986,7 @@
   }
   /* 連絡帳は「一覧 ＋ 相手」と「会話」の 2 つ */
   .pane.contacts > :global(.card) {
-    width: 340px;
+    width: 300px;
     flex: none;
   }
   .pane.schedule {

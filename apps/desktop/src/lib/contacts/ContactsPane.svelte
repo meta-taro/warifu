@@ -15,6 +15,7 @@
   import { 名乗りを添えるか, 呼ぶ名 } from './claimed';
   import type { ProfileRow } from '$lib/bridge';
   import { できること, type 口の種類, type 状態 } from './actions';
+  import { いまの様子, できることの案内, はじめの一歩を出すか } from './home';
   import {
     机の印,
     部屋か,
@@ -173,6 +174,9 @@
    * （絵文字を混ぜない —— オーナー指摘 2026-09-10「少々ださいですね。
    * アイコンがそうかんじさせます」）。
    */
+  /** 誰も選んでいないときに出す様子。**数えるだけ**（`home.ts`）。 */
+  const 様子 = $derived(いまの様子(素材, 預かり所がある));
+
   const 口の見た目: Record<口の種類, { icon: IconName; label: MessageKey }> = {
     chat: { icon: 'chat', label: 'act.chat' },
     group: { icon: 'people', label: 'act.group' },
@@ -394,7 +398,62 @@
 
   <div class="person">
     {#if !相手}
-      <p class="hint">{t('contacts.pick')}</p>
+      <!--
+        **初期画面のダッシュボード**（オーナー指摘 2026-09-10
+        「**私の依頼は、『相手を選ぶと、できることが出ます。』という
+        初期画面のダッシュボードです**」）。
+
+        それまで**1 行だけ**だった。開いた人が最初に見る所なのに、
+        **この道具が何をするものか**が書いていなかった。
+      -->
+      <h2 class="home"><span class="who">{t('home.title')}</span></h2>
+      <p class="hint">{t('home.lead')}</p>
+
+      <!-- **いまの様子。**数えているだけで、判断はしていない -->
+      <section class="now">
+        <h4>{t('home.now')}</h4>
+        <dl>
+          <div>
+            <dt>{t('home.seats')}</dt>
+            <dd>{format(t('home.people'), { n: 様子.席 })}</dd>
+          </div>
+          <div>
+            <dt>{t('home.rooms')}</dt>
+            <!-- **室と人を分けて出す。**「1 人」だけでは、何が 1 人か分からない -->
+            <dd>{format(t('home.rooms.n'), { n: 様子.ルーム, m: 様子.ルームの人 })}</dd>
+          </div>
+          <div>
+            <dt>{t('home.contacts')}</dt>
+            <dd>{format(t('home.people'), { n: 様子.覚えた })}</dd>
+          </div>
+          <div>
+            <dt>{t('home.postbox')}</dt>
+            <dd>{様子.預かり所 ? t('home.postbox.on') : t('home.postbox.off')}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- **札は選んだあとと同じ形。**あちらは「その相手に」、ここは「この道具で」 -->
+      <div class="acts">
+        {#each できることの案内() as 案内 (案内.種類)}
+          <div class="act" class:dim={案内.状態 === 'まだできない'}>
+            <div class="top">
+              <span class="glyph"><Icon name={口の見た目[案内.種類].icon} size={17} /></span>
+              <span class="title">{t(口の見た目[案内.種類].label)}</span>
+              <span class="tag {状態の札[案内.状態].色}">{t(状態の札[案内.状態].label)}</span>
+            </div>
+            <p class="why">{t(案内.訳 as MessageKey)}</p>
+          </div>
+        {/each}
+      </div>
+
+      {#if はじめの一歩を出すか(様子)}
+        <!-- **ここから先へ進めない人にだけ、どこを押すかを言う** -->
+        <section class="howto">
+          <h4>{t('home.next')}</h4>
+          <p class="hint">{t('home.next.hint')}</p>
+        </section>
+      {/if}
     {:else}
       <h2>
         {#if 相手.種類 !== '部屋'}
@@ -493,8 +552,44 @@
       {/if}
 
       <!--
+        **できることのダッシュボード**（オーナー承認 2026-09-10）。
+        「チャットをするのか、グループチャットをするのか、かれんだーで予定を
+        みるのか、ビデオ会議を開始するのか」—— **4 枚で固定**し、
+        どの札にも**できる／条件つき／まだできない**と、その 1 行を必ず付ける。
+      -->
+      {#if 口たち.length > 0}
+        <div class="acts">
+          {#each 口たち as 口 (口.種類)}
+            <div class="act" class:dim={口.状態 === 'まだできない'}>
+              <div class="top">
+                <span class="glyph"><Icon name={口の見た目[口.種類].icon} size={17} /></span>
+                <span class="title">{t(口の見た目[口.種類].label)}</span>
+                <span class="tag {状態の札[口.状態].色}">{t(状態の札[口.状態].label)}</span>
+              </div>
+              <!-- **訳はどの札にも出す。**
+                   訳の無い札は、使う人には壊れているとしか見えない -->
+              <p class="why">{t(口.訳 as MessageKey)}</p>
+              {#if 口.押せる && 押す文言[口.種類]}
+                <button
+                  type="button"
+                  class="go primary"
+                  disabled={呼んでいる === 相手.key}
+                  onclick={() => 押す(口.種類, 相手)}
+                >
+                  {口.種類 === 'call' && 呼んでいる === 相手.key
+                    ? t('act.call.working')
+                    : t(押す文言[口.種類] as MessageKey)}
+                </button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+
+      <!--
         **顔は落として差し替える**（オーナー・2026-09-08「ユーザによって差し替え可能にも」）。
-        **PNG だけ・512px・64 KB まで** —— 受け取ったファイルをそのまま信じない
+        **PNG / JPG / WebP を受け取り、切り取って 512px・64 KB の WebP で置く**（D87）——
+        受け取ったファイルをそのまま信じない
       -->
       {#if 顔を差し替えられるか(相手)}
         <p class="hint">{t('profile.face.drop')}</p>
@@ -640,41 +735,6 @@
         <p class="hint">{t('contacts.where')}</p>
       {/if}
 
-      <!--
-        **できることのダッシュボード**（オーナー承認 2026-09-10）。
-        「チャットをするのか、グループチャットをするのか、かれんだーで予定を
-        みるのか、ビデオ会議を開始するのか」—— **4 枚で固定**し、
-        どの札にも**できる／条件つき／まだできない**と、その 1 行を必ず付ける。
-      -->
-      {#if 口たち.length > 0}
-        <div class="acts">
-          {#each 口たち as 口 (口.種類)}
-            <div class="act" class:dim={口.状態 === 'まだできない'}>
-              <div class="top">
-                <span class="glyph"><Icon name={口の見た目[口.種類].icon} size={17} /></span>
-                <span class="title">{t(口の見た目[口.種類].label)}</span>
-                <span class="tag {状態の札[口.状態].色}">{t(状態の札[口.状態].label)}</span>
-              </div>
-              <!-- **訳はどの札にも出す。**
-                   訳の無い札は、使う人には壊れているとしか見えない -->
-              <p class="why">{t(口.訳 as MessageKey)}</p>
-              {#if 口.押せる && 押す文言[口.種類]}
-                <button
-                  type="button"
-                  class="go primary"
-                  disabled={呼んでいる === 相手.key}
-                  onclick={() => 押す(口.種類, 相手)}
-                >
-                  {口.種類 === 'call' && 呼んでいる === 相手.key
-                    ? t('act.call.working')
-                    : t(押す文言[口.種類] as MessageKey)}
-                </button>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      {/if}
-
       {#if 相手.種類 === '人'}
         <!-- **相手が起動しているかは分からない。**分からないと出す（§2 原則 7） -->
         <p class="hint">{t('contacts.presence.none')}</p>
@@ -698,7 +758,7 @@
 <style>
   .pane {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 260px minmax(0, 1fr);
     gap: var(--space-3);
     flex: 1;
     min-height: 0;
@@ -822,10 +882,28 @@
     font-family: var(--font-sans);
     color: var(--text-tertiary);
   }
+  /* いまの様子。**数字は等幅で並べる**（桁が動くと読み違える） */
+  .now dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-2) 0 0;
+  }
+  .now dt {
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+  }
+  .now dd {
+    margin: 2px 0 0;
+    font-size: var(--text-md-size);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* できることの札。**枠線 1 本を共有して並べる**（1 枚ずつ影を付けない） */
   .acts {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
     margin-top: var(--space-3);
     background: var(--border);

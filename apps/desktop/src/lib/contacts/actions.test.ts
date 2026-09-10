@@ -117,6 +117,9 @@ describe('選んだ相手に出す札（ダッシュボード・D49）', () => {
       'act.chat.live',
       'act.chat.postbox',
       'act.chat.desk',
+      'act.chat.desk.none',
+      'act.group.desk.none',
+      'act.call.desk.none',
       'act.group.what',
       'act.call.net',
       'act.address.none',
@@ -163,9 +166,21 @@ describe('預かり所を置いているとき', () => {
     expect(call.訳).toBe('act.address.none');
   });
 
-  it('繋がっていないエージェントには、札を 1 枚も出さない', () => {
-    // オーナー指摘（2026-09-10）——
-    // 「**すでにいるのによばないといけない。どちらですか？いますか？いませんか？**」
-    expect(できること({ ...ai, 机に着いている: false })).toEqual([]);
+  it('繋がっていないエージェントにも 4 枚出す（ぜんぶ「まだできない」）', () => {
+    // オーナー指摘（2026-09-10）—— 「**なにもかわってないですけど**」
+    // 「**身内 PC ではでないです**」
+    //
+    // 隠していたのは、押せないボタンに**繋がっていないときの理由ではない訳**を
+    // 添えていたからである。**いまは札ごとに訳を持つ**（D88）ので隠さない
+    const 口たち = できること({ ...ai, 机に着いている: false });
+    expect(口たち.map((k) => k.種類)).toEqual([...札の並び]);
+    expect(口たち.every((k) => k.状態 === 'まだできない')).toBe(true);
+    expect(口たち.every((k) => !k.押せる)).toBe(true);
+    expect(口たち.map((k) => k.訳)).toEqual([
+      'act.chat.desk.none',
+      'act.group.desk.none',
+      'act.call.desk.none',
+      'act.calendar.none',
+    ]);
   });
 });
