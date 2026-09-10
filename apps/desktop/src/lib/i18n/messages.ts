@@ -151,6 +151,7 @@ export type MessageKey =
   | 'contacts.note'
   | 'contacts.note.hint'
   | 'room.name'
+  | 'room.nth'
   | 'room.name.hint'
   | 'contacts.desk.how'
   | 'chat.shared'
@@ -404,6 +405,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note': '覚え書き',
     'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
     'room.name': 'ルームの名前',
+    'room.nth': 'ルーム {n}（{m} 人）',
     'room.name.hint': '名前はこの画面の中だけです（閉じると消えます）。相手には送りません。',
     'contacts.desk.how': '繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
@@ -629,6 +631,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note': 'Your note',
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
     'room.name': 'Room name',
+    'room.nth': 'Room {n} ({m} people)',
     'room.name.hint': 'The name lives only in this window (it goes away when you close it). It is not sent to anyone.',
     'contacts.desk.how': 'To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
     'chat.shared': 'This is not a conversation with the person you picked.',
@@ -854,6 +857,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note': '备注',
     'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
     'room.name': '房间名',
+    'room.nth': 'Room {n}（{m} 人）',
     'room.name.hint': '名字只存在于这个窗口里（关闭后消失）。不会发送给别人。',
     'contacts.desk.how': '要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。',
     'chat.shared': '这里不是只和所选对方的会话。',
@@ -1079,6 +1083,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note': '메모',
     'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
     'room.name': '방 이름',
+    'room.nth': '룸 {n}({m}명)',
     'room.name.hint': '이름은 이 화면 안에만 있습니다 (닫으면 사라집니다). 상대에게는 보내지 않습니다.',
     'contacts.desk.how': '연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
     'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',

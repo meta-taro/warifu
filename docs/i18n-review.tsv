@@ -185,6 +185,7 @@ room.host	You made this room	あなたが作ったルームです	这个房间�
 room.members.some	People are here.	人が入っています。	有人在。	사람이 있습니다.				
 room.name	Room name	ルームの名前	房间名	방 이름				
 room.name.hint	The name lives only in this window (it goes away when you close it). It is not sent to anyone.	名前はこの画面の中だけです（閉じると消えます）。相手には送りません。	名字只存在于这个窗口里（关闭后消失）。不会发送给别人。	이름은 이 화면 안에만 있습니다 (닫으면 사라집니다). 상대에게는 보내지 않습니다.				
+room.nth	Room {n} ({m} people)	ルーム {n}（{m} 人）	Room {n}（{m} 人）	룸 {n}({m}명)				
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				

@@ -224,7 +224,13 @@
    * 「マイ PC エージェント」。着いている AI は**呼び方をそのまま持っている**
    * （`zumen の AI` など）ので、訳そうとすると空になる（2026-09-08 に実物で出た）。
    */
+  /** 数えて呼ぶルームの印（`list.ts` が付ける）。 */
+  const 数えたルーム = /^room\.nth:(\d+):(\d+)$/;
+
   function 名(行: 行): string {
+    // **生の id は出さない。**名前が無いルームは「ルーム 1（3 人）」と数えて呼ぶ
+    const 数えた = 数えたルーム.exec(行.name);
+    if (数えた) return format(t('room.nth'), { n: 数えた[1], m: 数えた[2] });
     // **名乗っているなら、その名前で呼ぶ**（この端末の人とエージェントだけ・2026-09-08）
     const 名乗り = 名乗りを引く(行)?.name;
     if (名乗り) return 名乗り;
@@ -333,11 +339,7 @@
    * 無ければ id の全桁（`…` は目で見るためのものである）。
    */
   function 読み上げる名(行: 行): string {
-    const id = 部屋のid(行.key);
-    if (id) {
-      // 付けた名前があるか（`鍵の頭` は末尾を `…` にする）
-      return 行.name.endsWith('…') ? id : 行.name;
-    }
+    if (部屋のid(行.key)) return 名(行);
     const 席 = 席を添える(行) ? `（${席の札(行)}）` : '';
     // **色だけで言わない。**読み上げにも つながっている／切れている を入れる
     const 印 = 在席の印(行);
@@ -362,10 +364,34 @@
   }
 </script>
 
+<!--
+  **Esc でどの幕も閉じる**（DESIGN §10-A）。
+  開いている幕が無いときは何もしない
+-->
+<svelte:window
+  onkeydown={(e) => {
+    if (e.key !== 'Escape') return;
+    顔を大きく = false;
+    説明を開いている = false;
+    戻すか確かめている = false;
+  }}
+/>
+
 <div class="pane">
   <div class="list">
+    <!--
+      **右上の角に置く**（オーナー・2026-09-10「みぎのはしっこなんですよ。うえの。
+      かどっこ」「字にくっつけないで」）。**見出しの文字に付けない。**
+    -->
+    <button
+      type="button"
+      class="ask"
+      title={t('help.open')}
+      aria-label={t('help.open')}
+      aria-expanded={説明を開いている}
+      onclick={() => (説明を開いている = !説明を開いている)}>?</button>
     {#each 区画 as 一区画 (一区画.title)}
-      <h2 class:withask={一区画.title === 'contacts.this'}>
+      <h2>
         <!--
           **「この PC」だけに ? を置く。**ここは説明なしには読めない ——
           緑とグレーが何を指すのか、なぜ相手の人には丸が無いのか（オーナー・2026-09-10）。
@@ -373,15 +399,6 @@
           **見出しの左の端に置き、押すと浮いて出る**（畳んで開く形にしない ——
           オーナー・2026-09-10「ポップアップです。あこーでぃおんにしないでください」）
         -->
-        {#if 一区画.title === 'contacts.this'}
-          <button
-            type="button"
-            class="ask"
-            title={t('help.open')}
-            aria-label={t('help.open')}
-            aria-expanded={説明を開いている}
-            onclick={() => (説明を開いている = !説明を開いている)}>?</button>
-        {/if}
         {t(一区画.title as MessageKey)}
       </h2>
       {#if 一区画.行たち.length === 0}
@@ -866,12 +883,10 @@
         if (e.key === 'Escape' || e.key === 'Enter') 顔を大きく = false;
       }}
     >
+      <!-- **閉じる口は置かない。**どこを押しても閉じる（オーナー・2026-09-10） -->
       <div class="大きい顔">
         <Avatar 種={相手.key} 大きさ={280} 画像={顔の画像(相手)} 名={名(相手)} />
         <p class="who">{名(相手)}</p>
-        <button type="button" class="quiet" onclick={() => (顔を大きく = false)}>
-          {t('help.close')}
-        </button>
       </div>
     </div>
   {/if}
@@ -910,6 +925,7 @@
     min-height: 0;
   }
   .list {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -1058,16 +1074,13 @@
 
   /* ── 「?」 ─────────────────────────────────────────────
      **縁を持たない淡い丸。**見出しの左の端に置く */
-  .list h2.withask {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
   .ask {
-    width: 16px;
-    height: 16px;
-    flex: none;
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    z-index: 2;
+    width: 18px;
+    height: 18px;
     padding: 0;
     display: inline-grid;
     place-items: center;
@@ -1172,7 +1185,6 @@
     letter-spacing: var(--tracking-tight);
     color: var(--text-primary);
   }
-  .大きい顔 .quiet,
   .箱 .quiet {
     color: var(--text-secondary);
   }

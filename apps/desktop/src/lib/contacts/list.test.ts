@@ -109,6 +109,36 @@ describe('部屋の一覧', () => {
     expect(部屋?.行たち[0].種類).toBe('部屋');
   });
 
+  it('名前の無いルームは、生の id で呼ばない', () => {
+    // **生の id を人に見せない**（DESIGN §10-A）。
+    // 「HPXQEPXFKFMA…」では、どのルームか分からない
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      部屋たち: [
+        { id: 'ROOM1AAAAAAAAAAAAAAAA', members: 3, host: true },
+        { id: 'ROOM2BBBBBBBBBBBBBBBB', members: 1, host: false },
+      ],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(行たち.map((r) => r.name)).toEqual(['room.nth:1:3', 'room.nth:2:1']);
+  });
+
+  it('名前を付けたルームは、その名前で呼ぶ', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      机のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      部屋たち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
+      部屋の名前: { ROOM1AAAAAAAAAAAAAAAA: '週次' },
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(行たち[0].name).toBe('週次');
+  });
+
   it('部屋が無ければ、その区画そのものを出さない', () => {
     // **空の見出しを並べない**
     expect(連絡帳を組む(素).some((s) => s.title === 'contacts.rooms')).toBe(false);
@@ -226,8 +256,9 @@ describe('部屋の名前', () => {
     expect(部屋?.行たち[0].name).toBe('朝会');
   });
 
-  it('付いていなければ id の頭で出す', () => {
-    // **知らないものを、知っているように見せない**
+  it('付いていなければ、数えて呼ぶ（生の id は出さない）', () => {
+    // **生の id を人に見せない**（DESIGN §10-A）。
+    // それまでは id の頭（`ROOMABCD…`）を出していたが、**どのルームか分からない**
     const 区画 = 連絡帳を組む({
       自分: 'ME',
       机のAIたち: [],
@@ -236,6 +267,7 @@ describe('部屋の名前', () => {
       部屋たち: [{ id: 'ROOMABCDEFGHIJKL', members: 1, host: true }],
     });
     const 部屋 = 区画.find((s) => s.title === 'contacts.rooms');
-    expect(部屋?.行たち[0].name).toContain('…');
+    expect(部屋?.行たち[0].name).toBe('room.nth:1:1');
+    expect(部屋?.行たち[0].name).not.toContain('ROOM');
   });
 });
