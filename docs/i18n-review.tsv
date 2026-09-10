@@ -250,6 +250,11 @@ update.later	Later	あとで	稍后	나중에
 update.none	You are on the latest ({version}).	いまが最新です（{version}）。	已是最新（{version}）。	최신입니다({version}).				
 update.notes	What changed	何が変わったか	有哪些变化	무엇이 달라졌는지				
 update.notes.none	Nothing written.	書かれていません。	没有写。	쓰여 있지 않습니다.				
+video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
+video.off.hint	This room is text only right now. Neither camera nor microphone is in use.	このルームは、いま文字だけです。カメラもマイクも使っていません。	这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。	이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.				
+video.start	Start a video meeting	ビデオ会議を始める	开始视频会议	영상 회의 시작				
+video.stop	Stop the video meeting	ビデオ会議をやめる	结束视频会议	영상 회의 끝내기				
+video.title	Video meeting	ビデオ会議	视频会议	영상 회의				
 window.close	Close	閉じる	关闭	닫기				
 window.maximize	Maximize	最大化	最大化	최대화				
 window.minimize	Minimize	最小化	最小化	최소화				

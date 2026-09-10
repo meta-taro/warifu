@@ -232,6 +232,11 @@ export type MessageKey =
   | 'call.camera'
   | 'call.controls'
   | 'meeting.key.own'
+  | 'video.start'
+  | 'video.stop'
+  | 'video.title'
+  | 'video.hint'
+  | 'video.off.hint'
   | 'setup.title'
   | 'setup.hint'
   | 'setup.action'
@@ -516,6 +521,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.mic': 'マイク',
     'call.camera': 'カメラ',
     'call.controls': '通話の入切。支度の確認とは別で、いま送っているものを止めます。',
+    'video.start': 'ビデオ会議を始める',
+    'video.stop': 'ビデオ会議をやめる',
+    'video.title': 'ビデオ会議',
+    'video.hint': 'いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。',
+    'video.off.hint': 'このルームは、いま文字だけです。カメラもマイクも使っていません。',
     'setup.title': '入る前のしたく',
     'setup.hint': 'いま自分が何で映って、何で喋るかを、入る前に確かめられます。',
     'setup.action': 'カメラとマイクを確かめる',
@@ -773,6 +783,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.mic': 'Microphone',
     'call.camera': 'Camera',
     'call.controls': 'Turn the call on and off. Separate from checking your gear — this stops what you are sending now.',
+    'video.start': 'Start a video meeting',
+    'video.stop': 'Stop the video meeting',
+    'video.title': 'Video meeting',
+    'video.hint': 'Adds video and sound to the room you are in. Typing keeps working as before.',
+    'video.off.hint': 'This room is text only right now. Neither camera nor microphone is in use.',
     'setup.title': 'Before you come in',
     'setup.hint': 'Check what you look and sound like before entering.',
     'setup.action': 'Check camera and microphone',
@@ -1030,6 +1045,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.mic': '麦克风',
     'call.camera': '摄像头',
     'call.controls': '通话的开关。与设备确认不同，这会停止你现在正在发送的内容。',
+    'video.start': '开始视频会议',
+    'video.stop': '结束视频会议',
+    'video.title': '视频会议',
+    'video.hint': '在当前 room 里加上影像和声音。文字交流照旧继续。',
+    'video.off.hint': '这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。',
     'setup.title': '进来之前的准备',
     'setup.hint': '进入之前，先确认自己的画面和声音。',
     'setup.action': '检查摄像头和麦克风',
@@ -1287,6 +1307,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.mic': '마이크',
     'call.camera': '카메라',
     'call.controls': '통화 켜고 끄기. 기기 확인과는 다르며, 지금 보내고 있는 것을 멈춥니다.',
+    'video.start': '영상 회의 시작',
+    'video.stop': '영상 회의 끝내기',
+    'video.title': '영상 회의',
+    'video.hint': '지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.',
+    'video.off.hint': '이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.',
     'setup.title': '들어가기 전 준비',
     'setup.hint': '들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.',
     'setup.action': '카메라와 마이크 확인',

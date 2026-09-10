@@ -18,7 +18,7 @@
     type 会話行,
     type 出来事,
   } from '$lib/meeting/announce';
-  import { 準備を出す, 画面の状態を決める, 届く先がある as 送れるか } from '$lib/meeting/stage';
+  import { 準備を出す, 画面の状態を決める, 映像を出すか, 届く先がある as 送れるか } from '$lib/meeting/stage';
   import PaneRail from '$lib/shell/PaneRail.svelte';
   import { 既定の面, 押した後の面, type 面 as 面の型 } from '$lib/shell/panes';
   import ContactsPane from '$lib/contacts/ContactsPane.svelte';
@@ -192,6 +192,16 @@
   let sendMode = $state<SendMode>('none');
   /** 支度を一度でも試したか。**まだなら「受け取るだけ」と言わない。** */
   let 支度した = $state(false);
+  /**
+   * **ビデオ会議を使うか**（**グループチャットと分ける**・オーナー・2026-09-10）。
+   *
+   * 仕組みは 1 つ（ルームは映像も文字も同じ経路で運ぶ）。違うのは
+   * **人が何をしに来たか**である ——
+   * グループチャットは文字だけ、ビデオ会議は同じルームに映像と音を足す。
+   *
+   * **既定は文字だけ。**開いた人のカメラを、頼まれてもいないのに点けない。
+   */
+  let 映像を使う = $state(false);
   /**
    * 入室の最中か。
    *
@@ -452,6 +462,10 @@
     画面の状態を決める({ 相手: remotes.length, 会議キー: !!meetingKey, 人が入った }),
   );
   const 支度の口を出す = $derived(準備を出す(状態));
+  /** 映像の枠を出すか（`stage.ts` が決める）。 */
+  const 映像を出す = $derived(
+    映像を出すか({ 映像を使う, 支度した, 相手が居る: remotes.length > 0 }),
+  );
 
   /**
    * いま居る部屋を読み直す。
@@ -588,6 +602,32 @@
     前のもの?.getTracks().forEach((tr) => tr.stop());
     sendMode = 'none';
     notice = 最後の失敗;
+  }
+
+  /**
+   * ビデオ会議を始める。**いまのルームに映像と音を足すだけ。**
+   *
+   * ルームを作り直さない —— 文字のやりとりはそのまま続く。
+   */
+  async function ビデオ会議を始める() {
+    映像を使う = true;
+    面 = '会議';
+    if (!支度した) await 支度する();
+  }
+
+  /**
+   * ビデオ会議をやめる。**ルームは抜けない。**
+   *
+   * **機器を放す**（カメラの明かりを消す）。文字のやりとりは続く。
+   */
+  async function ビデオ会議をやめる() {
+    映像を使う = false;
+    for (const call of calls.values()) await call.replaceTracks(null);
+    localStream?.getTracks().forEach((tr) => tr.stop());
+    localStream = null;
+    if (previewVideo) previewVideo.srcObject = null;
+    支度した = false;
+    sendMode = 'none';
   }
 
   /** 選んだ機器を、その段の制約へ重ねる。 */
@@ -1144,8 +1184,8 @@
         呼んでいる = null;
       }
     }
-    const 次 = 押した後の面('call');
-    if (次) 面 = 次;
+    // **ビデオ会議の札からなら、映像も足す**（グループチャットはそのまま文字だけ）
+    await ビデオ会議を始める();
   }
 
   /** いま渡そうとしている 1 本（幕に出す）。**渡し終わっても消さない。** */
@@ -1568,7 +1608,12 @@
     **連絡帳へ移った瞬間に相手の声が消える**（`畳んでよい('会議') === false`）。
   -->
   <div class="pane meeting" hidden={面 !== '会議'} role="tabpanel">
-  <section class="stage">
+  <!--
+    **映像は使うと言ったときだけ出す**（グループチャットと分ける・2026-09-10）。
+    **外さずに隠す** —— 相手の音は `<video>` から出ているので、
+    `{#if}` で外すと**声まで消える**（会議の面と同じ理由）
+  -->
+  <section class="stage" hidden={!映像を出す}>
     <!--
       **知らせは映像の上。**下に置くと目に入らない —— 会議中の目線は
       帯の直下か映像の中にある（2026-09-06 の実測でここへ上げた）。
@@ -1646,6 +1691,27 @@
       名簿は数行しかないので、チャットの始まりを押し下げない。
       （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された所である）
     -->
+    <!--
+      **ビデオ会議は、ここで足す**（グループチャットと分ける・オーナー・2026-09-10
+      「ビデオ会議するからカレンダーもいるのにそれもないし」）。
+      **ルームは 1 つ。**映像を足すか足さないかだけが違う
+    -->
+    <div class="card">
+      <h2><Icon name="camera" size={18} />{t('video.title')}</h2>
+      {#if 映像を使う}
+        <p class="hint">{t('video.hint')}</p>
+        <button type="button" class="quiet" onclick={() => void ビデオ会議をやめる()}>
+          <Icon name="camera-off" />{t('video.stop')}
+        </button>
+      {:else}
+        <!-- **いま文字だけであることを言う。**カメラを使っていないと分かる -->
+        <p class="hint">{t('video.off.hint')}</p>
+        <button type="button" onclick={() => void ビデオ会議を始める()}>
+          <Icon name="camera" />{t('video.start')}
+        </button>
+      {/if}
+    </div>
+
     <Roster
       {locale}
       {members}
@@ -1665,7 +1731,7 @@
       {届く先}
     />
 
-    {#if 支度の口を出す}
+    {#if 支度の口を出す && 映像を使う}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('setup.title')}</h2>
       <p class="hint">{t('setup.hint')}</p>
