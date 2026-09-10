@@ -26,12 +26,25 @@ import sys
 
 
 def 走らせる(*引数: str) -> str:
+    """git を呼ぶ。**文字コードを明示する。**
+
+    `text=True` だけでは、その機械の既定の文字コードで読む ——
+    **Windows は cp1252 なので、日本語の commit 見出しで落ちる**
+    （2026-09-10 に CI で踏んだ: `'charmap' codec can't decode byte 0x81`）。
+
+    `errors="replace"` にしてあるのは、**1 文字のために全部を落とさない**ため。
+    見出しが 1 つ化けても、他の版の記録は残るほうがよい。
+    """
     出た = subprocess.run(
-        ["git", *引数], capture_output=True, text=True, check=False
+        ["git", *引数],
+        capture_output=True,
+        check=False,
+        encoding="utf-8",
+        errors="replace",
     )
     if 出た.returncode != 0:
-        sys.exit(f"git {' '.join(引数)} が失敗しました: {出た.stderr.strip()}")
-    return 出た.stdout.strip()
+        sys.exit(f"git {' '.join(引数)} が失敗しました: {(出た.stderr or '').strip()}")
+    return (出た.stdout or "").strip()
 
 
 def タグたち() -> list[str]:

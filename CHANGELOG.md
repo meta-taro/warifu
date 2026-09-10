@@ -193,6 +193,19 @@ chat_read → 新しい発言はありません。（この席は 09:05 から�
 
 #### **エージェントに、自分が何かを説明する口**（D82）
 
+**alpha.17 は Windows で落ちた。**
+
+```
+UnicodeDecodeError: 'charmap' codec can't decode byte 0x81
+```
+
+`subprocess.run(text=True)` は**その機械の既定の文字コード**で読む ——
+**Windows は cp1252 なので、日本語の commit 見出しで落ちる。**
+`encoding="utf-8"` を明示した。`errors="replace"` も付けた ——
+**1 文字のために全部を落とさない**（見出しが 1 つ化けても、他の版の記録は残る）。
+
+`publish` は windows の失敗で飛ばされた（macOS は成功していた）。
+
 オーナー指示 —— 「**MCP にこのソフト概要みたいなのを AI エージェント向けに
 出力するやつ**」「**バージョンごとになにがかわったかも返すように**」。
 
