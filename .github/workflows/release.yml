@@ -320,16 +320,19 @@ jobs:
           # **何が変わったかは、commit の見出しから作る。**
           # CHANGELOG は版ごとに切っていないので、そこから抜こうとすると空になる。
           # **前のタグから今のタグまでの見出し**が、いちばん確かな「変わったこと」である。
-          前=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
-          if [ -n "$前" ]; then
-            変わったこと=$(git log --no-merges --pretty=format:'- %s' "$前..$TAG")
+          # **シェルの変数名は ASCII だけ。**日本語の変数名は
+          # `前=...: command not found` になる（2026-09-10 に踏んだ・2 度目）。
+          # **コメントは日本語で書けるが、変数名は書けない。**
+          prev=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+          if [ -n "$prev" ]; then
+            notes=$(git log --no-merges --pretty=format:'- %s' "$prev..$TAG")
           else
-            変わったこと="- 最初の配布物です。"
+            notes="- 最初の配布物です。"
           fi
           echo "── 何が変わったか ──"
-          echo "$変わったこと"
+          echo "$notes"
 
-          TAG="$TAG" REPO="$REPO" NOTES="$変わったこと" \
+          TAG="$TAG" REPO="$REPO" NOTES="$notes" \
           PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" python3 - <<'PY'
           import glob, json, os, sys
 
