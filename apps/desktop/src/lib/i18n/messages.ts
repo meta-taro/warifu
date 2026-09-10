@@ -144,6 +144,10 @@ export type MessageKey =
   | 'crop.zoom'
   | 'crop.apply'
   | 'profile.face.clear'
+  | 'face.big.open'
+  | 'face.clear.confirm'
+  | 'face.clear.confirm.hint'
+  | 'face.clear.do'
   | 'contacts.note'
   | 'contacts.note.hint'
   | 'room.name'
@@ -153,6 +157,15 @@ export type MessageKey =
   | 'chat.reach'
   | 'chat.reach.none'
   | 'contacts.presence.none'
+  | 'presence.on'
+  | 'presence.off'
+  | 'help.open'
+  | 'help.close'
+  | 'help.this.title'
+  | 'help.this.me'
+  | 'help.this.on'
+  | 'help.this.off'
+  | 'help.this.others'
   | 'contacts.forget'
   | 'contacts.forget.hint'
   | 'act.chat'
@@ -383,7 +396,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'crop.hint': 'つまんで動かし、大きさを変えられます。丸の中が顔になります。',
     'crop.zoom': '大きさ',
     'crop.apply': 'これにする',
-    'profile.face.clear': '既定の顔に戻す',
+    'profile.face.clear': '初期アバターに戻す',
+    'face.big.open': '顔を大きく見る',
+    'face.clear.confirm': '初期アバターに戻しますか？',
+    'face.clear.confirm.hint': '差し替えた画像は消えます。もう一度落とせば、入れ直せます。',
+    'face.clear.do': '戻す',
     'contacts.note': '覚え書き',
     'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
     'room.name': 'ルームの名前',
@@ -393,6 +410,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': '届く先 {who}',
     'chat.reach.none': '届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
+    'presence.on': 'つながっています',
+    'presence.off': '切れています',
+    'help.open': '説明を出す',
+    'help.close': '閉じる',
+    'help.this.title': 'この PC の行',
+    'help.this.me': 'あなた —— この PC の持ち主です。いつも出ます（顔の右下はいつも緑）。',
+    'help.this.on': '緑の丸（顔の右下）—— いまこの PC の口に着いているエージェントです。打てば届きます。',
+    'help.this.off': 'グレーの丸 —— 以前つながって名乗りが残っているエージェントです。打っても届きません。そちらで立ち上げ直すと、緑に戻ります。',
+    'help.this.others': '下の「覚えている相手」には丸を出しません。相手が起動しているかは、こちらから分からないためです。',
     'contacts.forget': '鍵なしで入れるのをやめる',
     'contacts.forget.hint': 'この相手はいま、鍵なしで入ってこられます。やめると、次からは鍵が要ります。',
     'act.chat': 'チャット',
@@ -595,7 +621,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'crop.hint': 'Drag to move and change the size. What is inside the circle becomes the face.',
     'crop.zoom': 'Size',
     'crop.apply': 'Use this',
-    'profile.face.clear': 'Back to the default face',
+    'profile.face.clear': 'Back to the initial avatar',
+    'face.big.open': 'View the face larger',
+    'face.clear.confirm': 'Go back to the initial avatar?',
+    'face.clear.confirm.hint': 'The image you set is deleted. Drop one again to put it back.',
+    'face.clear.do': 'Go back',
     'contacts.note': 'Your note',
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
     'room.name': 'Room name',
@@ -605,6 +635,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': 'Goes to {who}',
     'chat.reach.none': 'It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.',
     'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
+    'presence.on': 'Connected',
+    'presence.off': 'Disconnected',
+    'help.open': 'Show explanation',
+    'help.close': 'Close',
+    'help.this.title': 'Rows under “This computer”',
+    'help.this.me': 'You — the owner of this computer. Always listed (the badge stays green).',
+    'help.this.on': 'Green dot (bottom right of the face) — an agent attached to this computer right now. What you type reaches it.',
+    'help.this.off': 'Grey dot — an agent that connected before and whose profile remains. What you type does not reach it. Start it again on its side and the dot turns green.',
+    'help.this.others': 'No dot is shown for “People remembered” below. Whether they are running cannot be known from here.',
     'contacts.forget': 'Require a meeting key again',
     'contacts.forget.hint': 'Right now this person can come in without a key. Turn it off and they will need one again.',
     'act.chat': 'Chat',
@@ -807,7 +846,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'crop.hint': '可以拖动移动、调整大小。圆圈内的部分会成为头像。',
     'crop.zoom': '大小',
     'crop.apply': '就用这个',
-    'profile.face.clear': '恢复默认头像',
+    'profile.face.clear': '恢复为初始头像',
+    'face.big.open': '放大查看头像',
+    'face.clear.confirm': '要恢复为初始头像吗？',
+    'face.clear.confirm.hint': '你换上的图片会被删除。再拖放一次就可以放回去。',
+    'face.clear.do': '恢复',
     'contacts.note': '备注',
     'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
     'room.name': '房间名',
@@ -817,6 +860,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': '送达 {who}',
     'chat.reach.none': '目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。',
     'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
+    'presence.on': '已连上',
+    'presence.off': '已断开',
+    'help.open': '显示说明',
+    'help.close': '关闭',
+    'help.this.title': '「这台电脑」里的行',
+    'help.this.me': '你 —— 这台电脑的主人。总是显示（头像右下角一直是绿色）。',
+    'help.this.on': '绿色圆点（头像右下角）—— 现在正连在这台电脑上的智能体。你打的内容会送到。',
+    'help.this.off': '灰色圆点 —— 以前连过、资料还留着的智能体。你打的内容不会送到。在那边重新启动后会变回绿色。',
+    'help.this.others': '下面的「记住的对象」不显示圆点。因为从这里无法知道对方是否在运行。',
     'contacts.forget': '恢复需要会议密钥',
     'contacts.forget.hint': '现在这位不用密钥就能进来。取消后，下次就需要密钥了。',
     'act.chat': '聊天',
@@ -1019,7 +1071,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'crop.hint': '끌어서 움직이고 크기를 바꿀 수 있습니다. 원 안이 얼굴이 됩니다.',
     'crop.zoom': '크기',
     'crop.apply': '이걸로 한다',
-    'profile.face.clear': '기본 얼굴로 되돌리기',
+    'profile.face.clear': '초기 아바타로 되돌리기',
+    'face.big.open': '얼굴 크게 보기',
+    'face.clear.confirm': '초기 아바타로 되돌릴까요?',
+    'face.clear.confirm.hint': '바꿔 넣은 이미지는 지워집니다. 다시 끌어다 놓으면 되돌릴 수 있습니다.',
+    'face.clear.do': '되돌리기',
     'contacts.note': '메모',
     'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
     'room.name': '방 이름',
@@ -1029,6 +1085,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': '가는 곳 {who}',
     'chat.reach.none': '아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.',
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
+    'presence.on': '연결됨',
+    'presence.off': '끊김',
+    'help.open': '설명 보기',
+    'help.close': '닫기',
+    'help.this.title': '“이 PC”의 행',
+    'help.this.me': '나 —— 이 PC의 주인입니다. 항상 나옵니다(얼굴 오른쪽 아래는 늘 초록).',
+    'help.this.on': '초록 동그라미(얼굴 오른쪽 아래) —— 지금 이 PC에 붙어 있는 에이전트입니다. 입력하면 도착합니다.',
+    'help.this.off': '회색 동그라미 —— 전에 연결되어 프로필이 남아 있는 에이전트입니다. 입력해도 도착하지 않습니다. 그쪽에서 다시 시작하면 초록으로 돌아옵니다.',
+    'help.this.others': '아래 “기억하고 있는 상대”에는 동그라미를 표시하지 않습니다. 상대가 켜져 있는지는 여기서 알 수 없기 때문입니다.',
     'contacts.forget': '다시 회의 키를 받게 하기',
     'contacts.forget.hint': '지금 이 상대는 열쇠 없이 들어올 수 있습니다. 끄면 다음부터는 열쇠가 필요합니다.',
     'act.chat': '채팅',

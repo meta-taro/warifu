@@ -16,6 +16,7 @@
   import type { ProfileRow } from '$lib/bridge';
   import { できること, type 口の種類, type 状態 } from './actions';
   import { いまの様子, できることの案内, はじめの一歩を出すか } from './home';
+  import { 在席の印 } from './presence';
   import {
     机の印,
     部屋か,
@@ -174,6 +175,25 @@
    * （絵文字を混ぜない —— オーナー指摘 2026-09-10「少々ださいですね。
    * アイコンがそうかんじさせます」）。
    */
+  /**
+   * 「この PC」の説明を開いているか。
+   *
+   * オーナー指摘（2026-09-10）——「**ここは、説明なしに人が理解できる仕様では
+   * ないです**」。**印だけでは足りない** —— 何が ● で何が ○ かを書く。
+   */
+  let 説明を開いている = $state(false);
+
+  /** 顔を大きく出しているか（オーナー・2026-09-10「クリックしたら、大きく表示」）。 */
+  let 顔を大きく = $state(false);
+
+  /**
+   * 初期アバターに戻す前の確かめ（オーナー・2026-09-10
+   * 「おしたときにもーだるで確認してください。ほんとうか」）。
+   *
+   * **差し替えた画像は消える。**押した指が滑っただけで消えないようにする。
+   */
+  let 戻すか確かめている = $state(false);
+
   /** 誰も選んでいないときに出す様子。**数えるだけ**（`home.ts`）。 */
   const 様子 = $derived(いまの様子(素材, 預かり所がある));
 
@@ -319,7 +339,10 @@
       return 行.name.endsWith('…') ? id : 行.name;
     }
     const 席 = 席を添える(行) ? `（${席の札(行)}）` : '';
-    return `${名(行)}${席}`;
+    // **色だけで言わない。**読み上げにも つながっている／切れている を入れる
+    const 印 = 在席の印(行);
+    const 在席 = 印 ? `（${印 === 'つながっている' ? t('presence.on') : t('presence.off')}）` : '';
+    return `${名(行)}${席}${在席}`;
   }
 
   /** 差し替えた顔があれば、画面に出せる URL。 */
@@ -342,7 +365,36 @@
 <div class="pane">
   <div class="list">
     {#each 区画 as 一区画 (一区画.title)}
-      <h2>{t(一区画.title as MessageKey)}</h2>
+      <h2>
+        {t(一区画.title as MessageKey)}
+        <!--
+          **「この PC」だけに ? を置く。**ここは説明なしには読めない ——
+          ● と ○ が何を指すのか、なぜ相手の人には印が無いのか（オーナー・2026-09-10）
+        -->
+        {#if 一区画.title === 'contacts.this'}
+          <button
+            type="button"
+            class="ask"
+            title={t('help.open')}
+            aria-label={t('help.open')}
+            aria-expanded={説明を開いている}
+            onclick={() => (説明を開いている = !説明を開いている)}>?</button>
+        {/if}
+      </h2>
+      {#if 一区画.title === 'contacts.this' && 説明を開いている}
+        <div class="help">
+          <p class="what">{t('help.this.title')}</p>
+          <p><span class="badge on" aria-hidden="true"></span>{t('help.this.me')}</p>
+          <p><span class="badge on" aria-hidden="true"></span>{t('help.this.on')}</p>
+          <p><span class="badge off" aria-hidden="true"></span>{t('help.this.off')}</p>
+          <p class="hint">{t('help.this.others')}</p>
+          <div class="tail">
+            <button type="button" class="quiet" onclick={() => (説明を開いている = false)}>
+              {t('help.close')}
+            </button>
+          </div>
+        </div>
+      {/if}
       {#if 一区画.行たち.length === 0}
         <p class="hint">{t('contacts.empty')}</p>
       {/if}
@@ -378,8 +430,19 @@
           {#if 部屋か(行.key)}
             <Icon name="chat" size={16} />
           {:else}
-            <span aria-hidden="true">
+            <!--
+              **印は顔のバッヂで出す**（オーナー・2026-09-10「アバターの画像に
+              バッヂで。緑の丸、グレーの丸」）。
+              出すのは**分かる所だけ**（`presence.ts`）—— 相手の人には出さない
+            -->
+            <span class="face" aria-hidden="true">
               <Avatar 種={行.key} 大きさ={20} 画像={顔の画像(行)} 名="" />
+              {#if 在席の印(行)}
+                <span
+                  class="badge {在席の印(行) === 'つながっている' ? 'on' : 'off'}"
+                  title={在席の印(行) === 'つながっている' ? t('presence.on') : t('presence.off')}
+                ></span>
+              {/if}
             </span>
           {/if}
           <span class="name">{名(行)}</span>
@@ -457,7 +520,16 @@
     {:else}
       <h2>
         {#if 相手.種類 !== '部屋'}
-          <Avatar 種={相手.key} 大きさ={40} 画像={顔の画像(相手)} 名={名(相手)} />
+          <!-- **押したら大きく出す。**人は押せば大きくなると思う（オーナー・2026-09-10） -->
+          <button
+            type="button"
+            class="face big"
+            title={t('face.big.open')}
+            aria-label={t('face.big.open')}
+            onclick={() => (顔を大きく = true)}
+          >
+            <Avatar 種={相手.key} 大きさ={40} 画像={顔の画像(相手)} 名={名(相手)} />
+          </button>
         {/if}
         <span class="who">{名(相手)}</span>
         {#if 席を添える(相手)}<span class="seat">{席の札(相手)}</span>{/if}
@@ -595,7 +667,8 @@
         <p class="hint">{t('profile.face.drop')}</p>
         {#if 顔を差し替えているか(相手)}
           <div class="tail">
-            <button type="button" class="quiet" onclick={() => 顔を差し替える(相手.種類 === '自分' ? 'me' : 相手.key, null)}>
+            <!-- **押しても、すぐには消さない。**確かめてから消す -->
+            <button type="button" class="quiet" onclick={() => (戻すか確かめている = true)}>
               {t('profile.face.clear')}
             </button>
           </div>
@@ -731,7 +804,13 @@
         **行を選んだ時点で、その相手との会話は開いている** ——
         押しても何も起きない口は、誤解しか生まない。**どこに打つかだけを言う。**
       -->
-      {#if 相手.種類 !== '部屋'}
+      <!--
+        **自分には出さない**（オーナー・2026-09-10「マイプロフの『話しかけるときは、
+        右の欄に打ちます。』をけしてください」）——
+        **自分を選んでいる間、右の欄は出ない。**自分あての口が無いためである。
+        出ない欄を案内するのは、嘘である。
+      -->
+      {#if 相手.種類 !== '部屋' && 相手.種類 !== '自分'}
         <p class="hint">{t('contacts.where')}</p>
       {/if}
 
@@ -753,6 +832,52 @@
       {/if}
     {/if}
   </div>
+
+  <!-- **顔を大きく。**押した所を大きくするだけで、他には何もしない -->
+  {#if 顔を大きく && 相手 && 相手.種類 !== '部屋'}
+    <div
+      class="幕"
+      role="button"
+      tabindex="-1"
+      aria-label={t('help.close')}
+      onclick={() => (顔を大きく = false)}
+      onkeydown={(e) => {
+        if (e.key === 'Escape' || e.key === 'Enter') 顔を大きく = false;
+      }}
+    >
+      <div class="大きい顔">
+        <Avatar 種={相手.key} 大きさ={280} 画像={顔の画像(相手)} 名={名(相手)} />
+        <p class="who">{名(相手)}</p>
+        <button type="button" class="quiet" onclick={() => (顔を大きく = false)}>
+          {t('help.close')}
+        </button>
+      </div>
+    </div>
+  {/if}
+
+  <!-- **戻す前に確かめる。**差し替えた画像は消える -->
+  {#if 戻すか確かめている && 相手}
+    <div class="幕" role="dialog" aria-modal="true" aria-label={t('face.clear.confirm')}>
+      <div class="箱">
+        <p class="what">{t('face.clear.confirm')}</p>
+        <p class="hint">{t('face.clear.confirm.hint')}</p>
+        <div class="tail">
+          <button
+            type="button"
+            onclick={() => {
+              顔を差し替える(相手.種類 === '自分' ? 'me' : 相手.key, null);
+              戻すか確かめている = false;
+            }}
+          >
+            {t('face.clear.do')}
+          </button>
+          <button type="button" class="quiet" onclick={() => (戻すか確かめている = false)}>
+            {t('profile.cancel')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>

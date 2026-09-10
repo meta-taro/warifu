@@ -85,6 +85,17 @@ edit.cut	Cut	切り取る	剪切	오려두기
 edit.paste	Paste	貼り付け	粘贴	붙여넣기				
 edit.pasteHint	Use Cmd+V to paste.	貼り付けは ⌘V を使ってください。	请使用 Cmd+V 粘贴。	붙여넣기는 Cmd+V를 사용하세요.				
 edit.selectAll	Select All	すべてを選択	全选	전체 선택				
+face.big.open	View the face larger	顔を大きく見る	放大查看头像	얼굴 크게 보기				
+face.clear.confirm	Go back to the initial avatar?	初期アバターに戻しますか？	要恢复为初始头像吗？	초기 아바타로 되돌릴까요?				
+face.clear.confirm.hint	The image you set is deleted. Drop one again to put it back.	差し替えた画像は消えます。もう一度落とせば、入れ直せます。	你换上的图片会被删除。再拖放一次就可以放回去。	바꿔 넣은 이미지는 지워집니다. 다시 끌어다 놓으면 되돌릴 수 있습니다.				
+face.clear.do	Go back	戻す	恢复	되돌리기				
+help.close	Close	閉じる	关闭	닫기				
+help.open	Show explanation	説明を出す	显示说明	설명 보기				
+help.this.me	You — the owner of this computer. Always listed (the badge stays green).	あなた —— この PC の持ち主です。いつも出ます（顔の右下はいつも緑）。	你 —— 这台电脑的主人。总是显示（头像右下角一直是绿色）。	나 —— 이 PC의 주인입니다. 항상 나옵니다(얼굴 오른쪽 아래는 늘 초록).				
+help.this.off	Grey dot — an agent that connected before and whose profile remains. What you type does not reach it. Start it again on its side and the dot turns green.	グレーの丸 —— 以前つながって名乗りが残っているエージェントです。打っても届きません。そちらで立ち上げ直すと、緑に戻ります。	灰色圆点 —— 以前连过、资料还留着的智能体。你打的内容不会送到。在那边重新启动后会变回绿色。	회색 동그라미 —— 전에 연결되어 프로필이 남아 있는 에이전트입니다. 입력해도 도착하지 않습니다. 그쪽에서 다시 시작하면 초록으로 돌아옵니다.				
+help.this.on	Green dot (bottom right of the face) — an agent attached to this computer right now. What you type reaches it.	緑の丸（顔の右下）—— いまこの PC の口に着いているエージェントです。打てば届きます。	绿色圆点（头像右下角）—— 现在正连在这台电脑上的智能体。你打的内容会送到。	초록 동그라미(얼굴 오른쪽 아래) —— 지금 이 PC에 붙어 있는 에이전트입니다. 입력하면 도착합니다.				
+help.this.others	No dot is shown for “People remembered” below. Whether they are running cannot be known from here.	下の「覚えている相手」には丸を出しません。相手が起動しているかは、こちらから分からないためです。	下面的「记住的对象」不显示圆点。因为从这里无法知道对方是否在运行。	아래 “기억하고 있는 상대”에는 동그라미를 표시하지 않습니다. 상대가 켜져 있는지는 여기서 알 수 없기 때문입니다.				
+help.this.title	Rows under “This computer”	この PC の行	「这台电脑」里的行	“이 PC”의 행				
 home.calendar	There is no way yet to read a calendar.	予定表を読む口が、まだ 1 本もありません。	还没有任何读取日程表的入口。	일정표를 읽는 창구가 아직 하나도 없습니다.				
 home.call	On the same network it connects. A different network needs --relay, and we have not once seen that connect.	同じ網なら繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.				
 home.chat	Pick someone and the conversation is with that person only.	相手を選ぶと、その人とだけの会話になります。	选择一位对象，就变成只和那个人的会话。	상대를 고르면 그 사람과만 하는 대화가 됩니다.				
@@ -154,13 +165,15 @@ postbox.received	{n} message(s) had arrived while you were away.	留守中に届
 postbox.save	Set	置く	设置	두기				
 postbox.saved	Mailbox set.	預かり所を置きました。	已设置寄存处。	보관소를 두었습니다.				
 postbox.title	Mailbox (optional)	預かり所（任意）	寄存处（可选）	보관소 (선택)				
+presence.off	Disconnected	切れています	已断开	끊김				
+presence.on	Connected	つながっています	已连上	연결됨				
 profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	名前と紹介は、あなたと、このエージェント自身が書けます。ほかのエージェントは書き換えられません。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
 profile.ai.who	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 profile.bio	Short bio	短い紹介	简介	짧은 소개				
 profile.cancel	Cancel	やめる	取消	그만두기				
 profile.edit	Edit profile	プロフィールを書く	编辑资料	프로필 쓰기				
 profile.face	Face	顔	头像	얼굴				
-profile.face.clear	Back to the default face	既定の顔に戻す	恢复默认头像	기본 얼굴로 되돌리기				
+profile.face.clear	Back to the initial avatar	初期アバターに戻す	恢复为初始头像	초기 아바타로 되돌리기				
 profile.face.drop	Drag and drop an image onto the avatar to crop it and replace the face (PNG, JPG or WebP).	アバター画像に画像をドラッグアンドドロップすると、切り取ってから差し替えられます（PNG・JPG・WebP）。	把图片拖放到头像上，可以先裁剪再替换（PNG、JPG、WebP）。	아바타 이미지에 이미지를 끌어다 놓으면, 잘라낸 뒤 교체할 수 있습니다(PNG·JPG·WebP).				
 profile.name	Name	名前	名字	이름				
 profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
