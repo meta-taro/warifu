@@ -607,6 +607,9 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
                 覚える(&vault, peer, 呼び名.as_ref());
 
                 let (送, 受) = mpsc::channel::<Notice>(32);
+                // **自分が置いたものを、自分で片付けられるように渡す**（**D83**）。
+                // 送り口は相手の公開鍵で引いているので、入り直すと同じ場所に入る
+                let 私の口 = 送.clone();
                 送り口.lock().await.insert(peer.to_bytes(), 送);
                 汲む(
                     Channel::new(session),
@@ -616,6 +619,7 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
                     peer,
                     私,
                     終わり送.clone(),
+                    私の口,
                 );
             }
         });
@@ -678,7 +682,8 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
             );
             break;
         };
-        送り口.lock().await.remove(&peer.to_bytes());
+        // **片付けは経路の側で済んでいる**（**D83**）——
+        // ここで消すと、入り直した新しい経路を消してしまう
         eprintln!("warifu: {} が抜けました", 鍵の頭(peer));
         知らせる(&訳);
 
@@ -855,6 +860,7 @@ async fn 配る(送り口: &送り口たち, 除く: Option<PublicKey>, 知ら�
 /// 打った行はここへ流れてきて、届いた行は標準出力へ出る。
 /// **主催なので、聞いた文字はほかの人へ配る**（**D48**）——
 /// 三者会議は星形で、参加者どうしは繋がっていない。
+#[allow(clippy::too_many_arguments)]
 fn 汲む(
     mut channel: Channel,
     mut 受: mpsc::Receiver<Notice>,
@@ -863,6 +869,8 @@ fn 汲む(
     peer: PublicKey,
     私: PublicKey,
     終わり送: mpsc::Sender<(PublicKey, 終わり方)>,
+    // **自分が置いた送り口。**入れ替わっていたら片付けない（**D83**）
+    私の口: mpsc::Sender<Notice>,
 ) {
     tokio::spawn(async move {
         let 訳 = loop {
@@ -912,6 +920,33 @@ fn 汲む(
             let _ = channel.finish().await;
         }
         let _ = 私; // 私 は将来の紹介（D41）で使う
+
+        // **自分が置いたものだけを片付ける**（**D83**）。
+        //
+        // 同じ相手が入り直していれば、そこに居るのは**新しい経路**である。
+        // 消すと、繋がったばかりの相手が落ちる（画面側で実物で踏んだ）。
+        let 私のままだった = {
+            let mut 棚 = 送り口.lock().await;
+            match 棚.get(&peer.to_bytes()) {
+                Some(いま) if いま.same_channel(&私の口) => {
+                    棚.remove(&peer.to_bytes());
+                    true
+                }
+                _ => false,
+            }
+        };
+        if !私のままだった {
+            // **入り直している。古い経路の始末は、誰にも影響させない**（**D83**）——
+            // 主ループへも渡さない（渡すと「抜けました」と出て、数え直しが狂う）
+            return;
+        }
+        // **経路が落ちたら、その人は名簿にも居ない。**
+        // 外していないと、入り直しの `Join` が冪等で潰される
+        {
+            let mut c = 会議.lock().await;
+            let 部屋 = c.id();
+            let _ = c.on_notice(peer, &Notice::Leave { meeting: 部屋 });
+        }
         let _ = 終わり送.send((peer, 訳)).await;
     });
 }

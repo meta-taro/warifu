@@ -123,8 +123,36 @@
   );
   const t = (key: MessageKey) => MESSAGES[locale][key];
 
-  /** 会議キー。**宛先と割符が 1 本になっている**（D39） */
-  let meetingKey = $state('');
+  /** 出した鍵 1 本ぶん（**D84**）。**渡す口ごと**に持つ。 */
+  interface 出した鍵 {
+    /** 会議キー。**宛先と割符が 1 本になっている**（D39） */
+    鍵: string;
+    /** 渡せる 1 本のリンク（`warifu://join/…`・**D79**）。 */
+    リンク: string;
+    /** そのリンクの QR（SVG）。**目の前の相手に読ませる用。** */
+    qr: string;
+  }
+
+  /**
+   * **出した鍵ぜんぶ**（**D84**・オーナー指摘 2026-09-10
+   * 「鍵が一人 1 本なら、10 人呼ぶ時どうするんですか？」）。
+   *
+   * **1 本ずつ上書きしていた。**前の鍵は生きているのに画面から消えるので、
+   * **写す前にもう 1 本出すと、前の鍵は二度と取り出せなかった。**
+   * 出した本数ぶん並べて持つ。
+   */
+  let 鍵たち = $state<出した鍵[]>([]);
+  /** **何人ぶん出すか。**CLI の `--keys` と同じことを画面でもできるようにする。 */
+  let 何人ぶん = $state(1);
+  /** どの鍵の何を写したか（`0:鍵` / `0:リンク`）。押した手応えを出すため。 */
+  let 写した印 = $state('');
+
+  /**
+   * **いちばん新しい鍵。**画面の状態（会議前／待っている）の判定はこれを見る。
+   *
+   * 1 本でも出していれば「待っている」である。
+   */
+  const meetingKey = $derived(鍵たち.at(-1)?.鍵 ?? '');
   /** いま動いている版。**「最新です」と言うときに添える。** */
   let 版 = $state('');
 
@@ -139,12 +167,6 @@
   /** 落とした割合。**分からなければ `null`**（総量を教えてこない置き場所がある）。 */
   let 落とし割合 = $state<number | null>(null);
 
-  /** 渡せる 1 本のリンク（`warifu://join/…`・**D79**）。 */
-  let 部屋のリンク = $state('');
-  /** そのリンクの QR（SVG）。**目の前の相手に読ませる用。** */
-  let 部屋のQR = $state('');
-  /** リンクを写した手応え。 */
-  let リンクを写した = $state(false);
   /**
    * **受け取ったリンクの鍵**（**D79**）。**入るかどうかはまだ決まっていない。**
    *
@@ -510,8 +532,6 @@
       // 握り潰す理由: 音が鳴らないことを会議の失敗にしない
     }
   }
-  let call: Call | null = null;
-  let keyField: HTMLTextAreaElement | undefined = $state();
   let previewVideo: HTMLVideoElement | undefined = $state();
 
   const CAMERA_MESSAGE = {
@@ -870,11 +890,27 @@
     return e instanceof Error ? e.message : String(e);
   }
 
-  async function はじめる() {
+  /**
+   * **人数ぶんの鍵を出す**（**D84**）。
+   *
+   * オーナー指摘（2026-09-10）——
+   * 「**鍵が一人 1 本なら、10 人呼ぶ時どうするんですか？
+   * ひとりずつに鍵を主は配布するんですか？**」
+   *
+   * **はい、1 人に 1 本である**（D12）。だから**人数ぶん一度に出せる**ようにする。
+   * CLI には `--keys` があったのに、画面には無かった（10 回押すしかなかった）。
+   *
+   * **1 本ずつ出すのも同じ道を通る**（`何本 = 1`）。
+   */
+  async function はじめる(何本 = 1) {
     notice = '';
+    const 本数 = Math.max(1, Math.min(何本, 出せる本数));
     try {
-      meetingKey = (await invite(KEY_TTL_SECS)) ?? '';
-      await リンクを作る();
+      for (let i = 0; i < 本数; i += 1) {
+        const 鍵 = (await invite(KEY_TTL_SECS)) ?? '';
+        if (!鍵) continue;
+        鍵たち = [...鍵たち, { 鍵, ...(await 渡す形にする(鍵)) }];
+      }
       // **鍵を出すと部屋ができる。**どの部屋の会話かを画面が知る必要がある
       await 部屋を読み直す();
     } catch (e) {
@@ -891,32 +927,31 @@
    *
    * **鍵を貼り付けさせない。**リンク 1 本か、QR を見せるだけにする。
    */
-  async function リンクを作る() {
-    if (!meetingKey) {
-      部屋のリンク = '';
-      部屋のQR = '';
-      return;
-    }
+  async function 渡す形にする(鍵: string): Promise<{ リンク: string; qr: string }> {
     try {
-      部屋のリンク = (await roomLink(meetingKey)) ?? '';
-      部屋のQR = (await roomQr(meetingKey)) ?? '';
+      return {
+        リンク: (await roomLink(鍵)) ?? '',
+        qr: (await roomQr(鍵)) ?? '',
+      };
     } catch (e) {
       // **黙って消さない。**QR が作れなくても、鍵そのものは渡せる
-      部屋のQR = '';
       log(`リンクを作れませんでした（${読める(e)}）`);
+      return { リンク: '', qr: '' };
     }
   }
 
-  /** リンクを写す。**鍵の全文を人に扱わせない。** */
-  async function リンクを写す() {
+  /** 写す。**押した手応えを、その 1 本の所に出す。** */
+  async function 写し取る(印: string, 中身: string) {
     try {
-      await navigator.clipboard.writeText(部屋のリンク);
+      await navigator.clipboard.writeText(中身);
     } catch {
       notice = t('meeting.key.copy');
       return;
     }
-    リンクを写した = true;
-    setTimeout(() => (リンクを写した = false), COPIED_FOR_MS);
+    写した印 = 印;
+    setTimeout(() => {
+      if (写した印 === 印) 写した印 = '';
+    }, COPIED_FOR_MS);
   }
 
   /**
@@ -974,27 +1009,14 @@
 
   /** コピーできたことを見せる時間（ms）。押した手応えが無いと、人は二度押す。 */
   const COPIED_FOR_MS = 1600;
-  let copied = $state(false);
 
   /**
-   * 会議キーを写す。
+   * **出せる本数の上限。**定員から自分の 1 人を引いたぶん。
    *
-   * **`navigator.clipboard` が使えない場面がある**（安全な文脈でないとき）。
-   * そのときは選択して `execCommand` へ落ちる。**黙って失敗させない。**
+   * **定員より多く出しても入れない。**出せる形にすると、
+   * 「渡したのに入れない」が起きる（CLI の `--keys` と同じ上限）。
    */
-  async function 写す() {
-    try {
-      await navigator.clipboard.writeText(meetingKey);
-    } catch {
-      keyField?.select();
-      if (!document.execCommand('copy')) {
-        notice = t('meeting.key.copy');
-        return;
-      }
-    }
-    copied = true;
-    setTimeout(() => (copied = false), COPIED_FOR_MS);
-  }
+  const 出せる本数 = DEFAULT_CAPACITY - 1;
 
   /**
    * **相手が起動していないので、預かり所へ預ける**（**D71**）。
@@ -1543,9 +1565,19 @@
     <div class="card">
       <h2><Icon name="people" size={18} />{t('meeting.start.title')}</h2>
       <p class="hint">{t('meeting.key.hint')}</p>
-      <button type="button" onclick={はじめる}>
-        <Icon name="people" />{t('meeting.start.action')}
-      </button>
+      <!--
+        **最初から人数ぶん出せる**（**D84**）。1 人なら 1 本で、
+        10 人なら 10 本 —— **1 本につき 1 人**なので、そこは足せない
+      -->
+      <div class="issue">
+        <label>
+          {t('meeting.key.howmany')}
+          <input type="number" min="1" max={出せる本数} bind:value={何人ぶん} />
+        </label>
+        <button type="button" onclick={() => void はじめる(何人ぶん)}>
+          <Icon name="people" />{t('meeting.start.action')}
+        </button>
+      </div>
     </div>
 
     <div class="card">
@@ -1592,60 +1624,78 @@
       渡した後は要らない —— ただし **消さない**（DESIGN.md §7「QR と文字列を必ず両方出す」）。
       畳んだ状態でも **コピーする** は押せる。渡すのに全文を見る必要は無い。
     -->
-    {#if meetingKey}
+    <!--
+      **出した鍵を、出した本数ぶん並べる**（**D84**・オーナー指摘 2026-09-10
+      「鍵が一人 1 本なら、10 人呼ぶ時どうするんですか？」）。
+
+      **1 本ずつ上書きしていた。**前の鍵は生きているのに画面から消えるので、
+      **写す前にもう 1 本出すと、前の鍵は二度と取り出せなかった。**
+    -->
+    {#if 鍵たち.length > 0}
       <div class="card key">
         <div class="field-head">
           <span class="with-icon"><Icon name="key" />{t('meeting.key.label')}</span>
-          <button type="button" class="quiet" onclick={写す}>
-            <Icon name={copied ? 'check' : 'copy'} />
-            {copied ? t('meeting.key.copied') : t('meeting.key.copy')}
-          </button>
+          <span class="hint">{format(t('meeting.key.count'), { n: 鍵たち.length })}</span>
         </div>
-        <!--
-          **渡すのはリンク 1 本**（**D79**・オーナー 2026-09-09
-          「たとえば QR とか URL スキーマで相手におくれるとか」）。
-          鍵の全文を人に扱わせると、途中で 1 文字落ちる。
-        -->
-        {#if 部屋のリンク}
-          <div class="field-head">
-            <span class="with-icon"><Icon name="link" />{t('meeting.link.label')}</span>
-            <button type="button" class="quiet" onclick={リンクを写す}>
-              <Icon name={リンクを写した ? 'check' : 'copy'} />
-              {リンクを写した ? t('meeting.key.copied') : t('meeting.link.copy')}
-            </button>
-          </div>
-          <p class="hint">{t('meeting.link.hint')}</p>
-          {#if 部屋のQR}
+        <p class="hint">{t('meeting.key.each')}</p>
+
+        {#each 鍵たち as 本, i (本.鍵)}
+          <div class="one-key">
+            <div class="field-head">
+              <span class="nth">{format(t('meeting.key.nth'), { n: i + 1 })}</span>
+              <span class="tail">
+                {#if 本.リンク}
+                  <button
+                    type="button"
+                    class="quiet"
+                    onclick={() => void 写し取る(`${i}:リンク`, 本.リンク)}
+                  >
+                    <Icon name={写した印 === `${i}:リンク` ? 'check' : 'link'} />
+                    {写した印 === `${i}:リンク` ? t('meeting.key.copied') : t('meeting.link.copy')}
+                  </button>
+                {/if}
+                <button
+                  type="button"
+                  class="quiet"
+                  onclick={() => void 写し取る(`${i}:鍵`, 本.鍵)}
+                >
+                  <Icon name={写した印 === `${i}:鍵` ? 'check' : 'copy'} />
+                  {写した印 === `${i}:鍵` ? t('meeting.key.copied') : t('meeting.key.copy')}
+                </button>
+              </span>
+            </div>
+            {#if 本.qr}
+              <details>
+                <summary>{t('meeting.qr.reveal')}</summary>
+                <!-- **目の前の相手に読ませる用。**画像ではなく SVG（テーマに合う） -->
+                <div class="qr">{@html 本.qr}</div>
+              </details>
+            {/if}
             <details>
-              <summary>{t('meeting.qr.reveal')}</summary>
-              <!-- **目の前の相手に読ませる用。**画像ではなく SVG（テーマに合う） -->
-              <div class="qr">{@html 部屋のQR}</div>
-              <p class="hint">{t('meeting.qr.hint')}</p>
+              <summary>{t('meeting.key.reveal')}</summary>
+              <!-- 触れた時点で全部選ぶ。**手で端から端まで引かせない** -->
+              <textarea readonly rows="3" value={本.鍵} onfocus={(e) => e.currentTarget.select()}
+              ></textarea>
             </details>
-          {/if}
-        {/if}
-        <details>
-          <summary>{t('meeting.key.reveal')}</summary>
-          <!-- 触れた時点で全部選ぶ。**手で端から端まで引かせない** -->
-          <textarea
-            bind:this={keyField}
-            readonly
-            rows="4"
-            value={meetingKey}
-            onfocus={(e) => e.currentTarget.select()}
-          ></textarea>
-        </details>
+          </div>
+        {/each}
+
+        <p class="hint">{t('meeting.link.hint')}</p>
+
         <!--
           **1 本の会議キーで入れるのは 1 人だけ**（割符は「1 つの鍵 = 1 人」・D12）。
-          3 人目を呼ぶなら、**もう 1 本出して、その人に渡す**（D47）。
+          もう 1 人呼ぶなら、**もう 1 本出して、その人に渡す**（D47）。
           前の鍵は死なない —— 出した本数だけ、別々の人が入れる。
-
-          この口を出していなかったため、**鍵を出した後は作り直せなかった**
-          （2026-09-06 に D45 で入れてしまった不具合）。
         -->
-        <button type="button" class="quiet" onclick={はじめる}>
-          <Icon name="key" />{t('meeting.key.more')}
-        </button>
+        <div class="issue">
+          <label>
+            {t('meeting.key.howmany')}
+            <input type="number" min="1" max={出せる本数} bind:value={何人ぶん} />
+          </label>
+          <button type="button" class="quiet" onclick={() => void はじめる(何人ぶん)}>
+            <Icon name="key" />{t('meeting.key.more')}
+          </button>
+        </div>
         <p class="hint">{t('meeting.key.more.hint')}</p>
       </div>
     {/if}
@@ -1715,6 +1765,45 @@
 </main>
 
 <style>
+  /* **鍵 1 本ぶんの区画**（D84）。本ごとに渡す口を持つ */
+  .one-key {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .one-key .nth {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .one-key .tail {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  /* **何人ぶん出すか**。数と押す所を横に並べる */
+  .issue {
+    display: flex;
+    align-items: end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .issue label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .issue input {
+    width: 4.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* **更新の知らせ**（D81）。誘いの確認と同じ強さで出す */
   .updated {
     margin: 0.5rem 0.75rem 0;

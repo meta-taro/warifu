@@ -40,6 +40,10 @@ export type MessageKey =
   | 'meeting.start.title'
   | 'meeting.key.hint'
   | 'meeting.key.label'
+  | 'meeting.key.count'
+  | 'meeting.key.each'
+  | 'meeting.key.nth'
+  | 'meeting.key.howmany'
   | 'meeting.start.action'
   | 'meeting.join.title'
   | 'meeting.join.hint'
@@ -213,6 +217,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.peer': '相手',
     'meeting.start.title': '部屋をつくる',
     'meeting.key.label': '部屋の鍵',
+    'meeting.key.count': '{n} 本出しました',
+    'meeting.key.each': '1 本につき 1 人です。呼ぶ人ごとに、別の鍵を渡してください。',
+    'meeting.key.nth': '{n} 本目',
+    'meeting.key.howmany': '何人ぶん',
     'meeting.key.hint': 'これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。',
     'meeting.start.action': '部屋をつくる',
     'meeting.join.title': 'もらった鍵で部屋に入る',
@@ -386,6 +394,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.peer': 'Them',
     'meeting.start.title': 'Make a room',
     'meeting.key.label': 'Room key',
+    'meeting.key.count': '{n} issued',
+    'meeting.key.each': 'One key lets one person in. Hand each person their own key.',
+    'meeting.key.nth': 'Key {n}',
+    'meeting.key.howmany': 'How many',
     'meeting.key.hint': 'Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.',
     'meeting.start.action': 'Make a room',
     'meeting.join.title': 'Come in with a key you were given',
@@ -559,6 +571,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.peer': '对方',
     'meeting.start.title': '建一个房间',
     'meeting.key.label': '房间密钥',
+    'meeting.key.count': '已发 {n} 把',
+    'meeting.key.each': '一把钥匙只能让一个人进入。请给每个人各自的钥匙。',
+    'meeting.key.nth': '第 {n} 把',
+    'meeting.key.howmany': '几人份',
     'meeting.key.hint': '把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。',
     'meeting.start.action': '建一个房间',
     'meeting.join.title': '用拿到的密钥进入房间',
@@ -732,6 +748,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.peer': '상대',
     'meeting.start.title': '방 만들기',
     'meeting.key.label': '방 열쇠',
+    'meeting.key.count': '{n} 개 냈습니다',
+    'meeting.key.each': '열쇠 하나에 한 사람입니다. 부를 사람마다 다른 열쇠를 건네세요.',
+    'meeting.key.nth': '{n} 번째',
+    'meeting.key.howmany': '몇 사람 분',
     'meeting.key.hint': '들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.',
     'meeting.start.action': '방 만들기',
     'meeting.join.title': '받은 열쇠로 방에 들어가기',

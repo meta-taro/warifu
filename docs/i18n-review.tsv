@@ -88,10 +88,14 @@ meeting.join.title	Come in with a key you were given	もらった鍵で部屋に
 meeting.join.working	Coming in…	入っています…	正在进入…	들어가는 중…				
 meeting.key.copied	Copied	コピーしました	已复制	복사했습니다				
 meeting.key.copy	Copy	コピーする	复制	복사하기				
+meeting.key.count	{n} issued	{n} 本出しました	已发 {n} 把	{n} 개 냈습니다				
+meeting.key.each	One key lets one person in. Hand each person their own key.	1 本につき 1 人です。呼ぶ人ごとに、別の鍵を渡してください。	一把钥匙只能让一个人进入。请给每个人各自的钥匙。	열쇠 하나에 한 사람입니다. 부를 사람마다 다른 열쇠를 건네세요.				
 meeting.key.hint	Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.	これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。	把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。	들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.	★	「渡した相手だけが入れる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **部屋の鍵を他人に見られたら、その人が入れる。**		
+meeting.key.howmany	How many	何人ぶん	几人份	몇 사람 분				
 meeting.key.label	Room key	部屋の鍵	房间密钥	방 열쇠				
 meeting.key.more	Hand out one more key	鍵をもう 1 本出す	再发一把密钥	열쇠를 한 개 더 내기				
 meeting.key.more.hint	One key lets exactly one person in. To let another person in, hand out one more key. The earlier key keeps working.	1 本の鍵で入れるのは 1 人だけです。もう 1 人入れるなら、もう 1 本出してその人に渡します。前の鍵は使えたままです。	一把密钥只能让一个人进来。要再让一个人进来，就再发一把交给他。之前的密钥仍然有效。	열쇠 하나로 들어올 수 있는 사람은 한 명뿐입니다. 한 명 더 들이려면 한 개 더 내어 그 사람에게 건넵니다. 앞의 열쇠는 그대로 쓸 수 있습니다.				
+meeting.key.nth	Key {n}	{n} 本目	第 {n} 把	{n} 번째				
 meeting.key.own	This is your own room key. Hand it to the person you want in.	これは自分の部屋の鍵です。入ってほしい人に渡してください。	这是你自己房间的密钥。请交给你想让进来的人。	이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.				
 meeting.key.reveal	Show the whole key	鍵の全文を見る	查看密钥全文	열쇠 전체 보기				
 meeting.link.copy	Copy the link	リンクをコピーする	复制链接	링크 복사				

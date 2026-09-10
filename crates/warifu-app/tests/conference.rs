@@ -42,6 +42,37 @@ fn 参加の知らせで名簿が増える() {
     assert!(c.members().contains(&相手));
 }
 
+/// **経路が落ちたあと、同じ相手が入り直せる**（**D83**）。
+///
+/// 2026-09-10 に実物で踏んだ —— 画面側が**落ちたときに名簿から外していなかった**ため、
+/// 入り直しの `Join` が冪等で潰され、**相手の発言だけが届いて画面は「誰も居ない」**
+/// と思ったままになった（返信もできない）。
+///
+/// **外してあれば、入り直しはもう一度 `Joined` になる。**
+/// この試験は、その前提を押さえるためのものである。
+#[test]
+fn 外してあれば同じ相手が入り直せる() {
+    let 私 = 鍵(1);
+    let 相手 = 鍵(2);
+    let mut c = Conference::host(私, 12).unwrap();
+
+    c.on_notice(相手, &Notice::Join { meeting: c.id() })
+        .unwrap();
+    // 経路が落ちた ＝ その人は居ない
+    let 出た = c
+        .on_notice(相手, &Notice::Leave { meeting: c.id() })
+        .unwrap();
+    assert_eq!(出た, vec![Event::Left(相手)]);
+    assert!(!c.members().contains(&相手));
+
+    // **入り直し。**ここが空だと、画面は相手が戻ったことを知れない
+    let 戻り = c
+        .on_notice(相手, &Notice::Join { meeting: c.id() })
+        .unwrap();
+    assert_eq!(戻り, vec![Event::Joined(相手)], "入り直しが伝わらない");
+    assert!(c.members().contains(&相手));
+}
+
 #[test]
 fn 同じ相手が二度入っても名簿は増えない() {
     let 私 = 鍵(1);
