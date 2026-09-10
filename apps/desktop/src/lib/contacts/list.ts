@@ -14,7 +14,7 @@ export interface 行 {
   key: string;
   /** 画面に出す名前。 */
   name: string;
-  種類: '自分' | 'AI' | '人' | '部屋';
+  種類: '自分' | 'AI' | '人' | 'ルーム';
   住所を覚えている: boolean;
   いま会議に居る: boolean;
 }
@@ -31,39 +31,39 @@ export interface 素材 {
   /** 自分の公開鍵。 */
   自分: string;
   /**
-   * いま机に着いている顔ぶれ（呼び方の並び）。
+   * いまこのPCにつながっている顔ぶれ（呼び方の並び）。
    *
-   * **数だけでは足りない。**1 台の PC で複数のエージェントが同じ机に着くので、
+   * **数だけでは足りない。**1 台の PC で複数のエージェントが同じPCに着くので、
    * まとめて 1 行にすると**どれが着いているのか分からない**
    * （2026-09-08 オーナー指摘「このPCのどこで起動しているエージェントなのか」）。
    */
-  机のAIたち: readonly string[];
+  このPCのAIたち: readonly string[];
   /** いま会議に居る相手の公開鍵（自分を含まない）。 */
   会議の相手: readonly string[];
   /**
-   * **名乗り（プロフィール）を書いてある席**の呼び方。
+   * **名乗り（プロフィール）を書いてあるエージェント**の呼び方。
    *
    * **エージェントは、まとめて 1 人ではない。それぞれが 1 人である**
    * （オーナー・2026-09-08）。立ち上げていない間も行を出す ——
    * 消えると、**その 1 人ぶんの名乗りが編集できなくなる。**
    */
-  名乗りのある席?: readonly string[];
+  名乗りのあるエージェント?: readonly string[];
   /** 覚えている相手。 */
   覚えた: readonly { key: string; label: string; has_address: boolean; note?: string }[];
   /**
-   * いま居る部屋。
+   * いま居るルーム。
    *
    * **持てても見えなければ切り替えようがない**（2026-09-08）。
-   * 部屋を複数持てるようにした以上、一覧が要る。
+   * ルームを複数持てるようにした以上、一覧が要る。
    */
-  部屋たち?: readonly { id: string; members: number; host: boolean }[];
+  ルームたち?: readonly { id: string; members: number; host: boolean }[];
   /**
-   * 部屋に付けた名前（部屋 id → 名前）。
+   * ルームに付けた名前（ルーム id → 名前）。
    *
-   * **付いていなければ id の頭で出す。**「どの部屋？」と人が思う所である
+   * **付いていなければ id の頭で出す。**「どのルーム？」と人が思う所である
    * （オーナー・2026-09-08）。
    */
-  部屋の名前?: Readonly<Record<string, string>>;
+  ルームの名前?: Readonly<Record<string, string>>;
   /**
    * **留守中に預かり所へ言葉を置いていった相手**の公開鍵（**D71** / **D72**）。
    *
@@ -73,25 +73,25 @@ export interface 素材 {
   留守中に届いた?: readonly string[];
 }
 
-/** 机に着いている相手を指す、画面の中だけの印。**公開鍵ではない。** */
-export const 机の印 = 'desk:';
+/** このPCにつながっている相手を指す、画面の中だけの印。**公開鍵ではない。** */
+export const このPCの印 = 'desk:';
 
-/** 部屋を指す、画面の中だけの印。**公開鍵ではない。** */
-export const 部屋の印 = 'room:';
+/** ルームを指す、画面の中だけの印。**公開鍵ではない。** */
+export const ルームの印 = 'room:';
 
-/** その行が部屋か。 */
-export function 部屋か(key: string): boolean {
-  return key.startsWith(部屋の印);
+/** その行がルームか。 */
+export function ルームか(key: string): boolean {
+  return key.startsWith(ルームの印);
 }
 
-/** 部屋の印から id を取り出す。部屋でなければ `null`。 */
-export function 部屋のid(key: string): string | null {
-  return 部屋か(key) ? key.slice(部屋の印.length) : null;
+/** ルームの印から id を取り出す。ルームでなければ `null`。 */
+export function ルームのid(key: string): string | null {
+  return ルームか(key) ? key.slice(ルームの印.length) : null;
 }
 
-/** その行が机の相手か。 */
-export function 机の相手か(key: string): boolean {
-  return key.startsWith(机の印);
+/** その行がこのPCの相手か。 */
+export function このPCの相手か(key: string): boolean {
+  return key.startsWith(このPCの印);
 }
 
 /**
@@ -118,12 +118,12 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
   // （オーナー・2026-09-08「このPCに複数のエージェントがいます。
   // まとめて一人なのではなく、それぞれが一人なのです」）。
   //
-  // **いま着いている席**と、**名乗りを書いてある席**を合わせて並べる ——
+  // **いま着いているエージェント**と、**名乗りを書いてあるエージェント**を合わせて並べる ——
   // 立ち上げていない間だけ消えると、**その 1 人ぶんの名乗りが編集できなくなる。**
-  const 着いている = new Set(素材.机のAIたち);
-  const 席たち = [...素材.机のAIたち];
-  for (const 呼び方 of 素材.名乗りのある席 ?? []) {
-    if (!着いている.has(呼び方)) 席たち.push(呼び方);
+  const 着いている = new Set(素材.このPCのAIたち);
+  const エージェントたち = [...素材.このPCのAIたち];
+  for (const 呼び方 of 素材.名乗りのあるエージェント ?? []) {
+    if (!着いている.has(呼び方)) エージェントたち.push(呼び方);
   }
 
   // **「マイ PC エージェント」という 1 人は居ない。**
@@ -131,15 +131,15 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
   // 「あなたが接続したならあなたはあなたで一意で、git-qa, zumen が接続したら
   // また別の人です」（オーナー・2026-09-08）。
   // 出すのは行ではなく、**着かせ方の案内**である（画面側で出す）。
-  if (席たち.length > 0) {
+  if (エージェントたち.length > 0) {
     // **1 つずつ行にする。**まとめると、どれが着いているのか分からない
-    for (const 呼び方 of 席たち) {
+    for (const 呼び方 of エージェントたち) {
       このPC.push({
-        key: `${机の印}${呼び方}`,
+        key: `${このPCの印}${呼び方}`,
         name: 呼び方,
         種類: 'AI',
         住所を覚えている: false,
-        // **着いているかどうかは、ここで分ける。**名乗りだけがある席は居ない
+        // **着いているかどうかは、ここで分ける。**名乗りだけがあるエージェントは居ない
         いま会議に居る: 着いている.has(呼び方),
       });
     }
@@ -167,20 +167,20 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
 
   const 区画たち: 区画[] = [{ title: 'contacts.this', 行たち: このPC }];
 
-  // **部屋は、居るときだけ出す。**空の見出しを並べない
-  const 部屋: 行[] = (素材.部屋たち ?? []).map((r, i) => ({
-    key: `${部屋の印}${r.id}`,
+  // **ルームは、居るときだけ出す。**空の見出しを並べない
+  const ルーム: 行[] = (素材.ルームたち ?? []).map((r, i) => ({
+    key: `${ルームの印}${r.id}`,
     // **付けた名前があればそれで呼ぶ。**
     // 無ければ**数えて呼ぶ**（`room.nth:<番>:<人数>`）——
     // **生の id を人に見せない**（DESIGN §10-A）。
     // 「HPXQEPXFKFMA…」では、どのルームか分からない。
     // 文言にするのは画面側（辞書を持たないこの層で組み立てない）
-    name: 素材.部屋の名前?.[r.id] ?? `room.nth:${i + 1}:${r.members}`,
-    種類: '部屋' as const,
+    name: 素材.ルームの名前?.[r.id] ?? `room.nth:${i + 1}:${r.members}`,
+    種類: 'ルーム' as const,
     住所を覚えている: false,
     いま会議に居る: r.members > 1,
   }));
-  if (部屋.length > 0) 区画たち.push({ title: 'contacts.rooms', 行たち: 部屋 });
+  if (ルーム.length > 0) 区画たち.push({ title: 'contacts.rooms', 行たち: ルーム });
   // **誰も居ない区画そのものを出さない**（見出しだけが並ぶ画面にしない）
   if (会議.length > 0) 区画たち.push({ title: 'contacts.inmeeting', 行たち: 会議 });
 

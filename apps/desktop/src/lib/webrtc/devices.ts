@@ -81,7 +81,7 @@ export function toOptions(devices: readonly DeviceLike[]): DeviceOptions {
  * - `noiseSuppression` … 定常的な雑音（空調・ファン）を抑える
  * - `autoGainControl` … 声の大きさを揃える
  *
- * **これだけでは足りない場面がある。**同じ部屋で 2 台を鳴らすと、
+ * **これだけでは足りない場面がある。**同じルームで 2 台を鳴らすと、
  * エコー除去は「自分の出力」しか知らないので、隣の端末の音は消せない。
  * そこはヘッドフォンで解く（画面でそう案内する）。
  */

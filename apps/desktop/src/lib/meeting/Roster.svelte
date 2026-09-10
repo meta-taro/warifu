@@ -33,17 +33,17 @@
     /** 呼び名を付ける。**空にすると忘れる** */
     onRename?: (key: string, label: string) => void;
     /**
-     * いま机に着いている、同じ PC の AI。
+     * いまこのPCにつながっている、同じ PC の AI。
      *
-     * **部屋に誰が居るかを見たときに、AI が居ないのは不自然である**
+     * **ルームに誰が居るかを見たときに、AI が居ないのは不自然である**
      * （`issues/012`「この PC で会議するとき、私とあなたはセットでしょっていう」）。
      *
-     * **`n / 定員` には数えない。**定員は部屋に居る人の数である（§4.3 / **D27**）。
+     * **`n / 定員` には数えない。**定員はルームに居る人の数である（§4.3 / **D27**）。
      * 数に入れると、**割符 1 本 = 1 人**（D12）とずれる。
      */
-    机のAIたち?: readonly string[];
+    このPCのAIたち?: readonly string[];
   }
-  let { locale, members, capacity, names = {}, onRename, 机のAIたち = [] }: Props = $props();
+  let { locale, members, capacity, names = {}, onRename, このPCのAIたち = [] }: Props = $props();
 
   const t = (key: keyof (typeof MESSAGES)[Locale]) => MESSAGES[locale][key];
 
@@ -110,11 +110,11 @@
     {/each}
   </ul>
 
-  {#if 机のAIたち.length > 0}
-    <!-- **この席に居るもの。**部屋の人数（定員）には数えない -->
+  {#if このPCのAIたち.length > 0}
+    <!-- **このエージェントに居るもの。**ルームの人数（定員）には数えない -->
     <h3>{MESSAGES[locale]['contacts.this']}</h3>
     <ul class="desk">
-      {#each 机のAIたち as 呼び方 (呼び方)}
+      {#each このPCのAIたち as 呼び方 (呼び方)}
         <li><span class="name">{呼び方}</span></li>
       {/each}
     </ul>
@@ -128,7 +128,7 @@
     font-weight: 600;
     color: var(--text-tertiary);
   }
-  /* **部屋の人と見分けが付く形にする。**同じ並びに混ぜない */
+  /* **ルームの人と見分けが付く形にする。**同じ並びに混ぜない */
   ul.desk li {
     color: var(--text-secondary);
   }

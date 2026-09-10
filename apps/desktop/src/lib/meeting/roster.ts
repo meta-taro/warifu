@@ -33,7 +33,7 @@ export function clampCapacity(value: number): number {
  * まだ入れるか。
  *
  * **招待に書かれた定員をそのまま信じない**（D27）。
- * 巨大な数を名乗る招待で席を確保させられないよう、外枠で数え直す。
+ * 巨大な数を名乗る招待でエージェントを確保させられないよう、外枠で数え直す。
  */
 export function canAdmit(current: number, capacity: number): boolean {
   return current < clampCapacity(capacity);

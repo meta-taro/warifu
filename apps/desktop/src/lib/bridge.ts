@@ -24,17 +24,17 @@ export const EVENT_INTRODUCED = 'warifu://introduced';
 /** 文字が届いた。`[誰から, 中身]` で届く。 */
 export const EVENT_TEXT = 'warifu://text';
 /**
- * **この PC の机から出た発言**（`[公開鍵, 中身, 時刻]`）。
+ * **この PC のこのPCから出た発言**（`[公開鍵, 中身, 時刻]`）。
  *
- * 同じ席のエージェント（`warifu mcp` で繋いだエージェント）が言ったもの。
+ * 同じエージェントのエージェント（`warifu mcp` で繋いだエージェント）が言ったもの。
  * **相手から届いた文字（{@link EVENT_TEXT}）と分ける** ——
  * 混ぜると、誰が言ったのか画面から読めなくなる。
  */
 export const EVENT_DESK = 'warifu://desk';
 /**
- * **机に着いている顔ぶれ**が変わった（呼び方の並びが届く）。
+ * **このPCにつながっている顔ぶれ**が変わった（呼び方の並びが届く）。
  *
- * 会議に人が居なくても、**同じ席のエージェント が居るなら人は話しかけられる。**
+ * 会議に人が居なくても、**同じエージェントのエージェント が居るなら人は話しかけられる。**
  * これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
  */
 export const EVENT_DESK_SEATS = 'warifu://desk-seats';
@@ -49,7 +49,7 @@ export const EVENT_THEME = 'warifu://theme';
 /**
  * **プロフィールが変わった。**画面は読み直す。
  *
- * 机に着いたエージェントが**自分で書く**ことがあるので、
+ * このPCにつながったエージェントが**自分で書く**ことがあるので、
  * 画面が書いたときだけ読み直す形にはできない。
  */
 export const EVENT_PROFILES = 'warifu://profiles';
@@ -148,7 +148,7 @@ export const hostMeeting = (capacity: number) => invoke<string>('host_meeting', 
  */
 export const connect = (invite: string) => invoke<void>('connect', { invite });
 
-/** 部屋の鍵を、**渡せる 1 本のリンク**にする（**D79**）。 */
+/** ルームの鍵を、**渡せる 1 本のリンク**にする（**D79**）。 */
 export const roomLink = (key: string) => invoke<string>('room_link', { key });
 
 /** そのリンクを **QR**（SVG）にする。目の前の相手に読ませる用（**D79**）。 */
@@ -171,24 +171,24 @@ export const leave = () => invoke<void>('leave');
 /**
  * 文字を送る。
  *
- * `to` に**同じ PC の AI の呼び方**を渡すと、**その席にだけ**届く。
- * 渡さなければ、部屋に居る全員と机の AI 全員へ。
+ * `to` に**同じ PC の AI の呼び方**を渡すと、**そのエージェントにだけ**届く。
+ * 渡さなければ、ルームに居る全員とこのPCの AI 全員へ。
  */
 export const sendText = (body: string, to?: string | null) =>
   invoke<void>('send_text', { body, to: to ?? null });
 
 /**
- * いま机に何人着いているか。
+ * いまこのPCに何人着いているか。
  *
  * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**
- * 会議に人が居なくても、同じ席のエージェント が居るなら送れる。
+ * 会議に人が居なくても、同じエージェントのエージェント が居るなら送れる。
  */
 export const deskSeats = () => invoke<string[]>('desk_seats');
 
 /**
  * **覚えている相手へ、1 対 1 で言う。**
  *
- * 同じ部屋に居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
+ * 同じルームに居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
  * 預かり所を置いていなければ「いま居ません」で終わる ——
  * **黙って中央へ繋ぎに行かない**（D68）。
  */
@@ -210,9 +210,9 @@ export interface ProfileRow {
 /**
  * この端末のプロフィールを並べる。
  *
- * **人と、マイ PC エージェント**（席ごと）。書き換えられるのは**この端末の持ち主だけ**で、
+ * **人と、マイ PC エージェント**（エージェントごと）。書き換えられるのは**この端末の持ち主だけ**で、
  * MCP の口には無い —— **AI が自分の名前を書き換えられると、
- * 同じ机の別のエージェントに化けられる。**
+ * 同じPCの別のエージェントに化けられる。**
  */
 export const profiles = () => invoke<ProfileRow[]>('profiles');
 
@@ -301,15 +301,15 @@ export const knownKeys = () => invoke<string[]>('known_keys');
 export const stopAgent = (name: string) => invoke<boolean>('stop_agent', { name });
 
 /**
- * **いま見ている部屋の id。**
+ * **いま見ているルームの id。**
  *
- * 部屋を複数持つので、**どの部屋の会話を出すか**を画面が知っている必要がある。
+ * ルームを複数持つので、**どのルームの会話を出すか**を画面が知っている必要がある。
  */
 export const currentRoom = () => invoke<string | null>('current_room');
 
-/** 部屋 1 つ分。 */
+/** ルーム 1 つ分。 */
 export interface RoomRow {
-  /** 部屋の id（全桁）。 */
+  /** ルームの id（全桁）。 */
   id: string;
   /** いま居る人数（自分を含む）。 */
   members: number;
@@ -318,16 +318,16 @@ export interface RoomRow {
 }
 
 /**
- * **いま居る部屋を並べる。**
+ * **いま居るルームを並べる。**
  *
- * 部屋を複数持てる以上、**一覧が無ければ切り替えようがない。**
+ * ルームを複数持てる以上、**一覧が無ければ切り替えようがない。**
  */
 export const rooms = () => invoke<RoomRow[]>('rooms');
 
 /**
- * **見る部屋を選ぶ。**
+ * **見るルームを選ぶ。**
  *
- * 見ていない部屋も生きている —— 選び直すだけで、経路は切れない。
+ * 見ていないルームも生きている —— 選び直すだけで、経路は切れない。
  */
 export const lookAtRoom = (id: string) => invoke<boolean>('look_at_room', { id });
 

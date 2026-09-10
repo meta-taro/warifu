@@ -143,7 +143,7 @@ link.invited	A link is inviting you into a room. Enter?	リンクでルームに
 link.invited.enter	Enter	入る	进入	들어간다				
 link.invited.hint	Anyone can make such a link. Do not enter an invitation you were not expecting.	このリンクは誰でも作れます。心当たりのない誘いには入らないでください。	这样的链接谁都能做。没有印象的邀请，请不要进入。	이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.	★	**警告である。**「安全です」「割符が確認済みです」と読める訳にしないこと。このリンクは誰でも作れる。割符は差出人を確かめていない。確かめられるのは、心当たりがあるかどうかだけで、それは人にしか分からない。		
 link.invited.no	Do not enter	入らない	不进入	들어가지 않는다				
-link.lost	The route to them broke. They can come back with the same key — waiting.	相手との経路が切れました。同じ鍵で戻ってこられます — 待っています。	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.	★	**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、部屋の鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
+link.lost	The route to them broke. They can come back with the same key — waiting.	相手との経路が切れました。同じ鍵で戻ってこられます — 待っています。	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.	★	**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
 link.relayed	Relayed	中継	中继	중계				
 link.unknown	Unknown	不明	未知	알 수 없음				
 mark.kept	Left	預けた	已寄存	맡김	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
@@ -160,7 +160,7 @@ meeting.key.copied	Copied	コピーしました	已复制	복사했습니다
 meeting.key.copy	Copy	コピーする	复制	복사하기				
 meeting.key.count	{n} issued	{n} 本出しました	已发 {n} 把	{n} 개 냈습니다				
 meeting.key.each	One key lets one person in. Hand each person their own key.	1 本につき 1 人です。呼ぶ人ごとに、別の鍵を渡してください。	一把钥匙只能让一个人进入。请给每个人各自的钥匙。	열쇠 하나에 한 사람입니다. 부를 사람마다 다른 열쇠를 건네세요.				
-meeting.key.hint	Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.	これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。	把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。	들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.	★	「渡した相手だけが入れる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **部屋の鍵を他人に見られたら、その人が入れる。**		
+meeting.key.hint	Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.	これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。	把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。	들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.	★	「渡した相手だけが入れる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **ルームの鍵を他人に見られたら、その人が入れる。**		
 meeting.key.howmany	How many	何人ぶん	几人份	몇 사람 분				
 meeting.key.label	Room key	ルームの鍵	房间密钥	방 열쇠				
 meeting.key.more	Hand out one more key	鍵をもう 1 本出す	再发一把密钥	열쇠를 한 개 더 내기				
