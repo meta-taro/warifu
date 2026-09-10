@@ -393,6 +393,65 @@ impl Warifu {
     }
 
     /// 承認済みの規則を、人が読める形で出す。
+    /// **この道具が何かを、繋いできたエージェントへ返す**（**D82**）。
+    ///
+    /// オーナー指示（2026-09-10）——
+    /// 「**MCP にこのソフト概要みたいなのを AI エージェント向けに出力するやつ
+    /// 設置したいです。**」
+    ///
+    /// # **札を要らないことにしてある**
+    ///
+    /// 関所（札）が守っているのは**人のもの**である —— 受信箱・会話・予定。
+    /// **この文はこの実行ファイル自身の説明**で、人のものは 1 文字も入っていない。
+    ///
+    /// そして、**これを札で閉じると順番が逆になる。**
+    /// 「何をしてよいか」を知るために札が要る、という形になってしまう。
+    #[tool(
+        description = "割符とは何かを返す（エージェント向けの概要・守ることと口の一覧）。\
+                          札は要らない。"
+    )]
+    pub fn about(&self) -> Result<String, ErrorData> {
+        Ok(format!(
+            "{}\n\n---\n\nいま繋がっている版: {}\n",
+            概要,
+            env!("CARGO_PKG_VERSION")
+        ))
+    }
+
+    /// **版ごとに何が変わったかを返す**（**D82**）。
+    ///
+    /// 中身は**タグの間にある commit の見出し**で、書き起こした文ではない。
+    /// 「直ったはず」と「直っていない」が版の違いだけで起きるので、
+    /// **繋いだ側が自分で確かめられる**ようにしてある。
+    #[tool(
+        description = "版ごとに何が変わったかを返す。version を渡すとその版だけ。\
+                          札は要らない。"
+    )]
+    pub fn changes(
+        &self,
+        Parameters(args): Parameters<crate::tools::ChangesArgs>,
+    ) -> Result<String, ErrorData> {
+        let Some(頼まれた) = args
+            .version
+            .as_deref()
+            .map(str::trim)
+            .filter(|x| !x.is_empty())
+        else {
+            return Ok(変わったこと.to_owned());
+        };
+        // **その版だけ抜く。**無ければ「無い」と言う（近い版を勝手に返さない）
+        match 版を抜く(変わったこと, 頼まれた) {
+            Some(抜けた) => Ok(抜けた),
+            None => Ok(format!(
+                "{頼まれた} は見当たりません。\
+                 version を渡さずに呼ぶと、載っている版が全部出ます。\n\
+                 いま繋がっている版: {}\n",
+                env!("CARGO_PKG_VERSION")
+            )),
+        }
+    }
+
+    /// 承認済みの読み取り規則を並べる。**承認そのものはこの口に無い**（人が行う）。
     #[tool(description = "承認済みの読み取り規則を人が読める形で出す。")]
     pub async fn rules_list(&self) -> Result<String, ErrorData> {
         self.通るか("rules.list")?;
@@ -435,6 +494,35 @@ impl ServerHandler for Warifu {
         ));
         info
     }
+}
+
+/// エージェント向けの概要（**D82**）。**実行ファイルに埋め込む** ——
+/// 配った先に文書が無くても返せるように。
+const 概要: &str = include_str!("../../../docs/agent/about.md");
+
+/// 版ごとに変わったこと（**D82**）。`scripts/agent-changes.py` が作る。
+const 変わったこと: &str = include_str!("../../../docs/agent/changes.md");
+
+/// `## <版> — <日付>` の塊を 1 つ抜く。
+///
+/// **見つからなければ `None`。**近い版を勝手に返さない ——
+/// 「その版の話」として読まれると、直っていない物を直ったと読む。
+fn 版を抜く(全部: &str, 版: &str) -> Option<String> {
+    let 頭 = format!("## {版}");
+    // 頭が「## v0.1.0-alpha.1」のとき「alpha.16」に当たらないよう、
+    // **区切りか行末が続くこと**を確かめる
+    let 始まり = 全部
+        .match_indices(&頭)
+        .find(|(_, _)| true)
+        .and_then(|(i, _)| {
+            let 続き = &全部[i + 頭.len()..];
+            let 次 = 続き.chars().next();
+            matches!(次, None | Some(' ') | Some('\n') | Some('\r')).then_some(i)
+        })?;
+    let 残り = &全部[始まり..];
+    // 次の見出しまで
+    let 終わり = 残り[1..].find("\n## ").map_or(残り.len(), |i| i + 1);
+    Some(残り[..終わり].trim_end().to_owned())
 }
 
 /// 机が閉じた知らせが混ざっていないか（`issues/2`）。

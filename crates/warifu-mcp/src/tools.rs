@@ -58,6 +58,14 @@ pub struct StatusArgs {
     pub id: u64,
 }
 
+/// [`crate::Warifu::changes`] の引数（**D82**）。
+#[derive(Debug, Clone, Default, Deserialize, JsonSchema)]
+pub struct ChangesArgs {
+    /// どの版か（`v0.1.0-alpha.16`）。**省くと載っている版が全部出る。**
+    #[serde(default)]
+    pub version: Option<String>,
+}
+
 /// [`crate::Warifu::chat_wait`] の引数。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct WaitArgs {
