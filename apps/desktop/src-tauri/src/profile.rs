@@ -111,16 +111,61 @@ pub async fn set_profile(
 /// 指したままにすると、**消えた・入れ替わったファイル**を指すことになる。
 #[tauri::command]
 pub async fn set_avatar(app: tauri::AppHandle, who: String, path: String) -> Answer<()> {
-    let Some(誰) = Who::from_field(&who) else {
+    let 中身 = std::fs::read(&path).map_err(|e| Failure {
+        message: format!("画像を読めませんでした（{e}）"),
+        code: Some("avatar.unreadable".into()),
+    })?;
+    置く(&app, &who, 中身)
+}
+
+/// 落とした画像を**画面へ渡す**（**D87**）。
+///
+/// 画面側が開いて、**切り取って WebP にしてから**置きに来る。
+/// だからここは形を見ない —— **大きさだけを見る。**
+///
+/// **上限を置く。**落としたものを丸ごと webview へ渡すので、
+/// 上限が無いと、写真 1 枚で機械を埋められる。
+#[tauri::command]
+pub async fn read_image(path: String) -> Answer<Vec<u8>> {
+    /// 落とした画像として読む上限（バイト）。**20 MiB。**
+    /// 写真 1 枚としては十分で、機械を埋めるには足りない大きさ。
+    const 読める上限: u64 = 20 * 1024 * 1024;
+
+    let 大きさ = std::fs::metadata(&path)
+        .map_err(|e| Failure {
+            message: format!("画像を読めませんでした（{e}）"),
+            code: Some("avatar.unreadable".into()),
+        })?
+        .len();
+    if 大きさ > 読める上限 {
+        return Err(Failure {
+            message: format!("画像が大きすぎます（{大きさ} バイト / 上限 {読める上限}）"),
+            code: Some("avatar.bad".into()),
+        });
+    }
+    std::fs::read(&path).map_err(|e| Failure {
+        message: format!("画像を読めませんでした（{e}）"),
+        code: Some("avatar.unreadable".into()),
+    })
+}
+
+/// **切り取って WebP にしたものを置く**（**D87**）。
+///
+/// 画面側が canvas で 512×512 に切り取り、WebP にして渡してくる。
+/// **それでも中身は見る** —— 渡ってきたものを信じない構えは変えない。
+#[tauri::command]
+pub async fn set_avatar_bytes(app: tauri::AppHandle, who: String, bytes: Vec<u8>) -> Answer<()> {
+    置く(&app, &who, bytes)
+}
+
+/// 顔を置く（中身は見る）。**`set_avatar` と `set_avatar_bytes` の中身。**
+fn 置く(app: &tauri::AppHandle, who: &str, 中身: Vec<u8>) -> Answer<()> {
+    let Some(誰) = Who::from_field(who) else {
         return Err(Failure {
             message: "誰のプロフィールか読めません".into(),
             code: None,
         });
     };
-    let 中身 = std::fs::read(&path).map_err(|e| Failure {
-        message: format!("画像を読めませんでした（{e}）"),
-        code: Some("avatar.unreadable".into()),
-    })?;
     // **人に読める形で断る。**なぜ置けないかが分からないと、次の手が打てない
     let (幅, 高さ) = warifu_vault::顔として読む(&中身).map_err(|e| Failure {
         message: e.to_string(),

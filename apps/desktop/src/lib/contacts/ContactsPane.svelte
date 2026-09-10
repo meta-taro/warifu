@@ -14,7 +14,7 @@
   import Avatar from './Avatar.svelte';
   import { 名乗りを添えるか, 呼ぶ名 } from './claimed';
   import type { ProfileRow } from '$lib/bridge';
-  import { できること, type 口の種類 } from './actions';
+  import { できること, type 口の種類, type 状態 } from './actions';
   import {
     机の印,
     部屋か,
@@ -29,7 +29,14 @@
     素材: 連絡帳の素材;
     /** いま選んでいる相手（公開鍵か、机の印）。 */
     選んでいる: string | null;
-    選ぶ: (key: string) => void;
+    /**
+     * 相手を選ぶ。**同じ行をもう一度押したら外す**（`null`）。
+     *
+     * オーナー指摘（2026-09-10）——
+     * 「**だれかを選んでしまうと、いまは二度とその画面に戻れません**」。
+     * 外す道が無いのは、**入ったら出られない部屋**と同じである。
+     */
+    選ぶ: (key: string | null) => void;
     /** 口を押した。 */
     押す: (種類: 口の種類, 相手: 行) => void;
     /** 呼んでいる最中の相手。**二度押しを止める。** */
@@ -161,9 +168,29 @@
       : [],
   );
 
+  /**
+   * 札の見た目。**4 枚とも、アプリと同じ線のアイコンで描く**
+   * （絵文字を混ぜない —— オーナー指摘 2026-09-10「少々ださいですね。
+   * アイコンがそうかんじさせます」）。
+   */
   const 口の見た目: Record<口の種類, { icon: IconName; label: MessageKey }> = {
-    call: { icon: 'people', label: 'act.call' },
-    mail: { icon: 'mail', label: 'act.mail' },
+    chat: { icon: 'chat', label: 'act.chat' },
+    group: { icon: 'people', label: 'act.group' },
+    call: { icon: 'camera', label: 'act.call' },
+    calendar: { icon: 'calendar', label: 'act.calendar' },
+  };
+
+  /** 状態の札。**色だけで言わない** —— 文字を必ず添える（DESIGN §4）。 */
+  const 状態の札: Record<状態, { label: MessageKey; 色: 'ok' | 'wait' | 'no' }> = {
+    できる: { label: 'act.state.ok', 色: 'ok' },
+    条件つき: { label: 'act.state.wait', 色: 'wait' },
+    まだできない: { label: 'act.state.no', 色: 'no' },
+  };
+
+  /** 押せる札のボタンの文言。**押せない札には出さない。** */
+  const 押す文言: Partial<Record<口の種類, MessageKey>> = {
+    group: 'act.group.action',
+    call: 'act.call.action',
   };
 
   /**
@@ -339,7 +366,8 @@
           class="row"
           class:on={行.key === 選んでいる}
           aria-label={読み上げる名(行)}
-          onclick={() => 選ぶ(行.key)}
+          aria-pressed={行.key === 選んでいる}
+          onclick={() => 選ぶ(行.key === 選んでいる ? null : 行.key)}
         >
           <!-- **部屋は顔を持たない。**人と AI にだけ顔を出す。
                顔は名前の言い換えなので、読み上げからは外す -->
@@ -612,26 +640,40 @@
         <p class="hint">{t('contacts.where')}</p>
       {/if}
 
-      <div class="acts">
-        {#each 口たち as 口 (口.種類)}
-          <div class="act">
-            <button
-              type="button"
-              class:primary={口.種類 !== 'mail'}
-              disabled={!口.押せる || 呼んでいる === 相手.key}
-              onclick={() => 押す(口.種類, 相手)}
-            >
-              <Icon name={口の見た目[口.種類].icon} size={16} />
-              {口.種類 === 'call' && 呼んでいる === 相手.key
-                ? t('act.call.working')
-                : t(口の見た目[口.種類].label)}
-            </button>
-            <!-- **押せないなら、理由を必ず出す。**
-                 理由の無い「押せない」は、使う人には壊れているとしか見えない -->
-            {#if 口.訳}<p class="why">{t(口.訳 as MessageKey)}</p>{/if}
-          </div>
-        {/each}
-      </div>
+      <!--
+        **できることのダッシュボード**（オーナー承認 2026-09-10）。
+        「チャットをするのか、グループチャットをするのか、かれんだーで予定を
+        みるのか、ビデオ会議を開始するのか」—— **4 枚で固定**し、
+        どの札にも**できる／条件つき／まだできない**と、その 1 行を必ず付ける。
+      -->
+      {#if 口たち.length > 0}
+        <div class="acts">
+          {#each 口たち as 口 (口.種類)}
+            <div class="act" class:dim={口.状態 === 'まだできない'}>
+              <div class="top">
+                <span class="glyph"><Icon name={口の見た目[口.種類].icon} size={17} /></span>
+                <span class="title">{t(口の見た目[口.種類].label)}</span>
+                <span class="tag {状態の札[口.状態].色}">{t(状態の札[口.状態].label)}</span>
+              </div>
+              <!-- **訳はどの札にも出す。**
+                   訳の無い札は、使う人には壊れているとしか見えない -->
+              <p class="why">{t(口.訳 as MessageKey)}</p>
+              {#if 口.押せる && 押す文言[口.種類]}
+                <button
+                  type="button"
+                  class="go primary"
+                  disabled={呼んでいる === 相手.key}
+                  onclick={() => 押す(口.種類, 相手)}
+                >
+                  {口.種類 === 'call' && 呼んでいる === 相手.key
+                    ? t('act.call.working')
+                    : t(押す文言[口.種類] as MessageKey)}
+                </button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
 
       {#if 相手.種類 === '人'}
         <!-- **相手が起動しているかは分からない。**分からないと出す（§2 原則 7） -->
@@ -780,16 +822,76 @@
     font-family: var(--font-sans);
     color: var(--text-tertiary);
   }
+  /* できることの札。**枠線 1 本を共有して並べる**（1 枚ずつ影を付けない） */
   .acts {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1px;
+    margin-top: var(--space-3);
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
   }
   .act {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-1);
+    padding: var(--space-3) var(--space-3) var(--space-4);
+    background: var(--bg-elevated);
+  }
+  .act .top {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .act .title {
+    font-weight: 600;
+  }
+  .act .why {
+    margin: 0;
+  }
+  .glyph {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--accent-border);
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
+  /* 状態の札。**色だけで言わない** —— 文字が主で、地は補助である */
+  .tag {
+    margin-left: auto;
+    font-size: var(--text-2xs-size);
+    line-height: var(--text-2xs-line);
+    letter-spacing: 0.04em;
+    padding: 0 8px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+  }
+  .tag.ok {
+    background: var(--success-bg);
+    color: var(--success-fg);
+  }
+  .tag.wait {
+    background: var(--warning-bg);
+    color: var(--warning-fg);
+  }
+  .tag.no {
+    background: var(--neutral-bg);
+    color: var(--neutral-fg);
+  }
+  /* **まだできない札は、沈ませる。**消さない —— 無いことを読ませる */
+  .act.dim .glyph,
+  .act.dim .title {
+    opacity: 0.55;
+  }
+  .act .go {
+    margin-top: var(--space-2);
+    align-self: flex-start;
   }
   button:not(.row) {
     display: flex;
@@ -806,7 +908,7 @@
     cursor: pointer;
   }
   button.primary {
-    color: var(--on-accent);
+    color: var(--text-on-accent);
     background: var(--accent);
     border-color: transparent;
   }

@@ -122,6 +122,10 @@ export type MessageKey =
   | 'profile.ai.hint'
   | 'profile.face'
   | 'profile.face.drop'
+  | 'crop.title'
+  | 'crop.hint'
+  | 'crop.zoom'
+  | 'crop.apply'
   | 'profile.face.clear'
   | 'contacts.note'
   | 'contacts.note.hint'
@@ -135,10 +139,21 @@ export type MessageKey =
   | 'contacts.forget'
   | 'contacts.forget.hint'
   | 'act.chat'
+  | 'act.chat.live'
+  | 'act.chat.postbox'
+  | 'act.chat.desk'
+  | 'act.group'
+  | 'act.group.what'
+  | 'act.group.action'
   | 'act.call'
+  | 'act.call.net'
+  | 'act.call.action'
   | 'act.call.working'
-  | 'act.mail'
-  | 'act.mail.none'
+  | 'act.calendar'
+  | 'act.calendar.none'
+  | 'act.state.ok'
+  | 'act.state.wait'
+  | 'act.state.no'
   | 'act.address.none'
   | 'act.already'
   | 'act.desk.local'
@@ -283,7 +298,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.this': 'この PC',
     'contacts.me': 'あなた',
     'contacts.desk': 'マイ PC エージェント',
-    'contacts.desk.none': '机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。',
+    'contacts.desk.none': 'このエージェントは、いま繋がっていません。',
     'contacts.inmeeting': 'いま同じ部屋に居る人',
     'contacts.saved': '覚えている相手',
     'contacts.late': '留守中に届いた相手',
@@ -324,26 +339,41 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.cancel': 'やめる',
     'profile.none': 'まだ書いていません。',
     'profile.ai.who': 'マイ PC エージェント',
-    'profile.ai.hint': 'この PC の持ち主と、その席のエージェント自身が書けます。ほかの席のエージェントは書き換えられません。どこで動いているか（席）は、立ち上げるときに人が決めます。',
+    'profile.ai.hint': '名前と紹介は、あなたと、このエージェント自身が書けます。ほかのエージェントは書き換えられません。',
     'profile.face': '顔',
-    'profile.face.drop': 'ここに PNG を落とすと、顔を差し替えられます（512px・64 KB まで）。',
+    'profile.face.drop': 'アバター画像に画像をドラッグアンドドロップすると、差し替えられます（PNG・512px・64 KB まで）。',
+    'crop.title': '顔にする所を選ぶ',
+    'crop.hint': 'つまんで動かし、大きさを変えられます。丸の中が顔になります。',
+    'crop.zoom': '大きさ',
+    'crop.apply': 'これにする',
     'profile.face.clear': '既定の顔に戻す',
     'contacts.note': '覚え書き',
     'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
     'room.name': '部屋の名前',
     'room.name.hint': '名前はこの画面の中だけです（閉じると消えます）。相手には送りません。',
-    'contacts.desk.how': '机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。',
+    'contacts.desk.how': '繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
     'chat.reach': '届く先 {who}',
     'chat.reach.none': '届く先はまだありません。部屋に人が入るか、マイ PC エージェントが着くと出ます。',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
     'contacts.forget': '鍵なしで入れるのをやめる',
     'contacts.forget.hint': 'この相手はいま、鍵なしで入ってこられます。やめると、次からは鍵が要ります。',
-    'act.chat': 'チャットする',
-    'act.call': '部屋に入れる',
+    'act.chat': 'チャット',
+    'act.chat.live': '繋がっている間だけ届きます。相手が起動していないときは、打ったものはどこにも残りません。預かり所を置くと、居ないときも預けられます。',
+    'act.chat.postbox': 'この相手とだけの会話です。相手が居ないときは、預かり所へ封のまま預けます（7 日）。',
+    'act.chat.desk': 'この PC のエージェントとだけの会話です。右の欄に打つと、そのエージェントにだけ届きます。',
+    'act.group': 'グループチャット',
+    'act.group.what': 'ルームを作って、この相手を招きます。押すと、人数ぶんの鍵を出す所へ移ります。',
+    'act.group.action': 'ルームを作る',
+    'act.call': 'ビデオ会議',
+    'act.call.net': '同じ網なら、そのまま繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。',
+    'act.call.action': 'ビデオ会議に呼ぶ',
     'act.call.working': '呼んでいます…',
-    'act.mail': 'メールを送る',
-    'act.mail.none': 'まだ送れません。warifu にメールを送る経路が、まだ 1 本もありません（読む口だけがあります）。',
+    'act.calendar': '予定',
+    'act.calendar.none': '画面から予定表を読む口が、まだ 1 本もありません。空いている枠も出せません。',
+    'act.state.ok': 'できる',
+    'act.state.wait': '条件つき',
+    'act.state.no': 'まだできない',
     'act.address.none': '住所をまだ覚えていません。鍵で一度つながると覚えます。それまでは、こちらから呼べません。',
     'act.already': 'すでに同じ部屋に居ます。',
     'act.desk.local': 'マイ PC エージェントは、はじめから同じ部屋に居ます。入れる必要はありません。',
@@ -504,6 +534,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.ai.hint': 'Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.',
     'profile.face': 'Face',
     'profile.face.drop': 'Drop a PNG here to replace the face (up to 512px, 64 KB).',
+    'crop.title': 'Choose the part to use',
+    'crop.hint': 'Drag to move and change the size. What is inside the circle becomes the face.',
+    'crop.zoom': 'Size',
+    'crop.apply': 'Use this',
     'profile.face.clear': 'Back to the default face',
     'contacts.note': 'Your note',
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
@@ -517,10 +551,21 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.forget': 'Require a meeting key again',
     'contacts.forget.hint': 'Right now this person can come in without a key. Turn it off and they will need one again.',
     'act.chat': 'Chat',
-    'act.call': 'Bring into the room',
+    'act.chat.live': 'Messages arrive only while the two of you are connected. If they are not running, what you type is kept nowhere. Set up a poste restante and it can be left for them.',
+    'act.chat.postbox': 'A conversation with this person only. While they are away it is left sealed at the poste restante (7 days).',
+    'act.chat.desk': 'A conversation with the agent on this computer only. Type in the box on the right and only that agent receives it.',
+    'act.group': 'Group chat',
+    'act.group.what': 'Create a room and invite them. Pressing this takes you to where keys are issued — one per person you invite.',
+    'act.group.action': 'Create a room',
+    'act.call': 'Video meeting',
+    'act.call.net': 'On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.',
+    'act.call.action': 'Call into a meeting',
     'act.call.working': 'Calling…',
-    'act.mail': 'Send mail',
-    'act.mail.none': 'Not possible yet. warifu has no way to send mail at all (it can only read).',
+    'act.calendar': 'Schedule',
+    'act.calendar.none': 'There is no way yet for this screen to read a calendar. It cannot show free slots either.',
+    'act.state.ok': 'Works',
+    'act.state.wait': 'Conditions apply',
+    'act.state.no': 'Not yet',
     'act.address.none': 'Their whereabouts are not remembered yet. Connect once with a key and it is remembered. Until then you cannot call them.',
     'act.already': 'Already in the same room.',
     'act.desk.local': 'Agents on this computer are in the room from the start. There is nothing to bring in.',
@@ -681,6 +726,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.ai.hint': '由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。',
     'profile.face': '头像',
     'profile.face.drop': '把 PNG 拖到这里可以替换头像（最大 512px、64 KB）。',
+    'crop.title': '选择用作头像的部分',
+    'crop.hint': '可以拖动移动、调整大小。圆圈内的部分会成为头像。',
+    'crop.zoom': '大小',
+    'crop.apply': '就用这个',
     'profile.face.clear': '恢复默认头像',
     'contacts.note': '备注',
     'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
@@ -694,10 +743,21 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.forget': '恢复需要会议密钥',
     'contacts.forget.hint': '现在这位不用密钥就能进来。取消后，下次就需要密钥了。',
     'act.chat': '聊天',
-    'act.call': '请进房间',
+    'act.chat.live': '只在双方连着的时候才会送到。对方没启动时，你打的内容不会留在任何地方。设置寄存处后，对方不在也可以先寄存。',
+    'act.chat.postbox': '只和这位对象的会话。对方不在时，会封着寄存在寄存处（7 天）。',
+    'act.chat.desk': '只和这台电脑的智能体的会话。在右边的框里输入，只有那个智能体会收到。',
+    'act.group': '群聊',
+    'act.group.what': '建一个 room，把这位对象请进来。按下后会转到发钥匙的地方（按邀请人数，一次出一把）。',
+    'act.group.action': '建一个 room',
+    'act.call': '视频会议',
+    'act.call.net': '同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。',
+    'act.call.action': '请进视频会议',
     'act.call.working': '正在呼叫…',
-    'act.mail': '发送邮件',
-    'act.mail.none': '还发不了。warifu 目前完全没有发送邮件的通道（只有读取的口）。',
+    'act.calendar': '日程',
+    'act.calendar.none': '这个界面还没有任何读取日程表的入口，也无法显示空闲时段。',
+    'act.state.ok': '可以',
+    'act.state.wait': '有条件',
+    'act.state.no': '还不行',
     'act.address.none': '还没有记住对方的位置。用密钥连接一次后就会记住。在那之前无法从这边呼叫。',
     'act.already': '已经在同一个房间里了。',
     'act.desk.local': '这台电脑的代理从一开始就在同一个房间里，不需要请进来。',
@@ -858,6 +918,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'profile.ai.hint': '이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.',
     'profile.face': '얼굴',
     'profile.face.drop': '여기에 PNG 를 놓으면 얼굴을 바꿀 수 있습니다 (512px・64 KB 까지).',
+    'crop.title': '얼굴로 쓸 부분을 고릅니다',
+    'crop.hint': '끌어서 움직이고 크기를 바꿀 수 있습니다. 원 안이 얼굴이 됩니다.',
+    'crop.zoom': '크기',
+    'crop.apply': '이걸로 한다',
     'profile.face.clear': '기본 얼굴로 되돌리기',
     'contacts.note': '메모',
     'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
@@ -870,11 +934,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
     'contacts.forget': '다시 회의 키를 받게 하기',
     'contacts.forget.hint': '지금 이 상대는 열쇠 없이 들어올 수 있습니다. 끄면 다음부터는 열쇠가 필요합니다.',
-    'act.chat': '채팅하기',
-    'act.call': '방에 들이기',
+    'act.chat': '채팅',
+    'act.chat.live': '연결되어 있는 동안에만 도착합니다. 상대가 켜져 있지 않으면 입력한 내용은 어디에도 남지 않습니다. 보관소를 두면 상대가 없을 때도 맡길 수 있습니다.',
+    'act.chat.postbox': '이 상대와만 하는 대화입니다. 상대가 없을 때는 봉한 채로 보관소에 맡깁니다(7일).',
+    'act.chat.desk': '이 PC의 에이전트와만 하는 대화입니다. 오른쪽 칸에 입력하면 그 에이전트에게만 갑니다.',
+    'act.group': '그룹 채팅',
+    'act.group.what': '룸을 만들어 이 상대를 초대합니다. 누르면 인원 수만큼 키를 발급하는 곳으로 이동합니다.',
+    'act.group.action': '룸 만들기',
+    'act.call': '영상 회의',
+    'act.call.net': '같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.',
+    'act.call.action': '영상 회의로 부르기',
     'act.call.working': '부르는 중…',
-    'act.mail': '메일 보내기',
-    'act.mail.none': '아직 보낼 수 없습니다. warifu 에는 메일을 보내는 경로가 하나도 없습니다 (읽는 입구만 있습니다).',
+    'act.calendar': '일정',
+    'act.calendar.none': '이 화면에서 일정표를 읽는 창구가 아직 하나도 없습니다. 빈 시간도 보여줄 수 없습니다.',
+    'act.state.ok': '가능',
+    'act.state.wait': '조건부',
+    'act.state.no': '아직 안 됨',
     'act.address.none': '상대의 위치를 아직 기억하지 못했습니다. 열쇠로 한 번 연결하면 기억합니다. 그전에는 이쪽에서 부를 수 없습니다.',
     'act.already': '이미 같은 방에 있습니다.',
     'act.desk.local': '이 PC 의 에이전트는 처음부터 같은 방에 있습니다. 들일 필요가 없습니다.',
@@ -911,7 +986,9 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'door.refused',
   'meeting.key.hint',
   'link.lost',
-  'act.mail.none',
+  'act.chat.live',
+  'act.call.net',
+  'act.calendar.none',
   'act.address.none',
   'chat.shared',
   'send.absent',
@@ -938,11 +1015,17 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '**相手にはまだ届いていない。**「送信しました」「配達済み」と読める訳にしないこと。' +
     '届くのは相手が次に起動したときであり、いつになるかは分からない。' +
     'また「保存しました」（＝こちらの手元に残した）とも読ませないこと —— 預けた先は別の機械である。',
-  'act.mail.none':
-    '「まだ送れません」は「いま経路が無い」という事実である。' +
-    '「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。' +
-    'この画面でいちばん重い事故は、送ったつもりで送られていないことである。' +
-    'また「準備中です」「近日対応」のような、待てば来ると読める訳にもしないこと。',
+  'act.chat.live':
+    '**まだ届いていない。**「送信しました」「あとで届きます」と読める訳にしないこと。' +
+    '預かり所を置いていない状態では、繋がっていない間に打った言葉はどこにも残らない。' +
+    '「預かり所を置くと」は条件であって、約束ではない。',
+  'act.call.net':
+    '**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。' +
+    '「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。' +
+    '`--relay` は付けられるが、繋がる保証はまだ無い。',
+  'act.calendar.none':
+    '**作っていない**という事実である。「準備中です」「近日対応」のような、' +
+    '待てば来ると読める訳にしないこと。読み込みに失敗した（＝あるのに読めない）とも読ませないこと。',
   'act.address.none':
     '覚えていないのは**こちら側**である。' +
     '「その相手は見つかりません」「拒否されました」と読める訳にしないこと。' +

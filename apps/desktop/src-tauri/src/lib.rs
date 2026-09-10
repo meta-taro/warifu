@@ -1644,6 +1644,8 @@ pub fn run() {
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,
+            profile::set_avatar_bytes,
+            profile::read_image,
             profile::clear_avatar,
             profile::avatar_bytes,
             send_to_contact,

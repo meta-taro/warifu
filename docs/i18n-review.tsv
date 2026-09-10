@@ -1,15 +1,26 @@
 鍵	en	ja	zh	ko	事故になるか	翻訳者への注記	判定	直した訳（ja/en/zh/ko）
 act.address.none	Their whereabouts are not remembered yet. Connect once with a key and it is remembered. Until then you cannot call them.	住所をまだ覚えていません。鍵で一度つながると覚えます。それまでは、こちらから呼べません。	还没有记住对方的位置。用密钥连接一次后就会记住。在那之前无法从这边呼叫。	상대의 위치를 아직 기억하지 못했습니다. 열쇠로 한 번 연결하면 기억합니다. 그전에는 이쪽에서 부를 수 없습니다.	★	覚えていないのは**こちら側**である。「その相手は見つかりません」「拒否されました」と読める訳にしないこと。相手のせいにすると、人は相手に確認しに行く。また「自動でつながります」とも読ませないこと —— つなぐのは人の操作である。		
 act.already	Already in the same room.	すでに同じ部屋に居ます。	已经在同一个房间里了。	이미 같은 방에 있습니다.				
-act.call	Bring into the room	部屋に入れる	请进房间	방에 들이기				
+act.calendar	Schedule	予定	日程	일정				
+act.calendar.none	There is no way yet for this screen to read a calendar. It cannot show free slots either.	画面から予定表を読む口が、まだ 1 本もありません。空いている枠も出せません。	这个界面还没有任何读取日程表的入口，也无法显示空闲时段。	이 화면에서 일정표를 읽는 창구가 아직 하나도 없습니다. 빈 시간도 보여줄 수 없습니다.	★	**作っていない**という事実である。「準備中です」「近日対応」のような、待てば来ると読める訳にしないこと。読み込みに失敗した（＝あるのに読めない）とも読ませないこと。		
+act.call	Video meeting	ビデオ会議	视频会议	영상 회의				
+act.call.action	Call into a meeting	ビデオ会議に呼ぶ	请进视频会议	영상 회의로 부르기				
+act.call.net	On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.	同じ網なら、そのまま繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.	★	**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。`--relay` は付けられるが、繋がる保証はまだ無い。		
 act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중…				
-act.chat	Chat	チャットする	聊天	채팅하기				
+act.chat	Chat	チャット	聊天	채팅				
+act.chat.desk	A conversation with the agent on this computer only. Type in the box on the right and only that agent receives it.	この PC のエージェントとだけの会話です。右の欄に打つと、そのエージェントにだけ届きます。	只和这台电脑的智能体的会话。在右边的框里输入，只有那个智能体会收到。	이 PC의 에이전트와만 하는 대화입니다. 오른쪽 칸에 입력하면 그 에이전트에게만 갑니다.				
+act.chat.live	Messages arrive only while the two of you are connected. If they are not running, what you type is kept nowhere. Set up a poste restante and it can be left for them.	繋がっている間だけ届きます。相手が起動していないときは、打ったものはどこにも残りません。預かり所を置くと、居ないときも預けられます。	只在双方连着的时候才会送到。对方没启动时，你打的内容不会留在任何地方。设置寄存处后，对方不在也可以先寄存。	연결되어 있는 동안에만 도착합니다. 상대가 켜져 있지 않으면 입력한 내용은 어디에도 남지 않습니다. 보관소를 두면 상대가 없을 때도 맡길 수 있습니다.	★	**まだ届いていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態では、繋がっていない間に打った言葉はどこにも残らない。「預かり所を置くと」は条件であって、約束ではない。		
+act.chat.postbox	A conversation with this person only. While they are away it is left sealed at the poste restante (7 days).	この相手とだけの会話です。相手が居ないときは、預かり所へ封のまま預けます（7 日）。	只和这位对象的会话。对方不在时，会封着寄存在寄存处（7 天）。	이 상대와만 하는 대화입니다. 상대가 없을 때는 봉한 채로 보관소에 맡깁니다(7일).				
 act.desk.empty	No agent is at the desk.	机に誰も着いていません。	桌旁没有人。	책상에 아무도 없습니다.				
 act.desk.local	Agents on this computer are in the room from the start. There is nothing to bring in.	マイ PC エージェントは、はじめから同じ部屋に居ます。入れる必要はありません。	这台电脑的代理从一开始就在同一个房间里，不需要请进来。	이 PC 의 에이전트는 처음부터 같은 방에 있습니다. 들일 필요가 없습니다.				
 act.desk.stop	Stop this agent	このエージェントを止める	让这个代理停下	이 에이전트를 멈추기				
 act.desk.stop.hint	It is told to stop. Nothing is killed — the other side steps down on its own. To run it again, start it there.	「止まれ」と伝えます。相手を殺すのではなく、受けた側が自分で降ります。もう一度動かすには、そちらで立ち上げ直してください。	会传达「停下」。不是杀掉对方，而是收到的一方自己退出。要再次运行，请在那边重新启动。	「멈추라」고 전합니다. 상대를 죽이는 것이 아니라, 받은 쪽이 스스로 내려옵니다. 다시 움직이려면 그쪽에서 다시 시작해 주세요.				
-act.mail	Send mail	メールを送る	发送邮件	메일 보내기				
-act.mail.none	Not possible yet. warifu has no way to send mail at all (it can only read).	まだ送れません。warifu にメールを送る経路が、まだ 1 本もありません（読む口だけがあります）。	还发不了。warifu 目前完全没有发送邮件的通道（只有读取的口）。	아직 보낼 수 없습니다. warifu 에는 메일을 보내는 경로가 하나도 없습니다 (읽는 입구만 있습니다).	★	「まだ送れません」は「いま経路が無い」という事実である。「送信できませんでした」（＝送ろうとして失敗した）と読める訳にしないこと。この画面でいちばん重い事故は、送ったつもりで送られていないことである。また「準備中です」「近日対応」のような、待てば来ると読める訳にもしないこと。		
+act.group	Group chat	グループチャット	群聊	그룹 채팅				
+act.group.action	Create a room	ルームを作る	建一个 room	룸 만들기				
+act.group.what	Create a room and invite them. Pressing this takes you to where keys are issued — one per person you invite.	ルームを作って、この相手を招きます。押すと、人数ぶんの鍵を出す所へ移ります。	建一个 room，把这位对象请进来。按下后会转到发钥匙的地方（按邀请人数，一次出一把）。	룸을 만들어 이 상대를 초대합니다. 누르면 인원 수만큼 키를 발급하는 곳으로 이동합니다.				
+act.state.no	Not yet	まだできない	还不行	아직 안 됨				
+act.state.ok	Works	できる	可以	가능				
+act.state.wait	Conditions apply	条件つき	有条件	조건부				
 app.name	warifu	warifu	warifu	warifu				
 browser.only	This is open in a browser. Rooms only work in the warifu window.	ブラウザで開いています。部屋は warifu の窓でだけ動きます。	你在浏览器里打开了。房间只在 warifu 的窗口里工作。	브라우저에서 열려 있습니다. 방은 warifu 창에서만 움직입니다.				
 call.camera	Camera	カメラ	摄像头	카메라				
@@ -38,8 +49,8 @@ chat.shared	This is not a conversation with the person you picked.	ここは、�
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
 contacts.claimed	They call themselves “{name}”.	本人は「{name}」と名乗っています。	对方自称“{name}”。	본인은 “{name}” 라고 밝히고 있습니다.				
 contacts.desk	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
-contacts.desk.how	To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	机に着かせるには、この PC のエージェントの設定に warifu の口を書いて、エージェントを立て直します。手順は docs/mcp.md にあります。	要让代理坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。	책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
-contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	机に誰も着いていません。`warifu mcp` で繋ぐと、ここに出ます。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
+contacts.desk.how	To seat an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。	要让代理坐到桌旁，请在这台电脑的代理设置里写入 warifu 的入口，然后重启代理。步骤见 docs/mcp.md。	책상에 앉히려면 이 PC 의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
+contacts.desk.none	No agent is at the desk. Connect one with `warifu mcp` and it appears here.	このエージェントは、いま繋がっていません。	桌旁没有人。用 `warifu mcp` 连接后会出现在这里。	책상에 아무도 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
 contacts.empty	You have not remembered anyone yet. Name someone you met in a room and they stay here.	まだ誰も覚えていません。部屋で会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给房间里遇到的人取个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 방에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
 contacts.forget	Require a meeting key again	鍵なしで入れるのをやめる	恢复需要会议密钥	다시 회의 키를 받게 하기				
 contacts.forget.hint	Right now this person can come in without a key. Turn it off and they will need one again.	この相手はいま、鍵なしで入ってこられます。やめると、次からは鍵が要ります。	现在这位不用密钥就能进来。取消后，下次就需要密钥了。	지금 이 상대는 열쇠 없이 들어올 수 있습니다. 끄면 다음부터는 열쇠가 필요합니다.				
@@ -61,6 +72,10 @@ contacts.rooms	Rooms you are in	いま居る部屋	你所在的房间	지금 있
 contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
 contacts.this	This computer	この PC	这台电脑	이 PC				
 contacts.where	To talk to them, type in the box on the right.	話しかけるときは、右の欄に打ちます。	要跟对方说话，请在右边的框里输入。	말을 걸 때는 오른쪽 칸에 입력합니다.				
+crop.apply	Use this	これにする	就用这个	이걸로 한다				
+crop.hint	Drag to move and change the size. What is inside the circle becomes the face.	つまんで動かし、大きさを変えられます。丸の中が顔になります。	可以拖动移动、调整大小。圆圈内的部分会成为头像。	끌어서 움직이고 크기를 바꿀 수 있습니다. 원 안이 얼굴이 됩니다.				
+crop.title	Choose the part to use	顔にする所を選ぶ	选择用作头像的部分	얼굴로 쓸 부분을 고릅니다				
+crop.zoom	Size	大きさ	大小	크기				
 door.refused	Refused.	断りました。	已拒绝。	거절했습니다.	★	**既に断り終えた**という完了の意味。「保留しています」「確認中です」と読める訳にしないこと。待てば通ると誤解すると、来ていない相手を待ち続ける（D31）。		
 edit.copy	Copy	コピー	复制	복사하기				
 edit.cut	Cut	切り取る	剪切	오려두기				
@@ -119,14 +134,14 @@ postbox.received	{n} message(s) had arrived while you were away.	留守中に届
 postbox.save	Set	置く	设置	두기				
 postbox.saved	Mailbox set.	預かり所を置きました。	已设置寄存处。	보관소를 두었습니다.				
 postbox.title	Mailbox (optional)	預かり所（任意）	寄存处（可选）	보관소 (선택)				
-profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	この PC の持ち主と、その席のエージェント自身が書けます。ほかの席のエージェントは書き換えられません。どこで動いているか（席）は、立ち上げるときに人が決めます。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
+profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	名前と紹介は、あなたと、このエージェント自身が書けます。ほかのエージェントは書き換えられません。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
 profile.ai.who	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 profile.bio	Short bio	短い紹介	简介	짧은 소개				
 profile.cancel	Cancel	やめる	取消	그만두기				
 profile.edit	Edit profile	プロフィールを書く	编辑资料	프로필 쓰기				
 profile.face	Face	顔	头像	얼굴				
 profile.face.clear	Back to the default face	既定の顔に戻す	恢复默认头像	기본 얼굴로 되돌리기				
-profile.face.drop	Drop a PNG here to replace the face (up to 512px, 64 KB).	ここに PNG を落とすと、顔を差し替えられます（512px・64 KB まで）。	把 PNG 拖到这里可以替换头像（最大 512px、64 KB）。	여기에 PNG 를 놓으면 얼굴을 바꿀 수 있습니다 (512px・64 KB 까지).				
+profile.face.drop	Drop a PNG here to replace the face (up to 512px, 64 KB).	アバター画像に画像をドラッグアンドドロップすると、差し替えられます（PNG・512px・64 KB まで）。	把 PNG 拖到这里可以替换头像（最大 512px、64 KB）。	여기에 PNG 를 놓으면 얼굴을 바꿀 수 있습니다 (512px・64 KB 까지).				
 profile.name	Name	名前	名字	이름				
 profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
 profile.save	Save	決める	保存	정하기				

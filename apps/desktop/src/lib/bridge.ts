@@ -228,6 +228,18 @@ export const setAvatar = (who: string, path: string) =>
 /** **顔を既定（鍵から描く絵）へ戻す。**置いた画像も消える。 */
 export const clearAvatar = (who: string) => invoke<void>('clear_avatar', { who });
 
+/**
+ * 落とした画像を**そのまま読む**（**D87**）。
+ *
+ * 画面が開いて、切り取って WebP にしてから置きに行く。
+ * **形はここでは見ない**（webview が JPG / PNG / WebP を開ける）。
+ */
+export const readImage = (path: string) => invoke<number[]>('read_image', { path });
+
+/** **切り取って WebP にしたもの**を顔として置く（**D87**）。 */
+export const setAvatarBytes = (who: string, bytes: Uint8Array) =>
+  invoke<void>('set_avatar_bytes', { who, bytes: Array.from(bytes) });
+
 /** 置いてある顔の中身。**無ければ空。** */
 export const avatarBytes = (who: string) => invoke<number[] | null>('avatar_bytes', { who });
 

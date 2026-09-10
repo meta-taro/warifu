@@ -46,16 +46,21 @@ export function 面へ移ってよい(きっかけ: '人の操作' | '相手の�
 }
 
 /** 人が押した口。 */
-export type 押した口 = 'chat' | 'call' | 'meeting.start' | 'meeting.join';
+export type 押した口 = 'chat' | 'group' | 'call' | 'calendar' | 'meeting.start' | 'meeting.join';
 
 /**
  * 押したあと、どの面へ移るか。移らないなら `null`。
  *
  * **チャットは会議へ連れて行かない。**「会議ありきのチャットじゃないんです」
  * （オーナー・2026-09-07）。繋ぎ方は同じでも、行き先が違う。
+ *
+ * **グループチャットは会議の面へ移る。**ルームを作るのも鍵を出すのもそこである
+ * （いまは同じ仕組みの上に乗っている。分けるのは別の回）。
+ *
+ * **予定はどこへも移さない。**まだ読む口が 1 本も無い。
  */
 export function 押した後の面(口: 押した口): 面 | null {
-  if (口 === 'chat') return null;
+  if (口 === 'chat' || 口 === 'calendar') return null;
   return '会議';
 }
 

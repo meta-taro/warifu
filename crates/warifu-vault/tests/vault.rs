@@ -834,10 +834,13 @@ fn 顔のファイル名は置き場所の外へ出られない() {
         warifu_vault::顔のファイル名(&warifu_vault::Who::Desk("../../etc/passwd".into()));
     assert!(!名.contains('/'), "{名}");
     assert!(!名.contains(".."), "{名}");
-    assert!(名.ends_with(".png"), "{名}");
+    // **拡張子は中身で変えない**（D87）—— PNG / JPG / WebP のどれを置いても
+    // 名前は 1 つで、置き換えで済ませる。`.png` と `.webp` が並ぶと
+    // **どちらが今の顔か**が分からなくなる
+    assert!(名.ends_with(".img"), "{名}");
     assert_eq!(
         warifu_vault::顔のファイル名(&warifu_vault::Who::Me),
-        "me.png"
+        "me.img"
     );
 }
 
