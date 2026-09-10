@@ -235,3 +235,28 @@ prev=$(git describe ...)   # ○
 
 `.rs` / `.ts` の識別子は日本語で書ける（そう書いている）。**シェルだけが違う。**
 CI に入れる仕組みが無いので、**ここに書いて覚える。**
+
+## 31. Python を CI で回すなら、**読む所と出す所の両方**に文字コードを書く
+
+日本語を扱うスクリプトを Windows の CI で回すと、**2 か所で落ちる。**
+
+```python
+# 読む —— text=True だけでは、その機械の既定（Windows は cp1252）で読む
+subprocess.run([...], encoding="utf-8", errors="replace")
+
+# 出す —— 標準出力も cp1252 なので、print で落ちる
+for 口 in (sys.stdout, sys.stderr):
+    if hasattr(口, "reconfigure"):
+        口.reconfigure(encoding="utf-8", errors="replace")
+```
+
+**2026-09-10 に、この 2 つを別々のタグで踏んだ**（alpha.17 で読む所、alpha.18 で出す所）。
+**片方だけ直して「直った」と思った**のが間抜けだった。
+
+**手元で確かめられる。**
+
+```bash
+PYTHONIOENCODING=cp1252 python3 scripts/<名前>.py
+```
+
+**タグを打つ前にこれを回す。**CI で 1 往復するより速い。

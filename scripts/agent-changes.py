@@ -20,6 +20,18 @@ import pathlib
 import subprocess
 import sys
 
+# **出す先の文字コードも明示する。**
+#
+# 読むほうだけ直しても足りなかった（2026-09-10 に CI で 2 度踏んだ）——
+# **Windows の標準出力は cp1252 なので、日本語を `print` すると落ちる**
+# （`UnicodeEncodeError: 'charmap' codec can't encode characters`）。
+#
+# 手元では `PYTHONIOENCODING=cp1252 python3 scripts/agent-changes.py` で同じ形が出る。
+# **直したことは、そこで確かめられる。**
+for 口 in (sys.stdout, sys.stderr):
+    if hasattr(口, "reconfigure"):
+        口.reconfigure(encoding="utf-8", errors="replace")
+
 置き場所 = pathlib.Path("docs/agent/changes.md")
 # **出しすぎない。**エージェントが読む物なので、古い所まで全部返す意味は薄い
 残す版の数 = 12

@@ -201,10 +201,25 @@ UnicodeDecodeError: 'charmap' codec can't decode byte 0x81
 
 `subprocess.run(text=True)` は**その機械の既定の文字コード**で読む ——
 **Windows は cp1252 なので、日本語の commit 見出しで落ちる。**
-`encoding="utf-8"` を明示した。`errors="replace"` も付けた ——
-**1 文字のために全部を落とさない**（見出しが 1 つ化けても、他の版の記録は残る）。
 
-`publish` は windows の失敗で飛ばされた（macOS は成功していた）。
+**alpha.18 でも落ちた。今度は `print` である。**
+
+```
+UnicodeEncodeError: 'charmap' codec can't encode characters
+```
+
+**読む所だけ直して「直った」と思っていた。**標準出力も cp1252 なので、
+**日本語を出そうとして落ちる。**読む所と出す所の**両方**に文字コードを書いた。
+
+**手元で確かめられる形も見つけた** ——
+
+```bash
+PYTHONIOENCODING=cp1252 python3 scripts/agent-changes.py
+```
+
+同じ落ち方が出る。**CI で 1 往復するより速い。**`product-baseline.md` §31 に書いた。
+
+`publish` は 2 回とも windows の失敗で飛ばされた（macOS は両方とも成功していた）。
 
 オーナー指示 —— 「**MCP にこのソフト概要みたいなのを AI エージェント向けに
 出力するやつ**」「**バージョンごとになにがかわったかも返すように**」。
