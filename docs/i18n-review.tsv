@@ -11,8 +11,8 @@ act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중�
 act.chat	Chat	チャット	聊天	채팅				
 act.chat.desk	A conversation with the agent on this computer only. Type in the conversation box and only that agent receives it.	この PC のエージェントとだけの会話です。会話の欄に打つと、そのエージェントにだけ届きます。	只和这台电脑的智能体的会话。在会话框里输入，只有那个智能体会收到。	이 PC의 에이전트와만 하는 대화입니다. 대화 칸에 입력하면 그 에이전트에게만 갑니다.				
 act.chat.desk.none	They are not connected right now, so what you type will not reach them.	いま繋がっていないので、打っても届きません。	现在没有连上，所以你打的内容不会送到。	지금 연결되어 있지 않아서, 입력해도 도착하지 않습니다.				
-act.chat.live	Messages arrive only while the two of you are connected. If they are not running, what you type is kept nowhere. Set up a poste restante and it can be left for them.	繋がっている間だけ届きます。相手が起動していないときは、打ったものはどこにも残りません。預かり所を置くと、留守のときも預けられます。	只在双方连着的时候才会送到。对方没启动时，你打的内容不会留在任何地方。设置寄存处后，对方不在也可以先寄存。	연결되어 있는 동안에만 도착합니다. 상대가 켜져 있지 않으면 입력한 내용은 어디에도 남지 않습니다. 보관소를 두면 상대가 없을 때도 맡길 수 있습니다.	★	**まだ届いていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態では、繋がっていない間に打った言葉はどこにも残らない。「預かり所を置くと」は条件であって、約束ではない。		
-act.chat.postbox	A conversation with this person only. While they are away it is left sealed at the poste restante (7 days).	この相手とだけの会話です。相手が留守のときは、預かり所へ封のまま預けます（7 日）。	只和这位对象的会话。对方不在时，会封着寄存在寄存处（7 天）。	이 상대와만 하는 대화입니다. 상대가 없을 때는 봉한 채로 보관소에 맡깁니다(7일).				
+act.chat.live	Messages arrive only while the two of you are connected. If they are not running, what you type is kept nowhere. Set up a poste restante and it can be left for them.	繋がっている間だけ届きます。相手が起動していないときは、打ったものはどこにも残りません。留守中の受け取りを設定すると、留守のときも預けられます。	只在双方连着的时候才会送到。对方没启动时，你打的内容不会留在任何地方。设置寄存处后，对方不在也可以先寄存。	연결되어 있는 동안에만 도착합니다. 상대가 켜져 있지 않으면 입력한 내용은 어디에도 남지 않습니다. 보관소를 두면 상대가 없을 때도 맡길 수 있습니다.	★	**まだ届いていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態では、繋がっていない間に打った言葉はどこにも残らない。「預かり所を置くと」は条件であって、約束ではない。		
+act.chat.postbox	A conversation with this person only. While they are away it is left sealed at the poste restante (7 days).	この相手とだけの会話です。相手が留守のときは、受け取り先へ封のまま預けます（7 日）。	只和这位对象的会话。对方不在时，会封着寄存在寄存处（7 天）。	이 상대와만 하는 대화입니다. 상대가 없을 때는 봉한 채로 보관소에 맡깁니다(7일).				
 act.desk.empty	No agent on this computer is connected.	この PC のエージェントは、まだつながっていません。	这台电脑还没有连上智能体。	이 PC에 연결된 에이전트가 없습니다.				
 act.desk.local	Agents on this computer are in the same room from the start. There is nothing to bring in.	この PC のエージェントは、はじめから同じルームに入っています。呼ぶ必要はありません。	这台电脑的智能体从一开始就在同一个 room 里，不需要请进来。	이 PC의 에이전트는 처음부터 같은 룸에 있습니다. 들일 필요가 없습니다.				
 act.desk.stop	Stop this agent	このエージェントを止める	让这个代理停下	이 에이전트를 멈추기				
@@ -67,7 +67,7 @@ contacts.claimed	They call themselves “{name}”.	本人は「{name}」と名�
 contacts.desk	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 contacts.desk.how	To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。	要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。	연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
 contacts.desk.none	No agent on this computer is connected. Connect one with `warifu mcp` and it appears here.	このエージェントは、いま繋がっていません。	这台电脑还没有连上智能体。用 `warifu mcp` 连接后会出现在这里。	이 PC에 연결된 에이전트가 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				
-contacts.empty	You have not remembered anyone yet. Name someone you met in a room and they stay here.	まだ誰も覚えていません。ルームで会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给房间里遇到的人取个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 방에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
+contacts.empty	Nobody yet. Give someone you met in a room a name and they stay here.	まだ誰も覚えていません。ルームで会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给在 room 里遇到的对象起个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 룸에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
 contacts.forget	Require a meeting key again	鍵なしで入れるのをやめる	恢复需要会议密钥	다시 회의 키를 받게 하기				
 contacts.forget.hint	Right now this person can come in without a key. Turn it off and they will need one again.	この相手はいま、鍵なしで入ってこられます。やめると、次からは鍵が要ります。	现在这位不用密钥就能进来。取消后，下次就需要密钥了。	지금 이 상대는 열쇠 없이 들어올 수 있습니다. 끄면 다음부터는 열쇠가 필요합니다.				
 contacts.inmeeting	In the room now	いま同じルームの人	现在同一个房间里的人	지금 같은 방에 있는 사람				
@@ -76,7 +76,7 @@ contacts.late	Arrived while you were away	留守中に届いた相手	离线期�
 contacts.me	You	あなた	你	당신				
 contacts.me.copied	Copied	コピーしました	已复制	복사했습니다				
 contacts.me.copy	Copy public key	公開鍵をコピーする	复制公钥	공개키 복사				
-contacts.me.key.what	The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.	公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、預かり所の名簿に書いてもらうときに渡します。	公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。	공개키는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.				
+contacts.me.key.what	The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.	公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、受け取り先の名簿に書いてもらうときに渡します。	公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。	공개키는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.				
 contacts.me.name	The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.	ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。	你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。	여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				
 contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るには鍵が要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。	이 공개키는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).				
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
@@ -85,7 +85,7 @@ contacts.note.hint	Write in your own words which machine this is and what they (
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
 contacts.presence.none	There is no way to tell whether they are running right now. You find out by calling.	相手がいま起動しているかは分かりません。呼んでみるまで分かりません。	无法知道对方现在是否已启动。只有呼叫之后才知道。	상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.				
 contacts.rooms	Rooms you are in	ルーム	你所在的房间	지금 있는 방				
-contacts.saved	People you remember	覚えている相手	记住的对方	기억한 상대				
+contacts.saved	Contacts	連絡先	联系人	연락처				
 contacts.this	This computer	この PC	这台电脑	이 PC				
 contacts.where	To talk to them, type in the conversation box.	話しかけるときは、会話の欄に打ちます。	要跟对方说话，请在会话框里输入。	말을 걸 때는 대화 칸에 입력합니다.				
 crop.apply	Use this	これにする	就用这个	이걸로 한다				
@@ -107,21 +107,21 @@ help.open	Show explanation	説明を出す	显示说明	설명 보기
 help.this.me	You — the owner of this computer. Always listed (the badge stays green).	あなた —— この PC の持ち主です。いつも出ます（顔の右下はいつも緑）。	你 —— 这台电脑的主人。总是显示（头像右下角一直是绿色）。	나 —— 이 PC의 주인입니다. 항상 나옵니다(얼굴 오른쪽 아래는 늘 초록).				
 help.this.off	Grey dot — an agent that connected before and whose profile remains. What you type does not reach it. Start it again on its side and the dot turns green.	グレーの丸 —— 以前つながって名乗りが残っているエージェントです。打っても届きません。そちらで立ち上げ直すと、緑に戻ります。	灰色圆点 —— 以前连过、资料还留着的智能体。你打的内容不会送到。在那边重新启动后会变回绿色。	회색 동그라미 —— 전에 연결되어 프로필이 남아 있는 에이전트입니다. 입력해도 도착하지 않습니다. 그쪽에서 다시 시작하면 초록으로 돌아옵니다.				
 help.this.on	Green dot (bottom right of the face) — an agent attached to this computer right now. What you type reaches it.	緑の丸（顔の右下）—— いまこの PC の口に着いているエージェントです。打てば届きます。	绿色圆点（头像右下角）—— 现在正连在这台电脑上的智能体。你打的内容会送到。	초록 동그라미(얼굴 오른쪽 아래) —— 지금 이 PC에 붙어 있는 에이전트입니다. 입력하면 도착합니다.				
-help.this.others	No dot is shown for “People remembered” below. Whether they are running cannot be known from here.	下の「覚えている相手」には丸を出しません。相手が起動しているかは、こちらから分からないためです。	下面的「记住的对象」不显示圆点。因为从这里无法知道对方是否在运行。	아래 “기억하고 있는 상대”에는 동그라미를 표시하지 않습니다. 상대가 켜져 있는지는 여기서 알 수 없기 때문입니다.				
+help.this.others	No dot is shown for “People remembered” below. Whether they are running cannot be known from here.	下の「連絡先」には丸を出しません。相手が起動しているかは、こちらから分からないためです。	下面的「记住的对象」不显示圆点。因为从这里无法知道对方是否在运行。	아래 “기억하고 있는 상대”에는 동그라미를 표시하지 않습니다. 상대가 켜져 있는지는 여기서 알 수 없기 때문입니다.				
 help.this.title	Rows under “This computer”	この PC の行	「这台电脑」里的行	“이 PC”의 행				
 home.calendar	There is no way yet to read a calendar.	予定表を読む口が、まだ 1 本もありません。	还没有任何读取日程表的入口。	일정표를 읽는 창구가 아직 하나도 없습니다.				
 home.call	On the same network it connects. A different network needs --relay, and we have not once seen that connect.	同じ網なら繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.				
 home.chat	Pick someone and the conversation is with that person only.	相手を選ぶと、その人とだけの会話になります。	选择一位对象，就变成只和那个人的会话。	상대를 고르면 그 사람과만 하는 대화가 됩니다.				
-home.contacts	People remembered	覚えている相手	记住的对象	기억하고 있는 상대				
+home.contacts	Contacts	連絡先	联系人	연락처				
 home.group	Create a room and hand out one key per person. One key, one person.	ルームを作って、人数ぶんの鍵を渡します。1 本につき 1 人です。	建一个 room，按人数发钥匙。一把钥匙一个人。	룸을 만들어 인원 수만큼 키를 나눕니다. 키 하나에 한 사람입니다.				
 home.lead	Pick someone and what you can do with them appears here. Choose from the list on the left.	相手を選ぶと、その相手にできることが出ます。左の一覧から選んでください。	选择一位对象，就会显示可以对他做的事。请从左边的列表里选。	상대를 고르면 그 상대에게 할 수 있는 일이 나옵니다. 왼쪽 목록에서 골라 주세요.				
 home.next	First step	はじめの一歩	第一步	첫걸음				
 home.next.hint	Nobody here yet. Press your own row under “This computer” on the left to see how to hand over a key.	まだ誰もつながっていません。左の「この PC」のあなたの行を押すと、鍵の渡し方が出ます。	还没有任何人。按左边「这台电脑」里你自己的那一行，就会显示钥匙的交付方法。	아직 아무도 없습니다. 왼쪽 “이 PC”의 내 행을 누르면 키를 건네는 방법이 나옵니다.				
 home.now	Right now	いまの様子	现在的状况	지금 상황				
 home.people	{n} people	{n} 人	{n} 人	{n}명				
-home.postbox	Poste restante	預かり所	寄存处	보관소				
-home.postbox.off	Not set up	置いていません	未设置	두지 않았습니다				
-home.postbox.on	Set up	置いてあります	已设置	두었습니다				
+home.postbox	Receiving while away	留守中の受け取り	不在时的接收	부재 중 수신				
+home.postbox.off	Not set up	未設定	未设置	설정 안 됨				
+home.postbox.on	Set up	設定済み	已设置	설정됨				
 home.rooms	Rooms you are in	ルーム	所在的 room	들어가 있는 룸				
 home.rooms.n	{n} rooms ({m} people)	{n} 室（{m} 人）	{n} 间（{m} 人）	{n}개({m}명)				
 home.seats	Agents on this computer	この PC のエージェント	这台电脑的智能体	이 PC의 에이전트				
@@ -147,9 +147,9 @@ link.lost	The route to them broke. They can come back with the same key — wait
 link.relayed	Relayed	中継	中继	중계				
 link.unknown	Unknown	不明	未知	알 수 없음				
 mark.kept	Left	預けた	已寄存	맡김	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
-mark.kept.hint	They were away, so it was left sealed at the poste restante. It arrives when they next start up.	相手が留守だったので、預かり所へ封のまま置きました。届くのは相手が次に起動したときです。	对方不在，已封着寄存在寄存处。对方下次启动时才会送到。	상대가 없어서 봉한 채로 보관소에 두었습니다. 상대가 다음에 켤 때 도착합니다.				
+mark.kept.hint	They were away, so it was left sealed at the poste restante. It arrives when they next start up.	相手が留守だったので、受け取り先へ封のまま置きました。届くのは相手が次に起動したときです。	对方不在，已封着寄存在寄存处。对方下次启动时才会送到。	상대가 없어서 봉한 채로 보관소에 두었습니다. 상대가 다음에 켤 때 도착합니다.				
 mark.none	Not delivered	届かない	未送达	도착 안 함				
-mark.none.hint	There was no route and no poste restante, so it is kept nowhere.	経路も預かり所も無いので、どこにも残っていません。	既没有通路也没有寄存处，所以没有留在任何地方。	통로도 보관소도 없어서 어디에도 남지 않았습니다.				
+mark.none.hint	There was no route and no poste restante, so it is kept nowhere.	経路も受け取り先も無いので、どこにも残っていません。	既没有通路也没有寄存处，所以没有留在任何地方。	통로도 보관소도 없어서 어디에도 남지 않았습니다.				
 mark.sent	Handed over	渡した	已交付	전달함	★	**渡したのは相手の機械までである。**「既読」「読みました」と読める訳にしないこと。割符には既読を集める機械が無い。**読んだかどうかは、こちらには分からない。**		
 mark.sent.hint	Handed to their machine. Whether they read it is unknown (there is no machine collecting read receipts).	相手の機械へ渡しました。読んだかどうかは分かりません（既読を集める機械が無いためです）。	已交到对方的机器。是否读过无法知道（没有收集已读的机器）。	상대의 기기로 전달했습니다. 읽었는지는 알 수 없습니다(읽음을 모으는 기계가 없습니다).				
 meeting.join.action	Come in	ルームに入る	进入房间	방에 들어가기				
@@ -180,15 +180,15 @@ meeting.status.waiting	Waiting for the other person	相手を待っています	
 pane.contacts	Contacts	連絡帳	通讯录	연락처				
 pane.meeting	Room	ルーム	房间	방				
 pane.schedule	Schedule	予定	日程	일정				
-postbox.clear	Remove	外す	移除	내리기				
-postbox.cleared	Mailbox removed.	預かり所を外しました。	已移除寄存处。	보관소를 내렸습니다.				
-postbox.hint	A place that holds sealed messages while the other person is not running. It cannot read them. Without one, messages only arrive while the other person is running.	相手が起動していない間、封を預かる所です。中身は読めません。置かなければ、相手が起動している間だけ届きます。	在对方没有启动时，代为保管密封内容的地方。它读不到内容。不设置的话，只有对方启动时才能送达。	상대가 실행 중이 아닐 때 봉한 내용을 맡아 두는 곳입니다. 내용은 읽을 수 없습니다. 두지 않으면 상대가 실행 중일 때만 전달됩니다.				
-postbox.kept	They are not here, so it was left at the mailbox. It arrives when they start up.	いま相手に届かないので、預かり所へ預けました。相手が起動したときに届きます。	对方不在，已寄存。对方启动时会送到。	지금 없어서 보관소에 맡겼습니다. 상대가 실행하면 전달됩니다.	★	**相手にはまだ届いていない。**「送信しました」「配達済み」と読める訳にしないこと。届くのは相手が次に起動したときであり、いつになるかは分からない。また「保存しました」（＝こちらの手元に残した）とも読ませないこと —— 預けた先は別の機械である。		
-postbox.placeholder	Paste the mailbox address	預かり所の宛先を貼り付ける	粘贴寄存处地址	보관소 주소를 붙여넣기				
+postbox.clear	Remove	外す	取消	해제				
+postbox.cleared	Mailbox removed.	留守中の受け取りを外しました。	已移除寄存处。	보관소를 내렸습니다.				
+postbox.hint	A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.	あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。	在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。	당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.				
+postbox.kept	They are not here, so it was left at the mailbox. It arrives when they start up.	いま相手に届かないので、相手の受け取り先へ預けました。相手が起動したときに届きます。	对方不在，已寄存。对方启动时会送到。	지금 없어서 보관소에 맡겼습니다. 상대가 실행하면 전달됩니다.	★	**相手にはまだ届いていない。**「送信しました」「配達済み」と読める訳にしないこと。届くのは相手が次に起動したときであり、いつになるかは分からない。また「保存しました」（＝こちらの手元に残した）とも読ませないこと —— 預けた先は別の機械である。		
+postbox.placeholder	Paste the address of the holder	預かってもらう相手の宛先を貼り付ける	粘贴代为保管方的地址	맡아 줄 상대의 주소를 붙여넣기				
 postbox.received	{n} message(s) had arrived while you were away.	留守中に届いていた分が {n} 通ありました。	离线期间收到了 {n} 条。	부재 중에 {n} 통이 와 있었습니다.				
-postbox.save	Set	置く	设置	두기				
-postbox.saved	Mailbox set.	預かり所を置きました。	已设置寄存处。	보관소를 두었습니다.				
-postbox.title	Mailbox (optional)	預かり所（任意）	寄存处（可选）	보관소 (선택)				
+postbox.save	Set up	設定する	设置	설정하기				
+postbox.saved	Mailbox set.	留守中の受け取りを設定しました。	已设置寄存处。	보관소를 두었습니다.				
+postbox.title	Receiving while away (optional)	留守中の受け取り（任意）	不在时的接收（可选）	부재 중 수신(선택)				
 presence.off	Disconnected	切れています	已断开	끊김				
 presence.on	Connected	つながっています	已连上	연결됨				
 profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	名前と紹介は、あなたと、このエージェント自身が書けます。ほかのエージェントは書き換えられません。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
@@ -223,7 +223,7 @@ roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air 
 roster.name.save	Save	決める	保存	저장				
 schedule.none	The schedule pane does not work yet. There is no way for the window to read a calendar.	予定の面は、まだ動きません。画面から予定表を読む口が、まだ 1 本もありません。	日程还不能用。画面还没有读取日程表的口。	일정 화면은 아직 움직이지 않습니다. 화면에서 일정표를 읽는 입구가 아직 하나도 없습니다.				
 schedule.title	Schedule	予定	日程	일정				
-send.absent	Not here right now. Set up a mailbox and messages will reach them later.	いま届きません。預かり所を置くと、留守中でも届きます。	对方现在不在。设置寄存处后，离线期间也能送达。	지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.	★	**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態なので、打った言葉はどこにも残っていない。「預かり所を置くと」は条件であって、約束ではない。		
+send.absent	Not here right now. Set up a mailbox and messages will reach them later.	いま届きません。留守中の受け取りを設定すると、留守でも届きます。	对方现在不在。设置寄存处后，离线期间也能送达。	지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.	★	**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態なので、打った言葉はどこにも残っていない。「預かり所を置くと」は条件であって、約束ではない。		
 setup.action	Check camera and microphone	カメラとマイクを確かめる	检查摄像头和麦克风	카메라와 마이크 확인				
 setup.blur	Blur my background	背景をぼかす	虚化背景	배경 흐리게				
 setup.blur.os	This environment cannot blur backgrounds from the app. On macOS, use Video Effects in Control Center.	この環境では、アプリから背景をぼかせません。macOS ならコントロールセンターのビデオエフェクトが使えます。	此环境无法由应用虚化背景。macOS 可使用控制中心的视频效果。	이 환경에서는 앱이 배경을 흐리게 할 수 없습니다. macOS라면 제어 센터의 비디오 효과를 사용하세요.				
