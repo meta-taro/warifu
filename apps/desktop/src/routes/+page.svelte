@@ -27,6 +27,9 @@
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
   import { 席の名札 } from '$lib/contacts/seat';
+  import { getVersion } from '@tauri-apps/api/app';
+  import { 入れ替える, 確かめる, 立て直す } from '$lib/update/check';
+  import { 進み具合, type 新しい版 } from '$lib/update/notice';
   import { 当てる色, 覚える鍵, 読み取る, type テーマ } from '$lib/window/theme';
   import {
     その部屋の会話,
@@ -72,6 +75,7 @@
     EVENT_DESK_SEATS,
     EVENT_THEME,
     EVENT_LINK,
+    EVENT_CHECK_UPDATE,
     roomLink,
     roomQr,
     EVENT_PROFILES,
@@ -121,6 +125,20 @@
 
   /** 会議キー。**宛先と割符が 1 本になっている**（D39） */
   let meetingKey = $state('');
+  /** いま動いている版。**「最新です」と言うときに添える。** */
+  let 版 = $state('');
+
+  /**
+   * **見つかった更新**（**D81**）。無ければ `null`。
+   *
+   * **黙って入れ替えない。**何が変わるかを見せてから、人が押す。
+   */
+  let 更新 = $state<新しい版 | null>(null);
+  /** 更新の口の様子（確認中・落とし中・済んだ）。 */
+  let 更新の様子 = $state<'休み' | '確認中' | '落とし中' | '済んだ'>('休み');
+  /** 落とした割合。**分からなければ `null`**（総量を教えてこない置き場所がある）。 */
+  let 落とし割合 = $state<number | null>(null);
+
   /** 渡せる 1 本のリンク（`warifu://join/…`・**D79**）。 */
   let 部屋のリンク = $state('');
   /** そのリンクの QR（SVG）。**目の前の相手に読ませる用。** */
@@ -595,6 +613,12 @@
       預かり所の下書き = 預かり所 ?? '';
       // **構えてから取りに行く。**渡されたものを落とさない
       await 留守中の分を取りに行く();
+      // **いま動いている版**（画面の帯にも出している）
+      版 = await getVersion().catch(() => '');
+      // **起動時に一度だけ、黙って確かめる**（**D81**）。
+      // 無かったことは言わない —— 毎回「最新です」と出るのはうるさい。
+      // **繋がらなくても起動を止めない**
+      void 更新を確かめる(true);
     })();
   });
 
@@ -695,6 +719,11 @@
       unsubs.push(
         // **メニューでテーマを選んだ。**当てて、覚えて、印を付け直す
         await onEvent<string>(EVENT_THEME, (選び) => void テーマを選ぶ(読み取る(選び))),
+      );
+      unsubs.push(
+        // **メニューから「更新を確認」を押した**（**D81**）。
+        // **無かったことも言う** —— 押して何も起きないと、押せたのか分からない
+        await onEvent<void>(EVENT_CHECK_UPDATE, () => void 更新を確かめる()),
       );
       unsubs.push(
         // **`warifu://join/…` を押された**（**D79**）。
@@ -899,6 +928,48 @@
     if (!鍵) return;
     received = 鍵;
     await 入室する();
+  }
+
+  /**
+   * **更新を確かめる**（**D81**）。
+   *
+   * **無かったことも言う。**「確認する」を押して何も起きないと、
+   * 押せていないのか、更新が無いのか分からない。
+   */
+  async function 更新を確かめる(黙って = false) {
+    if (更新の様子 === '確認中' || 更新の様子 === '落とし中') return;
+    更新の様子 = '確認中';
+    try {
+      const 見つけた = await 確かめる();
+      更新 = 見つけた;
+      更新の様子 = '休み';
+      // 起動直後の確認では、無いことをわざわざ言わない（うるさい）
+      if (!見つけた && !黙って) {
+        notice = format(t('update.none'), { version: 版 });
+      }
+    } catch (e) {
+      更新の様子 = '休み';
+      // **繋がらないことは、よくある。**起動を止めない・黙って捨てない
+      log(`更新を確かめられませんでした（${読める(e)}）`);
+      if (!黙って) notice = format(t('update.failed'), { why: 読める(e) });
+    }
+  }
+
+  /** 落として入れ替える。**立て直すのは人が押したとき。** */
+  async function 更新を入れる() {
+    if (更新の様子 === '落とし中') return;
+    更新の様子 = '落とし中';
+    落とし割合 = null;
+    try {
+      await 入れ替える((状態) => {
+        落とし割合 = 進み具合(状態.落とした, 状態.全部);
+        if (状態.済んだ) 更新の様子 = '済んだ';
+      });
+      更新の様子 = '済んだ';
+    } catch (e) {
+      更新の様子 = '休み';
+      notice = format(t('update.failed'), { why: 読める(e) });
+    }
   }
 
   /** コピーできたことを見せる時間（ms）。押した手応えが無いと、人は二度押す。 */
@@ -1229,6 +1300,47 @@
   **画面には何も出ず、打った文字が黙って消えたように見えた**
   （2026-09-07 にオーナーが踏んだ「こんばんは〜ってうって送るを押したけど、消えたよ」）。
 -->
+<!--
+  **更新があった**（**D81**・オーナー指示 2026-09-10
+  「自動アップデートと、アップデート内容確認できるやつ」）。
+
+  **黙って入れ替えない。**何が変わるかを見せてから、人が押す。
+  更新は**アプリを差し替える**操作なので、押した人が中身を知っていること。
+-->
+{#if 更新}
+  <div class="updated" role="status">
+    <p class="what">{format(t('update.available'), { version: 更新.版 })}</p>
+    <!-- **何が変わったか。**これが「確認できるやつ」の中身である -->
+    <details open>
+      <summary>{t('update.notes')}</summary>
+      <pre class="notes">{更新.中身 || t('update.notes.none')}</pre>
+    </details>
+    {#if 更新の様子 === '落とし中'}
+      <p class="hint">
+        {format(t('update.downloading'), { percent: 落とし割合 ?? '…' })}
+      </p>
+    {:else if 更新の様子 === '済んだ'}
+      <p class="hint">{t('update.installed')}</p>
+    {/if}
+    <div class="tail">
+      {#if 更新の様子 === '済んだ'}
+        <button type="button" onclick={() => void 立て直す()}>{t('update.apply')}</button>
+      {:else}
+        <button
+          type="button"
+          disabled={更新の様子 === '落とし中'}
+          onclick={() => void 更新を入れる()}
+        >
+          {更新の様子 === '落とし中' ? t('update.checking') : t('update.apply')}
+        </button>
+      {/if}
+      <button type="button" class="quiet" onclick={() => (更新 = null)}>
+        {t('update.later')}
+      </button>
+    </div>
+  </div>
+{/if}
+
 <!--
   **リンクで誘われた**（**D79**）。**押しただけでは入らない。**
   届いた URL は他人が作れる ——「開いたら実行」を作らないための確認である。
@@ -1603,6 +1715,40 @@
 </main>
 
 <style>
+  /* **更新の知らせ**（D81）。誘いの確認と同じ強さで出す */
+  .updated {
+    margin: 0.5rem 0.75rem 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--bg-sunken);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .updated .what {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .updated .tail {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* 更新の中身は**書かれたまま**出す（箇条書きの改行を潰さない） */
+  .notes {
+    margin: 0.4rem 0 0;
+    max-height: 9rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
   /*
     **リンクで誘われたときの確認**（D79）。
     知らせ（notice）より強く出す —— これは押すかどうかを決める所である。

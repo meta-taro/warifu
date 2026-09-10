@@ -19,6 +19,15 @@ export type MessageKey =
   | 'window.close'
   | 'update.available'
   | 'update.apply'
+  | 'update.check'
+  | 'update.checking'
+  | 'update.none'
+  | 'update.failed'
+  | 'update.notes'
+  | 'update.notes.none'
+  | 'update.downloading'
+  | 'update.installed'
+  | 'update.later'
   | 'revoke.irreversible'
   | 'revoke.confirm'
   | 'door.refused'
@@ -184,6 +193,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'window.close': '閉じる',
     'update.available': '更新あり — {version}',
     'update.apply': '再起動して更新する',
+    'update.check': '更新を確認する',
+    'update.checking': '確認しています…',
+    'update.none': 'いまが最新です（{version}）。',
+    'update.failed': '確認できませんでした（{why}）。',
+    'update.notes': '何が変わったか',
+    'update.notes.none': '書かれていません。',
+    'update.downloading': '落としています… {percent}%',
+    'update.installed': '入れ替えました。立て直すと新しいほうになります。',
+    'update.later': 'あとで',
     'revoke.irreversible': 'この失効は取り消せません。',
     'revoke.confirm': '{device} を失効させる',
     'door.refused': '断りました。',
@@ -348,6 +366,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'window.close': 'Close',
     'update.available': 'Update available — {version}',
     'update.apply': 'Restart and update',
+    'update.check': 'Check for updates',
+    'update.checking': 'Checking…',
+    'update.none': 'You are on the latest ({version}).',
+    'update.failed': 'Could not check ({why}).',
+    'update.notes': 'What changed',
+    'update.notes.none': 'Nothing written.',
+    'update.downloading': 'Downloading… {percent}%',
+    'update.installed': 'Installed. Restart to run the new one.',
+    'update.later': 'Later',
     'revoke.irreversible': 'This revocation cannot be undone.',
     'revoke.confirm': 'Revoke {device}',
     'door.refused': 'Refused.',
@@ -512,6 +539,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'window.close': '关闭',
     'update.available': '有可用更新 — {version}',
     'update.apply': '重启并更新',
+    'update.check': '检查更新',
+    'update.checking': '检查中…',
+    'update.none': '已是最新（{version}）。',
+    'update.failed': '无法检查（{why}）。',
+    'update.notes': '有哪些变化',
+    'update.notes.none': '没有写。',
+    'update.downloading': '下载中… {percent}%',
+    'update.installed': '已安装。重新启动后使用新版本。',
+    'update.later': '稍后',
     'revoke.irreversible': '此吊销无法撤销。',
     'revoke.confirm': '吊销 {device}',
     'door.refused': '已拒绝。',
@@ -676,6 +712,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'window.close': '닫기',
     'update.available': '업데이트 있음 — {version}',
     'update.apply': '다시 시작하고 업데이트',
+    'update.check': '업데이트 확인',
+    'update.checking': '확인 중…',
+    'update.none': '최신입니다({version}).',
+    'update.failed': '확인할 수 없었습니다({why}).',
+    'update.notes': '무엇이 달라졌는지',
+    'update.notes.none': '쓰여 있지 않습니다.',
+    'update.downloading': '내려받는 중… {percent}%',
+    'update.installed': '설치했습니다. 다시 시작하면 새 것으로 바뀝니다.',
+    'update.later': '나중에',
     'revoke.irreversible': '이 해지는 되돌릴 수 없습니다.',
     'revoke.confirm': '{device} 해지',
     'door.refused': '거절했습니다.',

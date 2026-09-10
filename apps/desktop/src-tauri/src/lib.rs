@@ -54,6 +54,8 @@ const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
 /// **覚えるのも当てるのも画面側**（`localStorage` は Rust から読めない）。
 /// ここは「押された」ことだけを伝える。
 const EVENT_THEME: &str = "warifu://theme";
+/// **更新を確かめてほしい**（メニューから・**D81**）。確かめるのは画面の側。
+const EVENT_CHECK_UPDATE: &str = "warifu://check-update";
 /// **プロフィールが変わった。**画面は読み直す。
 ///
 /// 机に着いたエージェントが自分で書くことがあるので、
@@ -1514,11 +1516,21 @@ pub fn run() {
         // **`warifu://` を受ける**（**D79**）。鍵を貼り付けさせない。
         // **押しただけでは入らない** —— 受け取ったあと、画面が人に尋ねる
         .plugin(tauri_plugin_deep_link::init())
+        // **更新を確かめて入れ替える**（**D81**）。
+        // 落とす前に、埋め込んだ公開鍵で `latest.json` の署名を検める ——
+        // **検めないと、更新の口が「何でも実行させる口」になる**
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        // 入れ替えたあとに立て直す（`relaunch`）
+        .plugin(tauri_plugin_process::init())
         // **メニューから来た操作を、画面へ渡す。**
         // メニューは OS の側に居るので、画面の状態（いま何を選んでいるか）は知らない
         .on_menu_event(|app, event| {
             if let Some(選び) = event.id().0.strip_prefix(menu::THEME_PREFIX) {
                 let _ = app.emit(EVENT_THEME, 選び.to_owned());
+            }
+            // **更新を確かめる**（**D81**）。確かめるのは画面の側
+            if event.id().0 == menu::CHECK_UPDATE_ID {
+                let _ = app.emit(EVENT_CHECK_UPDATE, ());
             }
         })
         .setup(|app| {

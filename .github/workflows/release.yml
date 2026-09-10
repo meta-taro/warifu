@@ -54,6 +54,26 @@ jobs:
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
+      # **更新用の鍵があるか。**無ければ更新の成果物を作らない。
+      #
+      # **鍵が無くても建つこと**が要る（**D81**）—— `createUpdaterArtifacts` を
+      # `tauri.conf.json` に直に書くと、**鍵を持たない人の手元ビルドが落ちる**
+      # （2026-09-10 に踏んだ）。だから CI のときだけ設定を重ねる。
+      - name: 更新用の鍵が揃っているか
+        id: updater
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "flag=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_OUTPUT"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "更新用の成果物も作ります"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::更新用の鍵が無いので、自動アップデートの成果物は作りません"
+          fi
+
       # **揃っているかを先に言う。**後で「なぜ署名されていないのか」を探さずに済む
       - name: 署名の材料が揃っているか
         id: creds
@@ -87,11 +107,16 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm --filter @warifu/desktop tauri build --bundles dmg
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
 
       - name: 配布物を作る（署名なし）
         if: steps.creds.outputs.ready != 'true'
-        run: pnpm --filter @warifu/desktop tauri build --bundles dmg
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
 
       # **署名されたかを実物で確かめる。**「署名したつもり」で配らない。
       #
@@ -151,6 +176,12 @@ jobs:
           mkdir -p dist
           cp apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg dist/
           cp target/release/warifu dist/
+          # **更新用の成果物**（**D81**）。`.app.tar.gz` と、その署名（`.sig`）。
+          # `.dmg` では更新できない —— 更新は中身を差し替える形なので、包みが違う
+          if [ "${{ steps.updater.outputs.ready }}" = "true" ]; then
+            cp apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz dist/
+            cp apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig dist/
+          fi
           ls -l dist
           # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
           ./dist/warifu --version
@@ -192,8 +223,26 @@ jobs:
       - name: フロントを建てる
         run: pnpm --filter @warifu/desktop build
 
+      - name: 更新用の鍵が揃っているか
+        id: updater
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "flag=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_OUTPUT"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::更新用の鍵が無いので、自動アップデートの成果物は作りません"
+          fi
+
       - name: 画面を建てる
-        run: pnpm --filter @warifu/desktop tauri build
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
 
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
@@ -206,6 +255,11 @@ jobs:
           find apps/desktop/src-tauri/target/release/bundle -type f \
             \( -name '*.msi' -o -name '*.exe' \) -exec cp {} dist/ \;
           cp target/release/warifu.exe dist/
+          # **更新用の署名**（**D81**）。Windows は `-setup.exe` とその `.sig`
+          if [ "${{ steps.updater.outputs.ready }}" = "true" ]; then
+            find apps/desktop/src-tauri/target/release/bundle -type f \
+              -name '*.exe.sig' -exec cp {} dist/ \;
+          fi
           ls -l dist
           # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
           ./dist/warifu.exe --version
@@ -215,3 +269,121 @@ jobs:
           name: warifu-windows
           path: dist/*
           if-no-files-found: error
+
+  # **更新の札（`latest.json`）を作って、Release として出す**（**D81**）。
+  #
+  # 自動アップデートは、アプリが**公開の URL** から札を取りに行く仕組みである。
+  # だから**ここだけは Artifacts では足りない** —— Release に置く。
+  #
+  # **鍵が無ければ何もしない。**その場合は今までどおり Artifacts だけで、
+  # 「更新があります」は出ない（出せないものを出さない）。
+  publish:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    # Release を作るので、ここだけ書き込みが要る
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # **前のタグからの差分で「何が変わったか」を書く。**浅く取ると辿れない
+          fetch-depth: 0
+
+      - name: 更新用の鍵が揃っているか
+        id: updater
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::更新用の鍵が無いので、Release は作りません（Artifacts だけです）"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.updater.outputs.ready == 'true'
+        with:
+          path: staged
+
+      - name: 更新の札を作る（latest.json）
+        if: steps.updater.outputs.ready == 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          find staged -type f -exec cp {} out/ \;
+          ls -l out
+
+          # **何が変わったかは、commit の見出しから作る。**
+          # CHANGELOG は版ごとに切っていないので、そこから抜こうとすると空になる。
+          # **前のタグから今のタグまでの見出し**が、いちばん確かな「変わったこと」である。
+          前=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+          if [ -n "$前" ]; then
+            変わったこと=$(git log --no-merges --pretty=format:'- %s' "$前..$TAG")
+          else
+            変わったこと="- 最初の配布物です。"
+          fi
+          echo "── 何が変わったか ──"
+          echo "$変わったこと"
+
+          TAG="$TAG" REPO="$REPO" NOTES="$変わったこと" \
+          PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" python3 - <<'PY'
+          import glob, json, os, sys
+
+          tag = os.environ["TAG"]
+          repo = os.environ["REPO"]
+          版 = tag[1:] if tag[:1] in "vV" else tag
+          base = f"https://github.com/{repo}/releases/download/{tag}"
+
+          def 一つだけ(型):
+              見つけた = glob.glob(型)
+              if len(見つけた) != 1:
+                  sys.exit(f"::error::{型} は 1 つだけのはずですが {見つけた} でした")
+              return 見つけた[0]
+
+          def 署名(場所):
+              with open(場所, encoding="utf-8") as fh:
+                  return fh.read().strip()
+
+          mac = 一つだけ("out/*.app.tar.gz")
+          mac_sig = 一つだけ("out/*.app.tar.gz.sig")
+          win = 一つだけ("out/*-setup.exe")
+          win_sig = 一つだけ("out/*-setup.exe.sig")
+
+          # **Intel の Mac 向けには建てていない。**同じものを指すと、
+          # 落ちてから動かないことになる —— **書かない**
+          札 = {
+              "version": 版,
+              "notes": os.environ["NOTES"].strip() or f"warifu {tag}",
+              "pub_date": os.environ["PUB_DATE"],
+              "platforms": {
+                  "darwin-aarch64": {
+                      "signature": 署名(mac_sig),
+                      "url": f"{base}/{os.path.basename(mac)}",
+                  },
+                  "windows-x86_64": {
+                      "signature": 署名(win_sig),
+                      "url": f"{base}/{os.path.basename(win)}",
+                  },
+              },
+          }
+          with open("out/latest.json", "w", encoding="utf-8") as fh:
+              json.dump(札, fh, ensure_ascii=False, indent=2)
+          PY
+          cat out/latest.json
+
+      # `gh release upload` は Release が無いと 404 になる。**先に作る**（あれば作らない）
+      - name: Release として出す
+        if: steps.updater.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "$TAG" --generate-notes --prerelease
+          gh release upload "$TAG" out/* --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name'

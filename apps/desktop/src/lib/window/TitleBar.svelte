@@ -1,5 +1,6 @@
 <script lang="ts">
   // 自作タイトルバー（DESIGN.md §8 / D34）。OS の枠は使わない。
+  import { getVersion } from '@tauri-apps/api/app';
   import { MESSAGES, type MessageKey } from '../i18n/messages';
   import type { Locale } from '../i18n/locales';
   import { controlsFor } from './titlebar';
@@ -15,6 +16,26 @@
   let maximized = $state(false);
   $effect(() => {
     void isMaximized().then((v) => (maximized = v));
+  });
+
+  /**
+   * **いま動いている版**（オーナー指示・2026-09-10
+   * 「現状のばーじよんが、ヘッダーかふったーにうっすら記載してください」）。
+   *
+   * **うっすら出す。**目立たせる所ではないが、
+   * **どの版を触っているか分からないまま報告が来る**のがいちばん困る
+   * （「直ったはず」と「直っていない」が、版の違いだけで起きる）。
+   *
+   * 読めなければ**出さない**（画面の外で動かしているときなど）。
+   * 「不明」と書くより、無いほうがよい。
+   */
+  let 版 = $state('');
+  $effect(() => {
+    void getVersion()
+      .then((v) => (版 = v))
+      .catch(() => {
+        版 = '';
+      });
   });
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
@@ -52,6 +73,9 @@
       />
     </svg>
     {t('app.name')}
+    {#if 版}
+      <span class="version">{版}</span>
+    {/if}
   </span>
   <span class="center">{status}</span>
   <span class="ctrls">
@@ -90,6 +114,17 @@
     gap: var(--space-2);
     padding: 0 var(--space-4);
     font-weight: 600;
+  }
+  /*
+    **版はうっすら。**名前と同じ強さで出すと、名前が読みにくくなる。
+    数字は等幅にする（0.1.10 と 0.1.9 が並んだときに桁がずれない）。
+  */
+  .version {
+    font-weight: 400;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
   }
   .brand-mark {
     width: 14px;

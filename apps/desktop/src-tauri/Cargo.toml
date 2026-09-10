@@ -40,6 +40,11 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 tauri-plugin-notification = "2.4.0"
 # **`warifu://` を受ける**（D79）。鍵を貼り付けさせない
 tauri-plugin-deep-link = "2.4.10"
+# **更新を確かめて入れ替える**（D81）。
+# 署名された `latest.json` を取りに行き、埋め込んだ公開鍵で検めてから落とす。
+# `process` は入れ替えたあとの立て直し（`relaunch`）に要る。
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 # **QR を作る**（D79）。目の前の相手に読ませる用
 fast_qr = { version = "0.14", default-features = false, features = ["svg"] }
 

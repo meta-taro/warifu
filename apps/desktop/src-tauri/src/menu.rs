@@ -35,6 +35,8 @@ pub struct Labels {
     pub theme_auto: &'static str,
     pub theme_light: &'static str,
     pub theme_dark: &'static str,
+    /// **更新を確かめる**（D81）。手で押せる所を 1 つ置く
+    pub check_update: &'static str,
     pub window: &'static str,
     pub minimize: &'static str,
     pub zoom: &'static str,
@@ -65,6 +67,7 @@ pub fn labels(locale: &str) -> Labels {
             theme_auto: "OS に合わせる",
             theme_light: "ライト",
             theme_dark: "ダーク",
+            check_update: "更新を確認…",
             window: "ウインドウ",
             minimize: "しまう",
             zoom: "拡大／縮小",
@@ -87,6 +90,7 @@ pub fn labels(locale: &str) -> Labels {
             theme_auto: "跟随系统",
             theme_light: "浅色",
             theme_dark: "深色",
+            check_update: "检查更新…",
             window: "窗口",
             minimize: "最小化",
             zoom: "缩放",
@@ -109,6 +113,7 @@ pub fn labels(locale: &str) -> Labels {
             theme_auto: "OS 에 맞추기",
             theme_light: "라이트",
             theme_dark: "다크",
+            check_update: "업데이트 확인…",
             window: "윈도우",
             minimize: "최소화",
             zoom: "확대/축소",
@@ -131,6 +136,7 @@ pub fn labels(locale: &str) -> Labels {
             theme_auto: "Match system",
             theme_light: "Light",
             theme_dark: "Dark",
+            check_update: "Check for Updates…",
             window: "Window",
             minimize: "Minimize",
             zoom: "Zoom",
@@ -146,6 +152,12 @@ pub const THEMES: [&str; 3] = ["auto", "light", "dark"];
 
 /// メニュー項目の id の頭。画面側はこの後ろを見て切り替える。
 pub const THEME_PREFIX: &str = "theme:";
+
+/// **更新を確かめる**を押した印（**D81**）。
+///
+/// メニューは OS の側に居るので、確かめるのは画面の側に任せる
+/// （置き場所へ取りに行くのも、中身を見せるのも画面がやっている）。
+pub const CHECK_UPDATE_ID: &str = "update:check";
 
 /// メニューを組み立てる。
 ///
@@ -168,6 +180,10 @@ pub fn build<R: Runtime>(app: &AppHandle<R>, locale: &str, theme: &str) -> tauri
 
     let app_menu = SubmenuBuilder::new(app, "warifu")
         .item(&PredefinedMenuItem::about(app, Some(t.about), None)?)
+        .separator()
+        // **手で確かめる口を 1 つ置く**（**D81**）。
+        // 起動時にも黙って確かめるが、**待たされている人が自分で押せる所**は要る
+        .item(&tauri::menu::MenuItemBuilder::with_id(CHECK_UPDATE_ID, t.check_update).build(app)?)
         .separator()
         .item(&PredefinedMenuItem::hide(app, Some(t.hide))?)
         .item(&PredefinedMenuItem::hide_others(app, Some(t.hide_others))?)

@@ -63,6 +63,13 @@ export const EVENT_PROFILES = 'warifu://profiles';
 export const EVENT_LINK = 'warifu://link';
 
 /**
+ * **メニューから「更新を確認」を押した**（**D81**）。
+ *
+ * メニューは OS の側に居るので、確かめるのは画面の側がやる。
+ */
+export const EVENT_CHECK_UPDATE = 'warifu://check-update';
+
+/**
  * **相手が名乗った**（**D75**）。`[公開鍵, 名前, 紹介]`。
  *
  * **本人が名乗ったものであって、本人確認ではない。**
