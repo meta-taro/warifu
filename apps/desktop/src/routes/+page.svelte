@@ -2400,7 +2400,12 @@
     .pane.contacts > :global(.card) {
       width: 100%;
       flex: none;
-      min-height: 240px;
+      /* **会話は下に置く。**空でも読める高さだけ持たせて、伸ばさない */
+      min-height: 300px;
+    }
+    /* 一覧と相手は、内容ぶんだけ縦に伸びる（面ぜんぶで 1 本の巻物） */
+    .pane.contacts > :global(.pane) {
+      flex: none;
     }
     .pane.meeting > :global(aside) {
       width: 100%;

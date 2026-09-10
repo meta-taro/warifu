@@ -1228,7 +1228,16 @@
       grid-template-rows: auto auto;
     }
     .list {
-      max-height: 320px;
+      max-height: 260px;
+    }
+    /*
+      **入れ子の巻物をやめる。**縦長では、面ぜんぶが 1 本の巻物になる ——
+      相手の欄だけが 270px の窓になっていて、**できることの札が見えなかった**
+      （2026-09-10 に縦長で実測）
+    */
+    .person {
+      overflow: visible;
+      min-height: 0;
     }
   }
   /* もっと狭ければ、札は 1 列 */
