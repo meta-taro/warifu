@@ -1,0 +1,57 @@
+name: pages
+
+# 配布ページ（`site/`）を GitHub Pages へ出す。
+#
+# **人に「入れて」と渡せる 1 枚**を置く場所である（オーナー・2026-09-11
+# 「割符 DL ページを gh につくりましょう。これで他の人にもいれてとつたやすくなる」）。
+#
+# **版と落とす先はページの JS が Releases から読む。**ここで埋め込まない ——
+# 埋め込むと、タグを打つたびにページを直す作業が増え、**忘れた分だけ古い物を配る**。
+#
+# 使う action は `actions/*`（GitHub 自身のもの）だけにする。
+# Pages は専用の口（`upload-pages-artifact` / `deploy-pages`）でしか出せないので、
+# **ここだけは足す**（baseline §12 —— 足す理由を書く）。
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  # タグを打った後に手で出せるようにしておく（成果物の名前が変わったときの確認用）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # **置く物を確かめる。**参照だけ足して壊れている状態を作らない（baseline §23）
+      - name: 中身があるか
+        run: |
+          test -f site/index.html
+          test -f site/icon.png
+          grep -q '<title>' site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
