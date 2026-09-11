@@ -15,6 +15,7 @@
     apps/desktop/src-tauri/tauri.conf.json  version
 
 `Cargo.lock` も一緒に直す（`--locked` の CI で弾かれるため）。
+**画面の crate は workspace の外**なので、**lock は 2 つある**（両方直す）。
 """
 
 from __future__ import annotations
@@ -73,6 +74,25 @@ def main() -> None:
         print((出た.stderr or "").strip()[:300])
     else:
         print("Cargo.lock も直した")
+
+    # **画面の crate は workspace の外にあり、自分の Cargo.lock を持っている**
+    # （`Cargo.toml` の exclude）。2026-09-11 まで、ここを直し忘れていた ——
+    # **root の lock だけ直して「直した」と言っていた。**
+    画面のlock = pathlib.Path("apps/desktop/src-tauri/Cargo.lock")
+    if 画面のlock.exists():
+        出た2 = subprocess.run(
+            ["cargo", "update", "-p", "warifu-desktop", "--offline",
+             "--manifest-path", "apps/desktop/src-tauri/Cargo.toml"],
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if 出た2.returncode != 0:
+            print("画面の Cargo.lock を直せませんでした")
+            print((出た2.stderr or "").strip()[:300])
+        else:
+            print("画面の Cargo.lock も直した")
 
     print()
     print(f"次は: git commit → git tag v{新しい版} → git push origin v{新しい版}")
