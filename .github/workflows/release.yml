@@ -68,6 +68,40 @@ jobs:
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
+      # **CLI も Developer ID で署名する。**
+      #
+      # 2026-09-11 に別マシンで見つかった —— 画面は公証済みなのに、
+      # **CLI は ad-hoc 署名のまま配っていた**（`flags=0x20002(adhoc,linker-signed)`）。
+      # 「macOS は署名・公証済み」と案内していたので、**案内が不正確だった。**
+      #
+      # 材料が無ければ何もしない（adhoc のまま配る。**黙って署名済みと言わない**）。
+      - name: CLI に署名する
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          # **一時の鍵束に入れる。**既定の鍵束を汚さない
+          keychain="$RUNNER_TEMP/warifu-cli.keychain-db"
+          pass="$(uuidgen)"
+          security create-keychain -p "$pass" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$pass" "$keychain"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" target/release/warifu
+          # **署名されたことを確かめる。**握り潰さない（adhoc なら落とす）
+          codesign -dv target/release/warifu 2>&1 | tee /tmp/cli-sig.txt
+          if grep -q 'adhoc' /tmp/cli-sig.txt; then
+            echo "::error::CLI が adhoc のままです（署名できていません）"
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/cert.p12"
+
       # **画面の Rust の試験を、ここで回す。**
       #
       # アプリの crate は root の workspace から外してあるので
@@ -424,7 +458,12 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          # **先出し版（prerelease）の札を付けない**（2026-09-11 に実物で分かった）。
+          # 付けると `releases/latest` が空になり、**自動更新の宛先
+          # （`releases/latest/download/latest.json`）が 404 になる** ——
+          # つまり更新が誰にも降りていなかった。
+          # **アルファであることは、題と本文とアプリの中で言う**（札には持たせない）。
           gh release view "$TAG" >/dev/null 2>&1 \
-            || gh release create "$TAG" --title "$TAG" --generate-notes --prerelease
+            || gh release create "$TAG" --title "$TAG（アルファ）" --generate-notes
           gh release upload "$TAG" out/* --clobber
           gh release view "$TAG" --json assets --jq '.assets[].name'

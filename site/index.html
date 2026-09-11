@@ -347,7 +347,8 @@
 
       <h2>落とす</h2>
       <p class="note">
-        公式の配布物は GitHub Releases に置いています。<b>macOS は署名と公証済み</b>です。
+        公式の配布物は GitHub Releases に置いています。<b>macOS の画面（.dmg）は署名と公証済み</b>です
+        （CLI は v0.1.2 まで署名していません。次の版から署名します）。
       </p>
       <div class="files" id="files">
         <div class="file">
@@ -470,8 +471,8 @@
       <div class="en">
         <b>warifu</b> — people and AI agents in one conversation, with no central account and no
         server holding the messages. Alpha: two-party video is measured on a single network only;
-        anything across networks is unverified. macOS build is signed and notarized; the Windows
-        build is not signed yet.
+        anything across networks is unverified. The macOS app (.dmg) is signed and notarized; the CLI is not signed
+        until the next release, and the Windows build is not signed.
         <a href="https://github.com/meta-taro/warifu">Source on GitHub</a>.
       </div>
 
@@ -495,8 +496,10 @@
           if (所) 所.textContent = 文;
         };
         try {
-          // **`releases/latest` は先出し版を返さない**（2026-09-11 に 404 を見た）。
-          // 割符はいまアルファなので、**一覧から新しいものを取る**
+          // **一覧から新しいものを取る。**
+          // `releases/latest` は先出し版（prerelease）を返さない ——
+          // 2026-09-11 に 404 を踏んだ。札は付けないことにしたが、
+          // **過去の版には付いている**ので、ここは一覧から取る形を残す
           const 返り = await fetch('https://api.github.com/repos/meta-taro/warifu/releases?per_page=10');
           if (!返り.ok) throw new Error(String(返り.status));
           const 並び = await 返り.json();
