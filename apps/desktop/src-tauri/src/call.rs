@@ -70,6 +70,14 @@ pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answ
         .map_err(|_| 居ません())?;
     記録!("呼ぶ: 割符なしで叩いた");
 
+    // **呼んだ相手は、こちらの戸口にも迎える。**
+    // そうしないと、時間をおいて相手から呼ばれたときに**無言で断る**
+    // （2026-09-11 に気づいた片方向）
+    {
+        let mut door = bridge.door.lock().await;
+        contacts::迎える(&mut door, 相手);
+    }
+
     let mut channel = Channel::new(session);
     let (meeting, roster) = 招待を待つ(&mut channel).await?;
     記録!(

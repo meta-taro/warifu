@@ -278,3 +278,44 @@ fn 知らない相手を忘れても_何も起きない() {
     let mut 戸口 = Door::new();
     assert!(!戸口.forget_known(&Subject::new("だれか").unwrap()));
 }
+
+#[test]
+fn 自分から呼んだ相手は_その戸口も通す() {
+    // **2026-09-11 に気づいた非対称。**
+    // 知り合いが増えるのは `answer` の中だけだったので、
+    // **受けた側にしか増えなかった** —— A が B を呼ぶと、
+    // B の戸口は A を知っているが、**A の戸口は B を知らない。**
+    // 時間をおいて B が A を呼ぶと、A は無言で断っていた。
+    //
+    // **自分から呼ぶのは「通してよい」という意思表示である。**
+    let 相手 = Subject::new("ABCDEFGH").unwrap();
+    let mut 戸口 = Door::new();
+    assert!(!戸口.knows(&相手), "まだ知らない");
+
+    assert!(戸口.welcome(相手.clone()), "新しく迎えた");
+    assert!(戸口.knows(&相手));
+    // 割符なしで叩かれても通す
+    assert_eq!(戸口.answer(&Knock::new(相手.clone(), 0)), Answer::Open);
+}
+
+#[test]
+fn 同じ相手を二度迎えても_増えない() {
+    let 相手 = Subject::new("ABCDEFGH").unwrap();
+    let mut 戸口 = Door::new();
+    assert!(戸口.welcome(相手.clone()));
+    assert!(
+        !戸口.welcome(相手.clone()),
+        "もう知っているので、増えたとは言わない"
+    );
+    assert_eq!(戸口.known().count(), 1);
+}
+
+#[test]
+fn 迎えた相手も_降ろせる() {
+    // **入れる道を作ったら、降ろす道も同じ段で作る**（D58 の約束）
+    let 相手 = Subject::new("ABCDEFGH").unwrap();
+    let mut 戸口 = Door::new();
+    戸口.welcome(相手.clone());
+    assert!(戸口.forget_known(&相手));
+    assert_eq!(戸口.answer(&Knock::new(相手, 0)), Answer::Refuse);
+}
