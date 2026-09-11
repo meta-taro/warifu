@@ -85,3 +85,28 @@ describe('辞書に Markdown を書かない', () => {
     }
   });
 });
+
+describe('鍵の呼び方は 2 つだけ（オーナー判断 2026-09-11）', () => {
+  it('ja に単独の「鍵」を出さない', () => {
+    // 「**漠然と鍵といわれても、どこでなににつかうか人はゼロだとわからないので**」
+    //
+    // 画面に出る鍵は 2 種類ある ——
+    //   **ルームキー**  …… そのルームに 1 人が入るための 1 本（渡す物）
+    //   **公開鍵**      …… あなたが誰かを表す名前（渡しても入られない）
+    //
+    // どちらも「鍵」と呼んでいたので、**ゼロの人には見分けが付かなかった。**
+    for (const [鍵, 文] of Object.entries(MESSAGES.ja)) {
+      const 掃除 = 文.replaceAll('ルームキー', '').replaceAll('公開鍵', '');
+      expect(掃除, `${鍵}: ${文}`).not.toContain('鍵');
+    }
+  });
+
+  it('既読と読める札を出さない', () => {
+    // **読んだかどうかは分からない**（既読を集める機械が無い）
+    for (const locale of LOCALES) {
+      for (const 鍵 of ['mark.sent', 'mark.kept', 'mark.none'] as const) {
+        expect(MESSAGES[locale][鍵], `${locale}/${鍵}`).not.toMatch(/既読|已读|읽음|Read\b/);
+      }
+    }
+  });
+});
