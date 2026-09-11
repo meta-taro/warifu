@@ -68,6 +68,17 @@ jobs:
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
+      # **画面の Rust の試験を、ここで回す。**
+      #
+      # アプリの crate は root の workspace から外してあるので
+      # （`Cargo.toml` の exclude）、`cargo test --workspace` では走らない ——
+      # 2026-09-11 まで、`desk.rs` などの試験が**どこでも走っていなかった。**
+      #
+      # `desktop.yml` では回さない（Linux で tauri の依存を建てると 10 分単位で伸びる）。
+      # **ここは配る物を建てる場所なので、どうせ同じ依存を建てている。**
+      - name: 画面の Rust の試験
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
       # **更新用の鍵があるか。**無ければ更新の成果物を作らない。
       #
       # **鍵が無くても建つこと**が要る（**D81**）—— `createUpdaterArtifacts` を
