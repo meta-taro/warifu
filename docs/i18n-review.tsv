@@ -202,8 +202,8 @@ profile.face.drop	Drag and drop an image onto the avatar to crop it and replace 
 profile.name	Name	名前	名字	이름				
 profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
 profile.save	Save	決める	保存	정하기				
-reunion.call	You can call them from Contacts (no key needed). It only goes through if **they remember you too**.	連絡先から呼べます（鍵は要りません）。ただし**相手の側でも覚えていないと**、呼んでも通りません。	可以从联系人里呼叫（不需要钥匙）。但**对方也要记住你**，否则呼叫不会通。	연락처에서 부를 수 있습니다(키는 필요 없습니다). 다만 **상대도 기억하고 있어야** 연결됩니다.	★	**呼べば必ず繋がる、と読める訳にしないこと。**通るのは相手の戸口がこちらを通すときだけで、それは相手が決めることである。「いつでも繋がります」「自動で繋がります」と書かない。		
-reunion.key	Same as the first time: you hand each other a key. To skip the key next time, **give them a name** with the pencil beside their name.	初回と同じで、鍵を渡し合います。次から鍵なしにしたいなら、名前の隣の鉛筆で**呼び名を付けて**ください。	和第一次一样，互相交换钥匙。想让下次不需要钥匙，请用名字旁边的铅笔**起个称呼**。	처음과 같이 서로 키를 건넵니다. 다음부터 키 없이 하려면 이름 옆의 연필로 **이름을 붙여** 주세요.				
+reunion.call	You can call them from Contacts (no key needed). It only goes through if they remember you too.	連絡先から呼べます（鍵は要りません）。ただし相手の側でも覚えていないと、呼んでも通りません。	可以从联系人里呼叫（不需要钥匙）。但对方也要记住你，否则呼叫不会通。	연락처에서 부를 수 있습니다(키는 필요 없습니다). 다만 상대도 기억하고 있어야 연결됩니다.	★	**呼べば必ず繋がる、と読める訳にしないこと。**通るのは相手の戸口がこちらを通すときだけで、それは相手が決めることである。「いつでも繋がります」「自動で繋がります」と書かない。		
+reunion.key	Same as the first time: you hand each other a key. To skip the key next time, give them a name with the pencil beside their name.	初回と同じで、鍵を渡し合います。次から鍵なしにしたいなら、名前の隣の鉛筆で呼び名を付けてください。	和第一次一样，互相交换钥匙。想让下次不需要钥匙，请用名字旁边的铅笔起个称呼。	처음과 같이 서로 키를 건넵니다. 다음부터 키 없이 하려면 이름 옆의 연필로 이름을 붙여 주세요.				
 reunion.name	Give them a name	呼び名を付ける	起个称呼	이름 붙이기				
 reunion.room	Naming the room means both of you can tell which room it was next time.	ルームに名前を付けておくと、次に会うとき「どのルームの話か」がお互いに分かります。	给 room 起个名字，下次见面时双方都能知道是哪个 room。	룸에 이름을 붙여 두면 다음에 만날 때 어느 룸이었는지 서로 알 수 있습니다.				
 reunion.title	Next time you meet	次に会うとき	下次见面时	다음에 만날 때				

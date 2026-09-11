@@ -90,3 +90,63 @@ async fn 動いているこの機械は_横取りされない() {
     let 二つ目 = 受け口::開く(&場所).await;
     assert!(二つ目.is_err(), "2 つ目は断られること");
 }
+
+/// **同じ機械で 2 つの身元を動かせるか。**
+///
+/// オーナー（2026-09-11）——「A さんエージェントと B さんエージェントが
+/// 必要に応じてお互いにやりとりできるか」を**同じ PC で見たい**。
+///
+/// ところが、この機械の口は `HOME` から決まる 1 か所だけだった ——
+/// つまり**2 つ目の身元は口を開けない**（同じ場所を取り合う）。
+/// `WARIFU_HOME` は金庫（鍵・名簿）を分ける仕組みとして既にあるので、
+/// **口の場所もそれに従わせる。**
+///
+/// **環境変数を試験の中で書き換えない**（この crate は `unsafe` を禁じているし、
+/// 並んで走る試験に漏れる）。**決め方を純粋な関数にして、そこを見る。**
+#[test]
+fn 家を指定すれば_この機械の口も分かれる() {
+    use std::ffi::OsString;
+    use std::path::Path;
+    use warifu_desk::場所を決める;
+
+    let 家 = Some(OsString::from("/tmp/warifu-b"));
+    assert_eq!(
+        場所を決める(家.as_deref(), None, None),
+        Path::new("/tmp/warifu-b/desk.sock"),
+        "WARIFU_HOME があれば、そこに開く"
+    );
+
+    // **既定は変えない。**`WARIFU_HOME` が無ければ、これまでと同じ決め方
+    let 実行時 = Some(OsString::from("/run/user/501"));
+    assert_eq!(
+        場所を決める(None, 実行時.as_deref(), None),
+        Path::new("/run/user/501/warifu/desk.sock"),
+        "実行時ディレクトリがあれば、そちら"
+    );
+
+    let ホーム = Some(OsString::from("/Users/someone"));
+    let 出た = 場所を決める(None, None, ホーム.as_deref());
+    assert!(
+        出た.starts_with("/Users/someone"),
+        "家の下に開く: {}",
+        出た.display()
+    );
+
+    // **家も実行時も分からないときでも、場所は返す**（呼ぶ側を困らせない）
+    assert!(場所を決める(None, None, None).ends_with("desk.sock"));
+}
+
+#[test]
+fn 家を指定すると_実行時ディレクトリより優先する() {
+    // **試験のために家を分けたのに、実行時ディレクトリに引っ張られては意味がない**
+    use std::ffi::OsString;
+    use std::path::Path;
+    use warifu_desk::場所を決める;
+
+    let 家 = Some(OsString::from("/tmp/warifu-b"));
+    let 実行時 = Some(OsString::from("/run/user/501"));
+    assert_eq!(
+        場所を決める(家.as_deref(), 実行時.as_deref(), None),
+        Path::new("/tmp/warifu-b/desk.sock")
+    );
+}

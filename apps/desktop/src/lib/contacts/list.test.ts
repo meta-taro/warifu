@@ -271,3 +271,20 @@ describe('ルームの名前', () => {
     expect(ルーム?.行たち[0].name).not.toContain('ROOM');
   });
 });
+
+describe('数えて呼ぶ印は、人に見せない（2026-09-11 に実物で出た）', () => {
+  it('印は決まった形だけを持つ', () => {
+    // **画面はこの形を見て文言に組み替える。**
+    // 形が変わると、`room.nth:1:1` が**そのまま人に見える**
+    // （名前の欄に入って、実物で出た）
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      ルームたち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
+    });
+    const 行 = 区画.find((s) => s.title === 'contacts.rooms')?.行たち[0];
+    expect(行?.name).toMatch(/^room\.nth:\d+:\d+$/);
+  });
+});

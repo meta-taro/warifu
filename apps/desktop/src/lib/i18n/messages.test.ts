@@ -69,3 +69,19 @@ describe('文言辞書（DESIGN.md §9 / D35）', () => {
     }
   });
 });
+
+describe('辞書に Markdown を書かない', () => {
+  it('強調の星が訳文に混じっていない', () => {
+    // **画面は Markdown を解釈しない。**
+    // 2026-09-11 に実物で出た ——「名前の隣の鉛筆で**呼び名を付けて**ください」の
+    // 星がそのまま画面に出ていた（読み上げにも入っていた）。
+    // 強調したいなら**画面側で組む**（`<b>` や class を当てる）
+    for (const [locale, 辞書] of Object.entries(MESSAGES)) {
+      for (const [鍵, 文] of Object.entries(辞書)) {
+        expect(文, `${locale}/${鍵}`).not.toMatch(/\*\*/);
+        // 見出し記法・箇条書きの記法も同じ理由で入れない
+        expect(文, `${locale}/${鍵}`).not.toMatch(/^[#-] /);
+      }
+    }
+  });
+});
