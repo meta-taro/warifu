@@ -261,6 +261,7 @@ setup.mode.none	No camera or microphone, so joining to receive only	カメラも
 setup.title	Before you come in	入る前のしたく	进来之前的准备	들어가기 전 준비				
 tile.me	You	自分	自己	나				
 tile.peer	Them	相手	对方	상대				
+unread.count	{n} unseen	まだ見ていない {n} 件	{n} 条未看	안 본 {n}건				
 update.apply	Restart and update	再起動して更新する	重启并更新	다시 시작하고 업데이트				
 update.available	Update available — {version}	更新あり — {version}	有可用更新 — {version}	업데이트 있음 — {version}				
 update.check	Check for updates	更新を確認する	检查更新	업데이트 확인				

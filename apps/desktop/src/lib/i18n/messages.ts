@@ -190,6 +190,7 @@ export type MessageKey =
   | 'chat.reach'
   | 'chat.reach.none'
   | 'contacts.presence.none'
+  | 'unread.count'
   | 'reunion.title'
   | 'reunion.call'
   | 'reunion.wait'
@@ -502,6 +503,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': '届く先 {who}',
     'chat.reach.none': '届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
+    'unread.count': 'まだ見ていない {n} 件',
     'reunion.title': '次に会うとき',
     'reunion.call': '連絡先から呼べます（ルームキーは要りません）。ただし相手の側でも覚えていないと、呼んでも通りません。',
     'reunion.wait': 'こちらからは呼べません（居場所を知りません）。相手から呼んでもらえば通ります。',
@@ -786,6 +788,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': 'Goes to {who}',
     'chat.reach.none': 'It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.',
     'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
+    'unread.count': '{n} unseen',
     'reunion.title': 'Next time you meet',
     'reunion.call': 'You can call them from Contacts (no room key needed). It only goes through if they remember you too.',
     'reunion.wait': 'You cannot call them (their whereabouts are unknown). If they call you, it goes through.',
@@ -1070,6 +1073,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': '送达 {who}',
     'chat.reach.none': '目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。',
     'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
+    'unread.count': '{n} 条未看',
     'reunion.title': '下次见面时',
     'reunion.call': '可以从联系人里呼叫（不需要 room key）。但对方也要记住你，否则呼叫不会通。',
     'reunion.wait': '你无法呼叫对方（不知道对方在哪）。如果对方来呼叫你，就能通。',
@@ -1354,6 +1358,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reach': '가는 곳 {who}',
     'chat.reach.none': '아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.',
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
+    'unread.count': '안 본 {n}건',
     'reunion.title': '다음에 만날 때',
     'reunion.call': '연락처에서 부를 수 있습니다(룸 키는 필요 없습니다). 다만 상대도 기억하고 있어야 연결됩니다.',
     'reunion.wait': '이쪽에서는 부를 수 없습니다(상대의 위치를 모릅니다). 상대가 부르면 연결됩니다.',
