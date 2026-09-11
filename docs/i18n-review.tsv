@@ -152,12 +152,13 @@ mark.none	Not sent	送れていません	未发送	보내지 못함
 mark.none.hint	There was no route and no poste restante, so it is kept nowhere.	経路も受け取り先も無いので、どこにも残っていません。	既没有通路也没有寄存处，所以没有留在任何地方。	통로도 보관소도 없어서 어디에도 남지 않았습니다.				
 mark.sent	Sent	送信済み	已发送	보냄	★	**渡したのは相手の機械までである。**「既読」「読みました」と読める訳にしないこと。割符には既読を集める機械が無い。**読んだかどうかは、こちらには分からない。**		
 mark.sent.hint	Handed to their machine. Whether they read it is unknown (there is no machine collecting read receipts).	相手の機械まで届きました。読んだかどうかは分かりません（既読を集める機械が無いためです）。	已交到对方的机器。是否读过无法知道（没有收集已读的机器）。	상대의 기기로 전달했습니다. 읽었는지는 알 수 없습니다(읽음을 모으는 기계가 없습니다).				
+meeting.copy.which	Normally hand over the link — they just press it. When a link will not work (CLI, paper, chats that strip links), copy the room key text instead.	ふだんは「リンクをコピー」で渡します。相手が押すだけで入れます。リンクが使えない相手（CLI・紙・リンクを剥がすチャット）には、「ルームキーをコピー」で文字を渡してください。	平时用「复制链接」交给对方，对方按一下就能进来。链接不可用时（CLI、纸面、会剥掉链接的聊天），请用「复制 room key」交出文字。	보통은 「링크 복사」로 건넵니다. 상대가 누르기만 하면 들어옵니다. 링크를 쓸 수 없는 상대(CLI·종이·링크를 없애는 채팅)에는 「룸 키 복사」로 문자를 건네주세요.				
 meeting.join.action	Come in	ルームに入る	进入房间	방에 들어가기				
 meeting.join.hint	The one who was given the room key comes in. The one who gave it just waits.	もらった側が入ります。渡した側は待つだけです。	拿到密钥的一方进来。交出去的一方只需等待。	받은 쪽이 들어갑니다. 건넨 쪽은 기다리기만 하면 됩니다.				
 meeting.join.title	Come in with a room key you were given	もらったルームキーでルームに入る	用拿到的密钥进入房间	받은 열쇠로 방에 들어가기				
 meeting.join.working	Coming in…	入っています…	正在进入…	들어가는 중…				
 meeting.key.copied	Copied	コピーしました	已复制	복사했습니다				
-meeting.key.copy	Copy	コピーする	复制	복사하기				
+meeting.key.copy	Copy the room key	ルームキーをコピー	复制 room key	룸 키 복사				
 meeting.key.count	{n} issued	{n} 本出しました	已发 {n} 把	{n} 개 냈습니다				
 meeting.key.each	One key lets one person in. Hand each person their own key.	1 本につき 1 人です。呼ぶ人ごとに、別のルームキーを渡してください。	一把 room key只能让一个人进入。请给每个人各自的room key。	열쇠 하나에 한 사람입니다. 부를 사람마다 다른 열쇠를 건네세요.				
 meeting.key.hint	Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.	これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。	把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。	들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.	★	「渡した相手だけが入れる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **ルームの鍵を他人に見られたら、その人が入れる。**		
@@ -168,7 +169,7 @@ meeting.key.more.hint	One key lets exactly one person in. To let another person 
 meeting.key.nth	Key {n}	{n} 本目	第 {n} 把	{n} 번째				
 meeting.key.own	This is your own room key. Hand it to the person you want in.	これは自分のルームキーです。入ってほしい人に渡してください。	这是你自己房间的密钥。请交给你想让进来的人。	이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.				
 meeting.key.reveal	Show the whole key	ルームキーの全文を見る	查看密钥全文	열쇠 전체 보기				
-meeting.link.copy	Copy the link	リンクをコピーする	复制链接	링크 복사				
+meeting.link.copy	Copy the link	リンクをコピー	复制链接	링크 복사				
 meeting.link.hint	Send this to the other person. When they open it, warifu asks them whether to enter (it never enters on its own). They need warifu installed too.	これを相手に送ります。相手が押すと割符が開いて、入るかどうかを尋ねます（勝手には入りません）。相手にも割符が入っている必要があります。	把它发给对方。对方点开后，割符会询问是否进入（不会擅自进入）。对方也需要装有割符。	이것을 상대에게 보냅니다. 상대가 열면 와리후가 들어갈지 묻습니다(멋대로 들어가지 않습니다). 상대에게도 와리후가 설치되어 있어야 합니다.	★	**「押すと入る」と読める訳にしないこと。**押すと割符が開いて、**入るかどうかを尋ねる**（そこで人が決める）。また、相手に割符が入っていなければ、リンクは何も起こさない。		
 meeting.link.label	Link to let them in	入ってもらうリンク	让对方进入的链接	들어오게 할 링크				
 meeting.qr.hint	Use this when the other person is in front of you. Scanning it gives the same link.	目の前の相手に読ませるときはこちら。読み取ると同じリンクになります。	对方就在眼前时用这个。扫出来是同一个链接。	상대가 눈앞에 있을 때 씁니다. 읽으면 같은 링크가 됩니다.				

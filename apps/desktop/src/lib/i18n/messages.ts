@@ -126,6 +126,7 @@ export type MessageKey =
   | 'contacts.me.share'
   | 'meeting.link.label'
   | 'meeting.link.copy'
+  | 'meeting.copy.which'
   | 'meeting.link.hint'
   | 'meeting.qr.reveal'
   | 'meeting.qr.hint'
@@ -344,7 +345,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.denied': 'カメラとマイクが許可されていません。OS の設定で許可してください。',
     'camera.missing': 'カメラかマイクが見つかりません。',
     'camera.busy': 'ほかのアプリがカメラを使っています。',
-    'meeting.key.copy': 'コピーする',
+    'meeting.key.copy': 'ルームキーをコピー',
     'meeting.key.copied': 'コピーしました',
     'meeting.key.reveal': 'ルームキーの全文を見る',
     'meeting.key.more': 'ルームキーをもう 1 本出す',
@@ -436,7 +437,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.what': 'これがこの PC のあなたです。閉じても同じ人でいられます。',
     'contacts.me.share': 'この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るにはルームキーが要ります）。',
     'meeting.link.label': '入ってもらうリンク',
-    'meeting.link.copy': 'リンクをコピーする',
+    'meeting.link.copy': 'リンクをコピー',
+    'meeting.copy.which': 'ふだんは「リンクをコピー」で渡します。相手が押すだけで入れます。リンクが使えない相手（CLI・紙・リンクを剥がすチャット）には、「ルームキーをコピー」で文字を渡してください。',
     'meeting.link.hint': 'これを相手に送ります。相手が押すと割符が開いて、入るかどうかを尋ねます（勝手には入りません）。相手にも割符が入っている必要があります。',
     'meeting.qr.reveal': 'QR で見せる',
     'meeting.qr.hint': '目の前の相手に読ませるときはこちら。読み取ると同じリンクになります。',
@@ -627,7 +629,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.denied': 'Camera and microphone are not allowed. Allow them in your OS settings.',
     'camera.missing': 'No camera or microphone found.',
     'camera.busy': 'Another app is using the camera.',
-    'meeting.key.copy': 'Copy',
+    'meeting.key.copy': 'Copy the room key',
     'meeting.key.copied': 'Copied',
     'meeting.key.reveal': 'Show the whole key',
     'meeting.key.more': 'Hand out one more key',
@@ -720,6 +722,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': 'You can show this public key to anyone. On its own it lets nobody in — coming in needs a room key.',
     'meeting.link.label': 'Link to let them in',
     'meeting.link.copy': 'Copy the link',
+    'meeting.copy.which': 'Normally hand over the link — they just press it. When a link will not work (CLI, paper, chats that strip links), copy the room key text instead.',
     'meeting.link.hint': 'Send this to the other person. When they open it, warifu asks them whether to enter (it never enters on its own). They need warifu installed too.',
     'meeting.qr.reveal': 'Show as a QR code',
     'meeting.qr.hint': 'Use this when the other person is in front of you. Scanning it gives the same link.',
@@ -910,7 +913,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.denied': '未允许使用摄像头和麦克风。请在系统设置中允许。',
     'camera.missing': '找不到摄像头或麦克风。',
     'camera.busy': '其他应用正在使用摄像头。',
-    'meeting.key.copy': '复制',
+    'meeting.key.copy': '复制 room key',
     'meeting.key.copied': '已复制',
     'meeting.key.reveal': '查看密钥全文',
     'meeting.key.more': '再发一把密钥',
@@ -1003,6 +1006,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': '这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。',
     'meeting.link.label': '让对方进入的链接',
     'meeting.link.copy': '复制链接',
+    'meeting.copy.which': '平时用「复制链接」交给对方，对方按一下就能进来。链接不可用时（CLI、纸面、会剥掉链接的聊天），请用「复制 room key」交出文字。',
     'meeting.link.hint': '把它发给对方。对方点开后，割符会询问是否进入（不会擅自进入）。对方也需要装有割符。',
     'meeting.qr.reveal': '显示二维码',
     'meeting.qr.hint': '对方就在眼前时用这个。扫出来是同一个链接。',
@@ -1193,7 +1197,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'camera.denied': '카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.',
     'camera.missing': '카메라나 마이크를 찾을 수 없습니다.',
     'camera.busy': '다른 앱이 카메라를 사용 중입니다.',
-    'meeting.key.copy': '복사하기',
+    'meeting.key.copy': '룸 키 복사',
     'meeting.key.copied': '복사했습니다',
     'meeting.key.reveal': '열쇠 전체 보기',
     'meeting.key.more': '열쇠를 한 개 더 내기',
@@ -1286,6 +1290,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me.share': '이 공개키(내 ID)는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).',
     'meeting.link.label': '들어오게 할 링크',
     'meeting.link.copy': '링크 복사',
+    'meeting.copy.which': '보통은 「링크 복사」로 건넵니다. 상대가 누르기만 하면 들어옵니다. 링크를 쓸 수 없는 상대(CLI·종이·링크를 없애는 채팅)에는 「룸 키 복사」로 문자를 건네주세요.',
     'meeting.link.hint': '이것을 상대에게 보냅니다. 상대가 열면 와리후가 들어갈지 묻습니다(멋대로 들어가지 않습니다). 상대에게도 와리후가 설치되어 있어야 합니다.',
     'meeting.qr.reveal': 'QR로 보여주기',
     'meeting.qr.hint': '상대가 눈앞에 있을 때 씁니다. 읽으면 같은 링크가 됩니다.',
