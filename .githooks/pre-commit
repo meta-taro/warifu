@@ -39,6 +39,11 @@ if command -v cargo >/dev/null 2>&1; then
   走る "cargo fmt --check" cargo fmt --all -- --check
   走る "cargo clippy -D warnings" cargo clippy --workspace --all-targets -- -D warnings
   走る "cargo test" cargo test --workspace
+  # **アプリの crate は workspace から外してある**（Cargo.toml の exclude）。
+  # つまり `--workspace` では走らない —— 2026-09-11 まで、`desk.rs` などの
+  # 試験 30 本が**どこでも走っていなかった。**
+  # ここで回す（手元は差分ビルドなので速い。CI は release.yml の macos で回す）
+  走る "cargo test（画面の Rust）" cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 else
   黄 "  cargo が見つかりません。Rust のゲートを実行できませんでした。"
   黄 "  → CI（.github/workflows/rust.yml）が最終ゲートです（decisions.md D17）。"
