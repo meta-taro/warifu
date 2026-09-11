@@ -90,6 +90,8 @@
     EVENT_LINK,
     EVENT_CHECK_UPDATE,
     roomLink,
+    nameRoom,
+    roomName,
     scheduleAdd,
     scheduleList,
     scheduleRemove,
@@ -874,6 +876,16 @@
     return () => clearInterval(札);
   });
 
+  // **主催しているルームの名前を、置き場所から読む。**
+  // 画面の中だけに持っていた頃は、閉じると消えていた（2026-09-11）
+  $effect(() => {
+    void (async () => {
+      const 名 = (await roomName()) ?? '';
+      const id = いまのルーム;
+      if (名 && id) ルームの名前たち = { ...ルームの名前たち, [id]: 名 };
+    })();
+  });
+
   // **予定を読み込み、1 分ごとに時計を進める。**
   // 「いま進んでいます」は、時計が止まっていると出ない
   $effect(() => {
@@ -1587,6 +1599,9 @@
    * 置き場所へ書くと**使い終わった名前が溜まっていく**。
    */
   function ルームに名前を付ける(id: string, 名前: string) {
+    // **置き場所にも書く。**画面の中だけだと、閉じたときに消える
+    // （オーナー・2026-09-11「ルーム名決めても、リセットされてますね」）
+    void nameRoom(id, 名前).catch((e) => (notice = 読める(e)));
     const 次 = { ...ルームの名前たち };
     if (名前.trim()) 次[id] = 名前.trim();
     else delete 次[id];

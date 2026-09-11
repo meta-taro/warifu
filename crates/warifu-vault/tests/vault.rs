@@ -1086,3 +1086,81 @@ fn 題や覚え書きに区切りや改行を書いても壊れない() {
     assert!(!読んだ[0].title().contains('\t'));
     assert!(!読んだ[0].title().contains('\n'));
 }
+
+// --- 主催しているルーム（id と名前を持ち越す・2026-09-11） ------------------
+
+#[test]
+fn 主催しているルームを持ち越せる() {
+    // オーナー ——「**ルーム名決めても、リセットされてますね**」
+    //
+    // 名前が消えていたのは画面の中だけに持っていたからだが、
+    // **それ以前にルーム id が起動ごとに変わっていた**ので、
+    // 保存しても紐付く先が無かった。**id と名前を一緒に持ち越す。**
+    let dir = 仮の置き場("room-roundtrip");
+    let vault = Vault::at(&dir);
+    assert!(vault.my_room().unwrap().is_none(), "はじめは無い");
+
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次")
+        .unwrap();
+    let (id, 名前) = Vault::at(&dir).my_room().unwrap().unwrap();
+    assert_eq!(id, "EB5RQ3AU3PX2HKCCR4AJ35HTBQ");
+    assert_eq!(名前, "週次");
+}
+
+#[test]
+fn ルームの名前は後から付けられる() {
+    // 建てた時点では名前が無い。**あとで付けても id は変わらない**
+    let dir = 仮の置き場("room-name-later");
+    let vault = Vault::at(&dir);
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "")
+        .unwrap();
+    assert_eq!(
+        vault.my_room().unwrap().unwrap(),
+        ("EB5RQ3AU3PX2HKCCR4AJ35HTBQ".to_owned(), String::new())
+    );
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次")
+        .unwrap();
+    assert_eq!(vault.my_room().unwrap().unwrap().1, "週次");
+}
+
+#[test]
+fn 見出しが違うファイルはルームとして読まない() {
+    let dir = 仮の置き場("room-header");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(vault.my_room_path(), "別のファイル\nEB5R\tなにか\n").unwrap();
+    assert!(vault.my_room().is_err());
+}
+
+#[test]
+fn 名前に区切りや改行を書いても壊れない() {
+    let dir = 仮の置き場("room-escape");
+    let vault = Vault::at(&dir);
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次\tの\n会")
+        .unwrap();
+    let (_, 名前) = vault.my_room().unwrap().unwrap();
+    assert!(!名前.contains('\t'));
+    assert!(!名前.contains('\n'));
+}
+
+#[test]
+fn ルームのファイルは自分だけが読める() {
+    let dir = 仮の置き場("room-mode");
+    let vault = Vault::at(&dir);
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次")
+        .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.my_room_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}

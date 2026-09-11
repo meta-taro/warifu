@@ -90,6 +90,21 @@ impl Conference {
         })
     }
 
+    /// **同じ id で主催し直す。**
+    ///
+    /// ルーム id が起動ごとに変わると、**名前も、渡した鍵の指す先も持ち越せない**
+    /// （2026-09-11 にオーナーの手元で出た ——「ルーム名決めても、リセットされてますね」）。
+    ///
+    /// **一回性は崩れない**（**D12**）—— 割符は鍵ごとに 1 回で、
+    /// 同じ id のルームでも使い終わった割符は通らない。
+    ///
+    /// # Errors
+    /// 定員が `2..=HARD_LIMIT` の外なら受け取らない（**D27**）。
+    pub fn host_with_id(me: PublicKey, capacity: usize, id: MeetingId) -> Result<Self, Error> {
+        let roster = Roster::with_capacity(me, capacity).map_err(Error::Roster)?;
+        Ok(Self { me, id, roster })
+    }
+
     /// 招かれた側として始める。名簿は招待が運んでくる（`Notice::Invite`）。
     #[must_use]
     pub fn joined(me: PublicKey, id: MeetingId, roster: Roster) -> Self {

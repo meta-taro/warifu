@@ -465,9 +465,47 @@ fn my_key(bridge: State<'_, Bridge>) -> String {
 /// 会議を作る。定員は `2..=16`（**D27**）。
 #[tauri::command]
 async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<String> {
-    let conference = Conference::host(bridge.device.public_key(), capacity)?;
+    let 私 = bridge.device.public_key();
+    // **前に主催していたルームがあれば、同じ id で建て直す**（2026-09-11）——
+    // id が起動ごとに変わると、付けた名前も、渡した鍵の指す先も持ち越せない
+    // （オーナー「ルーム名決めても、リセットされてますね」）。
+    // **一回性は崩れない**（D12。割符は鍵ごとに 1 回）。
+    let 覚えていた = warifu_vault::Vault::default_location()
+        .and_then(|v| v.my_room())
+        .ok()
+        .flatten()
+        .and_then(|(id, _)| id.parse::<MeetingId>().ok());
+    let conference = match 覚えていた {
+        Some(id) => Conference::host_with_id(私, capacity, id)?,
+        None => Conference::host(私, capacity)?,
+    };
     let id = ルームを足す(&bridge.conferences, &bridge.いまのルーム, conference).await;
+    // **建てた id を書き置く。**名前は画面から付けるので、ここでは触らない
+    if let Ok(vault) = warifu_vault::Vault::default_location() {
+        let 名前 = vault.my_room().ok().flatten().map_or_else(String::new, |(_, n)| n);
+        if let Err(e) = vault.save_my_room(&id.to_string(), &名前) {
+            記録!("ルームを書き置けませんでした: {e}");
+        }
+    }
     Ok(id.to_string())
+}
+
+/// **ルームに名前を付ける。**置き場所に書くので、閉じても消えない。
+///
+/// オーナー ——「ルーム名決めても、リセットされてますね」（2026-09-11）。
+/// それまで名前は画面の中だけで、**閉じると消えていた。**
+#[tauri::command]
+async fn name_room(id: String, name: String) -> Answer<()> {
+    let vault = warifu_vault::Vault::default_location()?;
+    vault.save_my_room(&id, &name)?;
+    Ok(())
+}
+
+/// 主催しているルームの名前。**無ければ空。**
+#[tauri::command]
+async fn room_name() -> Answer<String> {
+    let vault = warifu_vault::Vault::default_location()?;
+    Ok(vault.my_room()?.map_or_else(String::new, |(_, n)| n))
 }
 
 /// 相手の宛先へ繋ぎ、会議に入ると告げる。
@@ -1619,6 +1657,8 @@ pub fn run() {
             my_address,
             my_key,
             host_meeting,
+            name_room,
+            room_name,
             connect,
             listen,
             invite,

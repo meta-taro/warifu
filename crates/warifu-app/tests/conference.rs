@@ -195,3 +195,29 @@ fn 自分に対してはofferしない() {
     let c = Conference::host(私, 12).unwrap();
     assert!(!c.should_offer_to(&私));
 }
+
+#[test]
+fn 主催するルームの_id_を持ち越せる() {
+    // **ルーム id が起動ごとに変わると、名前も鍵も持ち越せない。**
+    // 2026-09-11 にオーナーの手元で出た ——「ルーム名決めても、リセットされてますね」。
+    // 名前は画面の中だけだったが、**それ以前に id が変わっていた**ので、
+    // 保存しても紐付く先が無かった。
+    //
+    // **同じ id で建て直せる**ようにする（渡した鍵の割符は一回性のままなので、
+    // 「前の鍵で誰でも入れる」にはならない・D12）。
+    let 私 = 鍵(1);
+    let 先 = Conference::host(私, 12).unwrap();
+    let id = 先.id();
+
+    let 建て直し = Conference::host_with_id(私, 12, id).unwrap();
+    assert_eq!(建て直し.id(), id, "同じ id で建て直せる");
+    assert_eq!(建て直し.members().len(), 1, "名簿は自分だけから始まる");
+    assert_eq!(建て直し.members()[0], 私, "主催は自分のまま");
+}
+
+#[test]
+fn 持ち越しでも_定員の決まりは同じ() {
+    let id = Conference::host(鍵(1), 12).unwrap().id();
+    assert!(Conference::host_with_id(鍵(1), 17, id).is_err());
+    assert!(Conference::host_with_id(鍵(1), 1, id).is_err());
+}

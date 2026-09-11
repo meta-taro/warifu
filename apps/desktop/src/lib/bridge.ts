@@ -403,6 +403,17 @@ export const shouldOfferTo = (peer: string) => invoke<boolean>('should_offer_to'
 export const sendSignal = (step: SignalPayload['step'], blob: string, to?: string) =>
   invoke<void>('send_signal', { payload: { step, blob, to } });
 
+/**
+ * ルームに名前を付ける。**置き場所に書く**（閉じても消えない）。
+ *
+ * オーナー ——「ルーム名決めても、リセットされてますね」（2026-09-11）。
+ */
+export const nameRoom = (id: string, name: string) =>
+  invoke<void>('name_room', { id, name });
+
+/** 主催しているルームの名前。**無ければ空。** */
+export const roomName = () => invoke<string>('room_name');
+
 /** 予定 1 つ（`warifu-vault` の `schedule.tsv`）。 */
 export interface AppointmentRow {
   /** 始まり（Unix 秒）。 */

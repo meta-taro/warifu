@@ -78,6 +78,9 @@ const KNOWN_HEADER: &str = "warifu-known-v1";
 
 /// 予定の見出し。**中身は 4 欄**（始まり・終わり・題・覚え書き）。
 const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
+
+/// 主催しているルームの見出し。**中身は 2 欄**（id・名前）。
+const MY_ROOM_HEADER: &str = "warifu-room-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -258,6 +261,66 @@ impl Vault {
             ));
         }
         self.write_private(&self.contacts_path(), &out, "名簿を書く")
+    }
+
+    /// 主催しているルームのファイル。
+    #[must_use]
+    pub fn my_room_path(&self) -> PathBuf {
+        self.dir.join("room.tsv")
+    }
+
+    /// 主催しているルーム（id と名前）。**まだ無ければ [`None`]。**
+    ///
+    /// **ルーム id を持ち越すために置く**（2026-09-11）——
+    /// 起動ごとに id が変わると、付けた名前も、渡した鍵の指す先も持ち越せない。
+    /// **一回性は崩れない**（D12。割符は鍵ごとに 1 回）。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn my_room(&self) -> Result<Option<(String, String)>, Error> {
+        let path = self.my_room_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "ルームを読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != MY_ROOM_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{MY_ROOM_HEADER} を待っていました）"),
+            ));
+        }
+        let Some(行) = lines.find(|l| !l.trim().is_empty()) else {
+            return Ok(None);
+        };
+        let mut 欄 = 行.split('\t');
+        let id = 欄.next().unwrap_or_default().trim().to_owned();
+        if id.is_empty() {
+            return Ok(None);
+        }
+        let 名前 = 欄.next().unwrap_or_default().trim().to_owned();
+        Ok(Some((id, 名前)))
+    }
+
+    /// 主催しているルームを書き置く。**名前は空でもよい**（あとから付けられる）。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_my_room(&self, id: &str, 名前: &str) -> Result<(), Error> {
+        // **人が書いた名前を、そのままファイルへ流さない**（TSV が崩れる）
+        let 安全: String = 名前
+            .chars()
+            .map(|c| {
+                if c == '\t' || c == '\n' || c == '\r' {
+                    ' '
+                } else {
+                    c
+                }
+            })
+            .collect();
+        let out = format!("{MY_ROOM_HEADER}\n{}\t{}\n", id.trim(), 安全.trim());
+        self.write_private(&self.my_room_path(), &out, "ルームを書く")
     }
 
     /// 予定のファイル。
