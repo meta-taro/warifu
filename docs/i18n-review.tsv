@@ -146,8 +146,8 @@ link.invited.no	Do not enter	入らない	不进入	들어가지 않는다
 link.lost	The route to them broke. They can come back with the same key — waiting.	相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.	★	**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
 link.relayed	Relayed	中継	中继	중계				
 link.unknown	Unknown	不明	未知	알 수 없음				
-mark.kept	Arrives later	あとで届く	稍后送达	나중에 도착	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
-mark.kept.hint	They were away, so it was left sealed at the poste restante. It arrives when they next start up.	相手が留守なので、受け取り先へ封のまま預けました。届くのは相手が次に起動したときです。	对方不在，已封着寄存在寄存处。对方下次启动时才会送到。	상대가 없어서 봉한 채로 보관소에 두었습니다. 상대가 다음에 켤 때 도착합니다.				
+mark.kept	Waiting to be received	受信待ち	等待接收	수신 대기	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
+mark.kept.hint	It arrives once they can receive it. Until then the poste restante holds it sealed.	相手が受け取れるようになったら届きます。それまでは受け取り先が封のまま預かっています。	等对方能够接收时就会送到。在那之前由寄存处封着保管。	상대가 받을 수 있게 되면 도착합니다. 그때까지는 보관소가 봉한 채로 맡아 둡니다.				
 mark.none	Not sent	送れていません	未发送	보내지 못함				
 mark.none.hint	There was no route and no poste restante, so it is kept nowhere.	経路も受け取り先も無いので、どこにも残っていません。	既没有通路也没有寄存处，所以没有留在任何地方。	통로도 보관소도 없어서 어디에도 남지 않았습니다.				
 mark.sent	Sent	送信済み	已发送	보냄	★	**渡したのは相手の機械までである。**「既読」「読みました」と読める訳にしないこと。割符には既読を集める機械が無い。**読んだかどうかは、こちらには分からない。**		
