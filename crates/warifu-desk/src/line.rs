@@ -32,6 +32,18 @@ pub enum ToDesk {
     Listen {
         /// どこで動いているか（フォルダ名など）。名乗らなければ `None`。
         場所: Option<String>,
+        /// **どこから聞くか。**この番号より後の発言をもらう（`None` なら新しい分だけ）。
+        ///
+        /// **「どこから」は読み手が言う。**この機械は「誰がどこまで読んだか」を
+        /// 覚えない —— 覚えると**既読を作ることになる**（**D94** で作らないと決めた）。
+        ///
+        /// **これが無いと、繋ぎ直したエージェントは、切れている間の言葉を
+        /// 永久に聞けない**（`.claude/issues/019`）。人は画面で過去を読めるが、
+        /// エージェントは読めない。**しかも落ちたことが誰にも見えない。**
+        ///
+        /// **古いエージェントは書いてこない。**書いてこなければ `None`（今までと同じ）。
+        #[serde(default)]
+        どこから: Option<u64>,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -233,8 +245,10 @@ impl ToDesk {
         let 中身: Self = serde_json::from_str(行.trim()).map_err(|_| Error::Malformed)?;
         match &中身 {
             Self::Say { body } => 検める(body)?,
-            Self::Listen { 場所: Some(名) } => 名乗りを検める(名)?,
-            Self::Listen { 場所: None } => {}
+            Self::Listen {
+                場所: Some(名), ..
+            } => 名乗りを検める(名)?,
+            Self::Listen { 場所: None, .. } => {}
             // **上限は書き手の側でも見る。**長すぎるものをこの機械まで運ばない
             Self::Profile { 名前, 紹介 } => プロフィールを検める(名前, 紹介)?,
             // 番号だけの行と、尋ねるだけの行。**中身が無いので検めるものが無い**
@@ -404,7 +418,10 @@ mod tests {
 
     #[test]
     fn 聞きに行く行がある() {
-        let 元 = ToDesk::Listen { 場所: None };
+        let 元 = ToDesk::Listen {
+            場所: None,
+            どこから: None,
+        };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
 
@@ -415,6 +432,7 @@ mod tests {
         // （2026-09-08 オーナー指摘「この機械のどこで起動しているエージェントなのか」）
         let 元 = ToDesk::Listen {
             場所: Some("zumen".to_owned()),
+            どこから: None,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -424,7 +442,10 @@ mod tests {
         // **名乗りは要求しない。**無ければこの機械が既定の呼び方をする
         assert_eq!(
             ToDesk::読む(r#"{"型":"listen","場所":null}"#).unwrap(),
-            ToDesk::Listen { 場所: None }
+            ToDesk::Listen {
+                場所: None,
+                どこから: None
+            }
         );
     }
 
@@ -433,6 +454,7 @@ mod tests {
         for 壊す in ["\t", "\n", "", "   "] {
             let 行 = ToDesk::Listen {
                 場所: Some(壊す.to_owned()),
+                どこから: None,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -443,10 +465,35 @@ mod tests {
     fn 長すぎる名乗りは受けない() {
         let 長い = "あ".repeat(名乗りの上限 + 1);
         let 行 = ToDesk::Listen {
-            場所: Some(長い)
+            場所: Some(長い),
+            どこから: None,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
+    }
+
+    // `.claude/issues/019` —— **繋ぎ直したエージェントが、切れている間の言葉を聞けない。**
+    // 「どこから」は**読み手が言う**（この機械は誰がどこまで読んだかを覚えない・**D94**）
+    #[test]
+    fn どこからを書かない古いエージェントも読める() {
+        // **今までの行がそのまま通る。**通らないと、古いエージェントが繋げなくなる
+        let 行 = r#"{"型":"listen","場所":"zumen"}"#;
+        assert_eq!(
+            ToDesk::読む(行).expect("読める"),
+            ToDesk::Listen {
+                場所: Some("zumen".to_owned()),
+                どこから: None
+            }
+        );
+    }
+
+    #[test]
+    fn どこからを書いたら_そのまま往復する() {
+        let 元 = ToDesk::Listen {
+            場所: Some("zumen".to_owned()),
+            どこから: Some(42),
+        };
+        assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
     }
 
     #[test]

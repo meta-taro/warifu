@@ -412,14 +412,29 @@ async fn この機械につなげば_流した行がこの機械に届く() {
     // **ここが「エージェントが喋ると人の画面に出る」の実体。**
     use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-chat-test.sock");
+    // **試験ごとに別のフォルダへ置く。**
+    //
+    // どこまで聞いたかの控えは**机と同じフォルダの下**に置く（`heard/<名乗り>`・
+    // `.claude/issues/019`）。全部の試験が `temp_dir()` を直に使うと、
+    // **別の試験が書いた控えを読んでしまう**（2026-09-12 に実際に落ちた ——
+    // `どこから: Some(7)` が来た）。
+    let 部屋 = std::env::temp_dir().join("warifu-mcp-chat-test");
+    std::fs::create_dir_all(&部屋).expect("フォルダが作れること");
+    let _ = std::fs::remove_dir_all(部屋.join("heard"));
+    let 場所 = 部屋.join("desk.sock");
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     let この機械 = tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
         // 1 本目は「聞く」の挨拶
         let 挨拶 = 行の口.受ける().await.unwrap().unwrap();
         // **どこで動いているかを名乗る**（2026-09-08）。名乗らない形も通る
-        assert_eq!(ToDesk::読む(&挨拶).unwrap(), ToDesk::Listen { 場所: None });
+        assert_eq!(
+            ToDesk::読む(&挨拶).unwrap(),
+            ToDesk::Listen {
+                場所: None,
+                どこから: None
+            }
+        );
         let 行 = 行の口.受ける().await.unwrap().unwrap();
         // **この機械は必ず返事をする。**返さないと、送った側は待ち続ける（D49）
         行の口

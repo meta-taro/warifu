@@ -42,6 +42,7 @@
 //! 関所の照合は完全一致なので、`inbox.open.raw` の札で `inbox.list` は通らない。
 
 mod chat;
+mod heard;
 mod server;
 mod tools;
 

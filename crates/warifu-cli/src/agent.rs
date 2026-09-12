@@ -164,9 +164,12 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let mut 口 = 口::新しく(繋ぐ(&設.この機械).await.map_err(|e| {
         format!("この機械が開いていません（この PC で割符の画面を開いてください）: {e}")
     })?);
+    // **初めて繋ぐときは、過去をもらわない**（頼まれてもいない過去を押し付けない）
+    let mut 最後に聞いた: Option<u64> = None;
     口.送る(
         &ToDesk::Listen {
             場所: 設.名乗り.clone(),
+            どこから: 最後に聞いた,
         }
         .書く(),
     )
@@ -187,7 +190,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     // （2026-09-11 にオーナーの手元で実際に落ちた）
     let mut 何度目 = 0_u32;
     loop {
-        match 一巡(設, &mut 口, &mut 数).await {
+        match 一巡(設, &mut 口, &mut 数, &mut 最後に聞いた).await {
             // 人が「止まれ」と言った／自分から降りた
             Ok(降りる::止まる) => return Ok(()),
             Ok(降りる::切れた) => {}
@@ -199,10 +202,14 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         match 繋ぐ(&設.この機械).await {
             Ok(一本) => {
                 口 = 口::新しく(一本);
+                // **どこまで聞いたかを名乗る**（`.claude/issues/019`）。
+                // これが無いと、**切れている間に届いた言葉を永久に聞けない。**
+                // 繋ぎ直せてはいるのに落ちている、という**見えない取りこぼし**になっていた
                 if let Err(e) = 口
                     .送る(
                         &ToDesk::Listen {
                             場所: 設.名乗り.clone(),
+                            どこから: 最後に聞いた,
                         }
                         .書く(),
                     )
@@ -233,10 +240,18 @@ async fn 一巡(
     設: &設定,
     口: &mut 口<impl warifu_desk::一本>,
     数: &mut 回数,
+    最後に聞いた: &mut Option<u64>,
 ) -> Result<降りる, Box<dyn std::error::Error>> {
     while let Some(行) = 口.受ける().await? {
         let (from, body, at) = match FromDesk::読む(&行) {
-            Ok(FromDesk::Heard { from, body, at, .. }) => (from, body, at),
+            Ok(FromDesk::Heard { id, from, body, at }) => {
+                // **どこまで聞いたかを覚える。**繋ぎ直したときにここから続ける。
+                // **番号が無い（0）机とも繋がる** —— そのときは覚えない
+                if id > 0 {
+                    *最後に聞いた = Some(id);
+                }
+                (from, body, at)
+            }
             // **人が画面から止めた。**落とすしか止め方が無い状態にしない
             Ok(FromDesk::Stop) => {
                 eprintln!("止まれと言われました。降ります。");
@@ -330,6 +345,65 @@ async fn 起こす(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // `.claude/issues/019` —— **繋ぎ直したエージェントが、切れている間の言葉を聞けない。**
+    // 繋ぎ直せてはいるのに落ちている、という**見えない取りこぼし**だった。
+    #[tokio::test]
+    async fn 聞いた番号を覚える() {
+        let (こちら, むこう) = tokio::io::duplex(4096);
+        let 行 = FromDesk::Heard {
+            id: 7,
+            from: "だれか".to_owned(),
+            body: "やあ".to_owned(),
+            at: "18:00".to_owned(),
+        }
+        .書く();
+        // **相手側を書いて閉じる。**閉じないと `一巡` が待ち続ける
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            let mut むこう = むこう;
+            let _ = むこう.write_all(行.as_bytes()).await;
+            let _ = むこう.write_all(b"\n").await;
+            let _ = むこう.shutdown().await;
+        });
+        let 設 = 設定 {
+            名乗り: Some("試し".to_owned()),
+            この機械: std::path::PathBuf::from("/dev/null"),
+            // **命令は持たせない。**ここで見たいのは番号を覚えるかだけ
+            命令: None,
+        };
+        let mut 口 = 口::新しく(こちら);
+        let mut 数 = 回数::新しく();
+        let mut 最後に聞いた = None;
+        let 終わり = 一巡(&設, &mut 口, &mut 数, &mut 最後に聞いた).await;
+        assert!(matches!(終わり, Ok(降りる::切れた)));
+        assert_eq!(最後に聞いた, Some(7));
+    }
+
+    #[tokio::test]
+    async fn 番号の無い机では覚えない() {
+        // **古い机は 0 を返す。**0 は「番号が無い」と読む約束（`line.rs`）——
+        // **0 を覚えると、次に繋いだとき全部もらい直すことになる**
+        let (こちら, むこう) = tokio::io::duplex(4096);
+        let 行 = r#"{"型":"heard","id":0,"from":"だれか","body":"やあ","at":"18:00"}"#;
+        tokio::spawn(async move {
+            use tokio::io::AsyncWriteExt;
+            let mut むこう = むこう;
+            let _ = むこう.write_all(行.as_bytes()).await;
+            let _ = むこう.write_all(b"\n").await;
+            let _ = むこう.shutdown().await;
+        });
+        let 設 = 設定 {
+            名乗り: None,
+            この機械: std::path::PathBuf::from("/dev/null"),
+            命令: None,
+        };
+        let mut 口 = 口::新しく(こちら);
+        let mut 数 = 回数::新しく();
+        let mut 最後に聞いた = None;
+        let _ = 一巡(&設, &mut 口, &mut 数, &mut 最後に聞いた).await;
+        assert_eq!(最後に聞いた, None);
+    }
 
     #[test]
     fn 繋ぎ直す間は_だんだん伸ばして_上限で止める() {
