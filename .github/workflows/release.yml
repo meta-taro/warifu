@@ -120,6 +120,42 @@ jobs:
           fi
           rm -f "$RUNNER_TEMP/cert.p12"
 
+      # **CLI を公証まで通す**（`.claude/issues/018`）。
+      #
+      # **署名だけでは足りない。**2026-09-12 に実物で測った ——
+      # 署名済みの CLI に隔離属性を付けて実行すると、**出力なしで固まり、
+      # しかもファイルが消えた**（2 回再現）。落とした人には
+      # 「ダウンロードが失敗した」としか見えない。
+      #
+      # **券は貼れない**（券はアプリの束か `.dmg` に貼る・**D101**）。
+      # zip で出して公証を通すと、Gatekeeper が**その都度オンラインで問い合わせて**通す。
+      #
+      # `.pkg` にすれば券を貼れるが、**Developer ID Installer 証明書が別に要る**
+      # （人の判断と費用・baseline §14 / §29）。**それは `issues/018` に残す。**
+      - name: CLI を公証に出す
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          # **`--keepParent` を付けない。**単体のファイルに付けると
+          # 親フォルダ名（`release/`）まで包みに入る
+          ditto -c -k target/release/warifu "$RUNNER_TEMP/warifu-cli.zip"
+          # **待つ。**出しただけで先へ進むと、通ったかどうか分からないまま配る
+          xcrun notarytool submit "$RUNNER_TEMP/warifu-cli.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m 2>&1 | tee /tmp/cli-notary.txt
+          # **通ったことを確かめる。**握り潰さない
+          if ! grep -q 'status: Accepted' /tmp/cli-notary.txt; then
+            echo "::error::CLI の公証が通りませんでした"
+            exit 1
+          fi
+          echo "CLI の公証が通りました（券は貼れないので、初回は網が要ります）"
+
       # **画面の Rust の試験を、ここで回す。**
       #
       # アプリの crate は root の workspace から外してあるので
