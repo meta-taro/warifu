@@ -51,6 +51,36 @@ pub fn 呼び名(contacts: &Contacts, key: PublicKey) -> String {
     }
 }
 
+/// `warifu id` が添える見立て。
+///
+/// **人の目に突き合わせを任せない**（2026-09-12・Mac Air の指摘）——
+///
+/// > CLI は画面と同じ置き場所を読めるので、`warifu id` か `warifu doctor` が
+/// > 自分で突き合わせて「画面と同じです」「違います」まで言えるはずです。
+#[derive(Debug, PartialEq, Eq)]
+pub enum 身元の見立て {
+    /// 画面と同じ身元。
+    画面と同じ,
+    /// **`WARIFU_HOME` で別人になっている。**画面の鍵を添えて言う。
+    画面とは別人 { 画面の鍵: PublicKey },
+    /// 画面をまだ一度も開いていない（比べる相手が無い）。
+    画面の身元がまだ無い,
+}
+
+/// いまの身元と、画面の身元を突き合わせる。
+///
+/// `画面の鍵` が `None` なら、画面をまだ開いていない（`seed` が無い）。
+#[must_use]
+pub fn 見立てる(
+    自分の鍵: PublicKey, 画面の鍵: Option<PublicKey>
+) -> 身元の見立て {
+    match 画面の鍵 {
+        None => 身元の見立て::画面の身元がまだ無い,
+        Some(k) if k == 自分の鍵 => 身元の見立て::画面と同じ,
+        Some(k) => 身元の見立て::画面とは別人 { 画面の鍵: k },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,5 +200,45 @@ mod 引数の試験 {
         assert_eq!(間隔を言う(90), "1 分 30 秒");
         assert_eq!(間隔を言う(3600), "1 時間");
         assert_eq!(間隔を言う(3661), "1 時間 1 分 1 秒");
+    }
+}
+
+#[cfg(test)]
+mod 見立ての試験 {
+    use super::*;
+    use warifu_core::Seed;
+
+    fn 鍵(seed: [u8; 32]) -> PublicKey {
+        Seed::from_bytes(seed)
+            .profile("Personal")
+            .device(warifu_core::端末の呼び名)
+            .public_key()
+    }
+
+    #[test]
+    fn 画面と同じ鍵なら_同じと言う() {
+        let k = 鍵([7; 32]);
+        assert_eq!(見立てる(k, Some(k)), 身元の見立て::画面と同じ);
+    }
+
+    #[test]
+    fn 違う鍵なら_別人だと言い_画面の鍵を添える() {
+        let 自分 = 鍵([7; 32]);
+        let 画面 = 鍵([9; 32]);
+        assert_eq!(
+            見立てる(自分, Some(画面)),
+            身元の見立て::画面とは別人 {
+                画面の鍵: 画面
+            }
+        );
+    }
+
+    #[test]
+    fn 画面をまだ開いていないなら_無いと言う() {
+        // **「違います」と言わない。**比べる相手が無いだけである
+        assert_eq!(
+            見立てる(鍵([7; 32]), None),
+            身元の見立て::画面の身元がまだ無い
+        );
     }
 }

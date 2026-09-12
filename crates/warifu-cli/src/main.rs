@@ -29,7 +29,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{Mutex, mpsc};
 
 use warifu_app::{Conference, format_invite, is_own_invite, parse_invite};
-use warifu_core::{Device, PublicKey, Revocations};
+use warifu_core::{Device, PublicKey, Revocations, 端末の呼び名};
 use warifu_intent::Channel;
 use warifu_meeting::{MeetingId, Notice, Roster};
 use warifu_net::{Address, Node, 中継の使い方};
@@ -401,8 +401,68 @@ fn 名乗る() -> Result<(), Box<dyn std::error::Error>> {
     let (vault, device) = 身元()?;
     // 鍵は標準出力へ（`warifu id | pbcopy` が使えるように）。説明は標準エラーへ
     eprintln!("warifu: 身元の置き場所 {}", vault.dir().display());
+    画面と突き合わせる(&vault, device.public_key());
     println!("{}", device.public_key());
     Ok(())
+}
+
+/// **画面と同じ身元かを、自分で突き合わせて言う。**
+///
+/// 2026-09-12、別マシンから来た指摘（`.claude/issues/017`）——
+///
+/// > 52 文字の base32 を目で突き合わせるのは、まさに人が間違える所です。
+/// > 頭と尻だけ見て「同じ」と言ってしまいます。
+///
+/// > `WARIFU_HOME` を設定した手順書をなぞった人は、自分が別人になったことに気づけません。
+/// > ルームキーは 1 本 = 1 人なので、ここで取り違えると 1 本無駄になります。
+///
+/// **突き合わせられないときは黙る**（「違います」と言わない）——
+/// 画面をまだ開いていない機械では、比べる相手が無いだけである。
+fn 画面と突き合わせる(いまの: &Vault, 自分の鍵: PublicKey) {
+    let Ok(画面) = Vault::screen_location() else {
+        return;
+    };
+    // 同じ置き場所なら、突き合わせる意味が無い
+    if 画面.dir() == いまの.dir() {
+        return;
+    }
+    let 画面の鍵 = 画面
+        .open_seed()
+        .ok()
+        .map(|seed| seed.profile("Personal").device(端末の呼び名).public_key());
+    match identity::見立てる(自分の鍵, 画面の鍵) {
+        identity::身元の見立て::画面と同じ => {
+            eprintln!("warifu: 画面と同じ身元です");
+        }
+        identity::身元の見立て::画面の身元がまだ無い => {
+            eprintln!(
+                "warifu: 画面（{}）にはまだ身元がありません",
+                画面.dir().display()
+            );
+        }
+        identity::身元の見立て::画面とは別人 { 画面の鍵 } => {
+            eprintln!("warifu: **この機械には身元が 2 つあります。**");
+            eprintln!(
+                "warifu:   いま名乗る身元  {}  {}",
+                短く(&自分の鍵.to_string()),
+                いまの.dir().display()
+            );
+            eprintln!(
+                "warifu:   画面が使う身元  {}  {}",
+                短く(&画面の鍵.to_string()),
+                画面.dir().display()
+            );
+            eprintln!(
+                "warifu: **画面と別人です。**{} を外すと、画面と同じ身元になります",
+                warifu_vault::HOME_ENV
+            );
+        }
+    }
+}
+
+/// 鍵は長い。**頭だけ出す**（見分けが付く長さに切る）。
+fn 短く(鍵: &str) -> String {
+    format!("{}…", &鍵[..12.min(鍵.len())])
 }
 
 /// 覚えた相手を扱う口。

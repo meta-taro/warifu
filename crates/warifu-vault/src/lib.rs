@@ -59,6 +59,16 @@ pub use schedule::{Appointment, SCHEDULE_NOTE_MAX, TITLE_MAX};
 /// 環境変数でこの場所を差し替えられる。**別の身元で試すときに使う。**
 pub const HOME_ENV: &str = "WARIFU_HOME";
 
+/// **画面が使う置き場所**を、`HOME` から決める。`WARIFU_HOME` は見ない。
+#[must_use]
+pub fn 画面の置き場所(home: &Path) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/warifu")
+    } else {
+        home.join(".local/share/warifu")
+    }
+}
+
 const SEED_HEADER: &str = "warifu-seed-v1";
 /// 3 欄（鍵・呼び名・覚えた日）。**読めるが、もう書かない。**
 const CONTACTS_HEADER_V1: &str = "warifu-contacts-v1";
@@ -113,19 +123,32 @@ impl Vault {
             doing: "置き場所を決める",
             source: std::io::Error::other("HOME が設定されていません"),
         })?;
-        let base = PathBuf::from(home);
-        let dir = if cfg!(target_os = "macos") {
-            base.join("Library/Application Support/warifu")
-        } else {
-            base.join(".local/share/warifu")
-        };
-        Ok(Self::at(dir))
+        Ok(Self::at(画面の置き場所(Path::new(&home))))
     }
 
     /// 置き場所そのもの。
     #[must_use]
     pub fn dir(&self) -> &Path {
         &self.dir
+    }
+
+    /// **画面（GUI）が使う置き場所。**`WARIFU_HOME` を見ない。
+    ///
+    /// `warifu id` が「**いま自分が名乗る鍵は、画面と同じか**」を自分で確かめるために要る。
+    /// 2026-09-12 に別マシンから来た指摘 ——
+    ///
+    /// > 52 文字の base32 を目で突き合わせるのは、まさに人が間違える所です。
+    /// > 頭と尻だけ見て「同じ」と言ってしまいます。
+    ///
+    /// # Errors
+    /// `HOME` が無いとき。
+    pub fn screen_location() -> Result<Self, Error> {
+        let home = std::env::var_os("HOME").ok_or_else(|| Error::Io {
+            path: PathBuf::from("$HOME"),
+            doing: "置き場所を決める",
+            source: std::io::Error::other("HOME が設定されていません"),
+        })?;
+        Ok(Self::at(画面の置き場所(Path::new(&home))))
     }
 
     /// シードのある場所。
