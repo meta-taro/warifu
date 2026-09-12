@@ -31,6 +31,7 @@
   import ContactsPane from '$lib/contacts/ContactsPane.svelte';
   import CropDialog from '$lib/contacts/CropDialog.svelte';
   import { この機械の印, ルームのid, type 行 as 連絡帳の行 } from '$lib/contacts/list';
+  import { CLIの知らせ } from '$lib/update/cli';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -132,6 +133,7 @@
     sendText,
     sendToContact,
     postbox,
+    cliState,
     setPostbox,
     profiles,
     setProfile,
@@ -237,6 +239,8 @@
 
   let members = $state<Member[]>([]);
   let notice = $state('');
+  /** 同じ PC の warifu コマンドについての知らせ。**言うことが無ければ `null`。** */
+  let cliの知らせ = $state<ReturnType<typeof CLIの知らせ>>(null);
   /** 相手ごとの通話（**M6**）。1 本しか持たないと、3 人目で前の相手が切れる。 */
   const calls = new Map<string, Call>();
   /** 相手ごとの映像と経路。名簿の並びで出す。 */
@@ -749,6 +753,10 @@
       // 無かったことは言わない —— 毎回「最新です」と出るのはうるさい。
       // **繋がらなくても起動を止めない**
       void 更新を確かめる(true);
+      // **同じ PC の warifu コマンドも見る**（`.claude/issues/017`）。
+      // 画面だけ上げても、コマンドは上がらない —— 症状は「繋がらない」だけなので、
+      // **言われなければ気づけない。**繋がらなくても起動を止めない
+      cliの知らせ = CLIの知らせ((await cliState().catch(() => '無い' as const)) ?? '無い');
     })();
   });
 
@@ -1785,6 +1793,17 @@
 
 {#if notice}
   <p class="notice top">{notice}</p>
+{/if}
+
+<!--
+  **同じ PC の warifu コマンドが古いままなら、名指しで言う**（`.claude/issues/017`）。
+  画面だけ上げた人は「直ったつもりで直っていない」—— 症状は「繋がらない」だけなので、
+  コマンドが古いせいだと気づけない。**言うのは、言わなければ気づけないときだけ。**
+-->
+{#if cliの知らせ}
+  <p class="notice top">
+    {format(t(cliの知らせ.鍵), { ver: cliの知らせ.版, path: cliの知らせ.場所 })}
+  </p>
 {/if}
 
 <svelte:window onkeydown={幕を閉じる} />

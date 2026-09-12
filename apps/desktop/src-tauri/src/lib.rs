@@ -85,6 +85,7 @@ macro_rules! 記録 {
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
 mod call;
+mod cli;
 mod contacts;
 mod desk;
 mod link;
@@ -465,6 +466,33 @@ async fn invite(
 ///
 /// 画面側が `navigator.languages` から決めた答えをそのまま渡す。
 /// ここで OS へ聞き直すと、**2 か所が別の答えを出しうる。**
+/// **同じ機械の CLI が、画面と同じ版か。**
+///
+/// 画面だけ上げた人は「直ったつもりで直っていない」（`.claude/issues/017`）——
+/// **繋がらないという症状だけが残り、CLI が古いせいだと気づけない。**
+///
+/// **見つからないのは不具合ではない**（CLI を入れていない人が普通）。
+#[tauri::command]
+fn cli_state() -> cli::CLIの様子 {
+    let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
+        return cli::CLIの様子::無い;
+    };
+    let 画面の版 = env!("CARGO_PKG_VERSION");
+    for 場所 in cli::探す場所(std::path::Path::new(&home)) {
+        if !場所.is_file() {
+            continue;
+        }
+        // **版を聞くだけ。**他の口は叩かない
+        let Ok(出た) = std::process::Command::new(&場所).arg("version").output() else {
+            continue;
+        };
+        let 文 = String::from_utf8_lossy(&出た.stdout).to_string()
+            + &String::from_utf8_lossy(&出た.stderr);
+        return cli::見比べる(&場所, 画面の版, &文);
+    }
+    cli::CLIの様子::無い
+}
+
 #[tauri::command]
 fn set_menu_locale(app: AppHandle, locale: String, theme: Option<String>) -> Answer<()> {
     // **メニューはメインスレッドでしか触れない。**macOS では別スレッドから差し替えると
@@ -1745,6 +1773,7 @@ pub fn run() {
             rooms,
             look_at_room,
             set_menu_locale,
+            cli_state,
             postbox::postbox,
             postbox::set_postbox,
             postbox::fetch_postbox,

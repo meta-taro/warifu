@@ -455,3 +455,18 @@ export async function onEvent<T>(name: string, handler: (payload: T) => void): P
   const un = await subscribe<T>(name, (e) => handler(e.payload));
   return un;
 }
+
+/**
+ * **同じ機械の CLI の様子。**
+ *
+ * 画面だけ上げた人は「直ったつもりで直っていない」（`.claude/issues/017`）。
+ * **見つからないのは不具合ではない**（入れていない人が普通）。
+ */
+export type CLIの様子 =
+	| '無い'
+	| { 同じ: { 場所: string; 版: string } }
+	| { 古い: { 場所: string; 版: string } }
+	| { 新しい: { 場所: string; 版: string } }
+	| { 読めない: { 場所: string; 出たもの: string } };
+
+export const cliState = () => invoke<CLIの様子>('cli_state');
