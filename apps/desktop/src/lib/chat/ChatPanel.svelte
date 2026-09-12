@@ -8,7 +8,8 @@
   // **判断はここに置かない。**押せるかどうかは `$lib/meeting/stage` の
   // `届く先がある` が決める。ここは出すだけ。
 
-  import { 送ってよい, type 会話行 } from '$lib/meeting/announce';
+  import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
+  import Avatar from '$lib/contacts/Avatar.svelte';
   import { 新しい行が来たとき, 底に着いた, type 位置 } from './scroll';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
@@ -151,7 +152,11 @@
       <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
         {#if line.at}<span class="at">{line.at}</span>{/if}{#if line.留守中}<span class="late"
             >{t('chat.late')}</span
-          >{/if}{#if !line.system}<b>{line.who}</b
+          >{/if}{#if 差出人の顔(line)}<Avatar
+            種={差出人の顔(line) ?? ''}
+            大きさ={14}
+            名=""
+          />{/if}{#if !line.system}<b>{line.who}</b
           >{/if}{line.body}{#if line.届き}<span
             class="mark"
             class:none={line.届き.札 === 'mark.none'}
@@ -312,6 +317,12 @@
     box-shadow: var(--shadow-sm, 0 1px 4px rgb(0 0 0 / 0.25));
   }
   /* **会議からの知らせ。**人の発言と見分けが付く形にする */
+  /* **差出人の顔。**連絡帳と同じ絵を出す（同じ人が場所によって変わらない）。
+     行の中に並ぶので、字の高さに合わせて少し下げる */
+  .line :global(.face) {
+    margin-right: 4px;
+    vertical-align: -2px;
+  }
   /* **どこまで行ったかの札。**既読ではない（読んだかは分からない） */
   .mark {
     margin-left: 6px;

@@ -7,6 +7,7 @@
   import type { LinkPath } from '../link/path';
   import { clampCapacity } from './roster';
   import { 呼び名 } from './names';
+  import Avatar from '$lib/contacts/Avatar.svelte';
 
   export interface Member {
     /** 公開鍵（base32・全桁）。**名前ではなくこれで数える**（呼び名は変わる） */
@@ -92,6 +93,10 @@
             {t('roster.name.save')}
           </button>
         {:else}
+          <!-- **連絡帳と同じ顔を出す。**呼び名を付けていない相手は名前が鍵の頭なので、
+               字だけでは誰が誰か追えない（オーナー・2026-09-12）。
+               **確かめるのは全桁の鍵**であって、顔は見分けにすぎない -->
+          <Avatar 種={m.key} 大きさ={18} 名="" />
           <span class="name">{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
           {#if m.host}<span class="host">主催</span>{/if}
           <LinkBadge {locale} path={m.path} />

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { 入退室の知らせ, 話の記録, 送ってよい, いま時刻, type 会話行 } from './announce';
+import {
+  入退室の知らせ,
+  話の記録,
+  送ってよい,
+  いま時刻,
+  差出人の顔,
+  type 会話行,
+} from './announce';
 
 describe('入退室の知らせ', () => {
   it('入った人を、チャット欄に出す行にする', () => {
@@ -100,5 +107,38 @@ describe('改行と送信を分ける', () => {
 
   it('変換中は、Shift を押していても送らない', () => {
     expect(送ってよい({ key: 'Enter', isComposing: true, shiftKey: true })).toBe(false);
+  });
+});
+
+describe('差出人の顔', () => {
+  // オーナー・2026-09-12「`6X7BDCXBJ3DW…` `KBN2GCQO35W…` これ、どなたなのか
+  // わかりにくいのどうにかできないですかね。」
+  //
+  // **顔は連絡帳と同じものを出す**（`contacts/Avatar.svelte`）。
+  // ここで別の絵を作ると、**同じ人が場所によって違う見た目になる。**
+  const 鍵 = '6X7BDCXBJ3DWQ2HFVLTNZKPMS4YAEUGIR5OJC7XW3BNQHLFT2IDA';
+
+  it('相手の発言には、その鍵の顔を出す', () => {
+    expect(差出人の顔({ who: '6X7BDCXBJ3DW…', body: 'やあ', mine: false, 顔の種: 鍵 })).toBe(鍵);
+  });
+
+  it('この機械のエージェントには、連絡帳と同じ種を使う（`desk:` 付き）', () => {
+    expect(
+      差出人の顔({ who: 'zumen のエージェント', body: '直しました', mine: false, agent: true, 顔の種: 'desk:zumen のエージェント' })
+    ).toBe('desk:zumen のエージェント');
+  });
+
+  it('**会議からの知らせには顔を出さない**（人ではない）', () => {
+    expect(差出人の顔({ who: '', body: 'B役 が入りました', mine: false, system: true, 顔の種: 鍵 })).toBe(
+      null
+    );
+  });
+
+  it('**自分の発言には出さない**（自分が誰かは分かっている）', () => {
+    expect(差出人の顔({ who: 'あなた', body: 'はい', mine: true, 顔の種: 鍵 })).toBe(null);
+  });
+
+  it('**種が無ければ顔を作らない**（知らない相手を、知っているように見せない）', () => {
+    expect(差出人の顔({ who: '誰か', body: 'やあ', mine: false })).toBe(null);
   });
 });
