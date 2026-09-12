@@ -42,6 +42,7 @@ mod error;
 mod profile;
 mod schedule;
 
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -59,7 +60,24 @@ pub use schedule::{Appointment, SCHEDULE_NOTE_MAX, TITLE_MAX};
 /// 環境変数でこの場所を差し替えられる。**別の身元で試すときに使う。**
 pub const HOME_ENV: &str = "WARIFU_HOME";
 
-/// **画面が使う置き場所**を、`HOME` から決める。`WARIFU_HOME` は見ない。
+/// **家はどこか。**`HOME` が無ければ `USERPROFILE` を見る。
+///
+/// **Windows の画面には `HOME` が無い。**
+///
+/// 2026-09-12、ASUS（Windows）で踏んだ —— **画面からルームに入れなかった。**
+/// 押した直後に題が変わるので押下は拾われているのに、**相手には 1 件も届いていない**
+/// （主催側のログに `待受: 誰かが来た` が出ない）。同じ鍵を `warifu.exe` に渡すと
+/// **1 秒で繋がる。**シェル（Git Bash など）は `HOME` を立てるが、
+/// **エクスプローラから開いた画面には無い。**
+///
+/// **`HOME` を先に見る** —— すでに入っている人の身元を動かさないため。
+#[must_use]
+pub fn 家を決める(home: Option<&OsStr>, userprofile: Option<&OsStr>) -> Option<PathBuf> {
+    let 使える = |値: Option<&OsStr>| 値.filter(|v| !v.is_empty()).map(PathBuf::from);
+    使える(home).or_else(|| 使える(userprofile))
+}
+
+/// **画面が使う置き場所**を、家から決める。`WARIFU_HOME` は見ない。
 #[must_use]
 pub fn 画面の置き場所(home: &Path) -> PathBuf {
     if cfg!(target_os = "macos") {
@@ -118,12 +136,16 @@ impl Vault {
         if let Some(custom) = std::env::var_os(HOME_ENV) {
             return Ok(Self::at(PathBuf::from(custom)));
         }
-        let home = std::env::var_os("HOME").ok_or_else(|| Error::Io {
+        let home = 家を決める(
+            std::env::var_os("HOME").as_deref(),
+            std::env::var_os("USERPROFILE").as_deref(),
+        )
+        .ok_or_else(|| Error::Io {
             path: PathBuf::from("$HOME"),
             doing: "置き場所を決める",
-            source: std::io::Error::other("HOME が設定されていません"),
+            source: std::io::Error::other("HOME も USERPROFILE も設定されていません"),
         })?;
-        Ok(Self::at(画面の置き場所(Path::new(&home))))
+        Ok(Self::at(画面の置き場所(&home)))
     }
 
     /// 置き場所そのもの。
@@ -143,12 +165,16 @@ impl Vault {
     /// # Errors
     /// `HOME` が無いとき。
     pub fn screen_location() -> Result<Self, Error> {
-        let home = std::env::var_os("HOME").ok_or_else(|| Error::Io {
+        let home = 家を決める(
+            std::env::var_os("HOME").as_deref(),
+            std::env::var_os("USERPROFILE").as_deref(),
+        )
+        .ok_or_else(|| Error::Io {
             path: PathBuf::from("$HOME"),
             doing: "置き場所を決める",
-            source: std::io::Error::other("HOME が設定されていません"),
+            source: std::io::Error::other("HOME も USERPROFILE も設定されていません"),
         })?;
-        Ok(Self::at(画面の置き場所(Path::new(&home))))
+        Ok(Self::at(画面の置き場所(&home)))
     }
 
     /// シードのある場所。
@@ -742,4 +768,50 @@ fn parse_contact_line(
         .unwrap_or_default()
         .to_owned();
     Some((key, label.to_owned(), added_at, address, note))
+}
+
+#[cfg(test)]
+mod 家の試験 {
+    use super::*;
+
+    // 2026-09-12、ASUS（Windows）で踏んだ —— **画面からルームに入れなかった。**
+    // 主催側のログに `待受: 誰かが来た` が 1 件も出ず、同じ鍵を `warifu.exe` に
+    // 渡すと 1 秒で繋がった。**シェルは HOME を立てるが、画面には無い。**
+
+    #[test]
+    fn home_があればそれを使う() {
+        assert_eq!(
+            家を決める(Some(OsStr::new("/home/x")), Some(OsStr::new("C:/Users/x"))),
+            Some(PathBuf::from("/home/x"))
+        );
+    }
+
+    #[test]
+    fn home_が無ければ_userprofile_を使う() {
+        // **これが無いと、Windows の画面は身元の置き場所を開けない**
+        assert_eq!(
+            家を決める(None, Some(OsStr::new("C:/Users/x"))),
+            Some(PathBuf::from("C:/Users/x"))
+        );
+    }
+
+    #[test]
+    fn 空の_home_は_無いものとして扱う() {
+        // 空文字で設定済みにされていることがある。**空を家にすると、根に書く**
+        assert_eq!(
+            家を決める(Some(OsStr::new("")), Some(OsStr::new("C:/Users/x"))),
+            Some(PathBuf::from("C:/Users/x"))
+        );
+    }
+
+    #[test]
+    fn どちらも無ければ_決めない() {
+        // **勝手に決めない。**どこかに書き始めるより、言って止まるほうがよい
+        assert_eq!(家を決める(None, None), None);
+    }
+
+    #[test]
+    fn 空が両方なら_決めない() {
+        assert_eq!(家を決める(Some(OsStr::new("")), Some(OsStr::new(""))), None);
+    }
 }

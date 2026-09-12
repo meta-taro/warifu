@@ -1062,10 +1062,17 @@ fn 汲む(
                         if 主催 == Some(true) {
                             紹介を配る(&conferences, &outbound, &addresses, me, *who, *meeting)
                                 .await;
-                        } else {
-                            // 主催者でなければ、教わった住所を画面へ渡して呼びに行かせる
+                        } else if contacts::呼びに行かせるか(peer, *who) {
+                            // 主催者でなければ、教わった住所を画面へ渡して呼びに行かせる。
+                            //
+                            // **ただし「相手が自分の住所を名乗っただけ」は渡さない**
+                            // （`gh issue 9`）—— `connect` は必ず自分の住所を名乗るので、
+                            // これを渡すと画面が呼び直し、相手も名乗り返して
+                            // **紹介が往復する。**ASUS では 177 回往復して経路が落ちた
                             let _ =
                                 app.emit(EVENT_INTRODUCED, (key_to_string(*who), address.clone()));
+                        } else {
+                            記録!("受信: 紹介は自分の住所の名乗りだった。呼び直さない");
                         }
                         continue;
                     }

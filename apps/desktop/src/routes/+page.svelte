@@ -239,6 +239,8 @@
 
   let members = $state<Member[]>([]);
   let notice = $state('');
+  /** **もう呼びに行った相手**（`gh issue 9`・紹介の往復を止める）。 */
+  const 呼びに行った = new Set<string>();
   /** 同じ PC の warifu コマンドについての知らせ。**言うことが無ければ `null`。** */
   let cliの知らせ = $state<ReturnType<typeof CLIの知らせ>>(null);
   /** 相手ごとの通話（**M6**）。1 本しか持たないと、3 人目で前の相手が切れる。 */
@@ -816,8 +818,17 @@
         // どちらが呼ぶかは D38 と同じ規則で決まっているので、
         // 両側から呼んで 2 本張られることは無い
         await onEvent<[string, string]>(EVENT_INTRODUCED, ([key, address]) => {
-          if (!address || calls.has(key)) return;
-          void connect(address).catch((e) => (notice = 読める(e)));
+          // **同じ相手を二度呼びに行かない**（`gh issue 9`）。
+          // `calls` は通話が出来てから入るので、**出来る前は何度でも呼び直せていた** ——
+          // 呼ぶたびに自分の住所を名乗り、相手も名乗り返すので**紹介が往復する。**
+          // ASUS では 177 回往復して経路が落ちた（根は Rust 側で止めたが、ここでも止める）
+          if (!address || calls.has(key) || 呼びに行った.has(key)) return;
+          呼びに行った.add(key);
+          void connect(address).catch((e) => {
+            // **失敗したら忘れる。**忘れないと、次の紹介でも呼びに行けない
+            呼びに行った.delete(key);
+            notice = 読める(e);
+          });
         }),
       );
       unsubs.push(
