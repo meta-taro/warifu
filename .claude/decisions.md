@@ -5396,3 +5396,60 @@ GitHub Actions の段は上から走る。この時点で `steps.creds.outputs.r
   （2 つ持たない。オーナーが決める領域・baseline §11）
 - **それでも足りないと言われたら、次に足すのは「呼び名を付ける」導線**であって、
   絵を増やすことではない（**根本の解は名前である**）
+
+---
+
+## D101. **`spctl` はアプリの束を見る道具である**（2026-09-12・`v0.1.4` のビルドで踏んだ）
+
+### 何が起きたか
+
+**D99 で足した「CLI も検める」段が、正しい署名を落とした。**
+
+```
+── CLI ──
+Identifier=warifu
+CodeDirectory v=20500 size=41778 flags=0x10000(runtime)   ← adhoc ではない
+TeamIdentifier=***                                         ← Developer ID が入っている
+target/release/warifu: rejected                            ← spctl だけが文句を言った
+```
+
+**署名は効いていた。**落としたのは**検め方**である。
+
+`spctl --assess` は **Gatekeeper がアプリを開いてよいか**を見る道具で、
+**単体の実行ファイルには「アプリに見えない」として rejected を返す。**
+
+手元で裏を取った —— **Apple 純正の `/usr/bin/env` ですら**こうなる:
+
+```
+$ spctl -a -vv /usr/bin/env
+/usr/bin/env: rejected (the code is valid but does not seem to be an app)
+origin=Software Signing
+```
+
+### 決めたこと
+
+**単体の実行ファイルは `codesign` までで検める。**
+
+| 何を | どう |
+|---|---|
+| `.app` / `.dmg` | `codesign --verify --deep --strict` ＋ `stapler validate` ＋ `spctl -a -t exec` |
+| **CLI（単体）** | `codesign --verify --strict` ＋ **`TeamIdentifier` が入っていること**。**`spctl` は使わない** |
+
+**公証の券は単体の実行ファイルに貼れない**（券はアプリの束か `.dmg` に貼る）。
+配った CLI を人が初めて実行するときは、Gatekeeper がその場で券を問い合わせる。
+**ここで確かめられるのは署名までである。**
+
+### 同じ日にもう 1 つ踏みかけた —— `grep && { exit 1; }`
+
+```bash
+codesign -dv … | grep -q 'TeamIdentifier=not set' && { echo "::error::…"; exit 1; }
+```
+
+**`set -e` の下では、grep が見つけられなかったとき（＝正常な側）に
+非ゼロが返ってビルドが落ちる。**判定は `if` で書く。
+
+**`set -euo pipefail` の下で `A && B` を最後の文にしない。**
+
+### これを止めるべき条件
+
+- **CLI を `.app` の中に入れて配るなら、`spctl` で見てよい**（そのときは束である）
