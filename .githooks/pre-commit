@@ -34,7 +34,11 @@ echo "commit 前のゲート:"
 # 1. 個人情報（public リポ・baseline §25）。**cargo が無くても必ず走る**
 走る "個人情報の混入" bash .github/scripts/oss-privacy-check.sh
 
-# 2. Rust のゲート。cargo が無ければ実行できない
+# 2. workflow の段の順番（**まだ無い値を見る `if:` は黙って飛ぶ**）。
+# python3 は macOS にも Windows の CI にも入っている
+走る "workflow の段の順番" python3 scripts/check-step-order.py
+
+# 3. Rust のゲート。cargo が無ければ実行できない
 if command -v cargo >/dev/null 2>&1; then
   走る "cargo fmt --check" cargo fmt --all -- --check
   走る "cargo clippy -D warnings" cargo clippy --workspace --all-targets -- -D warnings
@@ -50,7 +54,7 @@ else
   黄 "  → 手元でも見たい場合: https://rustup.rs"
 fi
 
-# 3. 画面側のゲート。pnpm が無ければ実行できない
+# 4. 画面側のゲート。pnpm が無ければ実行できない
 if command -v pnpm >/dev/null 2>&1 && [ -f apps/desktop/package.json ]; then
   走る "型（svelte-check）" pnpm --filter @warifu/desktop check
   走る "vitest" pnpm --filter @warifu/desktop test

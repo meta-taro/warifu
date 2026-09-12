@@ -59,6 +59,24 @@ jobs:
       - name: フロントを建てる
         run: pnpm --filter @warifu/desktop build
 
+      # **揃っているかを先に言う。**後で「なぜ署名されていないのか」を探さずに済む
+      # **これを CLI を建てる前に置く。**`steps.creds` を読む段より後ろに置くと、
+      # 条件が空文字と比べられて false になり、**署名の段が黙って飛ぶ**
+      # （2026-09-12 に v0.1.3 で踏んだ。`scripts/check-step-order.py` が見ている）
+      - name: 署名の材料が揃っているか
+        id: creds
+        env:
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -n "$IDENTITY" ] && [ -n "$APPLE_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "署名と公証を行います"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::署名の材料が無いので、**配れない .dmg** ができます（人の Mac では開けません）"
+          fi
+
       # **Mac にも CLI を届ける。**
       #
       # 2026-09-09 に気づいた —— タグの成果物は Mac には `.dmg` しか無く、
@@ -131,21 +149,6 @@ jobs:
             echo "flag=" >> "$GITHUB_OUTPUT"
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::warning::更新用の鍵が無いので、自動アップデートの成果物は作りません"
-          fi
-
-      # **揃っているかを先に言う。**後で「なぜ署名されていないのか」を探さずに済む
-      - name: 署名の材料が揃っているか
-        id: creds
-        env:
-          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-        run: |
-          if [ -n "$IDENTITY" ] && [ -n "$APPLE_ID" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-            echo "署名と公証を行います"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::署名の材料が無いので、**配れない .dmg** ができます（人の Mac では開けません）"
           fi
 
       # **署名するときだけ APPLE_* を渡す。**
@@ -222,6 +225,24 @@ jobs:
           fi
 
           hdiutil detach /tmp/verify -quiet
+
+          # **CLI も同じ目で検める。**
+          #
+          # ここは `if` を付けない段である —— 署名の段は条件で飛びうるので、
+          # **飛んだことをここで捕まえる。**2026-09-12（v0.1.3）は、
+          # 署名の段が黙って飛んだまま ad-hoc の CLI が配られた。
+          echo "── CLI ──"
+          codesign -dv target/release/warifu 2>&1 | grep -E 'Identifier|flags|TeamIdentifier' || true
+          if [ "${{ steps.creds.outputs.ready }}" = "true" ]; then
+            if codesign -dv target/release/warifu 2>&1 | grep -q 'adhoc'; then
+              echo "::error::CLI が adhoc のままです（署名の段が飛んでいます）"
+              exit 1
+            fi
+            spctl -a -vv target/release/warifu
+            echo "CLI も署名されています"
+          else
+            echo "::warning::CLI は署名なしです（材料が無いため）"
+          fi
 
       # **画面と CLI を 1 つにまとめる**（Windows の `warifu-windows` と同じ形）。
       # 2 つに分かれていると、片方だけ落として「入っていない」と言われる。
