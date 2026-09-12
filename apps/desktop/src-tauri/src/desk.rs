@@ -316,6 +316,53 @@ async fn 応じる(
                 .await;
             Ok(())
         }
+        // **いまの様子を返す**（オーナー・2026-09-11
+        // 「押したのを検知できたりする MCP いれてください」）。
+        // **画面が既に持っている値をそのまま返す。**ここで数え直さない
+        ToDesk::Status様子 => {
+            let bridge = app.state::<Bridge>();
+            let 見ている = crate::いま見ているルーム(&bridge.いまのルーム).await;
+            let 名簿: Vec<String> = match 見ている {
+                Some(id) => {
+                    let 棚 = bridge.conferences.lock().await;
+                    棚.get(&id).map_or_else(Vec::new, |c| {
+                        c.members()
+                            .iter()
+                            .filter(|k| **k != bridge.device.public_key())
+                            .map(|k| crate::key_to_string(*k))
+                            .collect()
+                    })
+                }
+                None => Vec::new(),
+            };
+            // **経路は「分かっている分だけ」返す。**
+            // 相手が 1 人のときはその札、複数なら**全員が同じ札のときだけ**返す
+            let 経路 = {
+                let 棚 = bridge.経路.lock().await;
+                let 札たち: Vec<String> = 名簿
+                    .iter()
+                    .filter_map(|k| k.parse::<warifu_core::PublicKey>().ok())
+                    .filter_map(|k| 棚.get(&k.to_bytes()).cloned())
+                    .collect();
+                match 札たち.split_first() {
+                    Some((先頭, 残り)) if 残り.iter().all(|x| x == 先頭) => Some(先頭.clone()),
+                    _ => None,
+                }
+            };
+            let _ = 口
+                .送る(
+                    &FromDesk::様子 {
+                        ルーム: 見ている.map(|id| id.to_string()),
+                        名簿,
+                        経路,
+                        エージェント: つながっている顔ぶれ(),
+                        待っているリンク: crate::link::待っている数(),
+                    }
+                    .書く(),
+                )
+                .await;
+            Ok(())
+        }
         ToDesk::Say { .. } if 名乗り.is_none() => {
             // **名乗っていないエージェントからは流さない。**
             // 流すと「どこの誰か分からない発言」が人の画面に並ぶ

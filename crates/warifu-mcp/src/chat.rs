@@ -172,6 +172,34 @@ impl Chat {
         let _ = self.送り.send(ToDesk::Read { まで }).await;
     }
 
+    /// **いまの様子を尋ねる**（ルーム・名簿・経路・この機械のエージェント・待っているリンク）。
+    ///
+    /// オーナー指示（2026-09-11）——
+    /// 「**押したのを検知できたりする MCP いれてください。**」
+    ///
+    /// **画面が持っている値をそのまま運ぶ。**ここで数え直さない。
+    pub async fn 様子(&self) -> Result<FromDesk, crate::ToolError> {
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返す);
+
+        self.送り
+            .send(ToDesk::Status様子)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
+
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
+
+        match 返事 {
+            様子 @ FromDesk::様子 { .. } => Ok(様子),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **その発言の届き方**を尋ねる（**D76**）。届いたエージェントと、読んだエージェントを返す。
     ///
     /// # Errors
@@ -353,6 +381,7 @@ fn 仕分ける(
             | FromDesk::Denied { .. }
             | FromDesk::Wrote { .. }
             | FromDesk::Status { .. }
+            | FromDesk::様子 { .. }
     ) && let Some(返す) = 返し先.lock().expect("毒されていない").take()
     {
         // 待っている人が居なくなっていても構わない。**捨てて先へ進む**
@@ -399,6 +428,8 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
                 )
             }
             FromDesk::Stop => "\t\t（止まれと言われました）".to_owned(),
+            // **様子は会話の行ではない。**尋ねたときだけ返るので、ここには並ばない
+            FromDesk::様子 { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),

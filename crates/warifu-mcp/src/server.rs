@@ -309,6 +309,56 @@ impl Warifu {
         Ok(format!("{誰} として書きました。"))
     }
 
+    /// **いまの様子**（ルーム・名簿・経路・この機械のエージェント・待っているリンク）。
+    #[tool(
+        description = "いまの様子を見る。どのルームに居るか、相手の鍵、経路（direct / relayed / \
+                       unknown）、この機械につながっているエージェント、\
+                       そして『入りますか？』が画面に出たまま答えられていないリンクの数。\
+                       **人に聞かずに、繋がったかどうかを確かめられる。**"
+    )]
+    pub async fn room_status(&self) -> Result<String, ErrorData> {
+        self.通るか("chat.read")?;
+        let この機械 = self.この機械().await?;
+        let 様子 = この機械.様子().await?;
+        let warifu_desk::FromDesk::様子 {
+            ルーム,
+            名簿,
+            経路,
+            エージェント,
+            待っているリンク,
+        } = 様子
+        else {
+            return Err(crate::ToolError::Unavailable("様子が返りませんでした".to_owned()).into());
+        };
+        // **分からないものを「不明」以外に倒さない**（DESIGN §2 原則 7）
+        let 経路の札 = 経路.unwrap_or_else(|| "unknown".to_owned());
+        let 行たち = [
+            format!(
+                "ルーム: {}",
+                ルーム.unwrap_or_else(|| "居ません".to_owned())
+            ),
+            format!(
+                "相手: {}",
+                if 名簿.is_empty() {
+                    "居ません".to_owned()
+                } else {
+                    名簿.join("・")
+                }
+            ),
+            format!("経路: {経路の札}"),
+            format!(
+                "この機械のエージェント: {}",
+                if エージェント.is_empty() {
+                    "居ません".to_owned()
+                } else {
+                    エージェント.join("・")
+                }
+            ),
+            format!("答えを待っているリンク: {待っているリンク} 本"),
+        ];
+        Ok(行たち.join("\n"))
+    }
+
     /// **その発言が誰に届いて、誰が読んだか。**
     #[tool(
         description = "自分が流した発言が、いま誰に届いていて、誰が読んだかを見る。\

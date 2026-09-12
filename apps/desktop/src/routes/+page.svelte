@@ -92,7 +92,9 @@
     EVENT_LINK,
     EVENT_CHECK_UPDATE,
     roomLink,
+    linkAnswered,
     nameRoom,
+    notePath,
     roomName,
     scheduleAdd,
     scheduleList,
@@ -775,6 +777,8 @@
               },
               onPath: (p) => {
                 log(`経路が変わった: ${p}（${短く(key)}）`);
+                // **Rust へも置く。**エージェントが様子を尋ねられるようにする
+                void notePath(key, p).catch(() => {});
                 相手を更新(key, { path: p });
                 members = members.map((m) => (m.key === key ? { ...m, path: p } : m));
               },
@@ -1088,6 +1092,8 @@
   async function 誘いに乗る() {
     const 鍵 = 誘われた鍵;
     誘われた鍵 = '';
+    // **答えたことを Rust へ伝える。**待っている数を減らす
+    void linkAnswered().catch(() => {});
     if (!鍵) return;
     received = 鍵;
     await 入室する();
@@ -1743,7 +1749,14 @@
     <p class="hint">{t('link.invited.hint')}</p>
     <div class="tail">
       <button type="button" onclick={() => void 誘いに乗る()}>{t('link.invited.enter')}</button>
-      <button type="button" class="quiet" onclick={() => (誘われた鍵 = '')}>
+      <button
+        type="button"
+        class="quiet"
+        onclick={() => {
+          誘われた鍵 = '';
+          void linkAnswered().catch(() => {});
+        }}
+      >
         {t('link.invited.no')}
       </button>
     </div>

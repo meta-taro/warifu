@@ -256,6 +256,15 @@ pub struct Bridge {
     /// 添えている数は**出所の番号**（`desk::この機械の外` ならこの機械の外から出たもの）。
     /// **言った本人には返さない**ために持つ。
     desk: tokio::sync::broadcast::Sender<(u64, warifu_desk::FromDesk)>,
+    /// **相手ごとの経路の札**（`direct` / `relayed` / `unknown`）。
+    ///
+    /// 経路を知っているのは画面（WebRTC の統計）だけなので、
+    /// **画面が変わったときに置いていく**（`note_path`）。
+    /// ここに置くのは、**エージェントからも様子を尋ねられるようにするため**
+    /// （オーナー・2026-09-11「押したのを検知できたりする MCP いれてください」）。
+    ///
+    /// **分からないものは入れない。**入っていなければ「不明」である。
+    経路: Arc<Mutex<HashMap<[u8; 32], String>>>,
 }
 
 /// いま居るルームたち。**複数持てる**（`issues/015`）。
@@ -359,6 +368,7 @@ impl Bridge {
             いまのルーム: Arc::new(Mutex::new(None)),
             outbound: Arc::new(Mutex::new(HashMap::new())),
             desk: tokio::sync::broadcast::Sender::new(desk::配る溜め),
+            経路: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -634,6 +644,36 @@ async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) ->
         code: None,
     })?;
     call::呼ぶ(&app, &bridge, 相手).await
+}
+
+/// **経路の札を置く**（画面から）。
+///
+/// 経路を知っているのは画面（WebRTC の統計）だけである。
+/// ここに置くと、**エージェントからも様子を尋ねられる**
+/// （オーナー・2026-09-11「押したのを検知できたりする MCP いれてください」）。
+///
+/// `unknown` は**置かずに消す** —— 「分からない」を札として残すと、
+/// 古い `direct` が消えないまま残るより悪い（読む側が「不明だと分かった」と誤読する）。
+#[tauri::command]
+async fn note_path(bridge: State<'_, Bridge>, peer: String, path: String) -> Answer<()> {
+    let 相手: PublicKey = peer.parse().map_err(|_| Failure {
+        message: "公開鍵として読めません".into(),
+        code: None,
+    })?;
+    let mut 棚 = bridge.経路.lock().await;
+    if path == "unknown" || path.is_empty() {
+        棚.remove(&相手.to_bytes());
+    } else {
+        棚.insert(相手.to_bytes(), path);
+    }
+    Ok(())
+}
+
+/// **人がリンクに答えた**（入る／入らない）。待っている数を 1 つ減らす。
+#[tauri::command]
+async fn link_answered() -> Answer<()> {
+    link::答えた();
+    Ok(())
 }
 
 /// **いま鍵なしで入れる相手**を並べる。
@@ -1674,6 +1714,8 @@ pub fn run() {
             call_contact,
             stop_knowing,
             known_keys,
+            note_path,
+            link_answered,
             stop_agent,
             current_room,
             rooms,

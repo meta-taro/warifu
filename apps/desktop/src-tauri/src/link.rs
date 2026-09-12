@@ -71,6 +71,28 @@ pub fn 鍵を取り出す(url: &str) -> Option<String> {
 const 鍵の上限: usize = 4096;
 
 /// 受け取った URL を画面へ渡す。**入るかどうかは人が決める。**
+/// **押されて、まだ人が答えていないリンクの数。**
+///
+/// オーナー指示（2026-09-11）——「押したのを検知できたりする MCP いれてください」。
+/// 「入りますか？」が画面に出たままの状態を、エージェントから見られるようにする。
+///
+/// **画面が答えたら減る**（`link_answered`）。数えるのはここ 1 か所だけにする。
+static 待っているリンク: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// いま待っているリンクの数。
+pub fn 待っている数() -> usize {
+    待っているリンク.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// 人が答えた（入る／入らない）。**0 より下げない。**
+pub fn 答えた() {
+    let _ = 待っているリンク.fetch_update(
+        std::sync::atomic::Ordering::Relaxed,
+        std::sync::atomic::Ordering::Relaxed,
+        |いま| Some(いま.saturating_sub(1)),
+    );
+}
+
 pub fn 受ける(app: &AppHandle, urls: &[String]) {
     for url in urls {
         let Some(鍵) = 鍵を取り出す(url) else {
@@ -79,6 +101,7 @@ pub fn 受ける(app: &AppHandle, urls: &[String]) {
             continue;
         };
         記録!("リンクを受け取りました（人に尋ねます）");
+        待っているリンク.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let _ = app.emit(EVENT_LINK, 鍵);
     }
 }
@@ -365,5 +388,32 @@ mod 目で見る {
         let svg = super::qrにする("warifu://join/WARIFU1-K5JEMQIDRFSI54VBGE56D23J3AY").unwrap();
         std::fs::write(&先, svg).unwrap();
         println!("{}", 先.display());
+    }
+}
+
+#[cfg(test)]
+mod 待っているリンクの試験 {
+    use super::{答えた, 待っている数, 待っているリンク};
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn 答えても_0_より下がらない() {
+        // **押していないのに減らさない。**負の数になると、
+        // エージェントが「待っているリンクがある」と読み違える
+        待っているリンク.store(0, Ordering::Relaxed);
+        答えた();
+        答えた();
+        assert_eq!(待っている数(), 0);
+    }
+
+    #[test]
+    fn 受けた分だけ待つ() {
+        待っているリンク.store(0, Ordering::Relaxed);
+        待っているリンク.fetch_add(2, Ordering::Relaxed);
+        assert_eq!(待っている数(), 2);
+        答えた();
+        assert_eq!(待っている数(), 1);
+        // 後片付け（静的なので、ほかの試験に漏らさない）
+        待っているリンク.store(0, Ordering::Relaxed);
     }
 }

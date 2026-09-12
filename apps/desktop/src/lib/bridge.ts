@@ -414,6 +414,19 @@ export const nameRoom = (id: string, name: string) =>
 /** 主催しているルームの名前。**無ければ空。** */
 export const roomName = () => invoke<string>('room_name');
 
+/**
+ * **経路の札を Rust へ置く**（`direct` / `relayed` / `unknown`）。
+ *
+ * 経路を知っているのは画面（WebRTC の統計）だけなので、
+ * 置いておかないと**エージェントから様子を尋ねられない**
+ * （オーナー・2026-09-11「押したのを検知できたりする MCP いれてください」）。
+ */
+export const notePath = (peer: string, path: string) =>
+  invoke<void>('note_path', { peer, path });
+
+/** **人がリンクに答えた**（入る／入らない）。待っている数を 1 つ減らす。 */
+export const linkAnswered = () => invoke<void>('link_answered');
+
 /** 予定 1 つ（`warifu-vault` の `schedule.tsv`）。 */
 export interface AppointmentRow {
   /** 始まり（Unix 秒）。 */
