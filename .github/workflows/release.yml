@@ -238,8 +238,24 @@ jobs:
               echo "::error::CLI が adhoc のままです（署名の段が飛んでいます）"
               exit 1
             fi
-            spctl -a -vv target/release/warifu
-            echo "CLI も署名されています"
+            # **`spctl` は使わない。**あれは**アプリの束**を見る道具で、
+            # 単体の実行ファイルには「アプリに見えない」と rejected を返す
+            # （署名が正しくてもである。2026-09-12・v0.1.4 のビルドで踏んだ）。
+            #
+            #   target/release/warifu: rejected
+            #   （the code is valid but does not seem to be an app）
+            #
+            # 単体の実行ファイルに公証の券は貼れない（券はアプリの束か .dmg に貼る）。
+            # **ここで確かめられるのは署名までである。**そこまでを確かめる
+            codesign --verify --strict target/release/warifu
+            # **`grep && { exit 1; }` と書かない。**`set -e` の下では、
+            # grep が見つけられなかったとき（＝正常な側）に非ゼロが返って**ビルドが落ちる。**
+            # 判定は `if` で書く
+            if codesign -dv target/release/warifu 2>&1 | grep -q 'TeamIdentifier=not set'; then
+              echo "::error::CLI に Team が入っていません（Developer ID で署名できていません）"
+              exit 1
+            fi
+            echo "CLI も Developer ID で署名されています"
           else
             echo "::warning::CLI は署名なしです（材料が無いため）"
           fi
