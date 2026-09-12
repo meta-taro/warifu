@@ -377,10 +377,34 @@ impl Bridge {
         if let Some(node) = slot.as_ref() {
             return Ok(Arc::clone(node));
         }
-        let node = Arc::new(Node::bind_without_relay(&self.device).await?);
+        // **既定は中継を使わない**（**D13**）。
+        // 付けたときだけ通す —— 中継を通すと「誰がいつ誰に繋いだか」が
+        // 中継の運用者に見える（**D10**）。**画面でも同じ形にする**（D78 は CLI だけだった）
+        let 使う = 中継を使うか(std::env::var("WARIFU_RELAY").ok().as_deref());
+        記録!(
+            "中継: {}（WARIFU_RELAY で切り替えます）",
+            if 使う { "**使います**" } else { "使いません" }
+        );
+        let node = Arc::new(if 使う {
+            Node::bind(&self.device, warifu_net::中継の使い方::使う).await?
+        } else {
+            Node::bind_without_relay(&self.device).await?
+        });
         *slot = Some(Arc::clone(&node));
         Ok(node)
     }
+}
+
+/// **中継を使うか**（環境変数の言葉から決める）。
+///
+/// **既定は使わない**（**D13**）。`1` / `true` / `yes` / `on` のときだけ使う。
+///
+/// 環境変数を読むのは呼ぶ側。**ここは渡された言葉だけを見る**（試験できるように）。
+fn 中継を使うか(言葉: Option<&str>) -> bool {
+    matches!(
+        言葉.map(str::trim).map(str::to_ascii_lowercase).as_deref(),
+        Some("1" | "true" | "yes" | "on")
+    )
 }
 
 /// 自分の宛先。**これを相手へ渡す**（QR・紙・口頭でも成立する・M1）。
@@ -1738,4 +1762,33 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("warifu の窓を開けませんでした");
+}
+
+#[cfg(test)]
+mod 中継の試験 {
+    use super::中継を使うか;
+
+    #[test]
+    fn 既定では中継を使わない() {
+        // **D13。**既定は直接だけ —— 中継を通すと、
+        // 「誰がいつ誰に繋いだか」が中継の運用者に見える（**D10**）
+        assert!(!中継を使うか(None));
+        assert!(!中継を使うか(Some("")));
+        assert!(!中継を使うか(Some("0")));
+        assert!(!中継を使うか(Some("no")));
+    }
+
+    #[test]
+    fn 明示したときだけ使う() {
+        // **D78 の「付けたときだけ」を画面でも同じ形にする**
+        for 言葉 in ["1", "true", "TRUE", "yes", "on"] {
+            assert!(中継を使うか(Some(言葉)), "{言葉} で使う");
+        }
+    }
+
+    #[test]
+    fn 前後の空白は無視する() {
+        assert!(中継を使うか(Some(" 1 ")));
+        assert!(!中継を使うか(Some("  ")));
+    }
 }
