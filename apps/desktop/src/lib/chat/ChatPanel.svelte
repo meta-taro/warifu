@@ -9,9 +9,11 @@
   // `届く先がある` が決める。ここは出すだけ。
 
   import { 送ってよい, type 会話行 } from '$lib/meeting/announce';
+  import { 新しい行が来たとき, 底に着いた, type 位置 } from './scroll';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
+  import { untrack } from 'svelte';
 
   interface Props {
     locale: Locale;
@@ -64,6 +66,54 @@
   const t = (key: MessageKey) => MESSAGES[locale][key];
   let 下書き = $state('');
 
+  // **会話欄の送り方**（判断は `./scroll` に置いてある。ここは DOM を触るだけ）。
+  let 欄: HTMLDivElement | undefined = $state();
+  let 新着 = $state(0);
+  let 前の行数 = 0;
+  /**
+   * **人が動かしたときの位置を覚える。**
+   *
+   * 行が増えた**あと**に測ってはいけない —— 増えた分だけ `scrollHeight` が伸びるので、
+   * 底で見ていた人まで「底に居ない」と判定され、**追従が止まる。**
+   * 初めは 0 のまま（`底にいるか` は「溢れていない＝底」と読む）。
+   */
+  let いまの位置: 位置 = { 上: 0, 見える高さ: 0, 全体: 0 };
+
+  /** **動きを控える設定なら、跳ばす。**（`prefers-reduced-motion`・DESIGN §6） */
+  function なめらかにできるか(): boolean {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function 下へ送る(なめらか = true) {
+    if (!欄) return;
+    欄.scrollTo({
+      top: 欄.scrollHeight,
+      behavior: なめらか && なめらかにできるか() ? 'smooth' : 'auto'
+    });
+    新着 = 0;
+  }
+
+  function 動かした() {
+    if (!欄) return;
+    いまの位置 = { 上: 欄.scrollTop, 見える高さ: 欄.clientHeight, 全体: 欄.scrollHeight };
+    const 次 = 底に着いた(いまの位置);
+    if (次 !== null) 新着 = 次;
+  }
+
+  // **行が増えたら、送るか数えるかを決める。**
+  // `untrack` が要る —— 新着 を読みながら書くと、書いた値でまた走って深さが尽きる
+  // （2026-09-11 に未読で踏んだ。画面が丸ごと空になった）
+  $effect(() => {
+    const 数 = 会話.length;
+    const 増えた = 数 - 前の行数;
+    前の行数 = 数;
+    const 自分の発言か = 会話[数 - 1]?.mine === true;
+    const 見え = untrack(() => 新しい行が来たとき(いまの位置, 増えた, 新着, 自分の発言か));
+    新着 = 見え.新着;
+    if (見え.追う) 下へ送る(増えた > 0);
+  });
+
   function 出す() {
     const body = 下書き.trim();
     if (!body) return;
@@ -91,7 +141,8 @@
   {:else}
     <p class="hint reach">{format(t('chat.reach'), { who: 届く先.join(' ／ ') })}</p>
   {/if}
-  <div class="talk">
+  <div class="talkwrap">
+    <div class="talk" bind:this={欄} onscroll={動かした}>
     {#if 会話.length === 0}
       <p class="hint">{t('chat.empty')}</p>
     {/if}
@@ -108,6 +159,21 @@
           >{/if}
       </p>
     {/each}
+    </div>
+    <!-- **新しい発言が来たことを、読み返している人にも知らせる。**
+         下へ引っ張らない（読んでいた所を失う）。押したら底まで送る。
+         **既読ではない**（D94）—— 数えているのは「まだ見ていない画面の下」である -->
+    {#if 新着 > 0}
+      <button
+        type="button"
+        class="newer"
+        title={t('chat.new.title')}
+        onclick={() => 下へ送る()}
+      >
+        {format(t('chat.new'), { n: String(新着) })}
+        <Icon name="arrow-down" size={14} />
+      </button>
+    {/if}
   </div>
   <!--
     **相手が居ないときは押させない。**押せる形にしておいて「まだ誰も居ません」と
@@ -190,14 +256,26 @@
     line-height: var(--text-xs-line);
     color: var(--text-tertiary);
   }
+  /* **札を会話欄の上に浮かせるための枠。**会話欄の高さを取らない */
+  .talkwrap {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
   .talk {
     display: flex;
     flex-direction: column;
     gap: 4px;
     /* **溢れたら中で動く。**外側（画面全体）を伸ばさない。
-       空でも読める高さを持つ —— 0 だと潰れて 1 行すら切れる */
+       空でも読める高さを持つ —— 0 だと潰れて 1 行すら切れる。
+       **240px にした**（オーナー・2026-09-12「チャット欄がせまいですね」）——
+       140px だと 5〜6 行で埋まり、読み返すたびに動かすことになる */
     flex: 1;
-    min-height: 140px;
+    min-height: 240px;
+    /* **なめらかに送る**（オーナー・2026-09-12）。
+       動きを控える設定の人には効かせない（DESIGN §6） */
+    scroll-behavior: smooth;
     overflow-y: auto;
     padding: var(--space-2);
     background: var(--bg-app);
@@ -212,6 +290,26 @@
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
     word-break: break-word;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .talk {
+      scroll-behavior: auto;
+    }
+  }
+  /* **新しい発言の札。**会話欄の底に浮かせる（行を押し下げない） */
+  .newer {
+    position: absolute;
+    bottom: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    padding: 4px 10px;
+    font-size: var(--text-xs-size);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-sm, 0 1px 4px rgb(0 0 0 / 0.25));
   }
   /* **会議からの知らせ。**人の発言と見分けが付く形にする */
   /* **どこまで行ったかの札。**既読ではない（読んだかは分からない） */

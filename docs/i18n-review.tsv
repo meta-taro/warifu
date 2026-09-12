@@ -41,6 +41,8 @@ chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들
 chat.late	while away	留守中	离线期间	부재 중				
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
+chat.new	{n} new	新しい発言 {n} 件	{n} 条新发言	새 발언 {n} 건				
+chat.new.title	Jump to the newest	いちばん下まで送ります	跳到最新	맨 아래로 이동합니다				
 chat.nobody	Nobody is here yet. Hand out a room key and wait for someone to come in.	ルームにはまだ誰も入っていません。ルームキーを渡して、入ってもらうと送れます。	还没有人进来。把密钥交给对方，等对方进来后即可发送。	아직 아무도 없습니다. 열쇠를 건네고 상대가 들어오면 보낼 수 있습니다.				
 chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
 chat.placeholder.desk	Talk to an agent on this computer	マイ PC エージェントに話しかける	对这台电脑的代理说话	이 PC 의 에이전트에게 말을 걸기				

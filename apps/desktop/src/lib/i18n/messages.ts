@@ -67,6 +67,8 @@ export type MessageKey =
   | 'chat.desk'
   | 'chat.placeholder.desk'
   | 'chat.late'
+  | 'chat.new'
+  | 'chat.new.title'
   | 'send.absent'
   | 'postbox.title'
   | 'postbox.hint'
@@ -380,6 +382,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': 'この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。',
     'chat.placeholder.desk': 'マイ PC エージェントに話しかける',
     'chat.late': '留守中',
+    'chat.new': '新しい発言 {n} 件',
+    'chat.new.title': 'いちばん下まで送ります',
     'send.absent': 'いま届きません。留守中の受け取りを設定すると、留守でも届きます。',
     'postbox.title': '留守中の受け取り（任意）',
     'postbox.hint': 'あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。',
@@ -665,6 +669,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': 'An agent on this computer is connected. You can talk to it even with nobody else in the room.',
     'chat.placeholder.desk': 'Talk to an agent on this computer',
     'chat.late': 'while away',
+    'chat.new': '{n} new',
+    'chat.new.title': 'Jump to the newest',
     'send.absent': 'Not here right now. Set up a mailbox and messages will reach them later.',
     'postbox.title': 'Receiving while away (optional)',
     'postbox.hint': 'A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.',
@@ -950,6 +956,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': '这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。',
     'chat.placeholder.desk': '对这台电脑的代理说话',
     'chat.late': '离线期间',
+    'chat.new': '{n} 条新发言',
+    'chat.new.title': '跳到最新',
     'send.absent': '对方现在不在。设置寄存处后，离线期间也能送达。',
     'postbox.title': '不在时的接收（可选）',
     'postbox.hint': '在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。',
@@ -1235,6 +1243,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': '이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.',
     'chat.placeholder.desk': '이 PC 의 에이전트에게 말을 걸기',
     'chat.late': '부재 중',
+    'chat.new': '새 발언 {n} 건',
+    'chat.new.title': '맨 아래로 이동합니다',
     'send.absent': '지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.',
     'postbox.title': '부재 중 수신(선택)',
     'postbox.hint': '당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.',

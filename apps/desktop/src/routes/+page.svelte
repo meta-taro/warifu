@@ -2666,6 +2666,12 @@
     flex: 1;
     min-height: 0;
     align-content: center;
+    /* **行にも高さを配る。**行が `auto` のままだと、`video` の高さは
+       幅からだけ決まる（`aspect-ratio`）ので、**窓を低くすると枠から出る** ——
+       オーナー・2026-09-12「ブラウザサイズかえたとき、おかしくなります。
+       ビデオの高さ固定しちゃってますね」。
+       `minmax(0, 1fr)` で、**行は余りを分けるが、足りなければ縮む** */
+    grid-auto-rows: minmax(0, 1fr);
   }
   .tiles[data-count='3'],
   .tiles[data-count='4'] {
@@ -2686,11 +2692,20 @@
     flex-direction: column;
     gap: var(--space-2);
     min-height: 0;
+    /* **はみ出しは枠で止める。**下の名札を押し出さない */
+    overflow: hidden;
   }
   video {
     width: 100%;
-    max-height: 100%;
     aspect-ratio: 16 / 9;
+    /*
+      **縮んでよい**（`flex-shrink: 1` ＋ `min-height: 0`）。
+      これが無いと `aspect-ratio` で決まった高さが動かず、**窓を低くしたとき
+      映像が枠からはみ出す**（2026-09-12・別マシンでカメラを回している最中に出た）。
+      縮んだぶんは `object-fit: cover` が切る —— **伸ばして歪ませない**
+    */
+    flex: 0 1 auto;
+    min-height: 0;
     background: var(--bg-sunken);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
