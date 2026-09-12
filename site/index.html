@@ -348,7 +348,7 @@
       <h2>落とす</h2>
       <p class="note">
         公式の配布物は GitHub Releases に置いています。<b>macOS の画面（.dmg）は署名と公証済み</b>です
-        （<b>CLI（<code>warifu</code>）は v0.1.3 まで署名していません</b> —— 署名する段が条件の書き方で飛んでいました。直したので次の版から署名されます。それまでは、端末で <code>xattr -d com.apple.quarantine ./warifu</code> が要ります）。
+        （<b>CLI（<code>warifu</code>）は v0.1.4 から署名されています。ただし公証はまだです</b> —— 単体の実行ファイルには公証の券を貼れないため、落としたままでは macOS が実行を止めます。<b>止まるだけでなく、ファイルが消えます。</b>初めて実行する<b>前に</b>、端末でこれを打ってください: <code>xattr -d com.apple.quarantine ./warifu</code>）。
       </p>
       <div class="files" id="files">
         <div class="file">
