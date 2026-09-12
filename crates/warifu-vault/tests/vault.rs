@@ -1164,3 +1164,93 @@ fn ルームのファイルは自分だけが読める() {
         assert_eq!(mode & 0o777, 0o600);
     }
 }
+
+// --- 帰り道（前に入ったルームへ戻る・gh issue 13・2026-09-12） ---------------
+
+#[test]
+fn 前に入ったルームへの帰り道を持ち越せる() {
+    // ASUS のエージェント ——
+    //
+    // > アプリの更新は再起動を伴います。更新のたびに鍵を貼り直すことになり、
+    // > 鍵は 1 本 = 1 人なので、出し直してもらう手間が毎回かかります。
+    let dir = 仮の置き場("rejoin-roundtrip");
+    let vault = Vault::at(&dir);
+    assert_eq!(vault.rejoin().expect("読める"), None);
+
+    vault
+        .save_rejoin(
+            "NBIW3PA2TUQ52DTJNVXSQOL3G4",
+            "warifu://join/WARIFU1-AAA#BBB#CCC",
+        )
+        .expect("書ける");
+    let 開き直した = Vault::at(&dir);
+    assert_eq!(
+        開き直した.rejoin().expect("読める"),
+        Some((
+            "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+            "warifu://join/WARIFU1-AAA#BBB#CCC".to_owned()
+        ))
+    );
+}
+
+#[test]
+fn 帰り道は自分だけが読める() {
+    // **ここにはルームキー（割符の片割れ）が入る。**ほかのファイルと同じ扱いにする
+    let dir = 仮の置き場("rejoin-perm");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM", "KEY").expect("書ける");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.rejoin_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 抜けたら帰り道を忘れる() {
+    // **使わない秘密を持ち続けない**
+    let dir = 仮の置き場("rejoin-forget");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM", "KEY").expect("書ける");
+    vault.forget_rejoin().expect("消せる");
+    assert_eq!(vault.rejoin().expect("読める"), None);
+    // **無いものを消すのは失敗ではない**
+    vault.forget_rejoin().expect("2 度目も通る");
+}
+
+#[test]
+fn 見出しが違うファイルは帰り道として読まない() {
+    // **別のファイルを帰り道として読まない**（`contacts` と同じ構え）
+    let dir = 仮の置き場("rejoin-header");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(vault.rejoin_path(), "warifu-room-v1\nROOM\tKEY\n").expect("書ける");
+    assert!(vault.rejoin().is_err());
+}
+
+#[test]
+fn 半端な帰り道は渡さない() {
+    // 鍵が欠けていたら「戻る」を出せない。**半端なものを渡さない**
+    let dir = 仮の置き場("rejoin-half");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(vault.rejoin_path(), "warifu-rejoin-v1\nROOM\t\n").expect("書ける");
+    assert_eq!(vault.rejoin().expect("読める"), None);
+}
+
+#[test]
+fn 貼られた文字に区切りが混ざっていても崩れない() {
+    let dir = 仮の置き場("rejoin-tab");
+    let vault = Vault::at(&dir);
+    vault
+        .save_rejoin("ROOM\tX", "warifu://join/AAA\nBBB")
+        .expect("書ける");
+    let (id, 鍵) = vault.rejoin().expect("読める").expect("在る");
+    assert!(!id.contains('\t'));
+    assert!(!鍵.contains('\n'));
+    assert_eq!(鍵, "warifu://join/AAABBB");
+}

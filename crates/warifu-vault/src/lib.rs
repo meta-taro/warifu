@@ -109,6 +109,8 @@ const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
 
 /// 主催しているルームの見出し。**中身は 2 欄**（id・名前）。
 const MY_ROOM_HEADER: &str = "warifu-room-v1";
+/// **帰り道**の見出し。**中身は 2 欄**（ルーム id・入るのに使ったルームキー）。
+const REJOIN_HEADER: &str = "warifu-rejoin-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -370,6 +372,91 @@ impl Vault {
             .collect();
         let out = format!("{MY_ROOM_HEADER}\n{}\t{}\n", id.trim(), 安全.trim());
         self.write_private(&self.my_room_path(), &out, "ルームを書く")
+    }
+
+    /// 帰り道のファイル。
+    #[must_use]
+    pub fn rejoin_path(&self) -> PathBuf {
+        self.dir.join("rejoin.tsv")
+    }
+
+    /// **前に入ったルームへの帰り道**（ルーム id と、入るのに使ったルームキー）。
+    ///
+    /// `gh issue 13`（2026-09-12・ASUS）——
+    ///
+    /// > アプリの更新は再起動を伴います。更新のたびに鍵を貼り直すことになり、
+    /// > 鍵は 1 本 = 1 人なので、出し直してもらう手間が毎回かかります。
+    ///
+    /// **`room.tsv` には書けない。**あれは**主催しているルーム**の id を持ち越すためのもので、
+    /// 他人のルームの id を書くと**次の起動で他人の id で建てることになる。**
+    ///
+    /// # ここには秘密が入る
+    ///
+    /// ルームキーには**割符の片割れ**が入っている。だから
+    ///
+    /// - **0600 で置く**（ほかのファイルと同じ）
+    /// - **画面に出さない**（呼び出す側の約束。ここは「戻る」ためだけに読む）
+    /// - **抜けたら消す**（[`Self::forget_rejoin`]）—— 使わない秘密を持ち続けない
+    ///
+    /// **再入場は通る**（**D44**）。同じ人が同じ割符で戻るのは `rematch` で認められている。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn rejoin(&self) -> Result<Option<(String, String)>, Error> {
+        let path = self.rejoin_path();
+        if !path.exists() {
+            return Ok(None);
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "帰り道を読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != REJOIN_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{REJOIN_HEADER} を待っていました）"),
+            ));
+        }
+        let Some(行) = lines.find(|l| !l.trim().is_empty()) else {
+            return Ok(None);
+        };
+        let mut 欄 = 行.split('\t');
+        let id = 欄.next().unwrap_or_default().trim().to_owned();
+        let 鍵 = 欄.next().unwrap_or_default().trim().to_owned();
+        // **どちらかが欠けていれば、帰り道は無い。**半端なものを渡さない
+        if id.is_empty() || 鍵.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some((id, 鍵)))
+    }
+
+    /// 帰り道を書き置く。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_rejoin(&self, id: &str, ルームキー: &str) -> Result<(), Error> {
+        // **貼られた文字を、そのままファイルへ流さない**（TSV が崩れる）
+        let 削る = |文: &str| -> String {
+            文.chars()
+                .filter(|c| *c != '\t' && *c != '\n' && *c != '\r')
+                .collect::<String>()
+                .trim()
+                .to_owned()
+        };
+        let out = format!("{REJOIN_HEADER}\n{}\t{}\n", 削る(id), 削る(ルームキー));
+        self.write_private(&self.rejoin_path(), &out, "帰り道を書く")
+    }
+
+    /// 帰り道を忘れる。**抜けたら消す** —— 使わない秘密を持ち続けない。
+    ///
+    /// # Errors
+    /// 消せないとき [`Error::Io`]。**無いのは失敗ではない。**
+    pub fn forget_rejoin(&self) -> Result<(), Error> {
+        let path = self.rejoin_path();
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::io(&path, "帰り道を消す")(e)),
+        }
     }
 
     /// 予定のファイル。

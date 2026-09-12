@@ -33,6 +33,7 @@
   import { この機械の印, ルームのid, type 行 as 連絡帳の行 } from '$lib/contacts/list';
   import { CLIの知らせ } from '$lib/update/cli';
   import { 溜める, 取り出す, 忘れる, type 溜め } from '$lib/webrtc/pending';
+  import { 戻る口を出すか } from '$lib/contacts/rejoin';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -135,6 +136,7 @@
     sendToContact,
     postbox,
     cliState,
+    rejoinKey,
     setPostbox,
     profiles,
     setProfile,
@@ -438,6 +440,35 @@
   let いまのルーム = $state<string | null>(null);
   /** いま居るルームたち。**持てても見えなければ切り替えようがない。** */
   let ルームたち: RoomRow[] = $state([]);
+
+  /**
+   * **前に入ったルームへの帰り道**（`gh issue 13`）。`[ルーム id, ルームキー]`。
+   *
+   * **鍵の文字は画面に出さない** —— 入っているのは割符の片割れである。
+   */
+  let 帰り道 = $state<[string, string] | null>(null);
+  const 戻れる = $derived(
+    戻る口を出すか({
+      帰り道のルーム: 帰り道?.[0] ?? null,
+      持っているルーム: ルームたち.map((r) => r.id),
+    })
+  );
+  let 戻っている = $state(false);
+
+  /** 前のルームへ入り直す。**鍵はもらい直さない**（同じ割符で戻れる・D44）。 */
+  async function 前のルームに戻る() {
+    if (!帰り道 || 戻っている) return;
+    戻っている = true;
+    notice = '';
+    try {
+      await connect(帰り道[1]);
+      await ルームを読み直す();
+    } catch (e) {
+      notice = 読める(e);
+    } finally {
+      戻っている = false;
+    }
+  }
 
   const 連絡帳の素材 = $derived({
     自分: 自分の鍵,
@@ -766,6 +797,9 @@
       // 画面だけ上げても、コマンドは上がらない —— 症状は「繋がらない」だけなので、
       // **言われなければ気づけない。**繋がらなくても起動を止めない
       cliの知らせ = CLIの知らせ((await cliState().catch(() => '無い' as const)) ?? '無い');
+      // **前に入ったルームへの帰り道**（`gh issue 13`）。
+      // 更新は再起動を伴うので、**鍵をもらい直さずに戻れる**ようにする
+      帰り道 = (await rejoinKey().catch(() => null)) ?? null;
     })();
   });
 
@@ -1733,6 +1767,7 @@
     try {
       await connect(received.trim());
       await ルームを読み直す();
+      帰り道 = (await rejoinKey().catch(() => null)) ?? null;
     } catch (e) {
       notice = 読める(e);
     } finally {
@@ -2065,6 +2100,22 @@
       「もらったルームキーでルームに入る」が画面に無かった。**
       入れたばかりの人が**ルームに入れない**状態である。
     -->
+    <!--
+      **前のルームへ戻る口**（`gh issue 13`）。
+      更新は再起動を伴うので、**鍵をもらい直さずに戻れる**ようにする
+      （再入場は **D44** で通る。同じ人が同じ割符で戻るのは `rematch`）。
+      **鍵の文字は出さない** —— 入っているのは割符の片割れである
+    -->
+    {#if 戻れる}
+    <div class="card">
+      <h2><Icon name="enter" size={18} />{t('room.back')}</h2>
+      <p class="hint">{t('room.back.hint')}</p>
+      <button type="button" disabled={戻っている} onclick={() => void 前のルームに戻る()}>
+        <Icon name="enter" />{t('room.back')}
+      </button>
+    </div>
+    {/if}
+
     {#if 鍵の口を出す}
     <div class="card">
       <h2><Icon name="people" size={18} />{t('meeting.start.title')}</h2>

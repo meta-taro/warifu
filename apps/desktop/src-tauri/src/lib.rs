@@ -636,6 +636,23 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     記録!("入室: 名簿に入れた（{} 件の出来事を画面へ）", events.len());
     emit_events(&app, &events);
 
+    // **帰り道を控える**（`gh issue 13`）。
+    //
+    // ASUS のエージェント ——「**アプリの更新は再起動を伴います。更新のたびに
+    // 鍵を貼り直すことになり、鍵は 1 本 = 1 人なので、出し直してもらう手間が
+    // 毎回かかります。**」
+    //
+    // **`room.tsv` には書かない。**あれは**主催しているルーム**の id で、
+    // 他人の id を書くと**次の起動で他人の id で建ててしまう。**
+    //
+    // **ここには割符の片割れが入る。**0600 で置き、画面には出さず、抜けたら消す。
+    // 再入場は **D44** で通る（同じ人が同じ割符で戻るのは `rematch`）。
+    if let Ok(vault) = warifu_vault::Vault::default_location() {
+        if let Err(e) = vault.save_rejoin(&meeting.to_string(), &invite) {
+            記録!("帰り道を書き置けませんでした: {e}");
+        }
+    }
+
     // 入ると告げる
     channel
         .send(
@@ -1539,7 +1556,32 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     if *いま == Some(meeting) {
         *いま = bridge.conferences.lock().await.keys().next().copied();
     }
+    // **帰り道を忘れる**（`gh issue 13`）。
+    // **自分で抜けた人に「戻る」を出さない**し、**使わない秘密を持ち続けない**
+    // （帰り道には割符の片割れが入っている）
+    if let Ok(vault) = warifu_vault::Vault::default_location() {
+        let 帰り道 = vault.rejoin().ok().flatten();
+        if 帰り道.is_some_and(|(id, _)| id == meeting.to_string()) {
+            if let Err(e) = vault.forget_rejoin() {
+                記録!("帰り道を消せませんでした: {e}");
+            }
+        }
+    }
     Ok(())
+}
+
+/// **前に入ったルームへの帰り道**（`gh issue 13`）。
+///
+/// 返すのは **ルーム id と、入るのに使ったルームキー**。無ければ `None`。
+///
+/// # 画面はルームキーを出さない
+///
+/// ここに入っているのは**割符の片割れ**である。画面は「**前のルームに戻る**」の
+/// 押し口を出すだけで、**文字そのものを見せない**（見せると、人が別の相手へ渡せてしまう）。
+#[tauri::command]
+async fn rejoin_key() -> Answer<Option<(String, String)>> {
+    let vault = warifu_vault::Vault::default_location()?;
+    Ok(vault.rejoin()?)
 }
 
 /// **この機械につながっている顔ぶれ。**画面が一覧に出し、「送れるかどうか」も決める。
@@ -1781,6 +1823,7 @@ pub fn run() {
             look_at_room,
             set_menu_locale,
             cli_state,
+            rejoin_key,
             postbox::postbox,
             postbox::set_postbox,
             postbox::fetch_postbox,

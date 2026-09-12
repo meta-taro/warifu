@@ -172,6 +172,8 @@ export type MessageKey =
   | 'room.name'
   | 'room.nth'
   | 'room.mine'
+  | 'room.back'
+  | 'room.back.hint'
   | 'room.leave'
   | 'room.leave.confirm'
   | 'room.leave.hint'
@@ -490,6 +492,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': 'ルームの名前',
     'room.nth': 'ルーム {n}（{m} 人）',
     'room.mine': 'あなたが建てた',
+    'room.back': '前のルームに戻る',
+    'room.back.hint': '前に入ったルームへ、もらったルームキーで入り直します。ルームキーをもう一度もらう必要はありません。',
     'room.leave': 'このルームを抜ける',
     'room.leave.confirm': 'このルームを抜けますか？',
     'room.leave.hint': '抜けたことは、このルームの全員に伝わります。ここの会話は残りません。入り直すには、ルームキーをもう一度もらってください。',
@@ -780,6 +784,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': 'Room name',
     'room.nth': 'Room {n} ({m} people)',
     'room.mine': 'you set this up',
+    'room.back': 'Back to the last room',
+    'room.back.hint': 'Rejoins the room you were in, with the room key you were given. You do not need a new key.',
     'room.leave': 'Leave this room',
     'room.leave.confirm': 'Leave this room?',
     'room.leave.hint': 'Everyone in the room is told you left. The conversation here is not kept. To come back you need a room key again.',
@@ -1070,6 +1076,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': '房间名',
     'room.nth': 'Room {n}（{m} 人）',
     'room.mine': '你建的',
+    'room.back': '回到上一个房间',
+    'room.back.hint': '用之前收到的 room key 重新进入上一个房间。不需要再要一把新的。',
     'room.leave': '退出这个 room',
     'room.leave.confirm': '要退出这个 room 吗？',
     'room.leave.hint': 'room 里的所有人都会知道你退出了。这里的会话不会保留。要再进来需要重新拿到room key。',
@@ -1360,6 +1368,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': '방 이름',
     'room.nth': '룸 {n}({m}명)',
     'room.mine': '내가 만든 룸',
+    'room.back': '이전 룸으로 돌아가기',
+    'room.back.hint': '받았던 room key 로 이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다.',
     'room.leave': '이 룸에서 나가기',
     'room.leave.confirm': '이 룸에서 나갈까요?',
     'room.leave.hint': '나간 것은 이 룸의 모두에게 전해집니다. 여기의 대화는 남지 않습니다. 다시 들어오려면 룸 키를 다시 받아야 합니다.',

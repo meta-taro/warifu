@@ -470,3 +470,11 @@ export type CLIの様子 =
 	| { 読めない: { 場所: string; 出たもの: string } };
 
 export const cliState = () => invoke<CLIの様子>('cli_state');
+
+/**
+ * **前に入ったルームへの帰り道**（`gh issue 13`）。
+ *
+ * 返るのは `[ルーム id, ルームキー]`。無ければ `null`。
+ * **ルームキーは画面に出さない** —— 入っているのは割符の片割れである。
+ */
+export const rejoinKey = () => invoke<[string, string] | null>('rejoin_key');

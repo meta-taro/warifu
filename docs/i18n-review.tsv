@@ -216,6 +216,8 @@ reunion.wait	You cannot call them (their whereabouts are unknown). If they call 
 revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{device} 해지	★	実行を促す文言。ここで「試す」「確認する」に寄せると、押した先が最終であることが伝わらない。		
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a room key and someone can come in.	まだ自分だけです。ルームキーを渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
+room.back	Back to the last room	前のルームに戻る	回到上一个房间	이전 룸으로 돌아가기				
+room.back.hint	Rejoins the room you were in, with the room key you were given. You do not need a new key.	前に入ったルームへ、もらったルームキーで入り直します。ルームキーをもう一度もらう必要はありません。	用之前收到的 room key 重新进入上一个房间。不需要再要一把新的。	받았던 room key 로 이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다.				
 room.host	You made this room	あなたが作ったルームです	这个房间由你建立	당신이 만든 방입니다				
 room.invite	Invite someone to this room	このルームに人を呼ぶ	邀请人进这个 room	이 룸에 사람을 부르기				
 room.invite.hint	This one room key lets one person in. Hand the link, the QR or the room key text to the person you want. To invite another person, issue another room key.	この 1 本で 1 人が入れます。リンクか QR、またはルームキーの文字を、呼びたい相手に渡してください。もう 1 人呼ぶなら、もう 1 本出します。	这一把 room key可以让一个人进来。请把链接、二维码或room key 文字交给你想邀请的人。要再邀请一个人，就再出一把。	이 룸 키 한 개로 한 사람이 들어올 수 있습니다. 링크나 QR, 또는 룸 키 문자를 부르고 싶은 상대에게 건네주세요. 한 사람 더 부르려면 한 개 더 발급합니다.				
