@@ -19,7 +19,13 @@
     type 会話行,
     type 出来事,
   } from '$lib/meeting/announce';
-  import { 準備を出す, 画面の状態を決める, 映像を出すか, 届く先がある as 送れるか } from '$lib/meeting/stage';
+  import {
+    支度の口を出す as 支度を出すか,
+    鍵の口を出す as 鍵を出すか,
+    画面の状態を決める,
+    映像を出すか,
+    届く先がある as 送れるか,
+  } from '$lib/meeting/stage';
   import PaneRail from '$lib/shell/PaneRail.svelte';
   import { 既定の面, 押した後の面, type 面 as 面の型 } from '$lib/shell/panes';
   import ContactsPane from '$lib/contacts/ContactsPane.svelte';
@@ -511,7 +517,10 @@
   const 状態 = $derived(
     画面の状態を決める({ 相手: remotes.length, 会議キー: !!meetingKey, 人が入った }),
   );
-  const 支度の口を出す = $derived(準備を出す(状態));
+  // **鍵の口と支度の口は別もの**（2026-09-12・ASUS が実物で踏んだ）。
+  // 包んでいた `映像を使う` のせいで、**文字だけの人は入る口を持てなかった**
+  const 支度の口を出す = $derived(支度を出すか(状態, 映像を使う));
+  const 鍵の口を出す = $derived(鍵を出すか(状態));
   /** 映像の枠を出すか（`stage.ts` が決める）。 */
   const 映像を出す = $derived(
     映像を出すか({ 映像を使う, 支度した, 相手が居る: remotes.length > 0 }),
@@ -1918,7 +1927,7 @@
       {届く先}
     />
 
-    {#if 支度の口を出す && 映像を使う}
+    {#if 支度の口を出す}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('setup.title')}</h2>
       <p class="hint">{t('setup.hint')}</p>
@@ -1989,7 +1998,15 @@
       {/if}
       <p class="hint"><Icon name="headphones" />{t('setup.headphones')}</p>
     </div>
+    {/if}
 
+    <!--
+      **鍵の口は、映像を使うかと関係ない**（2026-09-12・ASUS が実物で踏んだ）。
+      ここを `映像を使う` で包んでいたため、**既定（文字だけ・D90）のままでは
+      「もらったルームキーでルームに入る」が画面に無かった。**
+      入れたばかりの人が**ルームに入れない**状態である。
+    -->
+    {#if 鍵の口を出す}
     <div class="card">
       <h2><Icon name="people" size={18} />{t('meeting.start.title')}</h2>
       <p class="hint">{t('meeting.key.hint')}</p>
