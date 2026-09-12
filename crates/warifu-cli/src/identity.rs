@@ -14,7 +14,13 @@ use warifu_vault::{Contacts, Error, Vault};
 /// 置き場所を開けないとき。
 pub fn 開く() -> Result<(Vault, Device), Error> {
     let vault = Vault::default_location()?;
-    let device = vault.open_seed()?.profile("Personal").device("cli");
+    // **1 台は 1 つの身元。**画面と同じ呼び名で導く（`端末の呼び名`）——
+    // 2026-09-11 まで `cli` を混ぜていたので、**`warifu id` が出す鍵と
+    // `warifu join` で入る鍵と、画面の鍵が全部別物だった**
+    let device = vault
+        .open_seed()?
+        .profile("Personal")
+        .device(warifu_core::端末の呼び名);
     Ok((vault, device))
 }
 

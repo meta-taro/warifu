@@ -173,3 +173,38 @@ fn シードは_32byte_で出し入れできる() {
         "同じ 32 byte から、違う身元が出てきた"
     );
 }
+
+#[test]
+fn 一つの機械は_一つの身元にする() {
+    // **2026-09-11 に別マシンで見つかった。**
+    // 呼び名ごとに鍵が導かれるので、本番のコードに呼び名が 3 つあると
+    // **1 台が最大 3 人に見える** ——
+    //
+    //   画面            device("この端末")
+    //   warifu id       device("cli")
+    //   host / join     device("PC")
+    //
+    // `warifu id` が出す鍵で相手が待っているのに、
+    // `warifu join` は別の鍵で入ってくる。**同じ人だと分からない。**
+    //
+    // **呼び名は 1 つに決める**（`warifu_core::端末の呼び名`）。
+    // ここはその決めごとが崩れていないかを見る見張りである。
+    use warifu_core::端末の呼び名;
+
+    let seed = Seed::from_bytes([7; 32]);
+    let 画面 = seed.profile("Personal").device(端末の呼び名).public_key();
+    let cli = seed.profile("Personal").device(端末の呼び名).public_key();
+    assert_eq!(画面, cli, "同じ機械なら、画面でも CLI でも同じ鍵");
+
+    // **呼び名を変えれば別人になる。**だから固定する意味がある
+    let 別 = seed.profile("Personal").device("べつの呼び名").public_key();
+    assert_ne!(画面, 別);
+}
+
+#[test]
+fn 端末の呼び名は_変えてはいけない() {
+    // **変えると、全員の鍵が変わる。**
+    // 連絡先も戸口の知り合いも、渡してあるルームキーも指す先を失う。
+    // **変えるなら決定から**（勝手に変えない）
+    assert_eq!(warifu_core::端末の呼び名, "この端末");
+}
