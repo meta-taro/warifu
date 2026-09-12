@@ -32,6 +32,7 @@
   import CropDialog from '$lib/contacts/CropDialog.svelte';
   import { この機械の印, ルームのid, type 行 as 連絡帳の行 } from '$lib/contacts/list';
   import { CLIの知らせ } from '$lib/update/cli';
+  import { 溜める, 取り出す, 忘れる, type 溜め } from '$lib/webrtc/pending';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -241,6 +242,12 @@
   let notice = $state('');
   /** **もう呼びに行った相手**（`gh issue 9`・紹介の往復を止める）。 */
   const 呼びに行った = new Set<string>();
+  /**
+   * **通話ができる前に着いた下ごしらえ**（`gh issue 9` の後半）。
+   *
+   * 捨てていたので、**握手の最初の玉を落として経路が永久に `unknown`** になっていた。
+   */
+  const 待たせた下ごしらえ: 溜め = new Map();
   /** 同じ PC の warifu コマンドについての知らせ。**言うことが無ければ `null`。** */
   let cliの知らせ = $state<ReturnType<typeof CLIの知らせ>>(null);
   /** 相手ごとの通話（**M6**）。1 本しか持たないと、3 人目で前の相手が切れる。 */
@@ -806,6 +813,13 @@
             key,
           );
           calls.set(key, call);
+          // **溜めてあった下ごしらえを、着いた順に食わせる**（`gh issue 9` の後半）。
+          // **`begin` より先に渡す** —— offer が先に来ている側は、これで握手が続く
+          const 溜まっていた = 取り出す(待たせた下ごしらえ, key);
+          if (溜まっていた.length > 0) {
+            log(`溜めてあった下ごしらえ ${溜まっていた.length} 件を渡す（${短く(key)}）`);
+            for (const 玉 of 溜まっていた) void call.receive(玉);
+          }
           log(`offer を出す側か: ${offering}`);
           if (!支度した) await 支度する();
           // **null でも入れる**（受け取るだけ・機器が無い機械）
@@ -915,8 +929,20 @@
         await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => {
           // **誰から来たかで振り分ける。**間違えると別の組の経路が壊れる
           const 宛先 = p.from ? calls.get(p.from) : undefined;
-          log(`下ごしらえが来た: ${p.step}（${p.from ? 短く(p.from) : '差出人なし'}）${宛先 ? '' : ' ← 通話が無い'}`);
-          void 宛先?.receive(p);
+          if (宛先) {
+            log(`下ごしらえが来た: ${p.step}（${短く(p.from as string)}）`);
+            void 宛先.receive(p);
+            return;
+          }
+          // **通話ができる前に着いたものを捨てない**（`gh issue 9` の後半）。
+          // 捨てると握手の最初の玉が落ちて、**経路が永久に `unknown`** になる ——
+          // 文字は割符の経路で流れるので、**映像だけが乗らない形で黙って壊れる**
+          if (!p.from) {
+            log(`下ごしらえが来た: ${p.step}（差出人なし）← 捨てた`);
+            return;
+          }
+          溜める(待たせた下ごしらえ, p.from, p);
+          log(`下ごしらえが来た: ${p.step}（${短く(p.from)}）← 通話がまだ無いので溜めた`);
         }),
       );
       unsubs.push(
@@ -1027,6 +1053,9 @@
   function 片付ける(key: string, 種類: 出来事 = '退室') {
     calls.get(key)?.close();
     calls.delete(key);
+    // **抜けた相手の溜めは捨てる。**次に来た人へ渡さない
+    忘れる(待たせた下ごしらえ, key);
+    呼びに行った.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
     members = members.filter((m) => m.key !== key);
     ルームの会話たち = この機械とルームへ足す(ルームの会話たち, いまのルーム, {
