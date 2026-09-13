@@ -2170,13 +2170,19 @@
         10 人なら 10 本 —— **1 本につき 1 人**なので、そこは足せない
       -->
       <div class="issue">
-        <label>
-          {t('meeting.key.howmany')}
-          <input type="number" min="1" max={出せる本数} bind:value={何人ぶん} />
-        </label>
-        <button type="button" onclick={() => void はじめる(何人ぶん)}>
-          <Icon name="people" />{t('meeting.start.action')}
-        </button>
+        <label for="howmany-start">{t('meeting.key.howmany')}</label>
+        <div class="行">
+          <input
+            id="howmany-start"
+            type="number"
+            min="1"
+            max={出せる本数}
+            bind:value={何人ぶん}
+          />
+          <button type="button" onclick={() => void はじめる(何人ぶん)}>
+            <Icon name="people" />{t('meeting.start.action')}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2294,13 +2300,19 @@
           前の鍵は死なない —— 出した本数だけ、別々の人が入れる。
         -->
         <div class="issue">
-          <label>
-            {t('meeting.key.howmany')}
-            <input type="number" min="1" max={出せる本数} bind:value={何人ぶん} />
-          </label>
-          <button type="button" class="quiet" onclick={() => void はじめる(何人ぶん)}>
-            <Icon name="key" />{t('meeting.key.more')}
-          </button>
+          <label for="howmany-more">{t('meeting.key.howmany')}</label>
+          <div class="行">
+            <input
+              id="howmany-more"
+              type="number"
+              min="1"
+              max={出せる本数}
+              bind:value={何人ぶん}
+            />
+            <button type="button" class="quiet" onclick={() => void はじめる(何人ぶん)}>
+              <Icon name="key" />{t('meeting.key.more')}
+            </button>
+          </div>
         </div>
         <p class="hint">{t('meeting.key.more.hint')}</p>
       </div>
@@ -2673,19 +2685,36 @@
   }
 
   /* **何人ぶん出すか**。数と押す所を横に並べる */
-  .issue {
-    display: flex;
-    align-items: end;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
+  /*
+    **ラベルを上に置き、打ち込み欄とボタンを 1 行にする**（`gh issue 10`）。
 
-  .issue label {
+    前は `align-items: end` で「ラベル＋欄」の塊とボタンを下端で揃えていたが、
+    **Windows の画面では揃わなかった** ——
+
+        何人ぶん    [ ルームをつくる ]   ← ボタンがラベルの行に並ぶ
+        [   1    ]                      ← 欄だけ下にはみ出す
+
+    **揃え方を engine に委ねるのをやめる。**ラベルは上の行、
+    **欄とボタンは同じ行**にすれば、どの画面でも同じ形になる。
+    （v0.1.2 から続いていた崩れで、v0.1.4 で作り替えたときに一緒に移っていた）
+  */
+  .issue {
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+  }
+
+  .issue label {
     font-size: 0.8rem;
     color: var(--text-secondary);
+  }
+
+  /** 欄とボタンの行。**同じ行なので、高さは自然に揃う。** */
+  .issue .行 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
 
   .issue input {
