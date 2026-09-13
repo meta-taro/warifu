@@ -298,6 +298,8 @@ export type MessageKey =
   | 'link.closed'
   | 'link.lost'
   | 'link.blocked'
+  | 'link.blocked.copy'
+  | 'link.blocked.copied'
   | 'browser.only'
   | 'camera.denied'
   | 'camera.missing'
@@ -350,6 +352,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': 'これは自分のルームキーです。入ってほしい人に渡してください。',
     'link.closed': '相手が退出しました。',
     'link.lost': '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。',
+    'link.blocked.copy': '直し方をコピー（管理者の PowerShell に貼ります）',
+    'link.blocked.copied': 'コピーしました',
     'link.blocked':
       'この PC から相手へ経路が付きません。ファイアウォールが割符の画面の通信を止めていることがあります（文字は届くのに映像だけ乗らない、という形で出ます）。Windows では、初めて開くときに管理者が通信の許可を足す必要があります。',
     'browser.only': 'ブラウザで開いています。ルームは warifu の窓でだけ動きます。',
@@ -644,6 +648,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': 'This is your own room key. Hand it to the person you want in.',
     'link.closed': 'The other person left.',
     'link.lost': 'The route to them broke. They can come back with the same key — waiting.',
+    'link.blocked.copy': 'Copy the fix (paste into an admin PowerShell)',
+    'link.blocked.copied': 'Copied',
     'link.blocked':
       'No route to them from this PC. A firewall may be blocking warifu (text arrives, but video never starts). On Windows an administrator has to allow the app on first run.',
     'browser.only': 'This is open in a browser. Rooms only work in the warifu window.',
@@ -938,6 +944,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': '这是你自己房间的密钥。请交给你想让进来的人。',
     'link.closed': '对方已离开。',
     'link.lost': '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。',
+    'link.blocked.copy': '复制修复命令（粘贴到管理员 PowerShell）',
+    'link.blocked.copied': '已复制',
     'link.blocked':
       '这台电脑连不到对方。可能是防火墙挡住了 warifu（表现为文字能到、视频一直不出来）。Windows 上首次打开时需要管理员放行。',
     'browser.only': '你在浏览器里打开了。房间只在 warifu 的窗口里工作。',
@@ -1232,6 +1240,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': '이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.',
     'link.closed': '상대방이 나갔습니다.',
     'link.lost': '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.',
+    'link.blocked.copy': '해결 방법 복사(관리자 PowerShell 에 붙여넣기)',
+    'link.blocked.copied': '복사했습니다',
     'link.blocked':
       '이 PC 에서 상대에게 경로가 생기지 않습니다. 방화벽이 warifu 를 막고 있을 수 있습니다(문자는 오는데 영상만 시작되지 않는 형태). Windows 에서는 처음 열 때 관리자가 통신을 허용해야 합니다.',
     'browser.only': '브라우저에서 열려 있습니다. 방은 warifu 창에서만 움직입니다.',

@@ -35,6 +35,7 @@
   import { 溜める, 取り出す, 忘れる, type 溜め } from '$lib/webrtc/pending';
   import { 戻る口を出すか } from '$lib/contacts/rejoin';
   import { 経路が付かないと言うか, 黙っている秒 } from '$lib/link/blocked';
+  import { ふさがりの直し方 } from '$lib/link/fix';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -251,6 +252,9 @@
    * 捨てていたので、**握手の最初の玉を落として経路が永久に `unknown`** になっていた。
    */
   const 待たせた下ごしらえ: 溜め = new Map();
+  /** **ふさがりの直し方**（**D104**）。渡すものが無ければ `null`。 */
+  let 直し方 = $state<string | null>(null);
+  let 直し方を写した = $state(false);
   /** 同じ PC の warifu コマンドについての知らせ。**言うことが無ければ `null`。** */
   let cliの知らせ = $state<ReturnType<typeof CLIの知らせ>>(null);
   /** 相手ごとの通話（**M6**）。1 本しか持たないと、3 人目で前の相手が切れる。 */
@@ -828,6 +832,11 @@
             ) {
               log(`経路が付かないまま ${黙っている秒} 秒（${短く(key)}）。ふさがりを疑う`);
               notice = t('link.blocked');
+              // **直し方をその場で渡す**（**D104**）。
+              // 割符は管理者権限を要求しない —— 代わりに**打つものを渡す。**
+              // **分からない環境には渡さない**（当てずっぽうを打たせない）
+              直し方 =
+                typeof navigator === 'undefined' ? null : ふさがりの直し方(navigator.userAgent);
             }
           }, 黙っている秒 * 1000);
           // **入ってきた時に読み直す。**起動時に 1 回だけだと、
@@ -1886,6 +1895,24 @@
 
 {#if notice}
   <p class="notice top">{notice}</p>
+  <!-- **直し方をその場で渡す**（**D104**）。割符は管理者権限を要求しないので、
+       代わりに**打つものを渡す** —— 人に探させない -->
+  {#if 直し方}
+    <p class="notice top">
+      <button
+        type="button"
+        class="quiet"
+        onclick={() => {
+          void navigator.clipboard.writeText(直し方 ?? '').then(() => {
+            直し方を写した = true;
+          });
+        }}
+      >
+        <Icon name={直し方を写した ? 'check' : 'copy'} />
+        {直し方を写した ? t('link.blocked.copied') : t('link.blocked.copy')}
+      </button>
+    </p>
+  {/if}
 {/if}
 
 <!--
