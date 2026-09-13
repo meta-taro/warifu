@@ -373,8 +373,10 @@
         <div class="file">
           <span class="os">Windows（.msi・管理者向け）</span>
           <span class="what">
-            同じ中身です。<b>機械ぜんぶに入れる形</b>なので、管理者権限が要ります
-            （無いと <code>Error 1925</code> で止まります）。配布の仕組みで配る人向け。
+            同じ中身です。<b>機械ぜんぶに入れる形</b>なので、<b>管理者権限が要ります</b>
+            （無いと <code>Error 1925</code> や <code>Error 1406</code> で止まり、全部戻されます）。
+            <b>管理者権限が無い人は、上の <code>-setup.exe</code> を使ってください。</b>
+            こちらは Intune・GPO などの配布の仕組みで配る人向けです。
           </span>
           <a class="get thin" id="dl-msi" href="https://github.com/meta-taro/warifu/releases">
             .msi を落とす
