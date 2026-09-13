@@ -34,6 +34,7 @@
   import { CLIの知らせ } from '$lib/update/cli';
   import { 溜める, 取り出す, 忘れる, type 溜め } from '$lib/webrtc/pending';
   import { 戻る口を出すか } from '$lib/contacts/rejoin';
+  import { 経路が付かないと言うか, 黙っている秒 } from '$lib/link/blocked';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -812,6 +813,23 @@
       unsubs.push(
         await onEvent<string>(EVENT_JOINED, async (key) => {
           log(`入った人がいる（${短く(key)}）。通話を作る`);
+          // **経路が付かないまま黙らない**（`gh issue 9` / `gh issue 11`）。
+          // 「コマンドは動くのに画面だけ繋がらない」は、いちばん切り分けにくい形である。
+          // **握手の途中で脅かさない**ので、しばらく待ってから見る
+          const 入った時刻 = Date.now();
+          setTimeout(() => {
+            const 相手 = remotes.find((r) => r.key === key);
+            if (
+              経路が付かないと言うか({
+                相手が居る: !!相手,
+                経路: 相手?.path ?? 'unknown',
+                入ってからの秒: Math.round((Date.now() - 入った時刻) / 1000),
+              })
+            ) {
+              log(`経路が付かないまま ${黙っている秒} 秒（${短く(key)}）。ふさがりを疑う`);
+              notice = t('link.blocked');
+            }
+          }, 黙っている秒 * 1000);
           // **入ってきた時に読み直す。**起動時に 1 回だけだと、
           // その後 `warifu contacts add` で付けた名前が反映されない（2026-09-06 に実測）
           void 名簿を読む();

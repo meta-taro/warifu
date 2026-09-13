@@ -399,6 +399,19 @@
         出どころを確かめてから［詳細情報］→［実行］を押してください。
         <b>心当たりが無いときは入れないでください。</b>
       </div>
+      <div class="warn">
+        <b>Windows は、初めて開くときに通信の許可が要ります。</b>
+        入れただけでは <code>warifu-desktop.exe</code> の規則が作られず、
+        環境によっては<b>確認の窓も出ません</b>。そのときは
+        <b>文字は届くのに、映像だけ乗らない</b>という形になります
+        （<b>コマンドは動くのに画面だけ繋がらない</b>、いちばん分かりにくい形です）。
+        <b>管理者の PowerShell で</b>次の 2 行を打つと通ります。
+        <pre><code>New-NetFirewallRule -DisplayName "warifu (in)" -Direction Inbound -Program "$env:LOCALAPPDATA\warifu\warifu-desktop.exe" -Action Allow
+New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$env:LOCALAPPDATA\warifu\warifu-desktop.exe" -Action Allow</code></pre>
+        確認の窓が出るかどうかは
+        <code>Get-NetFirewallProfile | Select-Object Name, NotifyOnListen</code>
+        で分かります（<code>False</code> なら出ません）。
+      </div>
 
       <h2>入れたら、最初の 3 手</h2>
       <p class="note">相手も割符を入れている前提です。<b>アカウント登録はありません。</b></p>

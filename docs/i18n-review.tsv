@@ -141,6 +141,7 @@ key.hand.again	A key has already been handed to this person. If it went astray y
 key.hand.for	handed to {name}	{name} へ渡した	已交给 {name}	{name}에게 건넴				
 key.hand.hint	This is one room key for {name}. One key lets in one person only. Hand over the link, the QR or the room key text by another route (in person, by phone, in another chat).	これは {name} ぶんの 1 本です。1 本につき 1 人しか入れません。リンクか QR、またはルームキーの文字を、別の手段（対面・電話・ほかのチャット）で渡してください。	这是给 {name} 的一把 room key。一把 room key只能让一个人进来。请通过其他方式（当面、电话、别的聊天）把链接、二维码或room key 文字交给对方。	{name}에게 줄 룸 키 한 개입니다. 키 하나로는 한 사람만 들어올 수 있습니다. 링크나 QR, 또는 룸 키 문자를 다른 방법(직접·전화·다른 채팅)으로 건네주세요.				
 key.hand.title	One key for {name}	{name} に渡す 1 本	给 {name} 的一把 room key	{name}에게 줄 룸 키 한 개				
+link.blocked	No route to them from this PC. A firewall may be blocking warifu (text arrives, but video never starts). On Windows an administrator has to allow the app on first run.	この PC から相手へ経路が付きません。ファイアウォールが割符の画面の通信を止めていることがあります（文字は届くのに映像だけ乗らない、という形で出ます）。Windows では、初めて開くときに管理者が通信の許可を足す必要があります。	这台电脑连不到对方。可能是防火墙挡住了 warifu（表现为文字能到、视频一直不出来）。Windows 上首次打开时需要管理员放行。	이 PC 에서 상대에게 경로가 생기지 않습니다. 방화벽이 warifu 를 막고 있을 수 있습니다(문자는 오는데 영상만 시작되지 않는 형태). Windows 에서는 처음 열 때 관리자가 통신을 허용해야 합니다.				
 link.closed	The other person left.	相手が退出しました。	对方已离开。	상대방이 나갔습니다.				
 link.direct	Direct	直接	直连	직접				
 link.invited	A link is inviting you into a room. Enter?	リンクでルームに誘われています。入りますか？	有链接邀请你进入房间。要进入吗？	링크로 방에 초대받았습니다. 들어가시겠습니까?				

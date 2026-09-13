@@ -297,6 +297,7 @@ export type MessageKey =
   | 'edit.pasteHint'
   | 'link.closed'
   | 'link.lost'
+  | 'link.blocked'
   | 'browser.only'
   | 'camera.denied'
   | 'camera.missing'
@@ -349,6 +350,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': 'これは自分のルームキーです。入ってほしい人に渡してください。',
     'link.closed': '相手が退出しました。',
     'link.lost': '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。',
+    'link.blocked':
+      'この PC から相手へ経路が付きません。ファイアウォールが割符の画面の通信を止めていることがあります（文字は届くのに映像だけ乗らない、という形で出ます）。Windows では、初めて開くときに管理者が通信の許可を足す必要があります。',
     'browser.only': 'ブラウザで開いています。ルームは warifu の窓でだけ動きます。',
     'camera.denied': 'カメラとマイクが許可されていません。OS の設定で許可してください。',
     'camera.missing': 'カメラかマイクが見つかりません。',
@@ -641,6 +644,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': 'This is your own room key. Hand it to the person you want in.',
     'link.closed': 'The other person left.',
     'link.lost': 'The route to them broke. They can come back with the same key — waiting.',
+    'link.blocked':
+      'No route to them from this PC. A firewall may be blocking warifu (text arrives, but video never starts). On Windows an administrator has to allow the app on first run.',
     'browser.only': 'This is open in a browser. Rooms only work in the warifu window.',
     'camera.denied': 'Camera and microphone are not allowed. Allow them in your OS settings.',
     'camera.missing': 'No camera or microphone found.',
@@ -933,6 +938,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': '这是你自己房间的密钥。请交给你想让进来的人。',
     'link.closed': '对方已离开。',
     'link.lost': '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。',
+    'link.blocked':
+      '这台电脑连不到对方。可能是防火墙挡住了 warifu（表现为文字能到、视频一直不出来）。Windows 上首次打开时需要管理员放行。',
     'browser.only': '你在浏览器里打开了。房间只在 warifu 的窗口里工作。',
     'camera.denied': '未允许使用摄像头和麦克风。请在系统设置中允许。',
     'camera.missing': '找不到摄像头或麦克风。',
@@ -1225,6 +1232,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.own': '이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.',
     'link.closed': '상대방이 나갔습니다.',
     'link.lost': '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.',
+    'link.blocked':
+      '이 PC 에서 상대에게 경로가 생기지 않습니다. 방화벽이 warifu 를 막고 있을 수 있습니다(문자는 오는데 영상만 시작되지 않는 형태). Windows 에서는 처음 열 때 관리자가 통신을 허용해야 합니다.',
     'browser.only': '브라우저에서 열려 있습니다. 방은 warifu 창에서만 움직입니다.',
     'camera.denied': '카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.',
     'camera.missing': '카메라나 마이크를 찾을 수 없습니다.',
