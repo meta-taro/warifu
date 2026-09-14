@@ -23,5 +23,6 @@ warifu-post.workspace = true
 warifu-postbox.workspace = true
 warifu-capability.workspace = true
 warifu-read.workspace = true
+warifu-guard.workspace = true
 rmcp.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-std", "io-util", "process", "sync"] }

@@ -1,0 +1,15 @@
+[package]
+name = "warifu-guard"
+description = "外から届く口が、その OS で塞がれていないかを**調べる**。開けはしない。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# **依存を持たない。**OS に聞くだけで、通信もモデルも要らない。
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

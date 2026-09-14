@@ -842,52 +842,52 @@ async fn 診る(中継を使う: bool) -> Result<(), Box<dyn std::error::Error>>
 ///
 /// **調べるだけ。**規則は作らない —— **外から届く口を開けるのは、人が決めること**である
 /// （baseline §13）。
+///
+/// # なぜ CLI と画面を分けて出すのか
+///
+/// **まとめて数えると、塞がっている方が隠れる。**
+/// 2026-09-12 に Windows で実際にそうなった —— `warifu.exe` に規則が 2 本あり、
+/// `warifu-desktop.exe` には 1 本も無い状態で、`*warifu*` を数えると「2 件」になる。
+/// **「規則はある」と読めてしまい、画面が塞がっていることを隠す。**
+///
+/// 判定そのものは `warifu-guard` が持つ。ここは**並べて見せるだけ**である。
 fn 遮る物を調べる() -> Vec<String> {
-    #[cfg(target_os = "windows")]
-    {
-        let 出 = std::process::Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "Get-NetFirewallApplicationFilter | Where-Object { $_.Program -like '*warifu*' } | Measure-Object | Select-Object -ExpandProperty Count",
-            ])
-            .output();
-        return match 出 {
-            Ok(o) => {
-                let n = String::from_utf8_lossy(&o.stdout).trim().to_owned();
-                if n == "0" || n.is_empty() {
-                    vec![
-                        "ファイアウォール  warifu の規則が **ありません**".to_owned(),
-                        "                  → 素の warifu.exe では確認の窓が出ません。".to_owned(),
-                        "                    管理者の PowerShell で 1 行:".to_owned(),
-                        "                    New-NetFirewallRule -DisplayName warifu \\".to_owned(),
-                        "                      -Direction Inbound -Program (Resolve-Path .\\warifu.exe) \\".to_owned(),
-                        "                      -Action Allow -Profile Any".to_owned(),
-                    ]
-                } else {
-                    vec![format!("ファイアウォール  warifu の規則が {n} 件あります")]
-                }
+    let mut 行 = Vec::new();
+
+    // **自分（コマンド）から見る。**`current_exe` が読めないことはありうる
+    match std::env::current_exe() {
+        Ok(道) => 行.push(format!(
+            "ファイアウォール  コマンド  {}",
+            warifu_guard::調べる(&道).一行()
+        )),
+        Err(e) => 行.push(format!(
+            "ファイアウォール  コマンド  調べられませんでした（{e}）"
+        )),
+    }
+
+    // **画面は別に見る。**入れていなければ触れない —— 直しようのないことを言わない
+    match warifu_guard::画面の在り処() {
+        Some(道) => {
+            let 遮り = warifu_guard::調べる(&道);
+            行.push(format!("                  画面      {}", 遮り.一行()));
+            if matches!(遮り, warifu_guard::遮り::塞がっている) {
+                行.push(
+                    "                            → **文字は届くのに映像だけ乗らない**".to_owned(),
+                );
+                行.push(
+                    "                              形で出ます。管理者の PowerShell で 1 行:"
+                        .to_owned(),
+                );
+                行.push(format!(
+                    "                              New-NetFirewallRule -DisplayName warifu-desktop \\\n                                -Direction Inbound -Program '{}' \\\n                                -Action Allow -Profile Any",
+                    道.display()
+                ));
             }
-            Err(e) => vec![format!("ファイアウォール  調べられませんでした（{e}）")],
-        };
-    }
-    #[cfg(target_os = "macos")]
-    {
-        let 出 = std::process::Command::new("/usr/libexec/ApplicationFirewall/socketfilterfw")
-            .arg("--getglobalstate")
-            .output();
-        match 出 {
-            Ok(o) => vec![format!(
-                "ファイアウォール  {}",
-                String::from_utf8_lossy(&o.stdout).trim()
-            )],
-            Err(e) => vec![format!("ファイアウォール  調べられませんでした（{e}）")],
         }
+        None => 行.push("                  画面      入っていません".to_owned()),
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
-        vec!["ファイアウォール  この OS では調べていません".to_owned()]
-    }
+
+    行
 }
 
 /// 経路の候補を、人が読める形で並べる。**中身は宛先そのもので、秘密ではない。**
