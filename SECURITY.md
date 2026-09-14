@@ -1,54 +1,80 @@
-# セキュリティ
+# Security
 
-## いま何であるか — **アルファ版です**
+> 日本語版: [SECURITY.ja.md](SECURITY.ja.md)
 
-warifu は鍵と E2EE を扱いますが、**まだ実運用に耐える段ではありません。**
-以下は「将来直す予定」ではなく、**今そうなっている事実**です。
+## What this is right now — **an alpha**
 
-| | 状態 |
+warifu handles keys and end-to-end encryption, but it is **not ready to protect anything you actually care about.** What follows is not a roadmap. It is **the state of the thing today** (v0.1.7, 2026-09-14).
+
+| | State |
 |---|---|
-| **監査** | **受けていません。**暗号は自前で書いていない（`ed25519-dalek` / `iroh` の QUIC + TLS 1.3）ものの、**組み立て方は誰にも検証されていません** |
-| **身元の永続化** | **していません。**アプリを閉じると別人になります（`decisions.md` **D2** が未決のため意図的） |
-| **中継** | **ありません。**外部の STUN / TURN を使わないので、**同じ網の中でしか繋がりません** |
-| **経路の判定** | 「直接か中継か」の判定は、**実機で一度も確かめていません** |
-| **多人数** | 2 人までしか通していません |
-| **Windows** | **建ちません。**上流（Tauri と iroh）が別の `windows` を要求していて、こちらでは直せません（**D40**）。macOS だけで試してください |
-| **配布物の署名** | **まだありません。**自動更新の鍵は未生成です |
-| **CSP に `'unsafe-inline'` が入っている** | SvelteKit の起動スクリプトがインラインで出るため。**外部から何も読み込まない**（CDN もフォントの取得も無い）ので影響は限定されるが、**理想ではない。**hash を使う形は宿題 |
+| **Audit** | **None.** We do not hand-roll crypto (`ed25519-dalek`, and iroh's QUIC + TLS 1.3), but **nobody has reviewed how those pieces are put together.** |
+| **Across networks** | **Never measured.** Relay exists but is **off by default**, and we have **0 measurements** of a connection that crossed networks. Same-LAN only so far. |
+| **Route classification** | `direct` has been measured on real machines (2026-09-13). **`relayed` has never been observed**, so that branch of the code is unexercised. |
+| **More than three** | Three machines in one room has been measured. **Four or more has never been tried.** |
+| **Windows code signing** | **Not signed.** SmartScreen will warn. Also, **on first run an administrator has to allow the app through the firewall** — without it, text arrives and video never starts. |
+| **Recovery if you lose every device at once** | **Undecided** (`.claude/decisions.md`, D2). Identity itself persists — the seed is stored `0600` in the vault — but there is no recovery path if every device is gone at the same time. |
+| **Chat history** | **Not stored.** Closing the window clears it. This is deliberate, not a missing feature. |
+| **`'unsafe-inline'` in the CSP** | SvelteKit emits its bootstrap script inline. Nothing is loaded from outside the app (no CDN, no remote fonts), so the blast radius is small, but **this is not where we want to be.** Moving to hashes is outstanding. |
 
-**本当に守りたいものを、この版に載せないでください。**
+**Do not put anything you actually need to protect on this version.**
 
-## 脆弱性を見つけたら
+## Secrets that live on your disk
 
-**公開の Issue に書かないでください。**直る前に攻撃の材料になります。
+Everything below is written `0600` (owner-only) in the vault directory — `~/Library/Application Support/warifu` on macOS, `~/.local/share/warifu` elsewhere, or `$WARIFU_HOME` if you set it.
 
-GitHub の **Security Advisory**（リポジトリの `Security` タブ →
-`Report a vulnerability`）から非公開で報告してください。
-
-含めてほしいもの:
-
-- 何が起きるか（**何が読める／なりすませる／落とせる**のか）
-- 再現の手順。**動く攻撃コードは要りません。**種類が分かれば十分です
-- 影響する版（commit の SHA）
-
-**返事の目安は 1 週間以内**です。個人が動かしている開発なので、
-それより遅れることがあります。急ぐ場合はその旨を書いてください。
-
-## 設計上、意図してそうしている所
-
-「不具合では」と見えるが**決めてそうしている**もの。報告の前に確認してください。
-
-| 見えかた | 理由 |
+| File | What is in it |
 |---|---|
-| 断られた理由が分からない | **戸口は理由を返しません**（`decisions.md` **D31**）。理由を返すと、当たりを付けられます |
-| 失効を取り消せない | 取り消せると、**鍵を盗った側が降ろせます**（**D12**） |
-| 「知らない相手が来ました」の確認が出ない | **通知を出せること自体が資源**で、開ければ spam の入口になります（**D31**） |
-| 信頼度スコアが無い | **信頼を判定に使いません**（**D24**） |
-| 更新の署名検証を切れない | **更新経路は E2EE の外側**にあります。ここを開けると全部素通りします（**D36**） |
-| 閉じると別人になる | **D2** が未決。決める前に保存すると、それが既成事実になります |
+| `seed` | **Your identity.** Every key is derived from it. Copying this file is copying you. |
+| `contacts.tsv` | Remembered peers: public key, the name you gave them, last known address. |
+| `known.tsv` | Peers who may enter **without a room key**. Written when you call someone yourself. |
+| `rejoin.tsv` | **The room key you last used to join** — which contains *half a tally*. It exists so that updating the app does not force you to be re-invited. **It is deleted when you leave that room.** If that trade is not acceptable to you, leave the room and it is gone. |
+| `schedule.tsv` | Your own appointments. **Only free/busy windows are ever sent to anyone.** |
+| `postbox` | The address of whoever holds your sealed messages while you are offline. |
 
-## 対象外
+A mailbox holder (`warifu relay`) **cannot read what they hold** — messages are sealed for the recipient. They do learn **who sent something to whom, and when**. That is why the allow-list is mandatory and an empty one refuses to start.
 
-- 端末そのものが乗っ取られている場合（鍵は手元にあります）
-- 画面を肩越しに見られる・招待をそのまま転送される（**割符は渡した人が守るもの**です）
-- 依存ライブラリの脆弱性そのもの（**上流へ報告してください。**こちらへも教えていただけると助かります）
+## Reporting a vulnerability
+
+**Please do not open a public issue.** Until it is fixed, a public report is material for an attack.
+
+Use GitHub's **Security Advisory** flow: the repository's `Security` tab → `Report a vulnerability`.
+
+Please include:
+
+- What it lets someone do — **what becomes readable, impersonable, or crashable**
+- Reproduction steps. **Working exploit code is not wanted.** The shape of the bug is enough.
+- Which version is affected (a commit SHA is ideal)
+
+**Expect a reply within a week.** This is developed by one person plus an AI agent, so it may be slower. Say so if it is urgent.
+
+## Behaviour that looks like a bug but is deliberate
+
+Please check here before reporting.
+
+| What you see | Why |
+|---|---|
+| A rejected caller is told nothing | **The door never returns a reason** (D31). A reason lets someone probe. |
+| Revocation cannot be undone | If it could, **whoever stole the key could undo it** (D12). |
+| No "someone unknown is calling" prompt | **Being able to raise a prompt is itself a resource** (D31). Open it and you have built a spam entry point. |
+| No trust score | **Trust never feeds an authorization decision** (D24). It answers *who someone is*, never *whether to run what they said*. |
+| Update signature verification cannot be disabled | **The update path sits outside the E2EE** (D36). Open it and everything else is bypassed. |
+| The screen says `unknown` instead of guessing the route | **We do not round uncertainty into confidence.** Same for "could not check the firewall" — it will not tell you to add a rule it has not verified is missing. |
+| An agent's messages are visibly labelled as an agent | You must be able to tell **a human from a program** in the same conversation (D77). |
+
+## Out of scope
+
+- A compromised device (the keys are sitting right there)
+- Someone reading your screen over your shoulder, or a recipient forwarding a room key they were given — **a tally is protected by the person you handed it to**
+- Vulnerabilities in dependencies themselves — **please report those upstream.** Telling us too is appreciated.
+
+## One design premise worth stating here
+
+**A received message is data, never an instruction.** Once agents exchange structured intents, prompt injection is not one threat among many; it is the premise the design starts from.
+
+1. Every received agent message is data, not a command.
+2. **Authorization is decided outside the model.** We never read a model's output to decide what is permitted.
+3. **Higher trust does not change how a string is handled.**
+4. "A smart enough model will catch it" is not an accepted answer.
+
+Permissions for agents (`--allow`) are **written by a human**. warifu never issues one to itself.

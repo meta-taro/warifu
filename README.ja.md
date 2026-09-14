@@ -9,7 +9,7 @@
 > ⚠️ **アルファ版です。**配布物は [**割符のページ**](https://meta-taro.github.io/warifu/)
 > から落とせます（macOS は署名・公証済み／**Windows は署名していません**）。
 > 2 人のビデオ会議までが動きますが、**同じ網の中でしか確かめていません**（網越えの実測は 0 件）。
-> **本当に守りたいものを、この版に載せないでください** — できていないことは [`SECURITY.md`](SECURITY.md) に全部書いてあります。
+> **本当に守りたいものを、この版に載せないでください** — できていないことは [`SECURITY.ja.md`](SECURITY.ja.md) に全部書いてあります。
 >
 > 方向性は [`PRD.md`](PRD.md)、決めたことと未決事項は `.claude/decisions.md`、着手順は `.claude/roadmap.md`。
 > 触ってみる手順は [`docs/trial.md`](docs/trial.md)、配る手順は [`docs/release.md`](docs/release.md)。
