@@ -1,101 +1,60 @@
-# 受け取って開く（**アルファ・うちうち配布**）
+# Installing (**alpha**)
 
-> **`v0.1.0-alpha.15` から、Mac 版は署名して公証しています**（**D80**）。
-> **そのままダブルクリックで開きます。**回避の操作は要りません。
-> **alpha.14 まで**は署名していないので、下の「§2 開く」の手順が要ります。
->
-> Windows 版は**まだ署名していません**（「WindowsによってPCが保護されました」が出ます）。
-> どちらも、公開のダウンロードとして広く配るものではありません（`SECURITY.md`）。
+> 日本語版: [install.ja.md](install.ja.md)
+
+Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.7**.
+
+**Read [`SECURITY.md`](../SECURITY.md) first if you are planning to rely on this for anything.** It is an alpha.
 
 ---
 
-## 0. 動く機械
+## What runs
 
 | | |
 |---|---|
-| **macOS / Apple Silicon（M1 以降）** | **動きます**。配布物は `aarch64` です |
-| **macOS / Intel** | **動きません。**別に建てる必要があります（下記） |
-| **Windows（x64）** | **動きます。**`.msi` か `.exe` で入れます（下記）。**映像も音声も使えます** |
-| **Linux** | **確かめていません** |
+| **macOS / Apple Silicon (M1 or later)** | **Works.** Builds are `aarch64`. App and CLI are **signed and notarized** |
+| **macOS / Intel** | **No build shipped.** Build it locally (below) |
+| **Windows (x64)** | **Works**, video and audio included. **Not code-signed**, and **first run needs a firewall rule** (below) |
+| **Linux** | **Not verified.** It compiles; nobody has run it end to end |
 
-### Windows —— **`.msi` で入れる**
+---
 
-**画面が建ちます**（2026-09-06 に初めて通った）。Artifacts に 3 つ入っています。
+## macOS
 
-| | 大きさ | |
-|---|---|---|
-| `warifu_0.1.0_x64_en-US.msi` | 8.2 MB | **これを入れるのがいちばん簡単** |
-| `warifu_0.1.0_x64-setup.exe` | 5.5 MB | 同じもの。インストーラの形が違うだけ |
-| `warifu.exe` | 14.8 MB | **CLI。入れずにその場で使える** |
+### The app
 
-#### 入れるときに出るもの（**署名していないため**）
+Open the `.dmg`, drag `warifu.app` into Applications, double-click. **No workaround needed** — it is signed and notarized (since v0.1.0-alpha.15).
 
-`.msi` を開くと、Windows がこう出します。
+Check it yourself, with the same tool your OS uses:
 
-```
-WindowsによってPCが保護されました
+```bash
+spctl -a -vv -t exec /Applications/warifu.app
+#   → accepted / source=Notarized Developer ID
 ```
 
-**壊れてはいません。**署名していないだけです。
+### The CLI (`warifu`)
 
-1. **「詳細情報」**を押す
-2. 出てくる **「実行」**を押す
-
-**1 回やれば、次からは普通に開きます。**macOS の「右クリック →『開く』」と同じ位置づけです。
-
-#### **ファイアウォールを開ける**（**CLI だけ使うなら必須**）
-
-`.msi` で入れると初回に確認の窓が出ますが、**素の `warifu.exe` では出ません。**
-**開けないと、同じ網の相手からも届きません。**
-
-**管理者の PowerShell で 1 行**です。
-
-```powershell
-New-NetFirewallRule -DisplayName warifu `
-  -Direction Inbound -Program (Resolve-Path .\warifu.exe) `
-  -Action Allow -Profile Any
-```
-
-**入っているか確かめる**なら、`warifu.exe doctor` が見ます。
-
-#### CLI だけ使う
-
-入れずに `warifu.exe` をそのまま置いても使えます。
-
-```
-warifu.exe host --keys 2      会議キーが 2 本出る（1 本につき 1 人）
-warifu.exe join <会議キー>    もらった鍵で入る
-```
-
-**打った行がそのまま相手へ飛び、届いた行がそのまま出ます。**
-足りなくなったら、そのまま `/key` と打てばもう 1 本出ます。
-（`/key` そのものを送りたいときは、頭に空白を 1 つ。）
-
-### macOS —— **CLI（`warifu`）**
-
-`.dmg` は**画面だけ**です。**預かり所（`warifu relay`）・置き手紙（`warifu post`）・
-エージェントの口（`warifu mcp`）は CLI 側**にあります。同じ Artifact に入っています。
-
-**落としたままでは動きません。**macOS が検疫の印を付けるためです。
+The `.dmg` contains **the app only**. The mailbox (`warifu relay`), agent endpoint (`warifu mcp`) and resident agent (`warifu agent`) are in the **CLI**, which is a separate download in the same release.
 
 ```bash
 chmod +x ./warifu
-xattr -d com.apple.quarantine ./warifu    # ← これを忘れると「開発元を検証できません」
-./warifu --version                        # → warifu 0.1.0
+./warifu version          # → warifu 0.1.7
+mkdir -p ~/bin && mv ./warifu ~/bin/     # if ~/bin is on your PATH
 ```
 
-**印を外すのは、落とした本人が中身を承知しているときだけ**にしてください。
-署名していない配布物なので、**外から来た同名のファイルに同じことをしない。**
+**From v0.1.5 the CLI is signed *and notarized*, so no `xattr` dance is required.** We verified that by putting the quarantine flag on a fresh download and running it.
 
-置き場所は好きな所で構いませんが、`PATH` の通った所に置くと打ちやすくなります。
+> **Up to v0.1.4 this was not true**, and it failed in the worst way: the binary hung with no output **and then disappeared** — macOS removed it. If you are on an older build, `xattr -d com.apple.quarantine ./warifu` **before** the first run.
+
+**Replacing an existing CLI: delete it, then copy.** Overwriting in place gives you `Killed: 9`, because macOS has the old signature cached for that path.
 
 ```bash
-mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば `warifu` で打てる
+rm -f ~/bin/warifu && cp ./warifu ~/bin/warifu && chmod +x ~/bin/warifu
 ```
 
-### Intel の Mac で使うなら
+### Intel Macs
 
-その機械の上で建ててください。
+Build on the machine:
 
 ```bash
 git clone https://github.com/meta-taro/warifu.git
@@ -106,196 +65,93 @@ pnpm tauri build --bundles app
 
 ---
 
-## 1. 落とす
+## Windows
 
-### 試すだけなら、タグを待たなくてよい
+### Use `-setup.exe`, not `.msi`
 
-`develop` に入ったものを試すなら、**`bundle` の成果物**が使えます
-（`Actions` → `bundle` → 最新の実行 → Artifacts）。
-
-| | 中身 |
+| File | |
 |---|---|
-| `warifu-windows-latest-develop` | `warifu.exe`（CLI）＋ `warifu-desktop.exe`（画面・**インストーラではない**） |
-| `warifu-macos-latest-develop` | 同じもの（macOS 版） |
+| **`warifu_0.1.7_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
+| `warifu_0.1.7_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
+| `warifu.exe` | The CLI. Runs from wherever you put it |
 
-**7 日で消えます。**配るためのものではなく、**試すためのもの**です。
-**インストーラ（`.msi` / `.dmg`）が要るなら、下のタグの成果物**を使ってください。
+### SmartScreen will warn
+
+**Windows is not code-signed yet.** You will see:
+
+```
+Windows によって PC が保護されました
+```
+
+**It is not broken.** Press **More info** → **Run anyway**, once. Do this only if you know where the file came from.
+
+### **First run needs a firewall rule** (this one bites)
+
+Installing does **not** create a rule for `warifu-desktop.exe`, and in many environments **no prompt appears either**. The symptom is the hardest kind to diagnose: **text arrives, video never starts** — or, put differently, **the CLI connects and the GUI does not.**
+
+Since v0.1.7 **the app tells you this by name and hands you the command**. To do it yourself, in an **administrator** PowerShell:
+
+```powershell
+New-NetFirewallRule -DisplayName "warifu (in)"  -Direction Inbound  -Program "$env:LOCALAPPDATA\warifu\warifu-desktop.exe" -Action Allow
+New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$env:LOCALAPPDATA\warifu\warifu-desktop.exe" -Action Allow
+```
+
+Check what exists (no administrator needed):
+
+```powershell
+Get-NetFirewallApplicationFilter | Where-Object Program -like "*warifu*" | ForEach-Object { $_.Program }
+```
+
+**Rules are bound to the path, so they survive an upgrade.** You do not need to add them again after updating. Whether a prompt would appear at all:
+
+```powershell
+Get-NetFirewallProfile | Select-Object Name, NotifyOnListen
+```
+
+`NotifyOnListen: False` means **you will never see a prompt** — an administrator has to add the rule.
+
+`warifu.exe doctor` reports the CLI and the GUI **separately**, so "the command has rules" can no longer hide "the window does not".
+
+### CLI only
+
+```
+warifu.exe host --keys 2      prints 2 room keys (one key = one person)
+warifu.exe join <room key>    join with a key you were given
+```
+
+Lines you type go to the other side; lines that arrive are printed. Type `/key` to issue another key (prefix a space if you want to *send* the text `/key`).
 
 ---
 
-タグを打つと、GitHub Actions の `release` が配布物を作ります。
+## Updating
 
-**`v0.1.0-alpha.16` から、Releases にも出します**（**D81**）。
-**自動アップデートがそこを見に行く**ためです —— アプリが札（`latest.json`）を
-取りに行く先が公開されていないと、更新を知らせられません。
+The app checks on startup and offers the update itself.
 
-| どこ | 何が置いてあるか | 誰が落とせるか |
-|---|---|---|
-| **Releases** | `.dmg` / `.msi` / `.exe` ＋ 更新用のもの ＋ `latest.json` | **誰でも** |
-| Actions の Artifacts | 同じもの（CLI の `warifu` / `warifu.exe` を含む） | リポジトリを見られる人 |
+**The CLI is a separate binary and does not update with the app.** After updating the app, replace the CLI too — otherwise you are running two different versions, and before v0.1.3 that meant **the app and the CLI claimed different identities**. `warifu id` now checks this for you and says so:
 
-**それより前のタグは Artifacts だけ**です。
-
-| Artifact | 中身 | 誰が使うか |
-|---|---|---|
-| **`warifu-macos`** | `.dmg`（画面）＋ `warifu`（CLI） | **Apple Silicon の Mac** |
-| **`warifu-windows`** | `.msi` / `.exe`（画面）＋ `warifu.exe`（CLI） | **Windows（x64）** |
-
-**Mac にも CLI が入るのは `v0.1.0-alpha.10` からです。**それより前のタグは
-`.dmg` だけで、**2 台目の Mac では `warifu relay` も `warifu mcp` も打てません**
-（2026-09-09 に気づきました）。
-
-**`v0.1.0-alpha.11` から、zip を開くとファイルが直に並びます。**
-alpha.10 は `target/release/warifu` と `apps/desktop/…/*.dmg` という
-**深いフォルダの中**に入っています（実物を落として確かめました）。中身は同じものです。
-
-**`v0.1.0-alpha.12` から `--relay` が使えます**（**D78**）。
-別の網の相手と繋ぐときに付けます。`warifu doctor --relay` でその場の事実が出ます。
-
-**`v0.1.0-alpha.13` から、鍵をリンクで渡せます**（`warifu://join/…`・**D79**）。
-リンクを押すと割符が開いて、**入るかどうかを尋ねます**（勝手には入りません）。
-QR でも同じリンクを渡せます。
-
-> **リンクを使うには、受け取る側が一度アプリを開いておく必要があります。**
-> `warifu.app` を「アプリケーション」へ入れて **1 回開く**と、
-> OS が `warifu://` をこのアプリの持ち物として覚えます。
-> 開いたことが一度も無いと、リンクを押しても何も起きません
-> （Windows も同じで、`.msi` で入れた時点で登録されます）。
-
-**Windows も画面が使えます**（2026-09-06 から）。
-
-いま出ているのは **`v0.1.0-alpha.15`** です（2026-09-10 現在）。
-（`v0.1.0-alpha.1` は `release` が落ちたタグです。**なぜ alpha.2 から始まるのかを辿れるように残してあります。**）
+```
+warifu: **この機械には身元が 2 つあります。**
+warifu:   いま名乗る身元  S246YYBLEHTP…  /tmp/…
+warifu:   画面が使う身元  I3ILQUUJQHVS…  /Users/…/Library/Application Support/warifu
+```
 
 ---
 
-## 2. 開く
+## Trying `develop` without waiting for a tag
 
-### `v0.1.0-alpha.15` 以降（Mac）
+`Actions` → `bundle` → latest run → Artifacts.
 
-**`.dmg` を開いて「アプリケーション」へ入れ、ダブルクリックするだけです。**
-署名して公証してあるので、警告は出ません。
-
-**確かめたいとき**は、これで見られます（受け取る人と同じ目で見る道具です）。
-
-```bash
-spctl -a -vv -t exec /Applications/warifu.app
-#   → accepted / source=Notarized Developer ID  と出れば、Apple が通したものです
-```
-
-### `v0.1.0-alpha.14` まで（署名なし）
-
-**そのままダブルクリックしても開きません。**
-macOS が「**開発元を検証できないため開けません**」または「**壊れているため開けません**」と言います。
-
-**署名していないのが理由**であって、壊れてはいません。
-
-### やり方 A — 右クリックから開く（**まずこれ**）
-
-1. `warifu.app` を **右クリック**（または Control を押しながらクリック）
-2. **「開く」**を選ぶ
-3. 出てくる確認で、もう一度**「開く」**
-
-**1 回やれば、次からは普通にダブルクリックで開きます。**
-
-### やり方 B — A で駄目なとき
-
-ダウンロードに付く隔離の印を外します。**中身が信用できる場合だけ**行ってください。
-
-```bash
-xattr -d com.apple.quarantine /Applications/warifu.app
-```
-
-`xattr: No such xattr` と出たら、もう外れています。そのまま開いてください。
-
----
-
-## 3. 更新（**自動**・**D81**）
-
-**`v0.1.0-alpha.16` から、起動したときに黙って新しい版を探します。**
-見つかったら画面の上に出ます —— **勝手に入れ替えません。**
-
-```
-更新あり — 0.1.1
-▸ 何が変わったか
-    - fix(desktop): …
-    - feat(net,cli): …
-[ 再起動して更新する ]  [ あとで ]
-```
-
-**何が変わったかを見てから押す形**にしてあります（前のタグからの commit の見出しです）。
-
-**手で確かめたいとき**は、メニューバーの **warifu ▸ 更新を確認…**。
-**無いときも「いまが最新です」と出ます** —— 押して何も起きないのは、
-押せていないのか更新が無いのか分からないためです。
-
-### 落としてくるものは、署名を検めます
-
-札（`latest.json`）と更新の中身は、**アプリに埋め込んだ公開鍵で検めてから**入れ替えます。
-検めずに落として実行すると、**更新の口が「何でも実行させる口」になります。**
-
----
-
-## 4. 最初に聞かれる許可
-
-| 何を聞かれるか | 断るとどうなるか |
+| Artifact | Contents |
 |---|---|
-| **カメラ** | 映らない。**音声だけで入れます** |
-| **マイク** | 喋れない。**受け取るだけで入れます** |
-| **ローカルネットワーク** | **何も繋がりません。**既定では外部の中継を使わないので、これは断らないでください |
+| `warifu-macos-latest-develop` | `warifu` (CLI) + `warifu-desktop` (app binary, **not an installer**) |
+| `warifu-windows-latest-develop` | the same, for Windows |
 
-**alpha.15 からは、聞かれるのは 1 回だけです。**それより前は**更新するたびに聞き直されました** ——
-署名していなかったため、macOS から見て毎回「別のアプリ」だったからです（**D80**）。
-
-**カメラもマイクも無い機械でも使えます。**画面に「受け取るだけで入ります」と出ます。
+**These expire after 7 days** and are for trying, not for distributing. If you need an installer, use a tagged release.
 
 ---
 
-## 5. 繋がらないときは **`warifu doctor`**
+## One thing about `warifu://` links
 
-**最初にこれを叩いてください。**手で調べることを 1 つにまとめてあります。
+A room key can be handed over as a link (`warifu://join/…`). **Pressing it asks whether you want to join — it never joins on its own.**
 
-```
-warifu doctor
-```
-
-出るもの ——
-
-```
-── 経路 ──
-  候補        1 件
-    192.168.24.16:54790
-  外向き      **ありません**
-              → **同じ網の相手にしか届きません**
-
-── 遮る物 ──
-  ファイアウォール  warifu の規則が **ありません**
-```
-
-**「外向き ありません」なら、別の網の相手とは繋がりません。**
-warifu は**外部の中継を使わない**ため（**D13**）、同じ網に居る必要があります。
-
-**出るのは事実だけです。**ファイアウォールの規則を warifu が勝手に作ることはありません
-（外から届く口を開けるのは、人が決めること・baseline §13）。
-
-## 6. 動かないときに見る所
-
-**まず `docs/trial.md` の「6. 動かないときに見る所」**を見てください。
-そこに無い症状なら、ログを付けて起動すると要所が出ます。
-
-```bash
-/Applications/warifu.app/Contents/MacOS/warifu-desktop > ~/Desktop/warifu.log 2>&1
-```
-
----
-
-## 7. これは何か（**期待しないこと**）
-
-**アルファです。**動く範囲は `README.md` に書いてあります。いま分かっている限界は ——
-
-- **Apple Silicon の Mac と Windows（x64）**で確かめています
-- **署名も公証もしていません**（上の手順が要ります）
-- **自動更新はありません。**新しい版が出たら入れ直してください
-- **チャットは残りません。**閉じると消えます
-- **会議キーは 1 本につき 1 人**です。3 人目には「もう 1 本出す」で別の鍵を渡します
-- **対称 NAT や厳しい社内網では繋がりません**（中継を使っていないため）
+**The receiving side has to have opened the app at least once**, so the OS knows who owns `warifu://`. If it has never been opened, pressing the link does nothing. (On Windows, the installer registers it.)

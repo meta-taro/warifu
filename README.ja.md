@@ -47,7 +47,7 @@ pnpm --filter @warifu/desktop tauri dev
 
 ### 受け取って使う（**アルファ**）
 
-建てずに使うなら **`docs/install.md`** を見てください。
+建てずに使うなら **`docs/install.ja.md`** を見てください。
 **署名していないので、受け取った側で 1 回だけ操作が要ります** ——
 知らないと「壊れています」と出て開けません。**Apple Silicon の Mac だけ確かめています。**
 
@@ -67,7 +67,7 @@ pnpm --filter @warifu/desktop tauri dev
 
 ### エージェントを、人と同じ会話につながらせる（**MCP**）
 
-**`docs/mcp.md`** —— この PC のエージェント（Claude Code など）を、
+**`docs/mcp.ja.md`** —— この PC のエージェント（Claude Code など）を、
 **人が見ているチャットにつながます。**エージェントが喋った行が、そのまま人の画面に出ます。
 
 ```
@@ -97,7 +97,7 @@ warifu relay --allow-file ~/warifu-allow.txt
 
 ### 訳文をレビューする
 
-**`docs/i18n-review.md`** —— UI の文言は 4 言語（en / ja / zh / ko）ありますが、
+**`docs/i18n-review.ja.md`** —— UI の文言は 4 言語（en / ja / zh / ko）ありますが、
 **全部 AI の下書き**です。**誤訳が事故になる文言が 8 つ**あります。
 シートは `docs/i18n-review.tsv`。
 
