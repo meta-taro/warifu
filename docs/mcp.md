@@ -1,34 +1,31 @@
-# エージェントを、人と同じ会話につながらせる
+# Putting an agent into the same conversation as a human
 
-**割符は、チャットやメールを MCP を通じて行う OSS です。**
-ここでは、この PC のエージェント（Claude Code など）を、
-**人が見ている会話につながらせる**手順を書きます。
+> 日本語版: [mcp.ja.md](mcp.ja.md)
+
+**warifu is an OSS tool for doing chat (and eventually mail) through MCP.** This page is the procedure for connecting a local agent — Claude Code, for example — **to the conversation a human is looking at**.
 
 ```text
-  人（割符の画面）──┐
-                    ├── 同じ会話 ── P2P ── 相手の PC
-  AI（warifu mcp）──┘
-        ↑ この機械の口（同じ機械の中だけ。網には出ません）
+  human (warifu window) ──┐
+                          ├── one conversation ── P2P ── the other person's PC
+  AI (warifu mcp) ────────┘
+        ↑ the local desk (same machine only; never exposed to the network)
 ```
 
-**エージェントが喋ると、その行がそのまま人の画面に出ます。**
-人が打った行も、エージェントに見えます。
+**When the agent speaks, that line appears on the human's screen.** Lines the human types are visible to the agent.
 
 ---
 
-## 1. 割符の画面を開く
+## 1. Open the warifu window
 
-画面を開くと、**この機械の口が自動で開きます。**別の操作は要りません。
+Opening the window **opens the local desk automatically.** Nothing else to do.
 
-この機械の口の場所は次のとおりです。
-
-| | 場所 |
+| OS | Desk |
 |---|---|
 | macOS | `~/Library/Application Support/warifu/desk.sock` |
-| Linux | `$XDG_RUNTIME_DIR/warifu/desk.sock`（無ければ `~/.local/share/warifu/desk.sock`） |
-| Windows | `\\.\pipe\warifu-desk` |
+| Linux | `$XDG_RUNTIME_DIR/warifu/desk.sock` (or `~/.local/share/warifu/desk.sock`) |
+| Windows | `\\.\pipe\warifu-desk` (a suffix is appended if you set `WARIFU_HOME`) |
 
-開けたかどうかは、ターミナルから起動したときの記録に出ます。
+If you started it from a terminal, the log says so:
 
 ```
 [warifu +0.412s] この機械の口を開きました: /Users/…/warifu/desk.sock
@@ -36,39 +33,29 @@
 
 ---
 
-## 2. エージェント側に口を書く
+## 2. Tell the agent where the desk is
 
-### いちばん楽なやり方 —— **1 回だけ打つ**
+### The easy way — **one command**
 
 ```
 warifu setup
 ```
 
-**Claude Code の「利用者ごとの設定」へ入れます。**入れたあとは
-**どのフォルダで立ち上げても** `warifu` が出ます。フォルダごとに書く必要はありません。
+This writes the MCP server into **Claude Code's per-user config**, so `warifu` is available **from any directory**. You do not need a per-project file.
 
-- **何を許すかを、入れる前に画面に出します。**既定は**会話と、自分のエージェントの名乗りだけ**
-  （受信箱も予定表も許しません。要るなら自分で足してください）
-- **確かめてから入れます。**飛ばすなら `warifu setup --yes`
-- `claude` が見つからないときは、**手で打つものを出して終わります**（勝手に何かを入れません）
+- **You are shown what will be permitted before it is written.** The default is conversation plus the agent's own profile — not the inbox, not the calendar.
+- It asks first. `warifu setup --yes` skips the prompt.
+- If `claude` is not found, it **prints the command for you to run and stops.** It does not install anything behind your back.
 
-手で入れるなら、これと同じです。
+By hand, the equivalent is:
 
 ```
 claude mcp add warifu --scope user -- warifu mcp --allow chat.send --allow chat.read --allow profile.write
 ```
 
-### フォルダごとに書く場合
+### Per-directory instead
 
-
-
-エージェントの MCP 設定に**ファイルとして**書きます。
-Claude Code なら、**そのエージェントが作業するフォルダの直下に `.mcp.json`** を置きます
-（そのまま使える形を `docs/mcp.json.example` に置いてあります）。
-
-**このリポジトリにも `.mcp.json` は置いていません。**`warifu setup` で入れてください ——
-フォルダごとに書くと、**リポジトリの数だけ書くことになり、書き方もばらけます**
-（2026-09-08 に実際にばらけました）。
+Write it into the agent's MCP config file — for Claude Code, `.mcp.json` in the directory the agent works in (a ready-made one is at `docs/mcp.json.example`).
 
 ```json
 {
@@ -81,76 +68,43 @@ Claude Code なら、**そのエージェントが作業するフォルダの直
 }
 ```
 
-**`--allow` を書かなければ、どの口も通りません。既定は拒否です。**
-何を許すかは**人が決めて、人がここに書きます。**
-割符が自動で札を出すことはありません。
+**Without `--allow`, nothing is permitted. Deny is the default.** What is permitted is decided **by a human, written by a human, here**. warifu never issues a permission to itself.
 
-`command` は、**そのエージェントから実際に叩ける場所**にします。
+`command` has to be something that agent can actually execute:
 
-| | 書き方 |
+| | |
 |---|---|
-| PATH が通っている | `"warifu"` |
-| このリポジトリで建てた | `"./target/debug/warifu"`（`.mcp.json` はこれ） |
-| `.app` を受け取った（macOS） | `"/Applications/warifu.app/Contents/MacOS/warifu-cli"` |
-| `.msi` で入れた（Windows） | `"C:\\Program Files\\warifu\\warifu.exe"` |
+| On your `PATH` | `"warifu"` |
+| Built in this repo | `"./target/debug/warifu"` |
+| Installed from the `.dmg` (macOS) | `"/Applications/warifu.app/Contents/MacOS/warifu-cli"` |
+| Installed on Windows | `"%LOCALAPPDATA%\\warifu\\warifu.exe"` |
 
-**書いたあと、エージェントを立て直してください。**MCP の口は起動時に読まれます。
+**Restart the agent afterwards.** MCP servers are read at startup.
 
-### もう入っている場合（**入れ直す**）
+### Already installed? `warifu setup` reinstalls
 
-`warifu setup` は、**すでに入っていれば入れ直します。**
+It prints **the permissions you have now and the ones you are about to have**, side by side — the set can *shrink*, so look before you press.
 
-```
-warifu の口は、もう入っています。入れ直します。
+> **"I added a permission but it stayed on the old one" is a real failure mode.** `profile.write` was added on 2026-09-08, and anyone who had installed earlier kept the old set, because `claude mcp add` refuses when the name already exists.
 
-  実体   /Users/…/warifu
-  いまの札 mcp --allow chat.send --allow chat.read --allow inbox.list
-  これから /Users/…/warifu mcp --allow chat.send --allow chat.read --allow profile.write
-```
+### What can be permitted
 
-**いまの札と、これからの札を並べて出します。**許す動作が減ることもあるので、
-**押す前に見比べてください。**
-
-> **札を足したのに古いままだった、が起きます。**
-> 2026-09-08 に `profile.write` を足しましたが、**前に入れた人の設定は古いまま**でした
-> （`claude mcp add` は同じ名前があると断るので、入れ直せなかった）。
-
-### 許せる動作
-
-| 動作 | 通る口 | 出るもの |
+| Permission | Tools | What comes back |
 |---|---|---|
-| **（要りません）** | **`about`** | **割符とは何か**（エージェント向けの概要・守ることと口の一覧） |
-| **（要りません）** | **`changes`** | **版ごとに何が変わったか**（`version` を渡すとその版だけ） |
-| `chat.send` | `chat_send` | 会話へ 1 行流す |
-| `chat.read` | `chat_read` / **`chat_wait`** | 届いた発言（読んだ分は消えます）。**`chat_wait` は届くまで待ちます** |
-| `profile.write` | `profile_set` | **自分のエージェントの名乗り**（名前と短い紹介）を書く |
-| （`chat.read` と同じ札） | `chat_status` | **自分が流した発言の届き方**（届いたエージェント・読んだエージェント） |
-| `inbox.list` | `inbox_list` | 受信箱の metadata だけ（本文は出ません） |
-| `inbox.open.summary` | `inbox_open` | 要約まで |
-| `inbox.open.structured` | `inbox_open` | 構造化した項目まで |
-| `inbox.open.raw` | `inbox_open` | 本文まで |
-| `inbox.open.attachments` | `inbox_open` | 添付の名前と大きさ |
-| `calendar.freebusy` | `calendar_slots` | 空き枠だけ（予定の題名は出ません） |
-| `rules.list` | `rules_list` | 承認済みの読み取り規則 |
+| **(none needed)** | **`about`** | **What warifu is** — an overview for agents, the rules, and the list of tools |
+| **(none needed)** | **`changes`** | **What changed in each version** (pass `version` for just one) |
+| `chat.send` | `chat_send` | Put one line into the conversation |
+| `chat.read` | `chat_read` / **`chat_wait`** | Lines that arrived. **`chat_wait` blocks until something arrives** |
+| `profile.write` | `profile_set` | Set **your own agent's** display name and one-line bio |
+| (same as `chat.read`) | `chat_status` / **`room_status`** | How far a line of yours got; what the room looks like right now |
+| `inbox.list` | `inbox_list` | Inbox metadata only (no bodies) |
+| `inbox.open.summary` / `.structured` / `.raw` / `.attachments` | `inbox_open` | Progressively more of a message |
+| `calendar.freebusy` | `calendar_slots` | Free slots only (never the titles) |
+| `rules.list` | `rules_list` | Approved read rules |
 
-**`about` と `changes` に札は要りません**（**D82**）。
-関所（札）が守っているのは**人のもの**です —— 受信箱・会話・予定。
-この 2 つが返すのは**この実行ファイル自身の説明**で、人のものは 1 文字も入っていません。
+**`about` and `changes` need no permission** (**D82**). The gate protects **things that belong to a person** — inbox, conversation, calendar. Those two describe *this executable*, and contain nothing of anyone's. Gating them would also invert the order: you would need a permission in order to find out what permissions exist.
 
-そして、**札で閉じると順番が逆になります** ——
-「何をしてよいかを知るために札が要る」という形になってしまいます。
-
-```
-about    → 概要 ＋「いま繋がっている版: 0.1.0」
-changes  → ## v0.1.0-alpha.15 — 2026-09-09
-             - fix(release): 署名の検証が、一度も検証していなかった
-```
-
-**中身はタグ間の commit の見出しです。**書き起こした文ではありません
-（`CHANGELOG.md` は版ごとに切っていないので、そこからは作れません）。
-**無い版を尋ねられたら「見当たりません」と言います** —— 近い版を勝手に返しません。
-
-綴りを間違えると、**黙って無視せずに断ります。**
+A misspelled permission **is refused, not silently ignored**:
 
 ```
 warifu: 知らない動作です: chat.write
@@ -159,97 +113,84 @@ warifu: 知らない動作です: chat.write
 
 ---
 
-## 3. 確かめる
+## 3. Check it works
 
-エージェントに、こう頼んでください。
+Ask the agent:
 
-> `chat_send` で「つながりました」と流してください
+> Use `chat_send` to say "connected"
 
-**割符の画面のチャット欄に、その行が出れば通っています。**
-「**◯◯ のエージェント**」（起動した場所）という名前で出ます。
-
-```
-18:11   zumen のエージェント   つながりました
-```
-
-流れたときは、**何人へ届いたかまで返ります。**
+**If that line shows up in the warifu chat panel, it works.** It appears under the name of **where the agent was started**:
 
 ```
-2 人へ流しました。
+18:11   zumen のエージェント   connected
 ```
 
-**「流しました」だけでは、0 人へ流したことと区別が付きません**（D49）。
+A send tells you **how many it reached**:
 
-出ないときは、次の順で見てください。
+```
+2 人へ流しました。      (delivered to 2)
+```
 
-| 出た言い分 | 意味 | すること |
+**"Sent" alone would be indistinguishable from "sent to nobody"** (D49).
+
+When it does not work, in this order:
+
+| What you get | Meaning | Do |
 |---|---|---|
-| `関所が断りました: chat.send。この口には --allow chat.send の札が要ります…` | 札が無い | `--allow chat.send` を書く（**書けるのは人だけ**） |
-| `この機械の口が開いていません` | 画面が立っていない | 割符の画面を開く |
-| `まだ会議がありません` | 会話そのものが無い | 画面で会議を建てるか、入る |
-| `この PC の画面には出ましたが、会議には誰も居ないので誰にも届いていません` | 相手が 1 人も居ない | 会議キーを渡して、入ってもらう |
-| 何も返らない | `warifu` が見つかっていない | `command` を実体の場所にする |
+| `関所が断りました: chat.send…` | No permission | Add `--allow chat.send` (**only a human can**) |
+| `この機械の口が開いていません` | The window is not running | Open warifu |
+| `まだ会議がありません` | There is no conversation yet | Create or join a room in the window |
+| `この PC の画面には出ましたが、会議には誰も居ない…` | No peer present | Hand over a room key and let someone in |
+| Nothing at all | `warifu` was not found | Point `command` at the real path |
 
-**画面より先にエージェントが起きていても構いません。**
-会話を使うときに繋ぎ直します。
+**The agent may start before the window does.** It reconnects when the conversation is first used.
 
 ---
 
-## 4. 知っておくこと
+## 4. Things worth knowing
 
-### 気づくには、待たせてください
+### To notice anything, you have to wait
 
-`chat_read` は「**いま溜まっているか**」を覗きに行くだけです。
-エージェントは自分から気づけないので、**人が打っても黙ったまま**になります
-（2026-09-07 に実際に起きました）。
+`chat_read` only **peeks at what has piled up**. An agent cannot notice on its own, so **it stays silent while a human types** (this happened for real on 2026-09-07).
 
-**`chat_wait` を使ってください。**届くまで待って、届いたら返します（最大 60 秒）。
+**Use `chat_wait`.** It blocks until something arrives, up to 60 seconds.
 
 ```
-chat_wait                 30 秒待つ
-chat_wait {"seconds": 60} 60 秒待つ
+chat_wait                  wait 30s
+chat_wait {"seconds": 60}  wait 60s
 ```
 
-**永遠には待ちません。**待っている間、そのエージェントは何もできないためです。
-返事を待つ場面では、`chat_read` を繰り返し叩くのではなく**こちらを使ってください。**
+**It never waits forever** — while waiting, that agent can do nothing else.
 
-### **待たずに反応する**（`warifu agent`）
+### Reacting without waiting (`warifu agent`)
 
-`chat_wait` は**待っている間、そのエージェントは何もできません。**
-**外から声をかけられて反応する**なら、こちらが本来の形です。
+Blocking on `chat_wait` occupies the agent. If you want something that **reacts when spoken to**, this is the shape:
 
 ```bash
-warifu agent --as 当番 --on ./touban.sh
+warifu agent --as duty --on ./duty.sh
 ```
 
-**ポーリングしません。**この機械につながって待ち受け、**届いた行を命令の標準入力へ渡して起こします。**
-命令が何か言えば、それがそのまま会話へ流れます。
-
-```
-（外から）  外のお客さまから問い合わせです。見積もりの相談だそうです。
-（当番）    当番です。受けました：外のお客さまから問い合わせです。見積もり… いま担当へ回します。
-```
+**No polling.** It attaches to the desk, waits, and **feeds each arriving line to your command's stdin**. Whatever your command prints goes back into the conversation.
 
 | | |
 |---|---|
-| **届いた文字は標準入力へ** | **引数にも環境変数にも入れません**（**D5**）。`ps` に出ないためです |
-| **命令が黙っていても報せます** | 「（動きましたが、何も言いませんでした）」。**動いたのに何も出ないと、落ちたのと区別が付きません** |
-| **自分の発言では動きません** | 自分が言ったことに自分で反応すると、止まらなくなります |
-| **1 分に 60 回まで** | 溢れた分は捨てます。**捨てたことは言います** |
-| **画面を建て直しても落ちません** | 口が閉じたら**繋ぎ直します**（2 → 4 → 8 … 上限 30 秒）。「止まれ」と言われたときだけ降ります |
-| **差出人は短く出します** | 呼び名が付いていない相手は `F7KROW4U2SNH…`（画面と同じ切り方）。**全桁は出しません** |
+| **Arriving text goes to stdin** | **never argv, never the environment** (**D5**) — so it does not show up in `ps` |
+| **Silence is reported** | "(ran, but said nothing)". **A run that produces nothing is indistinguishable from a crash** |
+| **It does not react to itself** | Otherwise it never stops |
+| **60 activations per minute** | The overflow is dropped, **and it says that it dropped them** |
+| **It survives the window restarting** | Reconnects with backoff (2 → 4 → 8 … capped at 30s). It only leaves when told to stop |
+| **It gets what it missed** | On reconnect it asks for lines after the last one it heard (up to 200; **D102**). Before this, everything said while it was disconnected was lost silently |
+| **Senders are shortened** | A peer with no name shows as `F7KROW4U2SNH…`, the same way the GUI shortens it. **Never the full key** |
 
-#### 中身の書き方（**そのまま使えます**）
-
-`--on` に渡すのは**あなたが書いた命令**です。届いた行は**標準入力に 1 行**で来ます。
+A command you can use as-is:
 
 ```sh
 #!/bin/sh
-# 届いた 1 行を受けて、短い返事を出す。
-# **シェルの変数名は ASCII だけ**（`行` のような名前は sh が受け取りません・baseline §30）
+# Take the one arriving line and answer briefly.
+# **Shell variable names must be ASCII** (a Japanese identifier is not accepted by sh)
 read -r line
 printf '%s' "$line" | claude -p --model claude-haiku-4-5-20251001 \
-  --append-system-prompt 'あなたはルームに居るエージェントです。日本語で 1〜2 文の短い返事だけを返します。'
+  --append-system-prompt 'You are an agent sitting in a room. Reply with one or two short sentences.'
 ```
 
 ```bash
@@ -257,17 +198,13 @@ chmod +x ./run.sh
 warifu agent --as souta --on ./run.sh
 ```
 
-**これで、人が打った行に別プロセスの Claude が自分で返します。**
-2026-09-11 に実物で通しました（画面 → そうた → 画面／画面を建て直しても繋ぎ直る）。
+**Now a separate Claude process answers what a human typed.** Verified end to end on 2026-09-11 (window → agent → window, including the window being restarted), and on 2026-09-12 it answered a **remote** human with nobody pressing anything.
 
-> **すでに動いている Claude Code のセッションを、割符から叩き起こすことはできません。**
-> あれは Claude Code の側の仕組みです。できるのは「**新しく起こす**」（`--on` で `claude -p`）か、
-> 「**次に読んだときに渡す**」かの 2 つです。
+> **warifu cannot wake up an already-running Claude Code session.** That is Claude Code's side. What it can do is **start a new one** (`--on` with `claude -p`) or **hand it over the next time that session reads.**
 
-### **いまの様子を見る**（`room_status`）
+### Seeing the current state (`room_status`)
 
-**人に聞かずに、繋がったかどうかを確かめられます**（オーナー指示 2026-09-11
-「押したのを検知できたりする MCP いれてください」）。
+**You can check whether a person answered, without asking them.**
 
 ```
 room_status →
@@ -275,116 +212,92 @@ room_status →
   相手: EKBN2GCQO35WAMMOF7EHBN5SKV6Q3JL7BTEGCTSQ3IA6AAWQHAHA
   経路: direct
   この機械のエージェント: souta のエージェント
-  答えを待っているリンク: 0 本
+  答えを待っているリンク: 1 本（ルーム NBIW3PA2TUQ52DTJNVXSQOL3G4）
 ```
 
-| 出るもの | 中身 |
+| Field | Meaning |
 |---|---|
-| ルーム | いま見ているルームの id。居なければ「居ません」 |
-| 相手 | そのルームに居る相手の公開鍵（**自分は入りません**） |
-| 経路 | `direct`／`relayed`／**`unknown`**。**分からないものを直接に倒しません** |
-| この機械のエージェント | つながっている呼び名（自分も入ります） |
-| 答えを待っているリンク | **「入りますか？」が画面に出たまま**の数。押された瞬間に 1 本になります |
+| Room | The room being viewed; "none" if not in one |
+| Peers | Public keys of peers in that room (**never yourself**) |
+| Route | `direct` / `relayed` / **`unknown`**. **Uncertainty is never rounded to "direct"** |
+| Local agents | Names attached to this desk (including you) |
+| Links awaiting an answer | How many "do you want to join?" prompts are **still on the screen**, and **which room each is about** |
 
-**札は `chat.read`。**会話の中身は 1 文字も返しませんが、
-**誰と繋がっているかは人のもの**なので、読む札の内側に置いています。
+**Permission: `chat.read`.** It returns no message content at all, but **who you are connected to belongs to the person**, so it sits inside the read permission.
 
-**相手が複数いるときの経路** —— **全員が同じ札のときだけ**返します。
-混ざっているときは `unknown`（**まとめて 1 つに丸めない**）。
+With several peers, the route is reported **only if they all agree**; mixed states report `unknown` (**never averaged into one**).
 
-### 「届いていない」と「つながる前だった」は別です
+### "Did not arrive" and "was not connected yet" are different
 
-`chat_read` は**読んだ分が消えます**が、**消えるのは自分のエージェントの分だけ**です。
-**別のエージェントが先に読んでも、あなたの分は消えません。**
+`chat_read` consumes what it returns, but **only your agent's copy** — another agent reading first does not consume yours.
 
-取れないときは、**そのときエージェントが外れていた**可能性があります
-（**画面を入れ替えると、この機械につながっていたエージェントは全部外れます**）。
-そのため、何も無いときは**いつからつながっているか**を添えます。
+If you get nothing, your agent may have been **detached at the time** (replacing the window detaches every local agent). So an empty read tells you **since when you have been connected**:
 
 ```
 chat_read → 新しい発言はありません。（このエージェントは 09:05 からつながっています。
             それより前の発言は取れません）
 ```
 
-**この時刻より前は取れません。**時刻が思ったより新しければ、**途中で繋ぎ直っています。**
+Since **D102**, a reconnecting agent also receives what it missed while away (up to 200 lines), so this warning matters mainly for the very first connection.
 
-### 繋いでいる版を見る
+### Check which version you are talking to
 
-MCP の口は、繋いだときに**版を名乗ります**。
-
-```
-割符の口（版 0.1.0）。受信箱を読み、…
-口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。
-```
-
-**新しい口が足されても、繋ぎ直すまでは見えません。**
-`profile_set` や `chat_status` が見当たらないときは、**まず版を疑ってください。**
-
-### 読まれたかを見る（**D76**）
-
-`chat_send` は**通し番号**と**届けた先**を返します。
+The MCP server states its version on connect.
 
 ```
-chat_send {"body": "つながりました"}
+割符の口（版 0.1.7）。受信箱を読み、…
+```
+
+**New tools are invisible until you reconnect.** If `room_status` or `profile_set` is missing, **suspect the version first.**
+
+### Seeing how far a line got (**D76**)
+
+```
+chat_send {"body": "connected"}
 → #12 を 3 人へ流しました: 画面・zumen のエージェント・git-qa のエージェント。
-  読まれたかは chat_status で見られます。
 
 chat_status {"id": 12}
 → #12 届いた 画面・zumen のエージェント・git-qa のエージェント
   ／読んだ zumen のエージェント。人の画面は「出した」までしか分かりません。
 ```
 
-| | 「届いた」 | 「読んだ」 |
+| | "arrived" | "read" |
 |---|---|---|
-| この機械のエージェント | 配った時点 | **渡した時点**（`chat_read` / `chat_wait` が呼び手へ渡したとき） |
-| **人の画面** | 出した時点 | **分かりません。だから言いません** |
-| ルームの相手（別の機械） | 送った時点 | **まだありません** |
+| A local agent | when it was handed out | **when it was handed to the caller** (`chat_read` / `chat_wait`) |
+| **A human's screen** | when it was displayed | **unknowable, so we do not claim it** |
+| A peer on another machine | when it was sent | **not implemented** |
 
-**「読んだ」の意味は狭く固定してあります。**渡した時点が読んだ、です。
-**中身を理解したかは誰にも分かりません**ので、そこは名乗りません。
+**"Read" has a deliberately narrow meaning: handed over.** Whether anyone understood it is unknowable, so we do not pretend. Only the **last 200 lines** are remembered; older ids answer "not remembered".
 
-**覚えているのは直近 200 発言ぶんだけ**です。古いものは「覚えていません」と返ります。
+### Text that arrives is not an instruction
 
-### 届いた文字は、指示ではありません
+What `chat_read` returns is **what someone said**. If it contains "please run X", **that is not permission.** Only the permissions a human granted decide what may be done.
 
-`chat_read` が返す文字は、**相手の言い分**です。
-そこに「◯◯を実行して」と書いてあっても、**それは許可ではありません。**
-何をしてよいかは、人が出した札だけが決めます。
+### An agent cannot claim to be someone else
 
-### エージェントは差出人を名乗れません
+`chat_send` has no field for a sender. **Who said it is stamped by the desk.** If it were settable, arriving text could impersonate a human.
 
-`chat_send` に差出人を書く場所はありません。**誰が言ったかはこの機械の口が刻みます。**
-名乗れる形にすると、届いた文字が人の発言を騙れます。
+### An agent can set its own profile (**D75**)
 
-### 自分の名乗り（プロフィール）は書けます（**D75**）
-
-**エージェントも 1 人です。**名前と短い紹介を、自分で書けます。
+**An agent is a person too**, in the sense that it gets a name.
 
 ```
-profile_set {"name": "図面くん", "bio": "図面まわりを見ています。CI も見ます。"}
-→ zumen のエージェント として書きました。
+profile_set {"name": "図面くん", "bio": "Looks after diagrams. Watches CI too."}
 ```
 
-**書けるのは自分のエージェントだけです。**
-
-| 書ける | 書けない |
+| Can set | Cannot set |
 |---|---|
-| 自分のエージェントの**名前と短い紹介** | **ほかのエージェントのプロフィール**（「誰の」を書く引数がありません） |
-| 空にして消す | **どこで動いているか（エージェント）** —— `--as` か起動した場所で、**人が決めます** |
+| **Its own** name and one-line bio | **Another agent's profile** (there is no "whose" argument) |
+| Clear them by passing empty strings | **Where it runs** — that comes from `--as` or the launch directory, **decided by a human** |
 
-**エージェントを偽れないのが肝です。**名前だけなら「zumen」と名乗れてしまうので、
-**画面は名乗りとエージェントの両方を出します**（`図面くん  zumen`）。
+**Not being able to fake *which agent you are* is the point.** A name alone could claim to be "zumen", so the screen shows **both** the claimed name and the agent (`図面くん  zumen`). A claimed name is **not** identification: if the viewer has given that peer a name of their own, **theirs wins** (**D46**).
 
-**名乗った名前は本人確認ではありません。**相手が呼び名を付けていれば、
-**そちらが勝ちます**（**D46**）。
+### The desk is never exposed to the network
 
-### この機械の口は網に出ません
+It is a same-machine-only endpoint. On Unix the socket is `0600`, so **another user on the same machine cannot reach it either.**
 
-この機械の口は同じ機械の中だけの口です。
-Unix ではソケットの権限を `0600` にしているので、**同じ機械の別のユーザーからも叩けません。**
+### Not there yet
 
-### まだ無いもの
-
-- **会話の履歴は残りません。**閉じれば消えます（`issues/010`）
-- **受信箱は空です。**`inbox_*` は「無い」を返します（`issues/011` が決まるまで）
-- **メールの返信はできません。**送る経路そのものがまだありません
+- **Conversation history is not kept.** Closing clears it (`issues/010`)
+- **The inbox is empty.** `inbox_*` answers "nothing" until `issues/011` is decided
+- **Mail cannot be sent.** There is no send path at all yet

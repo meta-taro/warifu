@@ -1,52 +1,52 @@
-# 訳文レビュー（**人が書く**）
+# Translation review (**a human writes this**)
 
-> **AI が代筆しません**（`.claude/rules/product-baseline.md` §19 / §27）。
-> 訳文は 4 言語とも **AI の下書き**です。**誤訳が事故になる文言が 8 つ**あります。
+> 日本語版: [i18n-review.ja.md](i18n-review.ja.md)
 
-シート: **`docs/i18n-review.tsv`**（102 鍵 × 4 言語）
+> **The AI does not fill this in** (`.claude/rules/product-baseline.md` §19 / §27).
+> All four languages are **AI first drafts**. **Eight strings will cause real harm if mistranslated.**
+
+Sheet: **`docs/i18n-review.tsv`** (one row per key × 4 languages)
 
 ---
 
-## 何を見るか
+## What to look at
 
-`DESIGN.md §9`（**D35**）で、UI の言語は **en / ja / zh / ko** と決まっています。
-シートは 1 行 1 鍵で、4 言語が横に並びます。
+`DESIGN.md §9` (**D35**) fixes the UI languages at **en / ja / zh / ko**. The sheet is one row per key, with the four languages side by side.
 
-| 欄 | |
+| Column | |
 |---|---|
-| `鍵` | コードから引く名前。**変えないでください** |
-| `en` `ja` `zh` `ko` | いまの訳（**AI の下書き**） |
-| **`事故になるか`** | **★ が付いた 8 鍵は、誤訳すると人の行動が変わります** |
-| `翻訳者への注記` | ★ の鍵に付いています。**何と読ませてはいけないか**が書いてあります |
-| **`判定`** | **空です。あなたが書きます** |
-| **`直した訳（ja/en/zh/ko）`** | **空です。**直すならここへ |
+| `鍵` (key) | The name the code looks up. **Do not change it** |
+| `en` `ja` `zh` `ko` | The current translation (**AI draft**) |
+| **`事故になるか`** (harmful if wrong) | **The 8 rows marked ★ change what a person does if mistranslated** |
+| `翻訳者への注記` (note to translator) | Attached to the ★ rows. It says **what the string must not be read as** |
+| **`判定`** (verdict) | **Empty. You write it** |
+| **`直した訳`** (corrected translation) | **Empty.** Put corrections here |
 
-`判定` は `ok` か `直す` の 2 つで足ります。**空のまま残っている行は「まだ見ていない」**です。
-`—` や `N/A` で埋めないでください（baseline §19）。
+`ok` or `直す` ("fix") is enough for the verdict. **A row left empty means "not looked at yet"** — please do not fill it with `—` or `N/A` (baseline §19).
 
 ---
 
-## ★ が付いている 8 つ
+## The eight marked ★
 
-**ここだけ先に見てもらえれば、残りは後でも構いません。**
+**If you only review these, that is already worth it. The rest can wait.**
 
-| 鍵 | 何を守っているか |
+| Key | What it protects |
 |---|---|
-| `revoke.irreversible` | **「取り消せない」は事実。**「後で戻せます」と読める訳にしない |
-| `revoke.confirm` | 押した先が**最終**であることが伝わる形に |
-| `door.refused` | **既に断り終えた**という完了の意味。「確認中」と読めると、来ていない相手を待ち続ける |
-| `meeting.key.hint` | 「渡した相手だけが入室できる」は**仕組みの説明であって、安全の保証ではない** |
-| `link.lost` | **切れたが戻ってこられる**（D44）。「自動で再接続します」とも「誰でも入れる」とも読ませない |
-| `act.mail.none` | **「まだ送れません」は「いま経路が無い」という事実。**「送信できませんでした」（送ろうとして失敗した）とも「準備中です」（待てば来る）とも読ませない。**送ったつもりで送られていないのが、いちばん重い事故** |
-| `act.address.none` | **覚えていないのはこちら側。**「その相手は見つかりません」「拒否されました」と読める訳にしない —— 相手のせいにすると、人は相手に確認しに行く |
-| `chat.scope` | **会話は 1 本。**「この相手にだけ届きます」「非公開の会話です」と読ませない —— 個別に届くと誤解した人は、見られたくないものを書く |
+| `revoke.irreversible` | **"Cannot be undone" is a fact.** It must not read as "you can restore it later" |
+| `revoke.confirm` | The press has to feel **final** |
+| `door.refused` | It means **the refusal already happened**. If it reads as "checking…", someone waits forever for a caller who is not coming |
+| `meeting.key.hint` | "Only the person you handed it to can enter" describes **the mechanism, not a safety guarantee** |
+| `link.lost` | **The link broke, but they can come back** (D44). Must not read as "reconnecting automatically", nor as "anyone can walk in" |
+| `act.mail.none` | **"Cannot send yet" is a statement about there being no route.** It must not read as "sending failed" (tried and failed) nor "coming soon" (wait and it arrives). **Believing you sent something you did not is the worst outcome here** |
+| `act.address.none` | **We are the ones who do not remember.** It must not read as "that person was not found" or "they refused" — blaming the other side sends people off to ask them about nothing |
+| `chat.scope` | **There is one conversation.** Must not read as "only this person receives it" or "private chat" — someone who believes that writes things they would not want others to see |
 
 ---
 
-## 直したものを入れる
+## Getting corrections in
 
-`直した訳` の欄を埋めて渡してください。**こちらがコードへ入れます。**
-入れたあと `python3 scripts/i18n-review.py` でシートを作り直します。
+Fill in the `直した訳` column and hand it back. **We put it into the code.**
+Afterwards the sheet is regenerated with `python3 scripts/i18n-review.py`.
 
-**鍵を足したらシートも作り直します。**忘れると試験が落ちます
-（`src/lib/i18n/review.test.ts`）—— **レビューの穴が見えないまま残るのが一番まずい**ためです。
+**Adding a key means regenerating the sheet.** Forget and the test fails
+(`src/lib/i18n/review.test.ts`) — because **an unreviewed gap that nobody can see is the worst state to be in.**
