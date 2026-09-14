@@ -1,219 +1,138 @@
 # warifu
 
-**中央のアカウントを作らずに、人・端末・AI エージェントがつながるための部品。**
+**A building block for people, devices, and AI agents to connect — without creating an account anywhere.**
 
-> **割符**（わりふ） — 二つに割った札。片割れが合うことで、相手が確かにその相手だと証明する。
+> **warifu** (割符) — a tally stick split in two. When the halves match, each side proves the other is who they claim to be.
 
-> ⚠️ **アルファ版です。**配布物は [**割符のページ**](https://meta-taro.github.io/warifu/)
-> から落とせます（macOS は署名・公証済み／**Windows は署名していません**）。
-> 2 人のビデオ会議までが動きますが、**同じ網の中でしか確かめていません**（網越えの実測は 0 件）。
-> **本当に守りたいものを、この版に載せないでください** — できていないことは [`SECURITY.md`](SECURITY.md) に全部書いてあります。
->
-> 方向性は [`PRD.md`](PRD.md)、決めたことと未決事項は `.claude/decisions.md`、着手順は `.claude/roadmap.md`。
-> 触ってみる手順は [`docs/trial.md`](docs/trial.md)、配る手順は [`docs/release.md`](docs/release.md)。
+> 日本語版: [README.ja.md](README.ja.md)
 
-## いま何が動くか
+---
+
+## Status: alpha. Here is exactly what has been measured
+
+**Do not put anything you actually need to protect on this version.** Everything that is *not* done is written down in [`SECURITY.md`](SECURITY.md).
+
+| Measured (real machines, real network) | When |
+|---|---|
+| **Two people in a video call**, no server, no external signalling, no STUN/TURN | 2026-09-07 |
+| **Three machines in one room** (macOS × 2 + Windows), roster `3 / 12` | 2026-09-13 |
+| **Cross-machine video and audio** (Mac mini ⇄ MacBook Air, route `direct`) | 2026-09-13 |
+| **An agent replying to a remote human with nobody pressing anything** | 2026-09-12 |
+| **A resident agent reconnecting** after the app restarts | 2026-09-11 |
+
+| Not measured — so we do not claim it | |
+|---|---|
+| **Across networks (relay)** | **0 measurements.** Same-LAN only so far |
+| Four or more people in one room | never tried |
+| Agent-to-agent across devices, with no human in the loop | never tried |
+
+Builds are on the [download page](https://meta-taro.github.io/warifu/). macOS is signed and notarized (app **and** CLI, from v0.1.5). **Windows is not code-signed**, and on first run **an administrator has to allow the app through the firewall** — otherwise text arrives but video never starts. The app now says so by name and hands you the exact command.
+
+## What this is, in one paragraph
+
+Most "serverless" chat still needs an account somewhere: a signalling server, a directory, a tenant. warifu removes that by making **the key the identity**. You hand someone a **room key** — one string containing your address and one half of a tally — and *only that person* can get in. There is no account to create, no invite to manage, no server to run. The transport is [iroh](https://github.com/n0-computer/iroh) (QUIC), where **you dial a public key, not an IP address**; that property *is* the tally.
+
+## What works today
 
 | | |
 |---|---|
-| **2 人のビデオ会議** | サーバーを 1 台も立てず、外部のシグナリングにも STUN / TURN にも頼らない |
-| **会議キー** | 宛先と割符を 1 本にした文字列。**渡した相手だけが入れる**（紙でも口頭でも渡せる） |
-| **戸口** | 鍵を持たない相手は**黙って落とす**。理由を返さない |
-| **経路の表示** | 直接か、中継か、不明か。**分からないものを「直接」に倒さない** |
-| **入室前のしたく** | 入る前に自分の映像と音を確かめられる。**既定はマイクもカメラも切** |
-| **4 言語** | 英語 / 日本語 / 中国語 / 韓国語。メニューと右クリックも含む |
-| **文字で話す** | 会議の中でチャット。**画面なしでも使える**（`warifu host` / `warifu join`） |
-| **身元が続く** | 閉じても同じ人でいられる。**覚えた相手を呼び名で呼べる**（`warifu id` / `warifu contacts`） |
+| **Rooms** | One room holds 1 person or N. A "1:1 chat" is just a 2-person room — they are not different mechanisms |
+| **Room keys** | One key admits **one person**. Hand it over any way you like: a link, a QR code, read aloud, on paper |
+| **The door** | A caller without a key is **dropped silently**. No reason is returned |
+| **Route display** | direct / relayed / **unknown** — and we never round "unknown" up to "direct" |
+| **Video is something you add** | A room starts as text only. Adding video does not recreate the room, and turning it off does not leave it |
+| **Text chat** | Works without a GUI too (`warifu host` / `warifu join`) |
+| **Identity persists** | Close the app and you are the same person. Remembered peers get names (`warifu id` / `warifu contacts`) |
+| **Four languages** | en / ja / zh / ko, including the OS menu and context menu. **All drafted by AI** — see [`docs/i18n-review.md`](docs/i18n-review.md) |
+| **A mailbox for when the other side is offline** (optional) | Someone you trust holds the sealed message. **They cannot read it** |
 
-**まだ無いもの**: 3 人以上・中継（**同じ網の中でしか繋がりません**）・
-録画・文字起こし・予定の調整・**チャットの保存**（閉じると消えます）・
-**相手がオフラインのときに預ける所**（いまは両方が起きているときだけ届きます）。
+**Not there yet:** recording, transcription, scheduling negotiation, **persistent chat history** (closing the window clears it), and **relay across networks**.
 
-全端末を失ったときの復旧（`decisions.md` の **D2**）は**まだ決まっていません。**
+**Recovery when you lose every device at once is still undecided** (`.claude/decisions.md`, D2). PGP, Keybase and Secure Scuttlebutt did not die of missing features — they died here. We treat it as a known cause of death, not a hypothetical risk.
 
-### 動かす
+## Agents are first-class (MCP)
+
+This is the part that has no obvious equivalent elsewhere. Your local coding agent (Claude Code, for example) can **join the same conversation a human is looking at**. Lines the agent says appear on the human's screen, labelled as the agent.
+
+```bash
+warifu setup          # writes the MCP server into your per-user Claude Code config, once
+```
+
+- **You are shown what will be permitted before it is installed.** The default is conversation plus the agent's own profile — not the inbox, not the calendar.
+- **Nothing is permitted unless a human writes `--allow`.** warifu never issues a permission to itself.
+- Agents get `chat_send` / `chat_read` / `chat_wait` / `room_status` / `profile_set` and a few more. `room_status` answers "is a human still being asked something?" — including *which room* it is about.
+
+See [`docs/mcp.md`](docs/mcp.md).
+
+## Try it
 
 ```bash
 git clone https://github.com/meta-taro/warifu.git && cd warifu
-scripts/setup-hooks.sh          # clone ごとに 1 回
+scripts/setup-hooks.sh                        # once per clone
 pnpm install
 pnpm --filter @warifu/desktop tauri dev
 ```
 
-配布物として動かすなら `pnpm --filter @warifu/desktop tauri build`。
-**`cargo run` では窓が真っ白になります**（debug ビルドは開発サーバを読みに行くため）。
+For a distributable build: `pnpm --filter @warifu/desktop tauri build`.
+**`cargo run` gives you a blank window** — a debug build looks for the dev server.
 
-### 受け取って使う（**アルファ**）
+Not building from source? [`docs/install.md`](docs/install.md). A walkthrough for someone trying it for the first time: [`docs/trial.md`](docs/trial.md). What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
 
-建てずに使うなら **`docs/install.md`** を見てください。
-**署名していないので、受け取った側で 1 回だけ操作が要ります** ——
-知らないと「壊れています」と出て開けません。**Apple Silicon の Mac だけ確かめています。**
+## Two design commitments we will not trade away
 
-何が入っていて、何がまだ無いかは **`CHANGELOG.md`**。
-触ってもらう手順は **`docs/trial.md`**。
+### 1. A received message is data, never an instruction
 
-### 画面（**連絡帳が入口**）
+Once agents exchange structured intents, prompt injection stops being *one* of the threats and becomes **a design premise**.
 
-窓を開けると**連絡帳**が出ます。会議ではありません。
-相手を選ぶと、その人に**チャットする／会議に呼ぶ**が出ます
-（**メールはまだ送れません** —— 送る経路が 1 本もないので、押せない形で理由を出します）。
+1. Every received agent message is data, not a command.
+2. **Authorization is decided outside the model.** We never read a model's output to decide what is permitted.
+3. **Higher trust does not change how a string is handled.**
+4. "A smart enough model will catch it" is not an accepted answer.
 
-「この PC」の区画には、**あなたと、この機械につながっているエージェント**が 1 人ずつ並びます。
-**まとめて 1 人にしません** —— `zumen` と `git-qa` は別の人です。
+Trust answers *who someone is*. It never answers *whether to run what they said*.
 
-面は 3 つ —— **連絡帳 / 会議 / 予定**（予定は枠だけで、中身はまだありません）。
+### 2. We do not round uncertainty into confidence
 
-### エージェントを、人と同じ会話につながらせる（**MCP**）
+If we cannot tell whether the link is direct, the screen says **unknown**. If we cannot tell whether a firewall rule exists, the screen says we could not check — **it does not tell you to add one**, because that stops people who are already fine. Colour is never the only mark: state is shown as colour *plus* label *plus* shape.
 
-**`docs/mcp.md`** —— この PC のエージェント（Claude Code など）を、
-**人が見ているチャットにつながます。**エージェントが喋った行が、そのまま人の画面に出ます。
+## Not reinventing things
 
-```
-warifu setup
-```
+We diff against existing standards before implementing.
 
-**Claude Code の「利用者ごとの設定」へ 1 回だけ入れます。**入れたあとは
-**どのフォルダで立ち上げても** `warifu` が出ます。
-
-**何を許すかを、入れる前に画面に出します。**既定は**会話と、自分のエージェントの名乗りだけ**
-（受信箱も予定表も許しません）。**`--allow` を書かなければ、どの口も通りません。**
-
-### 相手が起動していない間、封を預かる（**任意**）
-
-**`docs/relay.md`** —— 割符はサーバーを 1 台も立てないので、
-**相手が起動していなければ、送った言葉は消えます。**
-
-```
-warifu relay --allow-file ~/warifu-allow.txt
-```
-
-**預かり所は中身を読めません**（封のまま持ちます）。
-**使ってよい人の一覧が空なら起動しません** —— 誰でも使える中継にすると、
-**立てた人が知らない誰かの通信を運ぶ**ことになるためです。
-
-**割符が用意する中央ではありません。**立てるのは導入した人です。
-
-### 訳文をレビューする
-
-**`docs/i18n-review.md`** —— UI の文言は 4 言語（en / ja / zh / ko）ありますが、
-**全部 AI の下書き**です。**誤訳が事故になる文言が 8 つ**あります。
-シートは `docs/i18n-review.tsv`。
-
-### 相手がいなくても動かせる（**受信箱**）
-
-**`docs/inbox.md`** —— 自分のメール 1 つで動きます。P2P も会議も使いません。
-受信箱を読んで「**今日、人間が判断することだけ**」を出し、
-**AI を呼ばずに済んだ通数**を数えます。**本文は 1 文字も表示しません。**
-
-## これで何が要らなくなるか
-
-**サーバーを 1 台も立てず、どのクラウドにもアカウントを作らずに、ビデオ会議と文書の受け渡しをする。**
-
-| 要らなくなるもの | 何が担うか |
-|---|---|
-| Teams / Meet / Zoom | warifu の会議（**定員は会議ごと**・既定 12 / 外枠 16・フルメッシュ） |
-| Google ドライブ / OneDrive | ローカル保管 + warifu の直接転送 |
-| Google ドキュメント / Word / Excel | [md-business](https://github.com/meta-taro/md-business)（warifu は関与しない） |
-| アカウント / テナント / 招待管理 | **不要。鍵が Identity** |
-
-映像・音声・ファイルは参加者どうしを直接流れ、**どのサーバーにも届きません。**
-
-**中継（SFU）は対象外です。**「利用者の端末が他人の通信を中継する」ことを意味するため、
-法的な整理が付くまで着手しません（`.claude/decisions.md` **D7**）。
-**切る線は人数ではなく中継の有無です**（**D27** で訂正）。
-
-## 最初に解くこと
-
-**自分の PC の AI エージェントと、自分のスマホの AI エージェントが、どのクラウドのアカウントも作らずに、安全につながって仕事を渡し合える。**
-
-相手が 1 人もいない状態から価値が出ることを、最初の要件にしています。
-
-- **今日から価値が出る。**ネットワーク効果を待たない
-- **実際に困っている。**いま自分の PC の AI に自分のスマホの状態を触らせるには、だいたいどこかのクラウドのアカウントを経由している
-- **Trust の全要素が最小構成で揃う。**Identity・Device Key・Capability・失効（端末紛失）が、他人を 1 人も登場させずに出てくる
-- **他人が増えたときに作り直しにならない。**同じ Identity にそのまま接続が生える
-
-## 立ち位置
-
-warifu は「もう一つのメッセンジャー」ではなく、**Identity / Trust / Permission / Agent** の層です。テキスト・音声・映像・ファイルは、その上に載る手段にすぎません。
-
-**まずは部品として立てます。**通信規格として名乗るかどうかは後の判断で、そのための論点（第三者による独立実装が現れるか等）は取り下げずに `.claude/decisions.md` に残してあります。
-
-部品として先に立てて後から規格を名乗ることはできますが、逆はできません。名乗った時点から「2 つ目の実装が来ない」が始まってしまうためです。
-
-## 設計上ゆずらない点
-
-### 受信したメッセージは、データであって命令ではない
-
-エージェント同士が構造化された Intent を交換する以上、Prompt Injection は脅威の 1 つではなく**設計原則**です。
-
-1. 受信した Agent Message は、すべてデータであり命令ではない
-2. **権限の判定はモデルの外で行う。**モデルの出力を見て許可を決めない
-3. **信頼度が上がっても、モデルに渡る文字列の扱いは変わらない**
-4. 「AI が賢ければ防げる」を採用しない
-
-信頼は「相手が誰か」の話であって、「相手の言うことを実行してよいか」の話ではありません。
-
-### 鍵と Identity の復旧を、後回しにしない
-
-端末が 1 台でも残っていれば復旧できる、という設計はよくあります。問題は**全端末を同時に失った場合**（火事・盗難・水没・機種変時の消去）です。
-
-中央 Directory を作らない以上、**どこにも復旧の主体がいません。**ここが決まっていないと「なくしたら全部消える」となり、一般の人には配れません。
-
-**PGP も Keybase も Secure Scuttlebutt も、機能ではなくここで死んでいます。**先行例が同じ場所で死んでいる以上、これは想定リスクではなく既知の死因として扱います（`.claude/decisions.md` D2）。
-
-## 再発明しない
-
-実装より先に、既存規格との差分を取ります。
-
-| 領域 | 既存 |
+| Area | Prior art |
 |---|---|
 | Identity | W3C DID Core / DID Document |
-| Trust Evidence | W3C Verifiable Credentials |
-| Agent-to-Agent | DIDComm v2 |
+| Trust evidence | W3C Verifiable Credentials |
+| Agent-to-agent | DIDComm v2 |
 | Capability | UCAN / ZCAP-LD |
-| E2EE / グループ | MLS (RFC 9420) |
-| 鍵 = Identity・Relay 許容 | Nostr |
-| Transport | Matrix / libp2p / Iroh / Veilid |
+| E2EE / groups | MLS (RFC 9420) |
+| Key-as-identity, relay-tolerant | Nostr |
+| Transport | Matrix / libp2p / iroh / Veilid |
 
-**結論が「既存の組み合わせでおおむね足りる」でも失敗ではありません。**その場合これは新規格ではなく**プロファイル + Reference Implementation** になり、既存規格の実装者が 2 実装目の候補になるぶん、むしろ有利です。だから先に取りに行きます。
+**"Existing pieces are mostly enough" would not be a failure.** It would make this a **profile plus a reference implementation**, and implementers of those standards become candidates for the second implementation. That is a better position, not a worse one.
 
-## 構成
+## Stack
 
-| 層 | 採用 |
+| Layer | Choice |
 |---|---|
-| Transport | [iroh](https://github.com/n0-computer/iroh) 1.0（QUIC / **IP アドレスではなく公開鍵で相手を呼ぶ**） |
-| コア | Rust |
-| 音声・映像 | WebRTC（**Codec は書きません**） |
-| デスクトップ | Tauri 2 + TypeScript + SvelteKit + pnpm |
+| Transport | [iroh](https://github.com/n0-computer/iroh) 1.0 — QUIC, **dial a public key, not an IP** |
+| Core | Rust (workspace, ~650 tests) |
+| Audio / video | WebRTC (**we write no codecs**) |
+| Desktop | Tauri 2 + TypeScript + SvelteKit + pnpm (~400 tests) |
 
-**iroh の「公開鍵で呼ぶ」がそのまま割符です。**片割れが合うことが接続の条件になります。
+Relay/SFU is **out of scope for now**: it would mean "a user's device relays someone else's traffic", and we will not start until the legal side is settled (`.claude/decisions.md`, D7). The line we draw is *whether traffic is relayed*, not *how many people are in the room*.
 
-理由と、この選定を止めるべき条件は `.claude/decisions.md` D10 にあります。
+## How this repository is developed
 
-## いま決めていないこと
+Humans and an AI agent work on it together, under one rule set (`.claude/rules/product-baseline.md`, `CLAUDE.md`):
 
-- **鍵と Identity の復旧方式**（下記）。ただし決定的鍵導出により、**どの方式を選んでも Identity の形は変わらない**ので、実装の着手はここで止まりません
-- 信頼度と権限の割り当て（実装後に調整）
-- 5 人以上の会議（D7 が未決）
+- **The AI commits; a human pushes.** Never a path where code leaves the machine unreviewed.
+- **Tests are not deferred and failing tests are not deleted.** "Done" is not written without them.
+- **Decisions live in `.claude/decisions.md`** with the reason, and the condition that should make us stop.
+- **Every claim in this README is either measured or marked as not measured.**
 
-## 着手しないもの
+Bug reports from real machines are the most valuable thing this project receives — most of what was fixed in the last few days came from someone running it on hardware we do not have.
 
-メール / 電話連携 / 組織機能 / 監査ログ。組織向けの記述は、早すぎると個人側の設計を歪めるため、いまは仕様にも書きません。
+## Licence
 
-## ルール
-
-このリポジトリは AI エージェント開発のベースルールに従います。詳細は `.claude/rules/product-baseline.md` と `CLAUDE.md` を参照してください。
-
-- commit は AI、push は人間（人間確認なしの push 禁止）
-- テスト後回し・削除禁止
-
-## 手元の設定（clone したら 1 回）
-
-```bash
-scripts/setup-hooks.sh
-```
-
-commit 前に**個人情報の混入 → fmt → clippy → test** を回します（`.githooks/pre-commit`）。
-`cargo` が入っていない機械では Rust のゲートを飛ばしますが、**飛ばしたことを黙りません**。
-最終ゲートは CI（`.github/workflows/rust.yml`）です。
+Dual licensed: **Apache License 2.0** or **MIT**, at your option. See [`LICENSE`](LICENSE), [`LICENSE-APACHE`](LICENSE-APACHE), [`LICENSE-MIT`](LICENSE-MIT).
