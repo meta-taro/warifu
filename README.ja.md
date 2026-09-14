@@ -12,7 +12,7 @@
 > **本当に守りたいものを、この版に載せないでください** — できていないことは [`SECURITY.ja.md`](SECURITY.ja.md) に全部書いてあります。
 >
 > 方向性は [`PRD.md`](PRD.md)、決めたことと未決事項は `.claude/decisions.md`、着手順は `.claude/roadmap.md`。
-> 触ってみる手順は [`docs/trial.md`](docs/trial.md)、配る手順は [`docs/release.md`](docs/release.md)。
+> 触ってみる手順は [`docs/trial.ja.md`](docs/trial.ja.md)、配る手順は [`docs/release.md`](docs/release.md)。
 
 ## いま何が動くか
 
@@ -52,7 +52,7 @@ pnpm --filter @warifu/desktop tauri dev
 知らないと「壊れています」と出て開けません。**Apple Silicon の Mac だけ確かめています。**
 
 何が入っていて、何がまだ無いかは **`CHANGELOG.md`**。
-触ってもらう手順は **`docs/trial.md`**。
+触ってもらう手順は **`docs/trial.ja.md`**。
 
 ### 画面（**連絡帳が入口**）
 

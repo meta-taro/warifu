@@ -155,3 +155,44 @@ warifu:   画面が使う身元  I3ILQUUJQHVS…  /Users/…/Library/Application
 A room key can be handed over as a link (`warifu://join/…`). **Pressing it asks whether you want to join — it never joins on its own.**
 
 **The receiving side has to have opened the app at least once**, so the OS knows who owns `warifu://`. If it has never been opened, pressing the link does nothing. (On Windows, the installer registers it.)
+
+---
+
+## First three steps, once it runs
+
+Two machines, **on the same Wi-Fi** (across networks has never been measured).
+
+### 1. On machine A: create a room and issue a key
+
+Contacts → **Room** → **［このルームに人を呼ぶ］** (invite someone to this room).
+You get **one key per person** — a link, a QR code, or the raw text. Hand it over by any means you like: another chat app, a phone call, a printed page.
+
+**One key admits one person.** For a second person, issue a second key. **Earlier keys stay valid.** Keys expire after 24 hours.
+
+### 2. On machine B: paste the key
+
+Contacts → **Room** → the panel at the bottom, **「もらったルームキーでルームに入る」** (join with a room key you were given) → paste → **［ルームに入る］**.
+
+If you were given a `warifu://join/…` link, pressing it works too — **it asks before joining.** Note that machine B has to have opened the app at least once for the link to be recognised.
+
+### 3. Talk, then add video if you want it
+
+The room is **text only** to start with. Nothing touches your camera until you press **［ビデオ会議を始める］** (start a video meeting), and pressing it **adds video to the room you are already in** — it does not create a new one. Turning it off **does not leave the room**.
+
+### What should be true
+
+| | |
+|---|---|
+| The roster says `2 / 12` | both of you are in |
+| The route says `direct` | you are connected without a relay |
+| A line typed on A appears on B | and is marked **送信済み** (sent) |
+
+If the route stays `unknown` for more than about 15 seconds, the app will say what it suspects — including, on Windows, whether the firewall rule is actually missing.
+
+### Then: put an agent in the room
+
+```bash
+warifu setup
+```
+
+See [`mcp.md`](mcp.md). **An agent in the room is the part of this that has no obvious equivalent** — it can read and write the same conversation a human is looking at, and it is labelled so nobody mistakes it for a person.

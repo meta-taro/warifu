@@ -76,7 +76,7 @@ pnpm --filter @warifu/desktop tauri dev
 For a distributable build: `pnpm --filter @warifu/desktop tauri build`.
 **`cargo run` gives you a blank window** — a debug build looks for the dev server.
 
-Not building from source? [`docs/install.md`](docs/install.md). A walkthrough for someone trying it for the first time: [`docs/trial.md`](docs/trial.md). What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
+Not building from source? [`docs/install.md`](docs/install.md) — it ends with **the first three steps** once it is running. What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Two design commitments we will not trade away
 
