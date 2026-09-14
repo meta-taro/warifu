@@ -18,15 +18,23 @@ use std::path::{Path, PathBuf};
 /// それでも名前を持つのは、**書く先が無いことを理由に黙って落とさない**ため。
 const 名無し: &str = "名乗りなし";
 
-/// 控えを置く場所。机（口）と同じフォルダの下に置く。
+/// 控えを置く場所。**渡された「控えのフォルダ」の下**に置く。
+///
+/// # 口の親フォルダを使ってはいけない
+///
+/// 最初は「机（口）と同じフォルダの下」にしていた。**それは Unix のパスの形を
+/// 前提にしていた** —— **Windows の名前付きパイプに、フォルダは無い。**
+///
+/// `gh issue 15`（2026-09-14・Windows の人が実測）——
+/// `cargo test --workspace` が **7 件落ちた。**
+/// 場所は `warifu_desk::在り処を決める` が組で返す（**D109**）。
 ///
 /// **名乗りをそのままファイル名にしない** —— `..` や `/` が来ると、
-/// 机の外へ書けてしまう。**英数と、日本語をそのまま通す以外は落とす。**
+/// 外へ書けてしまう。**英数と、日本語をそのまま通す以外は落とす。**
 #[must_use]
-pub fn 印の場所(机: &Path, 名乗り: Option<&str>) -> PathBuf {
+pub fn 印の場所(控えのフォルダ: &Path, 名乗り: Option<&str>) -> PathBuf {
     let 名 = 名乗り.map_or_else(|| 名無し.to_owned(), 安全な名);
-    let 親 = 机.parent().unwrap_or(Path::new("."));
-    親.join("heard").join(名)
+    控えのフォルダ.join("heard").join(名)
 }
 
 /// ファイル名にしてよい形へ直す。
@@ -75,27 +83,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn 机と同じ所の下に置く() {
-        let 道 = 印の場所(Path::new("/tmp/warifu/desk.sock"), Some("zumen"));
+    fn 渡されたフォルダの下に置く() {
+        // **口の親フォルダを使わない**（`gh issue 15`）——
+        // Windows の口はパイプの名前で、フォルダを持たない
+        let 道 = 印の場所(Path::new("/tmp/warifu"), Some("zumen"));
         assert_eq!(道, Path::new("/tmp/warifu/heard/zumen"));
     }
 
     #[test]
     fn 名乗りに区切りが入っていても_外へ出ない() {
         // **`..` や `/` で机の外へ書かせない**
-        let 道 = 印の場所(Path::new("/tmp/warifu/desk.sock"), Some("../../etc/passwd"));
+        let 道 = 印の場所(Path::new("/tmp/warifu"), Some("../../etc/passwd"));
         assert_eq!(道, Path::new("/tmp/warifu/heard/______etc_passwd"));
     }
 
     #[test]
     fn 名乗らない相手にも_置き場所はある() {
-        let 道 = 印の場所(Path::new("/tmp/warifu/desk.sock"), None);
+        let 道 = 印の場所(Path::new("/tmp/warifu"), None);
         assert_eq!(道, Path::new("/tmp/warifu/heard/名乗りなし"));
     }
 
     #[test]
     fn 空の名乗りも_名無しとして扱う() {
-        let 道 = 印の場所(Path::new("/tmp/warifu/desk.sock"), Some("   "));
+        let 道 = 印の場所(Path::new("/tmp/warifu"), Some("   "));
         assert_eq!(道, Path::new("/tmp/warifu/heard/名乗りなし"));
     }
 

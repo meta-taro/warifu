@@ -34,5 +34,7 @@ mod talk;
 
 pub use line::{Error, FromDesk, ToDesk, 名乗りの上限, 本文の上限};
 pub use pipe::{一本, 受け口, 繋ぐ, 開いているか};
-pub use place::{この機械の場所, 場所を決める};
+pub use place::{
+    この機械の在り処, この機械の場所, 在り処, 在り処を決める, 場所を決める
+};
 pub use talk::口;
