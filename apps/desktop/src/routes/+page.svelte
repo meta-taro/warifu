@@ -37,6 +37,7 @@
   import { 宛先を据え置くか } from '$lib/chat/keep';
   import { 経路が付かないと言うか, 黙っている秒 } from '$lib/link/blocked';
   import { ふさがりの直し方 } from '$lib/link/fix';
+  import { ふさがりの言い方 } from '$lib/link/firewall';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
@@ -139,6 +140,7 @@
     sendToContact,
     postbox,
     cliState,
+    firewallState,
     rejoinKey,
     setPostbox,
     profiles,
@@ -868,7 +870,7 @@
           // 「コマンドは動くのに画面だけ繋がらない」は、いちばん切り分けにくい形である。
           // **握手の途中で脅かさない**ので、しばらく待ってから見る
           const 入った時刻 = Date.now();
-          setTimeout(() => {
+          setTimeout(async () => {
             const 相手 = remotes.find((r) => r.key === key);
             if (
               経路が付かないと言うか({
@@ -877,13 +879,26 @@
                 入ってからの秒: Math.round((Date.now() - 入った時刻) / 1000),
               })
             ) {
-              log(`経路が付かないまま ${黙っている秒} 秒（${短く(key)}）。ふさがりを疑う`);
-              notice = t('link.blocked');
-              // **直し方をその場で渡す**（**D104**）。
-              // 割符は管理者権限を要求しない —— 代わりに**打つものを渡す。**
+              // **規則の有無を見てから言う**（PR #16）。
+              // 規則があるのに「ファイアウォールが止めています」と言うのは嘘に近い ——
+              // 実機で**足した人が「足したのに直らない」で 3 時間止まった**
+              // **Tauri の外（ブラウザ）では `null` が返る。**そこで落ちない
+              const 様子 = (await firewallState().catch(() => null)) ?? {
+                state: 'unknown' as const,
+                rules: null,
+                detail: '調べる口が返りませんでした',
+              };
+              const 言い方 = ふさがりの言い方(様子);
+              log(
+                `経路が付かないまま ${黙っている秒} 秒（${短く(key)}）。遮り: ${様子.state}`,
+              );
+              notice = format(t(言い方.鍵), { why: 言い方.detail ?? '' });
+              // **直し方を渡すのは、規則が無いときだけ**（**D104**）。
               // **分からない環境には渡さない**（当てずっぽうを打たせない）
               直し方 =
-                typeof navigator === 'undefined' ? null : ふさがりの直し方(navigator.userAgent);
+                言い方.直し方を出す && typeof navigator !== 'undefined'
+                  ? ふさがりの直し方(navigator.userAgent)
+                  : null;
             }
           }, 黙っている秒 * 1000);
           // **入ってきた時に読み直す。**起動時に 1 回だけだと、

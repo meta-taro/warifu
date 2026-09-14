@@ -18,10 +18,14 @@ export type 遮りの様子 = {
 	state: 'open' | 'blocked' | 'unknown';
 	/** 規則の件数（`open` のときだけ）。 */
 	rules: number | null;
-	/** 調べられなかった理由（`unknown` のときだけ）。 */
-	detail?: string;
+	/**
+	 * 調べられなかった理由（`unknown` のときだけ）。
+	 *
+	 * **Rust からは `null` で来る**（`Option<String>` を serde が落とす）。
+	 */
+	detail?: string | null;
 	/** 見た実行ファイル（直し方に要るので、人に見せてよい）。 */
-	program?: string;
+	program?: string | null;
 };
 
 /** 画面に出す言い方。 */
@@ -45,4 +49,5 @@ export function ふさがりの言い方(様子: 遮りの様子): 言い方 {
 	return 様子.detail
 		? { 鍵: 'link.blocked.unknown', 直し方を出す: false, detail: 様子.detail }
 		: { 鍵: 'link.blocked.unknown', 直し方を出す: false };
+	// **`null` は「理由が無い」と同じに扱う**（Rust の `Option` がそう来る）
 }

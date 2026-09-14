@@ -478,3 +478,19 @@ export const cliState = () => invoke<CLIの様子>('cli_state');
  * **ルームキーは画面に出さない** —— 入っているのは割符の片割れである。
  */
 export const rejoinKey = () => invoke<[string, string] | null>('rejoin_key');
+
+/**
+ * **この実行ファイルの通信が、ファイアウォールで塞がれていないか**（PR #16）。
+ *
+ * **名前でまとめて数えない** —— `*warifu*` だとコマンドの規則まで数え、
+ * **画面が塞がっていることを隠す**（2026-09-12 に Windows でそうなった）。
+ * **調べるだけで開けはしない**（`warifu-guard`）。
+ */
+export type FirewallState = {
+	state: 'open' | 'blocked' | 'unknown';
+	rules: number | null;
+	detail?: string | null;
+	program?: string | null;
+};
+
+export const firewallState = () => invoke<FirewallState>('firewall_state');
