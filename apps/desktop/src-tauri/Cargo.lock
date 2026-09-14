@@ -6436,6 +6436,7 @@ dependencies = [
  "warifu-core",
  "warifu-desk",
  "warifu-door",
+ "warifu-guard",
  "warifu-intent",
  "warifu-meeting",
  "warifu-net",
@@ -6445,6 +6446,10 @@ dependencies = [
 
 [[package]]
 name = "warifu-door"
+version = "0.1.6"
+
+[[package]]
+name = "warifu-guard"
 version = "0.1.6"
 
 [[package]]

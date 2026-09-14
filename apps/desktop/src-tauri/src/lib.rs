@@ -524,6 +524,63 @@ fn my_key(bridge: State<'_, Bridge>) -> String {
     key_to_string(bridge.device.public_key())
 }
 
+/// **この画面**に、外から届く口が開いているか。
+///
+/// 経路が付かないとき、画面は「ファイアウォールかもしれません」と言う。
+/// **言う前に見る**ための口である。判定は `warifu-guard` が持つ。
+///
+/// `state` は 3 つある。**`unknown` を `blocked` に倒さない** —— 調べる手段が
+/// 失敗しただけで「足してください」と言うと、**足りている人を止める**（線 7）。
+///
+/// 2026-09-12 に Windows でそうなった。規則を 3 つ足したあとも同じ文言が出続け、
+/// 足した人が「足したのに直らない」で止まった。
+#[derive(serde::Serialize)]
+pub struct FirewallState {
+    /// `"open"` / `"blocked"` / `"unknown"`
+    state: &'static str,
+    /// 規則の件数。`open` のときだけ入る
+    rules: Option<usize>,
+    /// 調べられなかった理由。`unknown` のときだけ入る
+    detail: Option<String>,
+    /// 見た実行ファイル。**人にそのまま見せてよい**（直し方に要る）
+    program: Option<String>,
+}
+
+#[tauri::command]
+fn firewall_state() -> FirewallState {
+    // **いま動いているこの実行ファイル**を見る。名前で当てない ——
+    // `*warifu*` だと CLI の規則まで数え、画面が塞がっていることを隠す
+    let Ok(道) = std::env::current_exe() else {
+        return FirewallState {
+            state: "unknown",
+            rules: None,
+            detail: Some("自分の在り処が読めませんでした".to_owned()),
+            program: None,
+        };
+    };
+    let 道の文字 = Some(道.display().to_string());
+    match warifu_guard::調べる(&道) {
+        warifu_guard::遮り::開いている(n) => FirewallState {
+            state: "open",
+            rules: Some(n),
+            detail: None,
+            program: 道の文字,
+        },
+        warifu_guard::遮り::塞がっている => FirewallState {
+            state: "blocked",
+            rules: None,
+            detail: None,
+            program: 道の文字,
+        },
+        warifu_guard::遮り::分からない(理由) => FirewallState {
+            state: "unknown",
+            rules: None,
+            detail: Some(理由),
+            program: 道の文字,
+        },
+    }
+}
+
 /// 会議を作る。定員は `2..=16`（**D27**）。
 #[tauri::command]
 async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<String> {
@@ -1801,6 +1858,7 @@ pub fn run() {
             room_qr,
             my_address,
             my_key,
+            firewall_state,
             host_meeting,
             name_room,
             room_name,

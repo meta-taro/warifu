@@ -19,6 +19,7 @@ members = [
     "crates/warifu-seal",
     "crates/warifu-post",
     "crates/warifu-postbox",
+    "crates/warifu-guard",
     "crates/warifu-cli",
 ]
 # GUI は別 workspace に置く。**ここへ入れない。**
@@ -52,6 +53,7 @@ warifu-desk = { path = "crates/warifu-desk" }
 warifu-seal = { path = "crates/warifu-seal" }
 warifu-post = { path = "crates/warifu-post" }
 warifu-postbox = { path = "crates/warifu-postbox" }
+warifu-guard = { path = "crates/warifu-guard" }
 warifu-mcp = { path = "crates/warifu-mcp" }
 # MCP は動く仕様なので、自前で追わず公式 SDK に寄せる（D25）
 rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
