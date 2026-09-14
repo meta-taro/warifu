@@ -76,16 +76,6 @@ impl 遮り {
     }
 }
 
-/// `Get-NetFirewallApplicationFilter` の出力から件数を読む。
-///
-/// **空白と改行だけを落として、数として読めるかを見る。**
-/// 読めないものを 0 として扱わない —— 0 は「規則が無い」という**主張**であり、
-/// 「読めなかった」とは別の事実である。
-#[must_use]
-pub(crate) fn 件数を読む(出力: &str) -> Option<usize> {
-    出力.trim().parse::<usize>().ok()
-}
-
 /// その実行ファイルに当たる規則を調べる。
 ///
 /// **パスを 1 つずつ渡す。**まとめて聞くと、塞がっている方が隠れる（この層の冒頭を見よ）。
@@ -128,8 +118,22 @@ pub fn 画面の在り処() -> Option<std::path::PathBuf> {
 
 #[cfg(target_os = "windows")]
 mod windows {
-    use super::{件数を読む, 遮り};
+    use super::遮り;
     use std::path::Path;
+
+    /// `Get-NetFirewallApplicationFilter` の出力から件数を読む。
+    ///
+    /// **空白と改行だけを落として、数として読めるかを見る。**
+    /// 読めないものを 0 として扱わない —— 0 は「規則が無い」という**主張**であり、
+    /// 「読めなかった」とは別の事実である。
+    ///
+    /// **この中に置いてある理由。**呼ぶのは Windows の [`調べる`] だけなので、
+    /// 外に出すと他の OS で「使っていない」と言われる。
+    /// 試験も一緒にここへ置いてあり、**CI の windows 段で回る。**
+    #[must_use]
+    fn 件数を読む(出力: &str) -> Option<usize> {
+        出力.trim().parse::<usize>().ok()
+    }
 
     /// PowerShell へ渡す文字列の中で、シングルクォートを閉じさせない。
     ///
@@ -181,6 +185,28 @@ mod windows {
             assert_eq!(引用符を潰す(r"C:\it's\warifu.exe"), r"C:\it''s\warifu.exe");
         }
 
+        #[test]
+        fn 数はそのまま読む() {
+            assert_eq!(件数を読む("0"), Some(0));
+            assert_eq!(件数を読む("2"), Some(2));
+        }
+
+        /// PowerShell の出力は `\r\n` で終わる。**空白ごと落とす。**
+        #[test]
+        fn 前後の空白と改行は落とす() {
+            assert_eq!(件数を読む(" 3 \r\n"), Some(3));
+            assert_eq!(件数を読む("\n1\n"), Some(1));
+        }
+
+        /// **読めないものを 0 にしない。**0 は「規則が無い」という主張である。
+        #[test]
+        fn 読めないものは数にしない() {
+            assert_eq!(件数を読む(""), None);
+            assert_eq!(件数を読む("エラー"), None);
+            assert_eq!(件数を読む("-1"), None);
+            assert_eq!(件数を読む("1 2"), None);
+        }
+
         /// **無い実行ファイルには規則も無い。**
         ///
         /// PowerShell が動く環境でのみ意味を持つ。動かなければ
@@ -199,28 +225,6 @@ mod windows {
 #[cfg(test)]
 mod 試験 {
     use super::*;
-
-    #[test]
-    fn 数はそのまま読む() {
-        assert_eq!(件数を読む("0"), Some(0));
-        assert_eq!(件数を読む("2"), Some(2));
-    }
-
-    /// PowerShell の出力は `\r\n` で終わる。**空白ごと落とす。**
-    #[test]
-    fn 前後の空白と改行は落とす() {
-        assert_eq!(件数を読む(" 3 \r\n"), Some(3));
-        assert_eq!(件数を読む("\n1\n"), Some(1));
-    }
-
-    /// **読めないものを 0 にしない。**0 は「規則が無い」という主張である。
-    #[test]
-    fn 読めないものは数にしない() {
-        assert_eq!(件数を読む(""), None);
-        assert_eq!(件数を読む("エラー"), None);
-        assert_eq!(件数を読む("-1"), None);
-        assert_eq!(件数を読む("1 2"), None);
-    }
 
     #[test]
     fn 一行は状態ごとに違う() {
