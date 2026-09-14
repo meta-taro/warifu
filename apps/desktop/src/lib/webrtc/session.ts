@@ -12,14 +12,24 @@
 
 import { pathFromStats, type LinkPath, type RtcStatLike } from '../link/path';
 import { initialWatch, observe, type WatchState } from '../link/watch';
-import { sendSignal, type SignalPayload } from '../bridge';
+import { log, sendSignal, type SignalPayload } from '../bridge';
 import { applyAction, type PeerLike } from './apply';
 import { ICE_SERVERS, shouldSendVideo } from './media';
 import type { Prefs } from './devices';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
+import { 候補を言い表す, 対を言い表す, 数えて言い表す, type 統計の行 } from './trace';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
+
+/**
+ * 付かないまま、これだけ経ったら**様子を 1 回だけ記録へ出す**（issues/11 / #17）。
+ *
+ * `link/blocked.ts` の `黙っている秒` と同じ 15 秒にしてある ——
+ * **画面が「ふさがっているかも」と言い出す時刻と、記録に残る時刻を揃える。**
+ * ずれていると、人が見ている画面と記録が別の話に見える。
+ */
+const 様子を出すまでのミリ秒 = 15_000;
 
 export interface CallHandlers {
   /** 相手の映像。 */
@@ -37,6 +47,10 @@ export class Call {
   private timer: ReturnType<typeof setInterval> | null = null;
   private closed = false;
   private local: MediaStream | null = null;
+  /** 記録は**同じことを何度も書かない。**1 秒ごとに出すと読めなくなる。 */
+  private 様子を出した = false;
+  private 組を出した = false;
+  private 始めた = 0;
 
   constructor(
     offering: boolean,
@@ -61,7 +75,15 @@ export class Call {
         void sendSignal('candidate', '', this.peer);
         return;
       }
+      log(候補を言い表す('送る', e.candidate.candidate));
       void sendSignal('candidate', JSON.stringify(e.candidate.toJSON()), this.peer);
+    };
+    // **移り変わりを残す。**付かなかったとき、どこまで進んだのかが
+    // これしか手掛かりにならない（Windows・2026-09-14）
+    this.pc.oniceconnectionstatechange = () => {
+      const 具合 = this.pc.iceConnectionState;
+      log(`経路の具合 ${具合}`);
+      if (具合 === 'failed' || 具合 === 'disconnected') void this.様子を記録する();
     };
     this.pc.ontrack = (e) => {
       const [stream] = e.streams;
@@ -87,6 +109,7 @@ export class Call {
       const [next, actions] = onLocalMediaReady(this.state);
       this.state = next;
       for (const action of actions) await applyAction(this.adapter, action, this.送る);
+      this.始めた = Date.now();
       this.timer = setInterval(() => void this.pollPath(), STATS_EVERY_MS);
       return;
     }
@@ -102,6 +125,7 @@ export class Call {
     this.state = next;
     for (const action of actions) await applyAction(this.adapter, action, this.送る);
 
+    this.始めた = Date.now();
     this.timer = setInterval(() => void this.pollPath(), STATS_EVERY_MS);
   }
 
@@ -110,6 +134,7 @@ export class Call {
     if (this.closed) return;
     // `end`（もう候補は無い）は状態を動かさない
     if (payload.step === 'end' || payload.blob === '') return;
+    if (payload.step === 'candidate') this.来た候補を記録する(payload.blob);
     const step = payload.step === 'candidate' ? 'ice' : payload.step;
     const [next, actions] = onRemote(this.state, step, payload.blob);
     this.state = next;
@@ -121,13 +146,53 @@ export class Call {
     if (this.closed) return;
     const report = await this.pc.getStats();
     const stats: RtcStatLike[] = [...report.values()] as RtcStatLike[];
+
+    // **付かないまま 15 秒経ったら、そのときの様子を 1 回だけ残す。**
+    // 「付かなかった」しか残らないのを終わらせる（#17・2026-09-14）
+    if (
+      !this.様子を出した &&
+      this.watch.shown === 'unknown' &&
+      Date.now() - this.始めた >= 様子を出すまでのミリ秒
+    ) {
+      this.様子を出した = true;
+      log(`${様子を出すまでのミリ秒 / 1000} 秒たっても経路がありません。${数えて言い表す(stats as 統計の行[])}`);
+    }
+
     const before = this.watch.shown;
     this.watch = observe(this.watch, pathFromStats(stats));
     if (this.watch.shown === before) return;
+
+    // 付いた回は、**どの組で付いたか**を 1 回だけ残す（相手の機械と読み合わせるため）
+    if (!this.組を出した && this.watch.shown !== 'unknown') {
+      const 組 = 対を言い表す(stats as 統計の行[]);
+      if (組) {
+        this.組を出した = true;
+        log(組);
+      }
+    }
     this.handlers.onPath(this.watch.shown);
     // 測れたら映像を流す。測れなくなったら止める（D29）。
     // **支度で「カメラ切」にしていたら、測れても流さない** — 人の指定が優先する
     this.setVideoEnabled(this.prefs.cameraOn && shouldSendVideo(this.watch.shown));
+  }
+
+  /** 来た候補を、送ったものと**同じ形で**残す。並べて読めないと突き合わせられない。 */
+  private 来た候補を記録する(blob: string): void {
+    try {
+      const 中身 = JSON.parse(blob) as { candidate?: string };
+      if (中身.candidate) log(候補を言い表す('来た', 中身.candidate));
+    } catch {
+      // 握り潰す理由: 記録のためだけの処理で、ここで止めると通話そのものが壊れる。
+      // 読めなかったことは、この下の行（実際の追加）が断る
+    }
+  }
+
+  /** いまの様子を 1 回だけ残す。**同じことを何度も書かない。** */
+  private async 様子を記録する(): Promise<void> {
+    if (this.closed || this.様子を出した) return;
+    this.様子を出した = true;
+    const report = await this.pc.getStats();
+    log(数えて言い表す([...report.values()] as 統計の行[]));
   }
 
   /** 映像の枠はそのままに、流すかどうかだけを切り替える。 */
