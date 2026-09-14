@@ -38,6 +38,8 @@ chat.desk	An agent on this computer is connected. You can talk to it even with n
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
 chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들어왔습니다				
+chat.keep	You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.	打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。	你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。	입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.				
+chat.keep.switch	Switch to the new destination	新しい宛先に切り替える	切换到新的收件对象	새 보낼 곳으로 바꾸기				
 chat.late	while away	留守中	离线期间	부재 중				
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				

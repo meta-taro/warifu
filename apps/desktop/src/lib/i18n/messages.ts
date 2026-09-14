@@ -194,6 +194,8 @@ export type MessageKey =
   | 'connect.copied'
   | 'connect.docs'
   | 'chat.shared'
+  | 'chat.keep'
+  | 'chat.keep.switch'
   | 'chat.reach'
   | 'chat.reach.none'
   | 'contacts.presence.none'
@@ -521,6 +523,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'connect.copied': '写しました',
     'connect.docs': '許す動作は人が書きます（既定は拒否）。詳しくは docs/mcp.md。',
     'chat.shared': 'ここは、選んだ相手だけの会話ではありません。',
+    'chat.keep': '打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。',
+    'chat.keep.switch': '新しい宛先に切り替える',
     'chat.reach': '届く先 {who}',
     'chat.reach.none': '届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
@@ -817,6 +821,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'connect.copied': 'Copied',
     'connect.docs': 'You write which actions are allowed (denied by default). See docs/mcp.md.',
     'chat.shared': 'This is not a conversation with the person you picked.',
+    'chat.keep': 'You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.',
+    'chat.keep.switch': 'Switch to the new destination',
     'chat.reach': 'Goes to {who}',
     'chat.reach.none': 'It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.',
     'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
@@ -1113,6 +1119,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'connect.copied': '已复制',
     'connect.docs': '允许哪些动作由人来写（默认拒绝）。详见 docs/mcp.md。',
     'chat.shared': '这里不是只和所选对方的会话。',
+    'chat.keep': '你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。',
+    'chat.keep.switch': '切换到新的收件对象',
     'chat.reach': '送达 {who}',
     'chat.reach.none': '目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。',
     'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
@@ -1409,6 +1417,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'connect.copied': '복사했습니다',
     'connect.docs': '허용할 동작은 사람이 씁니다(기본은 거부). 자세히는 docs/mcp.md.',
     'chat.shared': '여기는 고른 상대만의 대화가 아닙니다.',
+    'chat.keep': '입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.',
+    'chat.keep.switch': '새 보낼 곳으로 바꾸기',
     'chat.reach': '가는 곳 {who}',
     'chat.reach.none': '아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.',
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
