@@ -70,11 +70,30 @@ impl Chat {
     /// **繋がらなければ、繋がったふりをしない。**
     /// この機械が開いていない（＝人の画面が立っていない）ことは、失敗として返す。
     pub async fn つながる(場所: &Path, 名乗り: Option<String>) -> std::io::Result<Self> {
+        Self::つながる_控えは(場所, 名乗り, None).await
+    }
+
+    /// **控えの置き場所を指してつながる**（`gh issue 15`）。
+    ///
+    /// **口の親フォルダを控えに使ってはいけない** —— Windows の名前付きパイプに
+    /// フォルダは無い。呼ぶ側が `warifu_desk::在り処を決める` の `控え` を渡す。
+    ///
+    /// # Errors
+    /// 繋がらないとき。
+    pub async fn つながる_控えは(
+        場所: &Path,
+        名乗り: Option<String>,
+        控えのフォルダ: Option<&Path>,
+    ) -> std::io::Result<Self> {
         let mut 口 = 口::新しく(繋ぐ(場所).await?);
         // **どこまで聞いたかを控えてある**（`.claude/issues/019`）。
         // これを名乗ると、**切れている間の言葉を机が渡してくれる** ——
         // 控えが無ければ `None`（**新しい分だけ。頼まれてもいない過去を押し付けない**）
-        let 印の道 = crate::heard::印の場所(場所, 名乗り.as_deref());
+        let 控え先 = 控えのフォルダ.map_or_else(
+            || warifu_desk::この機械の在り処().控え,
+            std::path::Path::to_path_buf,
+        );
+        let 印の道 = crate::heard::印の場所(&控え先, 名乗り.as_deref());
         let どこから = crate::heard::印を読む(&印の道);
         // まず「聞く」と言う。**これまでの会話を先にもらう**。
         // **どこで動いているかを一緒に名乗る** —— 1 台の PC で

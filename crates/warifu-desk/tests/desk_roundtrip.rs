@@ -190,3 +190,48 @@ fn 家を指定すると_実行時ディレクトリより優先する() {
         Path::new("/tmp/warifu-b/desk.sock")
     );
 }
+
+// --- 机の口と控えの置き場所（gh issue 15・2026-09-14） --------------------
+
+/// **控えを「口の親フォルダ」から作るのをやめた。**
+///
+/// `.claude/issues/019` で控えを足したとき、**Unix のパスの形を前提にしていた** ——
+/// **Windows の名前付きパイプに、フォルダは無い。**
+/// Windows の人が実測して `gh issue 15` に上げてくれた（`cargo test` が 7 件落ちた）。
+#[test]
+fn 口と控えは別に決まる() {
+    use std::ffi::OsString;
+    use warifu_desk::在り処を決める;
+
+    let 家 = Some(OsString::from(if cfg!(windows) {
+        r"C:\tmp\warifu-b"
+    } else {
+        "/tmp/warifu-b"
+    }));
+    let 出た = 在り処を決める(家.as_deref(), None, None);
+
+    // **控えはフォルダである**（口がパイプの名前になる OS でも）
+    assert!(
+        !出た.控え.as_os_str().is_empty(),
+        "控えの置き場所が空: {:?}",
+        出た
+    );
+    #[cfg(windows)]
+    {
+        // Windows の口はパイプの名前。**親フォルダを控えに使えない**
+        assert!(出た.口.to_string_lossy().starts_with(r"\\.\pipe\"));
+        assert!(!出た.控え.to_string_lossy().starts_with(r"\\.\pipe\"));
+    }
+    #[cfg(not(windows))]
+    {
+        assert_eq!(出た.口, std::path::Path::new("/tmp/warifu-b/desk.sock"));
+        assert_eq!(出た.控え, std::path::Path::new("/tmp/warifu-b"));
+    }
+}
+
+#[test]
+fn 家も実行時もホームも無くても_控えは返る() {
+    use warifu_desk::在り処を決める;
+    let 出た = 在り処を決める(None, None, None);
+    assert!(!出た.控え.as_os_str().is_empty());
+}

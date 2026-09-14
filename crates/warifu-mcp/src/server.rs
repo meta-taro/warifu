@@ -93,6 +93,24 @@ impl Warifu {
         Ok(self)
     }
 
+    /// **控えの置き場所を指してつながる**（`gh issue 15`）。
+    ///
+    /// **口の親フォルダを控えに使ってはいけない** —— Windows の名前付きパイプに
+    /// フォルダは無い。試験は場所を分けたいので、ここから渡す。
+    ///
+    /// # Errors
+    /// 繋がらないとき。
+    pub async fn この機械につながる_控えは(
+        mut self,
+        場所: &std::path::Path,
+        控え: &std::path::Path,
+    ) -> std::io::Result<Self> {
+        self.この機械の場所 = Some(場所.to_path_buf());
+        let 名乗り = self.名乗り.clone();
+        *self.chat.lock().await = Some(Chat::つながる_控えは(場所, 名乗り, Some(控え)).await?);
+        Ok(self)
+    }
+
     /// **どこで動いているか**を名乗る。
     ///
     /// 名乗らなければ、この機械が既定の呼び方（「この PC の AI」）をする。

@@ -18,11 +18,65 @@ const HOME_ENV: &str = "WARIFU_HOME";
 /// OS に持たせられる保証（Unix は所有者権限、Windows は名前付きパイプ）を使う。
 #[must_use]
 pub fn この機械の場所() -> PathBuf {
-    場所を決める(
+    この機械の在り処().口
+}
+
+/// **机の口と、控えの置き場所。**
+///
+/// # なぜ組で返すのか
+///
+/// `.claude/issues/019` で「どこまで聞いたか」を控えるようにしたとき、
+/// **控えを「机の口と同じフォルダの下」に置いた。**これは **Unix のパスの形を
+/// 前提にしていた** —— **Windows の名前付きパイプに、フォルダは無い。**
+///
+/// `gh issue 15`（2026-09-14・Windows の人が実測）——
+///
+/// > 名前付きパイプの名前は `\\.\pipe\<名前>` の形でなければならず、
+/// > `C:\Users\…\Temp\warifu-mcp-chat-test\desk.sock` は**名前として不正**です。
+///
+/// **だから口と控えを別に決める。**呼ぶ側が「口の親フォルダ」を勝手に使わないようにする。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 在り処 {
+    /// 机の口（Unix は `desk.sock`、Windows は名前付きパイプの名前）。
+    pub 口: PathBuf,
+    /// **控えを置くフォルダ**（`heard/<名乗り>` の親）。
+    pub 控え: PathBuf,
+}
+
+/// この機械の在り処（口と控え）。
+#[must_use]
+pub fn この機械の在り処() -> 在り処 {
+    在り処を決める(
         std::env::var_os(HOME_ENV).as_deref(),
         std::env::var_os("XDG_RUNTIME_DIR").as_deref(),
-        std::env::var_os("HOME").as_deref(),
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .as_deref(),
     )
+}
+
+/// 在り処の決め方。**環境変数を読むのは呼ぶ側**（ここは渡されたものだけを見る）。
+///
+/// **控えはフォルダに置く。**口がパイプの名前になる OS でも、控えは置ける所に置く。
+#[must_use]
+pub fn 在り処を決める(
+    家: Option<&OsStr>,
+    実行時: Option<&OsStr>,
+    ホーム: Option<&OsStr>,
+) -> 在り処 {
+    let 口 = 場所を決める(家, 実行時, ホーム);
+    #[cfg(windows)]
+    let 控え = {
+        // **口はパイプの名前なので、親フォルダを使えない。**置ける所を自分で決める
+        let 元 = 家
+            .map(PathBuf::from)
+            .or_else(|| ホーム.map(|h| PathBuf::from(h).join(".local/share/warifu")))
+            .unwrap_or_else(std::env::temp_dir);
+        元
+    };
+    #[cfg(not(windows))]
+    let 控え = 口.parent().map_or_else(std::env::temp_dir, PathBuf::from);
+    在り処 { 口, 控え }
 }
 
 /// 場所の決め方。**環境変数を読むのは呼ぶ側**（ここは渡されたものだけを見る）。

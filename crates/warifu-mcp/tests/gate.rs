@@ -57,6 +57,28 @@ fn 用意(動作: &[&str]) -> Warifu {
     Warifu::new(受信箱(), 規則(), 札を出す(動作), 1_756_000_000)
 }
 
+/// **その OS で使える机の口**を作る（`gh issue 15`）。
+///
+/// Windows の名前付きパイプは「場所」ではなく**名前**なので、
+/// `C:\…\Temp\warifu-mcp-x.sock` は**名前として不正**である
+/// （`受け口::開く` が `code: 123 / InvalidFilename` で落ちる）。
+/// **2026-09-14 に Windows の人が実測して `cargo test` が 7 件落ちた。**
+fn 試験の机(名: &str) -> std::path::PathBuf {
+    #[cfg(windows)]
+    {
+        std::path::PathBuf::from(format!(r"\\.\pipe\warifu-mcp-{名}"))
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::temp_dir().join(format!("warifu-mcp-{名}.sock"))
+    }
+}
+
+/// **控えの置き場所**（`heard/<名乗り>` の親）。**口の親フォルダを使わない。**
+fn 試験の控え(名: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("warifu-mcp-控え-{名}"))
+}
+
 #[tokio::test]
 async fn 札が無ければ一覧すら出せない() {
     // **既定は拒否。**MCP の口だからといって素通りしない
@@ -418,10 +440,10 @@ async fn この機械につなげば_流した行がこの機械に届く() {
     // `.claude/issues/019`）。全部の試験が `temp_dir()` を直に使うと、
     // **別の試験が書いた控えを読んでしまう**（2026-09-12 に実際に落ちた ——
     // `どこから: Some(7)` が来た）。
-    let 部屋 = std::env::temp_dir().join("warifu-mcp-chat-test");
-    std::fs::create_dir_all(&部屋).expect("フォルダが作れること");
-    let _ = std::fs::remove_dir_all(部屋.join("heard"));
-    let 場所 = 部屋.join("desk.sock");
+    let 控え = 試験の控え("chat-test");
+    std::fs::create_dir_all(&控え).expect("フォルダが作れること");
+    let _ = std::fs::remove_dir_all(控え.join("heard"));
+    let 場所 = 試験の机("chat-test");
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     let この機械 = tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
@@ -452,7 +474,7 @@ async fn この機械につなげば_流した行がこの機械に届く() {
     });
 
     let 口 = 用意(&["chat.send"])
-        .この機械につながる(&場所)
+        .この機械につながる_控えは(&場所, &控え)
         .await
         .expect("つながれること");
     let 返り = 口
@@ -481,7 +503,7 @@ async fn 画面が後から開いても_会話は使える() {
     // そこで一度失敗させたきりにすると、以後ずっと会話が使えない
     use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-late-desk.sock");
+    let 場所 = 試験の机("late-desk");
     let _ = std::fs::remove_file(&場所);
 
     // まだこの機械は開いていない
@@ -538,7 +560,7 @@ async fn 誰も居ないとき_流せたことにしない() {
     // 「流しました。」と返った。**実際は誰にも届いていない**（D49）
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-nobody.sock");
+    let 場所 = 試験の机("nobody");
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
@@ -586,7 +608,7 @@ async fn 待っている間に届いたものを受け取る() {
     // （2026-09-07 に実物で起きた。オーナー「返事に気づけてないけど、どうする？」）
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-wait.sock");
+    let 場所 = 試験の机("wait");
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
@@ -627,7 +649,7 @@ async fn 何も来なければ_待って戻る() {
     // **永遠に待たない。**待ち続けると、その間そのエージェントは何もできない
     use warifu_desk::{受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-wait-none.sock");
+    let 場所 = 試験の机("wait-none");
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
     tokio::spawn(async move {
         let mut 行の口 = 行の口::新しく(待ち.受ける().await.unwrap());
@@ -659,7 +681,7 @@ async fn 何も無いときは_いつからつながっているかを言う() {
     // **黙って繋ぎ直すと、切れている間の発言が無いことに気づけない**
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-seated.sock");
+    let 場所 = 試験の机("seated");
     let _ = std::fs::remove_file(&場所);
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
 
@@ -698,7 +720,7 @@ async fn 待っている最中にこの機械が閉じたら_繋ぎ直して待�
     // そこで待ちが終わってしまうと、**人からは「エージェントが黙った」ようにしか見えない。**
     use warifu_desk::{FromDesk, 受け口, 口 as 行の口};
 
-    let 場所 = std::env::temp_dir().join("warifu-mcp-reseat.sock");
+    let 場所 = 試験の机("reseat");
     let _ = std::fs::remove_file(&場所);
     let mut 待ち = 受け口::開く(&場所).await.expect("この機械が開くこと");
 

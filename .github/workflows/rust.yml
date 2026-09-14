@@ -60,8 +60,14 @@ jobs:
 
       # **画面の crate は workspace の外**なので、ここでは回らない
       # （あちらは `release.yml` の windows 段で建てている）
+      # **`--no-fail-fast` を付ける。**
+      #
+      # 付けていなかったので、**最初に落ちた束で止まっていた** ——
+      # 2026-09-13 に足した初回、こちらには 2 件しか見えず「直った」と思った。
+      # **実際は 7 件落ちていて**、Windows の人が手元で回して `gh issue 15` に上げた。
+      # **落ちているものを全部見せる。**
       - name: cargo test
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked --no-fail-fast
 
   gate:
     runs-on: ubuntu-latest
