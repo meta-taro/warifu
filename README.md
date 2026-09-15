@@ -15,7 +15,8 @@
 | Measured (real machines, real network) | When |
 |---|---|
 | **Two people in a video call**, no server, no external signalling, no STUN/TURN | 2026-09-07 |
-| **Three machines in one room** (macOS × 2 + Windows), roster `3 / 12` | 2026-09-13 |
+| **Three machines in one room, as the host sees it** (macOS × 2 + Windows), roster `3 / 12` | 2026-09-15 |
+| **Each guest connected to the host at `direct`** — 3.3 s, 3.27 s, 3.3 s, no flapping | 2026-09-15 |
 | **Cross-machine video and audio** (Mac mini ⇄ MacBook Air, route `direct`) | 2026-09-13 |
 | **An agent replying to a remote human with nobody pressing anything** | 2026-09-12 |
 | **A resident agent reconnecting** after the app restarts | 2026-09-11 |
@@ -23,6 +24,7 @@
 | Not measured — so we do not claim it | |
 |---|---|
 | **Across networks (relay)** | **0 measurements.** Same-LAN only so far |
+| **A room shared between guests** | **Measured and it does not work** (2026-09-15). A room is a **star through the host**: each guest's roster says `2 / 12` and a guest's message reaches the host only. **Guests do not see each other** |
 | Four or more people in one room | never tried |
 | Agent-to-agent across devices, with no human in the loop | never tried |
 
@@ -46,7 +48,7 @@ Most "serverless" chat still needs an account somewhere: a signalling server, a 
 | **Four languages** | en / ja / zh / ko, including the OS menu and context menu. **All drafted by AI** — see [`docs/i18n-review.md`](docs/i18n-review.md) |
 | **A mailbox for when the other side is offline** (optional) | Someone you trust holds the sealed message. **They cannot read it** |
 
-**Not there yet:** recording, transcription, scheduling negotiation, **persistent chat history** (closing the window clears it), and **relay across networks**.
+**Not there yet:** **a room that guests share** (it is a star through the host — see the table above), recording, transcription, scheduling negotiation, **persistent chat history** (closing the window clears it), and **relay across networks**.
 
 **Recovery when you lose every device at once is still undecided** (`.claude/decisions.md`, D2). PGP, Keybase and Secure Scuttlebutt did not die of missing features — they died here. We treat it as a known cause of death, not a hypothetical risk.
 

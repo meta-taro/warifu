@@ -525,8 +525,13 @@ mod 待っているリンクの試験 {
     use super::{答えた, 待っている数, 待っているリンク};
     use std::sync::atomic::Ordering;
 
+    /// **この 2 本は同じ静的を触る。**並列で走ると互いの後片付けを踏むので、
+    /// 順番を取る（2026-09-15 に実際に落ちた —— `left: 0, right: 1`）。
+    static 順番: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn 答えても_0_より下がらない() {
+        let _順 = 順番.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         // **押していないのに減らさない。**負の数になると、
         // エージェントが「待っているリンクがある」と読み違える
         待っているリンク.store(0, Ordering::Relaxed);
@@ -537,6 +542,7 @@ mod 待っているリンクの試験 {
 
     #[test]
     fn 受けた分だけ待つ() {
+        let _順 = 順番.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         待っているリンク.store(0, Ordering::Relaxed);
         待っているリンク.fetch_add(2, Ordering::Relaxed);
         assert_eq!(待っている数(), 2);
