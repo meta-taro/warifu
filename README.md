@@ -15,6 +15,7 @@
 | Measured (real machines, real network) | When |
 |---|---|
 | **Two people in a video call**, no server, no external signalling, no STUN/TURN | 2026-09-07 |
+| **The camera working inside the app on Windows** (local preview, confirmed by a person) | 2026-09-15 |
 | **Three machines in one room, as the host sees it** (macOS × 2 + Windows), roster `3 / 12` | 2026-09-15 |
 | **Each guest connected to the host at `direct`** — 3.3 s, 3.27 s, 3.3 s, no flapping | 2026-09-15 |
 | **Cross-machine video and audio** (Mac mini ⇄ MacBook Air, route `direct`) | 2026-09-13 |
