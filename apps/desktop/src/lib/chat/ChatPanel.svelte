@@ -9,6 +9,7 @@
   // `届く先がある` が決める。ここは出すだけ。
 
   import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
+  import { 行の差出人名 } from './name';
   import Avatar from '$lib/contacts/Avatar.svelte';
   import { 新しい行が来たとき, 底に着いた, type 位置 } from './scroll';
   import type { Locale } from '$lib/i18n/locales';
@@ -51,6 +52,13 @@
      */
     届く先: readonly string[];
     /**
+     * **鍵 → いまの呼び名。**行に焼き付けた名前ではなく、**描くときに引き直す**。
+     *
+     * 2026-09-15、**同じ人が 1 通目は名前・2 通目は鍵**で出た（#19）——
+     * **人からは 2 人居るように見える。**渡されなければ、行の名前をそのまま出す
+     */
+    画面での名簿?: Readonly<Record<string, string>>;
+    /**
      * **打ち込み欄に文字があるかを、呼ぶ側へ伝える**（`lib/chat/keep.ts`）。
      *
      * 打ちかけているあいだ宛先を据え置くために要る ——
@@ -73,6 +81,7 @@
     送る,
     相手ごとではない = false,
     届く先,
+    画面での名簿 = {},
     下書きが変わった,
     据え置いている = false,
     新しい宛先へ移る,
@@ -175,7 +184,7 @@
             種={差出人の顔(line) ?? ''}
             大きさ={14}
             名=""
-          />{/if}{#if !line.system}<b>{line.who}</b
+          />{/if}{#if !line.system}<b>{行の差出人名(line, 画面での名簿)}</b
           >{/if}{line.body}{#if line.届き}<span
             class="mark"
             class:none={line.届き.札 === 'mark.none'}
@@ -326,6 +335,12 @@
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
     word-break: break-word;
+    /* **折り返した 2 行目以降を、時刻と名前の下に潜り込ませない**
+       （オーナー指摘・2026-09-15 / #19）——
+       長い発言ほど「どこからどこまでが 1 通か」が読めなくなっていた。
+       ぶら下げの幅は、**時刻（5 字）＋顔（14px）＋余白**の見当である */
+    padding-left: 5.5em;
+    text-indent: -5.5em;
   }
   @media (prefers-reduced-motion: reduce) {
     .talk {
@@ -374,6 +389,9 @@
     color: var(--text-tertiary);
     font-style: italic;
     text-align: center;
+    /* **知らせ（入退室）はぶら下げない。**中央寄せなので、寄って見える */
+    padding-left: 0;
+    text-indent: 0;
   }
   /* **留守中に届いた分**（D71）。時刻は「出した側の時計」なので、
      いま届いたように見せない。**印を付けて、そう分かるようにする** */
