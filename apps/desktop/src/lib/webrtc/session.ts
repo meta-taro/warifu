@@ -17,7 +17,7 @@ import { applyAction, type PeerLike } from './apply';
 import { ICE_SERVERS, shouldSendVideo } from './media';
 import type { Prefs } from './devices';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
-import { 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, type 統計の行 } from './trace';
+import { 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, 追跡の版, type 統計の行 } from './trace';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
@@ -69,6 +69,10 @@ export class Call {
       // 相手の候補は文字列で運ばれてくる。**ここで初めて WebRTC の型へ戻す**
       addIceCandidate: (c) => this.pc.addIceCandidate(JSON.parse(c) as RTCIceCandidateInit),
     };
+
+    // **どの版のフロントが動いているかを、記録の頭に残す。**
+    // Rust だけ建て直すと、画面は前の版のまま動く（2026-09-15 に実機で踏んだ）
+    log(`記録の版 ${追跡の版}`);
 
     this.pc.onicecandidate = (e) => {
       if (!e.candidate) {
