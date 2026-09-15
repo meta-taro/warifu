@@ -75,7 +75,22 @@ jobs:
       # **Tauri の CLI から建てる。**`beforeBuildCommand`（`pnpm build`）も
       # こちらが回すので、フロントを別に建てる段は要らない。
       # `--no-bundle`: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
-      - name: 画面を建てる
+      # **macOS は `.app` まで作る。**2026-09-15、Mac の人から ——
+      #
+      #   「手元でビルドできませんでした（この機械の Node は 20、要求は >=22）。
+      #     **同じ機械で別のものを Node 20 で回している**ので、
+      #     そちらを巻き込む変更を確かめずにやりたくありません。」
+      #
+      # **裸の実行ファイルだけでは、Mac の人が試せない。**`.app` は署名なしでも
+      # `xattr` を外せば動く（`.dmg` と違って、署名は要らない）。
+      - name: 画面を建てる（macOS・.app まで）
+        if: runner.os == 'macOS'
+        run: pnpm --filter @warifu/desktop tauri build --bundles app
+
+      # Windows のインストーラ（`.msi` / `-setup.exe`）は署名が要るので、
+      # **タグのときだけ**（`release.yml`）。ここは実行ファイルまで
+      - name: 画面を建てる（Windows・実行ファイルまで）
+        if: runner.os == 'Windows'
         run: pnpm --filter @warifu/desktop tauri build --no-bundle
 
       # **建てただけで終わらせない。**
@@ -96,5 +111,6 @@ jobs:
             target/release/warifu.exe
             apps/desktop/src-tauri/target/release/warifu-desktop
             apps/desktop/src-tauri/target/release/warifu-desktop.exe
+            apps/desktop/src-tauri/target/release/bundle/macos/warifu.app/**
           if-no-files-found: error
           retention-days: 7
