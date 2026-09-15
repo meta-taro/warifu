@@ -1254,3 +1254,55 @@ fn 貼られた文字に区切りが混ざっていても崩れない() {
     assert!(!鍵.contains('\n'));
     assert_eq!(鍵, "warifu://join/AAABBB");
 }
+
+// ── 置き場所の出どころ（**#22**・2026-09-15） ──────────────────────
+//
+// Windows で `rejoin.tsv` が「無い」と報告された。**書けてはいて、
+// 人が見ている所とは別**という筋がある（`HOME` を先に見るので、
+// 端末から起動すると `USERPROFILE` とは別の所になる）。
+// **記録に出して、迷わないようにする。**
+
+#[test]
+fn 出どころは_warifu_home_が_いちばん強い() {
+    use std::ffi::OsStr;
+    assert_eq!(
+        warifu_vault::家の出どころ(
+            Some(OsStr::new("/tmp/w")),
+            Some(OsStr::new("/home/a")),
+            Some(OsStr::new("C:/Users/a"))
+        ),
+        "WARIFU_HOME"
+    );
+}
+
+#[test]
+fn 出どころは_home_が_userprofile_より先() {
+    use std::ffi::OsStr;
+    assert_eq!(
+        warifu_vault::家の出どころ(
+            None,
+            Some(OsStr::new("/home/a")),
+            Some(OsStr::new("C:/Users/a"))
+        ),
+        "HOME"
+    );
+}
+
+#[test]
+fn 空の値は_使わない() {
+    use std::ffi::OsStr;
+    // **空文字は「立っていない」と同じに扱う**（シェルが空で立てることがある）
+    assert_eq!(
+        warifu_vault::家の出どころ(
+            Some(OsStr::new("")),
+            Some(OsStr::new("")),
+            Some(OsStr::new("C:/Users/a"))
+        ),
+        "USERPROFILE"
+    );
+}
+
+#[test]
+fn どれも無ければ_無いと言う() {
+    assert_eq!(warifu_vault::家の出どころ(None, None, None), "どれも無い");
+}

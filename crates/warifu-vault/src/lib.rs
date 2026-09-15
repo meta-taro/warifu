@@ -77,6 +77,30 @@ pub fn 家を決める(home: Option<&OsStr>, userprofile: Option<&OsStr>) -> Opt
     使える(home).or_else(|| 使える(userprofile))
 }
 
+/// **どれで家が決まったか。**記録に出すためだけのもの（**#22**・2026-09-15）。
+///
+/// Windows で `rejoin.tsv` が「置かれていない」と報告された。
+/// **書けてはいて、人が見ている所とは別だった**という筋がありうる ——
+/// `HOME` を先に見るので、**端末から起動すると `USERPROFILE` とは別の所になる**
+/// （すぐ上の注釈のとおり）。**どちらで決まったかを、記録に出せば迷わない。**
+#[must_use]
+pub fn 家の出どころ(
+    warifu_home: Option<&OsStr>,
+    home: Option<&OsStr>,
+    userprofile: Option<&OsStr>,
+) -> &'static str {
+    let 使える = |値: Option<&OsStr>| 値.is_some_and(|v| !v.is_empty());
+    if 使える(warifu_home) {
+        "WARIFU_HOME"
+    } else if 使える(home) {
+        "HOME"
+    } else if 使える(userprofile) {
+        "USERPROFILE"
+    } else {
+        "どれも無い"
+    }
+}
+
 /// **画面が使う置き場所**を、家から決める。`WARIFU_HOME` は見ない。
 #[must_use]
 pub fn 画面の置き場所(home: &Path) -> PathBuf {
