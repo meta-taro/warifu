@@ -79,6 +79,20 @@ const 鍵の上限: usize = 4096;
 /// **画面が答えたら減る**（`link_answered`）。数えるのはここ 1 か所だけにする。
 static 待っているリンク: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// 答えを待っている 1 本。**ルームと鍵を組で持つ。**
+///
+/// **鍵まで持つのは、画面が起き上がってから取りに来られるようにするため**
+/// （**#25**・2026-09-15）。`app.emit` は**聞き手が居なければ落ちる** ——
+/// **リンクでアプリが起動した回は、画面がまだ出来ていない。**
+/// 数だけ増えて鍵は消え、**人には押すものが画面のどこにも出なかった。**
+///
+/// D102 と同じ構えにする ——「**読む側が、どこから読むかを言う**」。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 待ち {
+    pub ルーム: String,
+    pub 鍵: String,
+}
+
 /// **どのルームについて待っているか**（`gh issue 12`）。
 ///
 /// エージェントの言 ——
@@ -90,7 +104,38 @@ static 待っているリンク: std::sync::atomic::AtomicUsize = std::sync::ato
 ///
 /// **ルームキーそのものは入れない** —— あれは割符の片割れで、
 /// **`room_status` は札さえあれば誰でも読める**（`chat.read`）。
-static 待っているルーム: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+static 待っているルーム: std::sync::Mutex<Vec<待ち>> = std::sync::Mutex::new(Vec::new());
+
+/// 待ちを 1 本足す。**同じ鍵を二度足さない** ——
+/// リンクを 2 回開いた人に、問いを 2 つ出さない（#18 と同じ根）。
+pub fn 足す(棚: &mut Vec<待ち>, ルーム: &str, 鍵: &str) {
+    if 棚.iter().any(|w| w.鍵 == 鍵) {
+        return;
+    }
+    棚.push(待ち {
+        ルーム: ルーム.to_owned(),
+        鍵: 鍵.to_owned(),
+    });
+}
+
+/// いちばん古い 1 本を落とす（人が答えた）。**空でも落ちない。**
+pub fn 古いのを落とす(棚: &mut Vec<待ち>) {
+    if !棚.is_empty() {
+        棚.remove(0);
+    }
+}
+
+/// 待っているルームだけを並べる（**鍵は出さない**。`room_status` は札があれば誰でも読める）。
+#[must_use]
+pub fn ルームたちを並べる(棚: &[待ち]) -> Vec<String> {
+    棚.iter().map(|w| w.ルーム.clone()).collect()
+}
+
+/// 待っている鍵を並べる（**画面だけが取りに来る**）。
+#[must_use]
+pub fn 鍵たちを並べる(棚: &[待ち]) -> Vec<String> {
+    棚.iter().map(|w| w.鍵.clone()).collect()
+}
 
 /// いま待っているリンクの数。
 pub fn 待っている数() -> usize {
@@ -101,17 +146,25 @@ pub fn 待っている数() -> usize {
 pub fn 待っているルームたち() -> Vec<String> {
     待っているルーム
         .lock()
-        .map(|棚| 棚.clone())
+        .map(|棚| ルームたちを並べる(&棚))
+        .unwrap_or_default()
+}
+
+/// **画面が起き上がったときに取りに来る、まだ答えられていない鍵。**
+///
+/// **これが無いと、リンクでアプリが起動した回は永久に答えられない**（#25）。
+pub fn 待っている鍵たち() -> Vec<String> {
+    待っているルーム
+        .lock()
+        .map(|棚| 鍵たちを並べる(&棚))
         .unwrap_or_default()
 }
 
 /// 人が答えた（入る／入らない）。**0 より下げない。**
 pub fn 答えた() {
     // **いちばん古いものから消す。**画面は 1 つずつ尋ねる
-    if let Ok(mut 棚) = 待っているルーム.lock()
-        && !棚.is_empty()
-    {
-        棚.remove(0);
+    if let Ok(mut 棚) = 待っているルーム.lock() {
+        古いのを落とす(&mut 棚);
     }
     let _ = 待っているリンク.fetch_update(
         std::sync::atomic::Ordering::Relaxed,
@@ -134,7 +187,7 @@ pub fn 受ける(app: &AppHandle, urls: &[String]) {
         if let Ok((_, _, ルーム)) = warifu_app::parse_invite(&鍵)
             && let Ok(mut 棚) = 待っているルーム.lock()
         {
-            棚.push(ルーム.to_string());
+            足す(&mut 棚, &ルーム.to_string(), &鍵);
         }
         let _ = app.emit(EVENT_LINK, 鍵);
     }
@@ -147,7 +200,49 @@ fn 頭だけ(url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::鍵を取り出す;
+    use super::{足す, 古いのを落とす, 鍵たちを並べる, 鍵を取り出す, ルームたちを並べる, 待ち};
+
+    #[test]
+    fn 待ちを足すとルームと鍵が組で残る() {
+        let mut 棚: Vec<待ち> = Vec::new();
+        足す(&mut 棚, "ROOM1", "WARIFU1-AAA");
+        assert_eq!(ルームたちを並べる(&棚), vec!["ROOM1"]);
+        assert_eq!(鍵たちを並べる(&棚), vec!["WARIFU1-AAA"]);
+    }
+
+    #[test]
+    fn 同じ鍵は二度足さない() {
+        // **リンクを 2 回開いた人に、問いを 2 つ出さない**（#18 と同じ根）
+        let mut 棚: Vec<待ち> = Vec::new();
+        足す(&mut 棚, "ROOM1", "WARIFU1-AAA");
+        足す(&mut 棚, "ROOM1", "WARIFU1-AAA");
+        assert_eq!(棚.len(), 1);
+    }
+
+    #[test]
+    fn 同じルームでも別の鍵なら別の待ち() {
+        // **1 本＝1 人。**同じ部屋へ 2 人を呼ぶときは 2 本出る
+        let mut 棚: Vec<待ち> = Vec::new();
+        足す(&mut 棚, "ROOM1", "WARIFU1-AAA");
+        足す(&mut 棚, "ROOM1", "WARIFU1-BBB");
+        assert_eq!(棚.len(), 2);
+    }
+
+    #[test]
+    fn 答えるといちばん古いものから落ちる() {
+        let mut 棚: Vec<待ち> = Vec::new();
+        足す(&mut 棚, "ROOM1", "WARIFU1-AAA");
+        足す(&mut 棚, "ROOM2", "WARIFU1-BBB");
+        古いのを落とす(&mut 棚);
+        assert_eq!(鍵たちを並べる(&棚), vec!["WARIFU1-BBB"]);
+    }
+
+    #[test]
+    fn 空でも落とせる() {
+        let mut 棚: Vec<待ち> = Vec::new();
+        古いのを落とす(&mut 棚);
+        assert!(棚.is_empty());
+    }
 
     #[test]
     fn ルームに入るリンクから鍵を取り出す() {

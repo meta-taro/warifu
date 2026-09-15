@@ -427,6 +427,16 @@ export const notePath = (peer: string, path: string) =>
 /** **人がリンクに答えた**（入る／入らない）。待っている数を 1 つ減らす。 */
 export const linkAnswered = () => invoke<void>('link_answered');
 
+/**
+ * **まだ答えていないリンクの鍵**を取りに行く（**#25**）。
+ *
+ * **`emit` は聞き手が居なければ落ちる。**リンクでアプリが起動した回は、
+ * 画面がまだ出来ていないので**知らせが消える** ——
+ * 人には「入りますか？」が出ず、**答える場所がどこにも無かった。**
+ * だから**画面が起き上がったときに、自分で取りに行く。**
+ */
+export const pendingLinks = () => invoke<string[]>('pending_links');
+
 /** 予定 1 つ（`warifu-vault` の `schedule.tsv`）。 */
 export interface AppointmentRow {
   /** 始まり（Unix 秒）。 */

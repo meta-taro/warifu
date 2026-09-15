@@ -620,6 +620,18 @@ async fn name_room(id: String, name: String) -> Answer<()> {
     Ok(())
 }
 
+/// **まだ人が答えていないリンクの鍵**（画面が起き上がったときに取りに来る）。
+///
+/// **`app.emit` は聞き手が居なければ落ちる**（**#25**・2026-09-15、Mac Air が実機で見つけた）——
+/// **リンクでアプリが起動した回は、画面がまだ出来ていない。**
+/// 数だけ増えて鍵は消え、**人には押すものが画面のどこにも出なかった。**
+///
+/// **D102 と同じ構え** ——「読む側が、どこから読むかを言う」。
+#[tauri::command]
+fn pending_links() -> Vec<String> {
+    link::待っている鍵たち()
+}
+
 /// 主催しているルームの名前。**無ければ空。**
 #[tauri::command]
 async fn room_name() -> Answer<String> {
@@ -1862,6 +1874,7 @@ pub fn run() {
             host_meeting,
             name_room,
             room_name,
+            pending_links,
             connect,
             listen,
             invite,

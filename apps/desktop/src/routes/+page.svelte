@@ -106,6 +106,7 @@
     EVENT_CHECK_UPDATE,
     roomLink,
     linkAnswered,
+    pendingLinks,
     nameRoom,
     notePath,
     roomName,
@@ -1030,6 +1031,18 @@
           log(`リンクで誘われました（${鍵.length} 文字）`);
         }),
       );
+      // **聞き手が居ない間に来たリンクを、こちらから取りに行く**（**#25**）。
+      // **リンクでアプリが起動した回は、上の聞き手がまだ居ない** ——
+      // 知らせが落ちて、**人には押すものが画面のどこにも出なかった。**
+      // **数は増えているのに答えられない**という、いちばん質の悪い形だった
+      if (誘われた鍵 === null) {
+        const 待ち = (await pendingLinks().catch(() => null)) ?? [];
+        const [先頭] = 待ち;
+        if (先頭) {
+          誘われた鍵 = 先頭;
+          log(`起き上がって、待っていたリンクを拾いました（${先頭.length} 文字・残り ${待ち.length - 1} 本）`);
+        }
+      }
       unsubs.push(
         // **この機械につながったエージェントが、自分で名乗った。**画面にもすぐ出す
         await onEvent<void>(EVENT_PROFILES, () => {
