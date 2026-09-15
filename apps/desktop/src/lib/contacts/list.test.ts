@@ -57,14 +57,17 @@ describe('連絡帳の並び', () => {
       会議の相手: [相手],
       覚えた: [{ key: 相手, label: 'air', has_address: true }],
     });
+    // **段 C（D107 の計画）—— 同じ人を 2 か所に出さない。**
+    // 「いま同じルームの人」の区画をやめ、**連絡先に 1 行だけ**出す
     const 覚えた = 区画.find((s) => s.title === 'contacts.saved');
-    expect(覚えた?.行たち).toHaveLength(0);
-    expect(区画.find((s) => s.title === 'contacts.inmeeting')?.行たち).toHaveLength(1);
+    expect(覚えた?.行たち).toHaveLength(1);
+    expect(覚えた?.行たち[0].いま会議に居る).toBe(true);
+    expect(区画.find((s) => s.title === 'contacts.inmeeting')).toBeUndefined();
   });
 
   it('覚えていない相手は鍵の頭で出す（知っているように見せない）', () => {
     const 区画 = 連絡帳を組む({ ...素, 会議の相手: [相手] });
-    const 行 = 区画.find((s) => s.title === 'contacts.inmeeting')?.行たち[0];
+    const 行 = 区画.find((s) => s.title === 'contacts.saved')?.行たち[0];
     expect(行?.name).toBe('BBBBBBBBBBBB…');
   });
 
@@ -328,5 +331,38 @@ describe('自分が建てたルームか', () => {
     });
     const 人 = 出た.flatMap((区) => 区.行たち).filter((行) => 行.種類 === '人');
     expect(人.every((行) => 行.主催か === undefined)).toBe(true);
+  });
+});
+
+describe('段 C —— 同じ人を 2 か所に出さない', () => {
+  it('「いま同じルームの人」の区画を作らない', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [相手, もう一人] });
+    expect(区画.map((s) => s.title)).not.toContain('contacts.inmeeting');
+  });
+
+  it('ルームに居る人も、連絡先に 1 行だけ出る（消えない）', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      会議の相手: [相手],
+      覚えた: [{ key: 相手, label: 'air', has_address: true }],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.saved')?.行たち ?? [];
+    expect(行たち.filter((r) => r.key === 相手)).toHaveLength(1);
+    // **呼び名は残る。**ルームに居るかどうかで名前が変わらない
+    expect(行たち[0].name).toBe('air');
+    expect(行たち[0].住所を覚えている).toBe(true);
+  });
+
+  it('覚えていないのにルームに居る人も、連絡先に出る（居るのに見えない、を作らない）', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [もう一人] });
+    const 行たち = 区画.find((s) => s.title === 'contacts.saved')?.行たち ?? [];
+    expect(行たち.map((r) => r.key)).toEqual([もう一人]);
+    expect(行たち[0].いま会議に居る).toBe(true);
+  });
+
+  it('留守中に届いた相手と、ルームに居る相手が重なっても 1 行', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [相手], 留守中に届いた: [相手] });
+    const 全部 = 区画.flatMap((s) => s.行たち).filter((r) => r.key === 相手);
+    expect(全部).toHaveLength(1);
   });
 });

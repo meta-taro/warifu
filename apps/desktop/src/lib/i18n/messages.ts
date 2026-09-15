@@ -94,7 +94,6 @@ export type MessageKey =
   | 'contacts.me'
   | 'contacts.desk'
   | 'contacts.desk.none'
-  | 'contacts.inmeeting'
   | 'contacts.saved'
   | 'contacts.late'
   | 'contacts.claimed'
@@ -433,7 +432,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me': 'あなた',
     'contacts.desk': 'マイ PC エージェント',
     'contacts.desk.none': 'このエージェントは、いま繋がっていません。',
-    'contacts.inmeeting': 'いま同じルームの人',
     'contacts.saved': '連絡先',
     'contacts.late': '留守中に届いた相手',
     'contacts.claimed': '本人は「{name}」と名乗っています。',
@@ -739,7 +737,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me': 'You',
     'contacts.desk': 'My PC agents',
     'contacts.desk.none': 'No agent on this computer is connected. Connect one with `warifu mcp` and it appears here.',
-    'contacts.inmeeting': 'In the room now',
     'contacts.saved': 'Contacts',
     'contacts.late': 'Arrived while you were away',
     'contacts.claimed': 'They call themselves “{name}”.',
@@ -1045,7 +1042,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me': '你',
     'contacts.desk': '我的电脑代理',
     'contacts.desk.none': '这台电脑还没有连上智能体。用 `warifu mcp` 连接后会出现在这里。',
-    'contacts.inmeeting': '现在同一个房间里的人',
     'contacts.saved': '联系人',
     'contacts.late': '离线期间来信的人',
     'contacts.claimed': '对方自称“{name}”。',
@@ -1351,7 +1347,6 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.me': '당신',
     'contacts.desk': '내 PC 에이전트',
     'contacts.desk.none': '이 PC에 연결된 에이전트가 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.',
-    'contacts.inmeeting': '지금 같은 방에 있는 사람',
     'contacts.saved': '연락처',
     'contacts.late': '부재 중에 온 상대',
     'contacts.claimed': '본인은 “{name}” 라고 밝히고 있습니다.',

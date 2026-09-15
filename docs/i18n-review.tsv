@@ -82,7 +82,6 @@ contacts.desk.none	No agent on this computer is connected. Connect one with `war
 contacts.empty	Nobody yet. Give someone you met in a room a name and they stay here.	まだ誰も覚えていません。ルームで会った相手に呼び名を付けると、ここに残ります。	还没有记住任何人。给在 room 里遇到的对象起个称呼，就会留在这里。	아직 아무도 기억하지 않았습니다. 룸에서 만난 상대에게 이름을 붙이면 여기에 남습니다.				
 contacts.forget	Require a meeting key again	ルームキーなしで入れるのをやめる	恢复需要会议密钥	다시 회의 룸 키를 받게 하기				
 contacts.forget.hint	Right now this person can come in without a room key. Turn it off and they will need one again.	この相手はいま、ルームキーなしで入ってこられます。やめると、次からはルームキーが要ります。	现在这位不用密钥就能进来。取消后，下次就需要密钥了。	지금 이 상대는 열쇠 없이 들어올 수 있습니다. 끄면 다음부터는 열쇠가 필요합니다.				
-contacts.inmeeting	In the room now	いま同じルームの人	现在同一个房间里的人	지금 같은 방에 있는 사람				
 contacts.key.label	Public key (your ID)	公開鍵（あなたの ID）	公钥	공개키(내 ID)				
 contacts.late	Arrived while you were away	留守中に届いた相手	离线期间来信的人	부재 중에 온 상대				
 contacts.me	You	あなた	你	당신				
