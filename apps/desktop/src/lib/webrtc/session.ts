@@ -74,6 +74,16 @@ export class Call {
     // Rust だけ建て直すと、画面は前の版のまま動く（2026-09-15 に実機で踏んだ）
     log(`記録の版 ${追跡の版}`);
 
+    // **経路の見張りは、支度を待たない**（2026-09-15・Windows で踏んだ）。
+    //
+    // 以前は `begin()` の中でだけ時計を張っていた。**支度（カメラ・マイク）で
+    // 止まると、ICE が `connected` になっても画面は `unknown` のまま**になる ——
+    // 実機では「候補は流れ、`connected` まで行っているのに、経路が付かない」
+    // という、いちばん切り分けにくい形で出た。
+    //
+    // **経路を見るのに、こちらの映像は要らない。**だから通話ができた時点で見始める。
+    this.見張りを始める();
+
     this.pc.onicecandidate = (e) => {
       if (!e.candidate) {
         void sendSignal('candidate', '', this.peer);
@@ -113,8 +123,7 @@ export class Call {
       const [next, actions] = onLocalMediaReady(this.state);
       this.state = next;
       for (const action of actions) await applyAction(this.adapter, action, this.送る);
-      this.始めた = Date.now();
-      this.timer = setInterval(() => void this.pollPath(), STATS_EVERY_MS);
+      this.見張りを始める();
       return;
     }
     for (const track of stream.getTracks()) this.pc.addTrack(track, stream);
@@ -129,6 +138,12 @@ export class Call {
     this.state = next;
     for (const action of actions) await applyAction(this.adapter, action, this.送る);
 
+    this.見張りを始める();
+  }
+
+  /** 経路を見に行く時計を張る。**何度呼んでも 1 本だけ。** */
+  private 見張りを始める(): void {
+    if (this.timer !== null || this.closed) return;
     this.始めた = Date.now();
     this.timer = setInterval(() => void this.pollPath(), STATS_EVERY_MS);
   }
