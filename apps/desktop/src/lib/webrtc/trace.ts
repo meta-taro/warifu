@@ -26,7 +26,7 @@
  *
  * **記録に出すものを増やしたら、この数を 1 つ上げる。**
  */
-export const 追跡の版 = 3;
+export const 追跡の版 = 4;
 
 /** 候補 1 つから読み取れること。 */
 export interface 候補のあらまし {
@@ -43,6 +43,9 @@ export interface 候補のあらまし {
 export interface 統計の行 {
   id: string;
   type: string;
+  kind?: string;
+  packetsSent?: number;
+  packetsReceived?: number;
   state?: string;
   nominated?: boolean;
   localCandidateId?: string;
@@ -169,4 +172,32 @@ export function 組の様子(統計: readonly 統計の行[]): string[] {
       const 選 = 組.nominated === true ? ' 選ばれた' : '';
       return `組 ${i + 1} ${組.state ?? '不明'}${選}／こちら ${こちら}／あちら ${あちら}`;
     });
+}
+
+/**
+ * **送っているのか、受けているのか**を数で出す。
+ *
+ * 2026-09-15、Windows の映像が mac に出ない。**経路は `direct`、文字は通る。**
+ * それでも**送っていないのか、送っているのに映らないのか**が、記録から読めなかった。
+ *
+ * **「枠が無い」と「枠はあるが 0 個」は別の話。**
+ * 前者は**送るものを持っていない**（カメラを掴めていない・受け取り専用で張った）、
+ * 後者は**送ろうとして出ていない**（経路・符号化の話）。**混ぜると切り分けられない。**
+ */
+export function 送り受けを言い表す(統計: readonly 統計の行[]): string {
+  const 数 = (種: string, 向き: 'outbound-rtp' | 'inbound-rtp'): number | null => {
+    const 行たち = 統計.filter((s) => s.type === 向き && s.kind === 種);
+    if (行たち.length === 0) return null;
+    return 行たち.reduce(
+      (合計, s) => 合計 + (向き === 'outbound-rtp' ? (s.packetsSent ?? 0) : (s.packetsReceived ?? 0)),
+      0,
+    );
+  };
+  const 言う = (向き: 'outbound-rtp' | 'inbound-rtp'): string => {
+    const 映像 = 数('video', 向き);
+    const 音 = 数('audio', 向き);
+    if (映像 === null && 音 === null) return 'なし';
+    return `映像 ${映像 ?? 'なし'} / 音 ${音 ?? 'なし'}`;
+  };
+  return `送り ${言う('outbound-rtp')} ／ 受け ${言う('inbound-rtp')}`;
 }

@@ -17,7 +17,7 @@ import { applyAction, type PeerLike } from './apply';
 import { ICE_SERVERS, shouldSendVideo } from './media';
 import type { Prefs } from './devices';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
-import { 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, 追跡の版, type 統計の行 } from './trace';
+import { 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, 送り受けを言い表す, 追跡の版, type 統計の行 } from './trace';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
@@ -178,6 +178,7 @@ export class Call {
       // **組の中身まで出す。**`connected` なのに `unknown` という形を
       // 2026-09-14 に Windows で踏んだ。数だけでは、どちらが引けなかったのか分からない
       for (const 行 of 組の様子(stats as 統計の行[])) log(行);
+      log(送り受けを言い表す(stats as 統計の行[]));
       const 組 = 対を言い表す(stats as 統計の行[]);
       if (組) log(組);
     }
@@ -194,6 +195,9 @@ export class Call {
       if (組) {
         this.組を出した = true;
         log(組);
+        // **経路が付いた回に、送り受けの数も残す**（2026-09-15）——
+        // 「経路は direct なのに映像が来ない」を、**送り側と受け側に切り分ける**
+        log(送り受けを言い表す(stats as 統計の行[]));
       }
     }
     this.handlers.onPath(this.watch.shown);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { 伏せる, 候補を読む, 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子 } from './trace';
+import { 伏せる, 候補を読む, 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, 送り受けを言い表す } from './trace';
 
 describe('伏せる', () => {
   it('IPv4 は、網は残して機械だけ隠す', () => {
@@ -123,5 +123,29 @@ describe('組の様子', () => {
 
   it('組が無ければ、空で返す（無いことを言うのは呼ぶ側）', () => {
     expect(組の様子([])).toEqual([]);
+  });
+});
+
+describe('送り受けを言い表す', () => {
+  it('**送っているのか、受けているのか**を数で出す', () => {
+    // 2026-09-15、Windows の映像が mac に出ない。**経路は direct、文字は通る。**
+    // **送っていないのか、送っているのに映らないのか**が、記録から読めなかった
+    const 統計 = [
+      { id: 'o1', type: 'outbound-rtp', kind: 'video', packetsSent: 0 },
+      { id: 'o2', type: 'outbound-rtp', kind: 'audio', packetsSent: 132 },
+      { id: 'i1', type: 'inbound-rtp', kind: 'video', packetsReceived: 480 },
+      { id: 'i2', type: 'inbound-rtp', kind: 'audio', packetsReceived: 120 },
+    ];
+    expect(送り受けを言い表す(統計)).toBe('送り 映像 0 / 音 132 ／ 受け 映像 480 / 音 120');
+  });
+
+  it('枠が無ければ「なし」と言う（0 と混ぜない）', () => {
+    // **「送る枠が無い」と「送っているが 0 個」は別の話。**混ぜると切り分けられない
+    expect(送り受けを言い表す([])).toBe('送り なし ／ 受け なし');
+  });
+
+  it('片側だけ枠があるときは、その側だけ数える', () => {
+    const 統計 = [{ id: 'i1', type: 'inbound-rtp', kind: 'video', packetsReceived: 7 }];
+    expect(送り受けを言い表す(統計)).toBe('送り なし ／ 受け 映像 7 / 音 なし');
   });
 });
