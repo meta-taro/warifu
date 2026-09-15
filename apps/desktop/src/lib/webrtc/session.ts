@@ -17,7 +17,7 @@ import { applyAction, type PeerLike } from './apply';
 import { ICE_SERVERS, shouldSendVideo } from './media';
 import type { Prefs } from './devices';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
-import { 候補を言い表す, 対を言い表す, 数えて言い表す, type 統計の行 } from './trace';
+import { 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, type 統計の行 } from './trace';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
@@ -156,14 +156,21 @@ export class Call {
     ) {
       this.様子を出した = true;
       log(`${様子を出すまでのミリ秒 / 1000} 秒たっても経路がありません。${数えて言い表す(stats as 統計の行[])}`);
+      // **組の中身まで出す。**`connected` なのに `unknown` という形を
+      // 2026-09-14 に Windows で踏んだ。数だけでは、どちらが引けなかったのか分からない
+      for (const 行 of 組の様子(stats as 統計の行[])) log(行);
+      const 組 = 対を言い表す(stats as 統計の行[]);
+      if (組) log(組);
     }
 
     const before = this.watch.shown;
     this.watch = observe(this.watch, pathFromStats(stats));
     if (this.watch.shown === before) return;
 
-    // 付いた回は、**どの組で付いたか**を 1 回だけ残す（相手の機械と読み合わせるため）
-    if (!this.組を出した && this.watch.shown !== 'unknown') {
+    // **どの組で付いたかを 1 回だけ残す。**
+    // **`unknown` でも出す** —— 2026-09-14、`unknown` の回にこそ組を見たかったのに、
+    // ここに `!== 'unknown'` と書いていたせいで**いちばん要る回に 1 行も出なかった。**
+    if (!this.組を出した) {
       const 組 = 対を言い表す(stats as 統計の行[]);
       if (組) {
         this.組を出した = true;

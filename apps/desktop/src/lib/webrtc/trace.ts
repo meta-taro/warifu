@@ -139,3 +139,23 @@ export function 数えて言い表す(統計: readonly 統計の行[]): string {
   const 試し中 = 組たち.length - 成立 - だめ;
   return `候補 送った ${送った} / 来た ${来た} ／ 組 ${組たち.length}（成立 ${成立}・試し中 ${試し中}・だめ ${だめ}）`;
 }
+
+/**
+ * 組を 1 つずつ言い表す。**候補が引けたかどうかまで出す。**
+ *
+ * 2026-09-14、Windows で **`経路の具合 connected` が出ているのに、画面は `unknown` のまま**
+ * という形を踏んだ。`pathFromStats` は**組の両側の候補を引けたときだけ**経路を決めるので、
+ * **片側が引けないと、繋がっていても `unknown` になる。**
+ * どちらだったのかは、**引けたかどうかを書き出さないと分からない。**
+ */
+export function 組の様子(統計: readonly 統計の行[]): string[] {
+  const 引く = new Map(統計.map((s) => [s.id, s]));
+  return 統計
+    .filter((s) => s.type === 'candidate-pair')
+    .map((組, i) => {
+      const こちら = 引く.get(組.localCandidateId ?? '')?.candidateType ?? '引けません';
+      const あちら = 引く.get(組.remoteCandidateId ?? '')?.candidateType ?? '引けません';
+      const 選 = 組.nominated === true ? ' 選ばれた' : '';
+      return `組 ${i + 1} ${組.state ?? '不明'}${選}／こちら ${こちら}／あちら ${あちら}`;
+    });
+}

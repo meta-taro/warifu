@@ -65,13 +65,18 @@ jobs:
       - name: CLI を建てる
         run: cargo build --release -p warifu-cli
 
-      - name: フロントを建てる
-        run: pnpm --filter @warifu/desktop build
-
-      # --no-bundle: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
+      # **`cargo build` で建てると、画面の中身が入らない**（2026-09-14 に実測）。
+      #
+      #   成果物の `warifu-desktop.exe` に `localhost:5173` が埋まっていて、
+      #   **起動すると Edge のエラーページが出る**（`ERR_CONNECTION_REFUSED`）。
+      #   Windows の人が入れて踏んだ。**macOS の成果物も同じだった** ——
+      #   つまり「`develop` を試す」道は、**ずっと死んでいた。**
+      #
+      # **Tauri の CLI から建てる。**`beforeBuildCommand`（`pnpm build`）も
+      # こちらが回すので、フロントを別に建てる段は要らない。
+      # `--no-bundle`: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
       - name: 画面を建てる
-        working-directory: apps/desktop/src-tauri
-        run: cargo build --release
+        run: pnpm --filter @warifu/desktop tauri build --no-bundle
 
       # **建てただけで終わらせない。**
       #

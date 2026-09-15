@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { 伏せる, 候補を読む, 候補を言い表す, 対を言い表す, 数えて言い表す } from './trace';
+import { 伏せる, 候補を読む, 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子 } from './trace';
 
 describe('伏せる', () => {
   it('IPv4 は、網は残して機械だけ隠す', () => {
@@ -99,5 +99,29 @@ describe('数えて言い表す', () => {
   it('来た候補が 0 なら、それが分かる', () => {
     const 統計 = [{ id: 'l1', type: 'local-candidate' }];
     expect(数えて言い表す(統計)).toBe('候補 送った 1 / 来た 0 ／ 組 0（成立 0・試し中 0・だめ 0）');
+  });
+});
+
+describe('組の様子', () => {
+  it('**組ごとに、様子と、候補が引けたかを出す。**`connected` なのに画面が unknown のとき、ここしか手掛かりが無い', () => {
+    const 統計 = [
+      { id: 'p1', type: 'candidate-pair', state: 'succeeded', nominated: true, localCandidateId: 'l1', remoteCandidateId: 'r9' },
+      { id: 'l1', type: 'local-candidate', candidateType: 'host' },
+    ];
+    // r9 が統計に無い＝**相手の候補が引けない**。これだと経路を決められない
+    expect(組の様子(統計)).toEqual(['組 1 succeeded 選ばれた／こちら host／あちら 引けません']);
+  });
+
+  it('両方引ければ、両方の種別を出す', () => {
+    const 統計 = [
+      { id: 'p1', type: 'candidate-pair', state: 'in-progress', localCandidateId: 'l1', remoteCandidateId: 'r1' },
+      { id: 'l1', type: 'local-candidate', candidateType: 'host' },
+      { id: 'r1', type: 'remote-candidate', candidateType: 'srflx' },
+    ];
+    expect(組の様子(統計)).toEqual(['組 1 in-progress／こちら host／あちら srflx']);
+  });
+
+  it('組が無ければ、空で返す（無いことを言うのは呼ぶ側）', () => {
+    expect(組の様子([])).toEqual([]);
   });
 });
