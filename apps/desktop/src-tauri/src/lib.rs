@@ -897,7 +897,14 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // **新しく知り合いになったなら書き置く。**
             // 毎回書かない —— 叩かれるたびにディスクへ触ることになる。
             // ロックは集めるまで。**持ったままファイルへ触らない**
-            if !知っていた {
+            //
+            // **「名簿で通した」だけの相手は、ここに来ない**（**D111**）——
+            // 戸口の書き置きは `known()` だけで、名簿の相手は入らない。
+            // **いま本当に知り合いになったかを見てから書く** ——
+            // 見ないと「知り合いに加えて書き置いた」と記録に出るのに、
+            // **実際には何も増えていない**という嘘になる
+            let 知り合いになった = !知っていた && door.lock().await.knows(&subject);
+            if 知り合いになった {
                 let 一覧: Vec<String> = {
                     let door = door.lock().await;
                     door.known().map(str::to_owned).collect()
@@ -951,6 +958,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 Arc::clone(&conferences),
                 Arc::clone(&outbound),
                 Arc::clone(&addresses),
+                Arc::clone(&door),
                 me,
                 channel,
                 peer,
@@ -1014,6 +1022,7 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
         Arc::clone(&bridge.conferences),
         Arc::clone(&bridge.outbound),
         Arc::clone(&bridge.addresses),
+        Arc::clone(&bridge.door),
         bridge.device.public_key(),
         channel,
         peer,
@@ -1027,6 +1036,8 @@ fn 汲む(
     conferences: ルームたち,
     outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
     addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
+    // **主催が言った相手を通すために要る**（**D111**）。
+    door: Arc<Mutex<Door>>,
     me: PublicKey,
     mut channel: Channel,
     peer: PublicKey,
@@ -1141,10 +1152,31 @@ fn 汲む(
                         addresses.lock().await.insert(who.to_bytes(), address.clone());
                         // 自分が主催者なら、**入った人を既存の面々へ配り、
                         // 入った人へ既存の面々を教える**
-                        let 主催 = {
+                        let (主催, 紹介者が主催か) = {
                             let 棚 = conferences.lock().await;
-                            棚.get(meeting).map(|c| c.members().first() == Some(&me))
+                            let 先頭 = 棚.get(meeting).map(|c| c.members().first().copied());
+                            (
+                                先頭.map(|先| 先 == Some(me)),
+                                先頭 == Some(Some(peer)),
+                            )
                         };
+                        // **主催が「この部屋に居る」と言った相手を、戸口で通す**（**D111**）。
+                        //
+                        // これが無いと**ルームが星形になる** —— 割符を持っているのは主催だけなので、
+                        // **ゲスト同士は呼び合っても戸口で黙って落ちる**（#28・2026-09-15 に 3 台で実測）。
+                        //
+                        // **信じるのは主催の言い分だけ。持ち越さない**（書き置く一覧には入らない）
+                        if contacts::名簿として迎えるか(紹介者が主催か, peer, *who)
+                            && let Some(印) = warifu_door::Subject::new(&key_to_string(*who))
+                        {
+                            let 迎えた = door.lock().await.名簿で迎える(印);
+                            if 迎えた {
+                                記録!(
+                                    "戸口: 主催が言った相手を通します（{}・名簿）",
+                                    短く(&key_to_string(*who))
+                                );
+                            }
+                        }
                         // **配るのは「新入りが自分の住所を名乗った」ときだけ**
                         // （`配ってよいか`）。第三者の紹介を受けて配り直すと、
                         // **両側が「自分が主催だ」と思っている場合に往復する** ——
@@ -1628,6 +1660,16 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     let mut いま = bridge.いまのルーム.lock().await;
     if *いま == Some(meeting) {
         *いま = bridge.conferences.lock().await.keys().next().copied();
+    }
+    // **名簿で通していた相手を降ろす**（**D111**）。
+    // **持ち越さない** —— 「主催が言ったから通した」が次の部屋まで効かないように
+    {
+        let mut door = bridge.door.lock().await;
+        let 数 = door.名簿の数();
+        door.名簿を忘れる();
+        if 数 > 0 {
+            記録!("戸口: 名簿で通していた {数} 人を降ろしました");
+        }
     }
     // **帰り道を忘れる**（`gh issue 13`）。
     // **自分で抜けた人に「戻る」を出さない**し、**使わない秘密を持ち続けない**

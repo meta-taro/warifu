@@ -47,6 +47,17 @@ pub enum Answer {
 #[derive(Debug, Default)]
 pub struct Door {
     知り合い: HashSet<Subject>,
+    /// **主催が「この部屋に居る」と言った相手**（**D111**・2026-09-15）。
+    ///
+    /// 3 台で測ったら、**ルームが星形だった** —— 割符を持っているのは主催だけなので、
+    /// **ゲスト A がゲスト B を呼んでも、B の戸口が黙って落とす**（#28）。
+    ///
+    /// **主催の言い分を信じて通す。**ただし ——
+    ///
+    /// - **[`Door::known`] には出さない。**外の層が書き置くのは `知り合い` だけなので、
+    ///   **これは持ち越さない**（「通るのはそのルームの中だけ」）
+    /// - **割符の代わりにはならない。**部屋が終われば [`Door::名簿を忘れる`] で消える
+    名簿の相手: HashSet<Subject>,
     叩き: HashMap<Subject, Vec<u64>>,
 }
 
@@ -70,8 +81,32 @@ impl Door {
     pub fn with_known(known: impl IntoIterator<Item = Subject>) -> Self {
         Self {
             知り合い: known.into_iter().collect(),
+            名簿の相手: HashSet::new(),
             叩き: HashMap::new(),
         }
+    }
+
+    /// **主催が「この部屋に居る」と言った相手を通す**（**D111**）。新しく入れたら `true`。
+    ///
+    /// **`welcome` と分けてある。**あちらは「自分から呼んだ」＝**自分の意思**で、
+    /// 書き置かれて次回も通る。こちらは**主催の言い分**なので、
+    /// **[`Door::known`] には出さず、持ち越さない。**
+    pub fn 名簿で迎える(&mut self, who: Subject) -> bool {
+        self.名簿の相手.insert(who)
+    }
+
+    /// 名簿で迎えた相手を、全員降ろす（**部屋が終わったとき**）。
+    ///
+    /// **持ち越さないための口。**これが無いと、
+    /// 「主催が言ったから通した」が**次の部屋まで効いてしまう。**
+    pub fn 名簿を忘れる(&mut self) {
+        self.名簿の相手.clear();
+    }
+
+    /// 名簿で迎えている人数。**人が見る材料。**
+    #[must_use]
+    pub fn 名簿の数(&self) -> usize {
+        self.名簿の相手.len()
     }
 
     /// 知り合いを並べる。**保存する側が使う。**
@@ -117,7 +152,10 @@ impl Door {
     ///
     /// 開けた相手にも上限は掛かる（[`KNOWN_QUOTA`]）。
     pub fn answer(&mut self, knock: &Knock) -> Answer {
-        let 知り合い = self.知り合い.contains(knock.from());
+        // **主催が言った相手も、知り合いと同じ上限で扱う**（D111）。
+        // 分けて絞ると、**名簿に居るのに洪水扱いで断る**ことになる
+        let 知り合い =
+            self.知り合い.contains(knock.from()) || self.名簿の相手.contains(knock.from());
         self.記す(knock, 知り合い);
 
         let 回数 = self.knocks_from(knock.from());
@@ -139,7 +177,8 @@ impl Door {
         Answer::Refuse
     }
 
-    /// この相手を知っているか。
+    /// この相手を知っているか。**主催が言っただけの相手は入らない**
+    /// （書き置く側が、持ち越してはいけないものを書かないように）。
     pub fn knows(&self, who: &Subject) -> bool {
         self.知り合い.contains(who)
     }

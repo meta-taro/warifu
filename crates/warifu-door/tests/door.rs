@@ -319,3 +319,68 @@ fn 迎えた相手も_降ろせる() {
     assert!(戸口.forget_known(&相手));
     assert_eq!(戸口.answer(&Knock::new(相手, 0)), Answer::Refuse);
 }
+
+// ── 主催が配る名簿（**D111**・2026-09-15 オーナー判断） ──────────────
+//
+// 3 台で測ったら、**ルームが星形だった** —— 割符を持っているのは主催だけなので、
+// **ゲスト A がゲスト B を呼んでも、B の戸口が黙って落とす**（#28）。
+// **主催の言い分を信じて通す。**ただし持ち越さない。
+
+#[test]
+fn 名簿で迎えた相手は_割符なしで通る() {
+    let mut 戸 = Door::new();
+    let 相手 = 誰か("b@例");
+
+    assert_eq!(戸.answer(&Knock::new(相手.clone(), 今)), Answer::Refuse);
+    戸.名簿で迎える(相手.clone());
+
+    assert_eq!(戸.answer(&Knock::new(相手, 今)), Answer::Open);
+}
+
+#[test]
+fn 名簿で迎えた相手は_書き置く一覧に出ない() {
+    // **持ち越さない。**「通るのはそのルームの中だけ」（D111）——
+    // 外の層が書き置くのは `known()` だけなので、ここに出さないことで持ち越しを断つ
+    let mut 戸 = Door::new();
+    戸.名簿で迎える(誰か("b@例"));
+
+    assert_eq!(戸.known().count(), 0);
+    assert!(!戸.knows(&誰か("b@例")));
+    assert_eq!(戸.名簿の数(), 1);
+}
+
+#[test]
+fn 部屋が終われば_名簿の相手は降りる() {
+    let mut 戸 = Door::new();
+    戸.名簿で迎える(誰か("b@例"));
+
+    戸.名簿を忘れる();
+
+    assert_eq!(戸.名簿の数(), 0);
+    assert_eq!(戸.answer(&Knock::new(誰か("b@例"), 今)), Answer::Refuse);
+}
+
+#[test]
+fn 名簿の相手も_知り合いと同じ上限で叩ける() {
+    // **分けて絞ると、名簿に居るのに洪水扱いで断ることになる**
+    let mut 戸 = Door::new();
+    let 相手 = 誰か("b@例");
+    戸.名簿で迎える(相手.clone());
+
+    for _ in 0..KNOWN_QUOTA {
+        assert_eq!(戸.answer(&Knock::new(相手.clone(), 今)), Answer::Open);
+    }
+
+    assert_eq!(戸.answer(&Knock::new(相手, 今)), Answer::Refuse);
+}
+
+#[test]
+fn 自分から呼んだ相手は_これまでどおり書き置かれる() {
+    // **`welcome` と `名簿で迎える` を混ぜない。**
+    // あちらは自分の意思なので持ち越す（D58 の約束のまま）
+    let mut 戸 = Door::new();
+    戸.welcome(誰か("c@例"));
+
+    assert_eq!(戸.known().count(), 1);
+    assert!(戸.knows(&誰か("c@例")));
+}
