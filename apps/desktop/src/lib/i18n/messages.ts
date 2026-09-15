@@ -197,6 +197,12 @@ export type MessageKey =
   | 'chat.keep'
   | 'chat.keep.switch'
   | 'chat.reach'
+  | 'chat.to.room'
+  | 'chat.to.room.nth'
+  | 'chat.to.alone'
+  | 'chat.to.desk'
+  | 'chat.to.sealed'
+  | 'chat.to.none'
   | 'chat.reach.none'
   | 'contacts.presence.none'
   | 'unread.count'
@@ -530,6 +536,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.keep': '打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。',
     'chat.keep.switch': '新しい宛先に切り替える',
     'chat.reach': '届く先 {who}',
+    'chat.to.room': '{name}（{n} 人）へ',
+    'chat.to.room.nth': 'ルーム {nth}（{n} 人）へ',
+    'chat.to.alone': 'まだ誰も居ません',
+    'chat.to.desk': '{name} だけへ',
+    'chat.to.sealed': '{name} だけへ（留守中の受け取りに預けます）',
+    'chat.to.none': 'いま送れません',
     'chat.reach.none': '届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。',
     'contacts.presence.none': '相手がいま起動しているかは分かりません。呼んでみるまで分かりません。',
     'unread.count': 'まだ見ていない {n} 件',
@@ -830,6 +842,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.keep': 'You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.',
     'chat.keep.switch': 'Switch to the new destination',
     'chat.reach': 'Goes to {who}',
+    'chat.to.room': 'To {name} ({n} people)',
+    'chat.to.room.nth': 'To room {nth} ({n} people)',
+    'chat.to.alone': 'Nobody else is here yet',
+    'chat.to.desk': 'To {name} only',
+    'chat.to.sealed': 'To {name} only (held for while they are away)',
+    'chat.to.none': 'Cannot send right now',
     'chat.reach.none': 'It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.',
     'contacts.presence.none': 'There is no way to tell whether they are running right now. You find out by calling.',
     'unread.count': '{n} unseen',
@@ -1130,6 +1148,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.keep': '你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。',
     'chat.keep.switch': '切换到新的收件对象',
     'chat.reach': '送达 {who}',
+    'chat.to.room': '发送给 {name}（{n} 人）',
+    'chat.to.room.nth': '发送给 房间 {nth}（{n} 人）',
+    'chat.to.alone': '这里还没有其他人',
+    'chat.to.desk': '仅发送给 {name}',
+    'chat.to.sealed': '仅发送给 {name}（对方不在时代为保管）',
+    'chat.to.none': '现在无法发送',
     'chat.reach.none': '目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。',
     'contacts.presence.none': '无法知道对方现在是否已启动。只有呼叫之后才知道。',
     'unread.count': '{n} 条未看',
@@ -1430,6 +1454,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.keep': '입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.',
     'chat.keep.switch': '새 보낼 곳으로 바꾸기',
     'chat.reach': '가는 곳 {who}',
+    'chat.to.room': '{name}（{n}명）에게',
+    'chat.to.room.nth': '룸 {nth}（{n}명）에게',
+    'chat.to.alone': '아직 아무도 없습니다',
+    'chat.to.desk': '{name}에게만',
+    'chat.to.sealed': '{name}에게만 (자리를 비운 동안 맡아 둡니다)',
+    'chat.to.none': '지금은 보낼 수 없습니다',
     'chat.reach.none': '아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.',
     'contacts.presence.none': '상대가 지금 켜져 있는지는 알 수 없습니다. 불러 봐야 알 수 있습니다.',
     'unread.count': '안 본 {n}건',

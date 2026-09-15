@@ -8,11 +8,21 @@
 
 **判定と「直した訳」の欄は空のまま出す**（baseline §19）。
 **実物を見た人が記入する。AI は代筆しない。**
+
+**すでに書かれている判定は、鍵ごとに引き継ぐ。**
+作り直すたびに消えると、**人が書いたものを、こちらの都合で捨てることになる**
+（baseline §27「AI が代筆・要約しない」の裏返し —— 消すのも同じこと）。
 """
 
 import re
 import sys
 from pathlib import Path
+
+# **出す所に文字コードを書く**（`.claude/rules/踏んだ落とし穴.md` §2）。
+# 書かないと、Windows の既定（cp1252）で print が落ちる。
+for 口 in (sys.stdout, sys.stderr):
+    if hasattr(口, "reconfigure"):
+        口.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "apps/desktop/src/lib/i18n/messages.ts"
@@ -45,8 +55,34 @@ def 読む() -> tuple[dict[str, dict[str, str]], set[str], dict[str, str]]:
     return 出, 事故, 注記
 
 
+def すでに書かれたもの() -> dict[str, tuple[str, str]]:
+    """いまのシートから、**人が書いた 2 列だけ**を鍵ごとに拾う。"""
+    if not OUT.exists():
+        return {}
+    行たち = OUT.read_text(encoding="utf-8").splitlines()
+    if not 行たち:
+        return {}
+    頭 = 行たち[0].split("\t")
+    try:
+        判 = 頭.index("判定")
+    except ValueError:
+        return {}
+    直 = 判 + 1
+    拾った = {}
+    for 行 in 行たち[1:]:
+        欄 = 行.split("\t")
+        if len(欄) <= 判:
+            continue
+        判定 = 欄[判] if 判 < len(欄) else ""
+        直し = 欄[直] if 直 < len(欄) else ""
+        if 判定 or 直し:
+            拾った[欄[0]] = (判定, 直し)
+    return 拾った
+
+
 def 書く() -> None:
     出, 事故, 注記 = 読む()
+    前の = すでに書かれたもの()
     頭 = ["鍵", *LOCALES, "事故になるか", "翻訳者への注記", "判定", "直した訳（ja/en/zh/ko）"]
     行 = ["\t".join(頭)]
     for k in sorted(出["en"]):
@@ -57,13 +93,21 @@ def 書く() -> None:
                     *[出[l][k] for l in LOCALES],
                     "★" if k in 事故 else "",
                     注記.get(k, "").replace("\t", " "),
-                    "",  # 判定 —— **人が書く**
-                    "",  # 直した訳 —— **人が書く**
+                    前の.get(k, ("", ""))[0],  # 判定 —— **人が書く。引き継ぐ**
+                    前の.get(k, ("", ""))[1],  # 直した訳 —— **人が書く。引き継ぐ**
                 ]
             )
         )
     OUT.write_text("\n".join(行) + "\n", encoding="utf-8")
-    print(f"{OUT.relative_to(ROOT)} を書いた（{len(行) - 1} 鍵 / 事故になるもの {len(事故)}）")
+    引き継いだ = sum(1 for k in 出["en"] if k in 前の)
+    消えた = sorted(set(前の) - set(出["en"]))
+    print(
+        f"{OUT.relative_to(ROOT)} を書いた（{len(行) - 1} 鍵 / 事故になるもの {len(事故)}"
+        f" / 人の記入を引き継いだ {引き継いだ}）"
+    )
+    if 消えた:
+        # **黙って捨てない。**鍵が消えたときだけ、書かれていたものを画面へ出す
+        print("**辞書から消えた鍵に、人の記入がありました:**", ", ".join(消えた))
 
 
 if __name__ == "__main__":
