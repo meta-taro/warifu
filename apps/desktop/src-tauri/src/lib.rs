@@ -225,6 +225,12 @@ pub struct Bridge {
     /// 三者会議が成り立たなかった。**割符は「1 つの鍵 = 1 人」（D12）なので、
     /// **人数ぶん出すのが正しい形**である。会場鍵（何度でも使える鍵・`issues/009`）とは別の話。
     tally: Arc<Mutex<Vec<Tally>>>,
+    /// **部屋ごとの主催**（**#37**・2026-09-16）。
+    ///
+    /// **ゲストの名簿は先頭が自分**なので、`members().first()` では主催が分からない
+    /// （**D111 の迎えが一度も起きなかった**原因）。
+    /// **主催は「入るときに呼んだ相手」**なので、そのとき覚える。
+    主催たち: Arc<Mutex<HashMap<MeetingId, PublicKey>>>,
     /// 戸口。**割符が合わない相手は、ここで断る**（D31）。
     door: Arc<Mutex<Door>>,
     /// 相手ごとの住所（**D41**）。
@@ -362,6 +368,7 @@ impl Bridge {
             // **出した割符を控えから戻す**（**#38**）——
             // これが無いと、**上げ直した瞬間に配った鍵が全部死ぬ**
             tally: Arc::new(Mutex::new(控えた割符())),
+            主催たち: Arc::new(Mutex::new(HashMap::new())),
             // **置いてある知り合いを連れて開く。**
             // 2026-09-07 まで毎起動で空になっており、「一度開けた相手は
             // 次から割符なしで開ける」（D31）が再起動をまたいで効かなかった
@@ -673,6 +680,8 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
         None => Conference::host(私, capacity)?,
     };
     let id = ルームを足す(&bridge.conferences, &bridge.いまのルーム, conference).await;
+    // **自分が建てた部屋の主催は自分**（**#37**）
+    bridge.主催たち.lock().await.insert(id, 私);
     // **建てた id を書き置く。**名前は画面から付けるので、ここでは触らない
     if let Ok(vault) = warifu_vault::Vault::default_location() {
         let 名前 = vault.my_room().ok().flatten().map_or_else(String::new, |(_, n)| n);
@@ -769,6 +778,10 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
             Conference::joined(bridge.device.public_key(), meeting, roster),
         )
         .await;
+        // **呼んだ相手が、この部屋の主催**（**#37**）。
+        // **ゲストの名簿は先頭が自分**なので、名簿からは主催が分からない ——
+        // 覚えないと **D111 の迎えが一度も起きない**（Mac Air の実測で 08 が落ちた）
+        bridge.主催たち.lock().await.insert(meeting, peer);
         vec![warifu_app::Event::Joined(peer)]
     };
     let meeting_id = meeting;
@@ -927,6 +940,8 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let tally = Arc::clone(&bridge.tally);
     let door = Arc::clone(&bridge.door);
     let addresses = Arc::clone(&bridge.addresses);
+    // **部屋ごとの主催**（**#37**）。名簿の先頭では分からない
+    let 主催たち = Arc::clone(&bridge.主催たち);
 
     tokio::spawn(async move {
         loop {
@@ -1038,6 +1053,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 Arc::clone(&outbound),
                 Arc::clone(&addresses),
                 Arc::clone(&door),
+                Arc::clone(&主催たち),
                 me,
                 channel,
                 peer,
@@ -1102,6 +1118,7 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
         Arc::clone(&bridge.outbound),
         Arc::clone(&bridge.addresses),
         Arc::clone(&bridge.door),
+        Arc::clone(&bridge.主催たち),
         bridge.device.public_key(),
         channel,
         peer,
@@ -1117,6 +1134,8 @@ fn 汲む(
     addresses: Arc<Mutex<HashMap<[u8; 32], String>>>,
     // **主催が言った相手を通すために要る**（**D111**）。
     door: Arc<Mutex<Door>>,
+    // **部屋ごとの主催**（**#37**）。名簿の先頭では分からない
+    主催たち: Arc<Mutex<HashMap<MeetingId, PublicKey>>>,
     me: PublicKey,
     mut channel: Channel,
     peer: PublicKey,
@@ -1231,14 +1250,13 @@ fn 汲む(
                         addresses.lock().await.insert(who.to_bytes(), address.clone());
                         // 自分が主催者なら、**入った人を既存の面々へ配り、
                         // 入った人へ既存の面々を教える**
-                        let (主催, 紹介者が主催か) = {
-                            let 棚 = conferences.lock().await;
-                            let 先頭 = 棚.get(meeting).map(|c| c.members().first().copied());
-                            (
-                                先頭.map(|先| 先 == Some(me)),
-                                先頭 == Some(Some(peer)),
-                            )
-                        };
+                        // **主催は覚えてある**（**#37**）。
+                        // **名簿の先頭では分からない** —— ゲストの名簿は先頭が自分で、
+                        // `first() == peer` は**ゲストでは必ず false** になっていた。
+                        // そのため **D111 の迎えが一度も起きなかった**
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        let 主催 = Some(contacts::主催と同じか(部屋の主催, me));
+                        let 紹介者が主催か = contacts::主催と同じか(部屋の主催, peer);
                         // **主催が「この部屋に居る」と言った相手を、戸口で通す**（**D111**）。
                         //
                         // これが無いと**ルームが星形になる** —— 割符を持っているのは主催だけなので、
