@@ -366,3 +366,29 @@ describe('段 C —— 同じ人を 2 か所に出さない', () => {
     expect(全部).toHaveLength(1);
   });
 });
+
+describe('映像が付いている部屋の札（#36）', () => {
+  it('映像が付いている部屋の行だけ、印を持つ', () => {
+    // **開くまで分からない**のをやめる（ASUS・2026-09-16）
+    const 区画 = 連絡帳を組む({
+      ...素,
+      ルームたち: [
+        { id: 'R1', members: 2, host: true },
+        { id: 'R2', members: 1, host: true },
+      ],
+      映像がある部屋: 'R1',
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(ルーム.map((r) => r.映像が付いている)).toEqual([true, false]);
+  });
+
+  it('どこにも付いていなければ、どの行にも印を出さない', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      ルームたち: [{ id: 'R1', members: 2, host: true }],
+      映像がある部屋: null,
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(ルーム[0].映像が付いている).toBe(false);
+  });
+});
