@@ -280,6 +280,30 @@ pub(crate) type ルームたち = Arc<Mutex<HashMap<MeetingId, Conference>>>;
 pub(crate) type 見ているルーム = Arc<Mutex<Option<MeetingId>>>;
 
 /// ルームを足して、**見ているルームにする。**
+/// **どの部屋を見るか**（**#39**・2026-09-16）。
+///
+/// # なぜ要るか
+///
+/// 起動のときに自分の部屋を建て直すが、**そこで「見ている部屋」を奪っていた。**
+///
+/// ```text
+/// 人が［入る］を押す  → 見ている = 入った部屋
+/// 起動の続きが走る    → 建て直し → **見ている = 自分の部屋**
+/// ```
+///
+/// 使った人 ——「**入る押したあと、画面がルームとか、に移動しないの謎だし**」。
+/// **押した直後は移り、すぐ戻っていた。**
+///
+/// **すでに見ている部屋があるなら、そのまま。**無いときだけ、建てた部屋を見る。
+#[must_use]
+pub(crate) const fn 見る部屋を決める(いま: Option<MeetingId>, 建てた: MeetingId) -> MeetingId {
+    match いま {
+        Some(見ている) => 見ている,
+        None => 建てた,
+    }
+}
+
+/// **部屋を足して、そこを見る。**（人が作った・入ったときはこちら）
 pub(crate) async fn ルームを足す(
     ルーム: &ルームたち,
     いま: &見ているルーム,
@@ -288,6 +312,21 @@ pub(crate) async fn ルームを足す(
     let id = c.id();
     ルーム.lock().await.insert(id, c);
     *いま.lock().await = Some(id);
+    id
+}
+
+/// **部屋を足すが、見ている部屋は奪わない**（**#39**）。
+///
+/// 起動の建て直しはこちら。**人が押して移った先を、あとから来た建て直しが奪わない。**
+pub(crate) async fn ルームを足す_見るのは奪わない(
+    ルーム: &ルームたち,
+    いま: &見ているルーム,
+    c: Conference,
+) -> MeetingId {
+    let id = c.id();
+    ルーム.lock().await.insert(id, c);
+    let mut 見ている = いま.lock().await;
+    *見ている = Some(見る部屋を決める(*見ている, id));
     id
 }
 
@@ -679,7 +718,10 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
         Some(id) => Conference::host_with_id(私, capacity, id)?,
         None => Conference::host(私, capacity)?,
     };
-    let id = ルームを足す(&bridge.conferences, &bridge.いまのルーム, conference).await;
+    // **起動の建て直しは、見ている部屋を奪わない**（**#39**）——
+    // 人が［入る］を押した直後に、これが走って**自分の部屋へ戻していた**
+    let id =
+        ルームを足す_見るのは奪わない(&bridge.conferences, &bridge.いまのルーム, conference).await;
     // **自分が建てた部屋の主催は自分**（**#37**）
     bridge.主催たち.lock().await.insert(id, 私);
     // **建てた id を書き置く。**名前は画面から付けるので、ここでは触らない
@@ -2113,5 +2155,29 @@ mod 中継の試験 {
     fn 前後の空白は無視する() {
         assert!(中継を使うか(Some(" 1 ")));
         assert!(!中継を使うか(Some("  ")));
+    }
+}
+
+#[cfg(test)]
+mod 見る部屋の試験 {
+    use super::見る部屋を決める;
+    use warifu_meeting::MeetingId;
+
+    fn 部屋() -> MeetingId {
+        MeetingId::generate()
+    }
+
+    #[test]
+    fn 見ている部屋があれば_そのまま() {
+        // **人が［入る］で移った先を、あとから来た建て直しが奪わない**（#39）
+        let 見ている = 部屋();
+        let 建てた = 部屋();
+        assert_eq!(見る部屋を決める(Some(見ている), 建てた), 見ている);
+    }
+
+    #[test]
+    fn 見ている部屋が無ければ_建てた部屋を見る() {
+        let 建てた = 部屋();
+        assert_eq!(見る部屋を決める(None, 建てた), 建てた);
     }
 }
