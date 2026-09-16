@@ -25,6 +25,7 @@
     画面の状態を決める,
     映像を出すか,
     届く先がある as 送れるか,
+    抜けたら畳む,
   } from '$lib/meeting/stage';
   import PaneRail from '$lib/shell/PaneRail.svelte';
   import { 既定の面, 押した後の面, type 面 as 面の型 } from '$lib/shell/panes';
@@ -1614,9 +1615,33 @@
     try {
       await ルームへ移る(id);
       await leave();
+      // **抜けたら畳む**（**#33**・`meeting/stage.ts` の `抜けたら畳む`）。
+      //
+      // 畳まないと、**画面が「抜けた側」を映したまま動かない** ——
+      // 自分の枠が真っ黒／抜けた相手が `○ 不明` で残る／届く先が抜けた相手のまま／
+      // **［ルームをつくる］が消えたまま**（状態が `会議前` に戻らない）。
+      // ASUS は**立ち上げ直すまで戻らなかった**（2026-09-15）。
+      //
+      // **映像の部屋は 1 つだけ**（**D112**）なので、**残すものは無い。**
+      const 畳 = 抜けたら畳む();
+      // 通話を先に閉じる（**機器を放す**。残ると枠が黒いまま）
+      for (const call of calls.values()) call.close();
+      calls.clear();
+      localStream?.getTracks().forEach((tr) => tr.stop());
+      localStream = null;
+      if (previewVideo) previewVideo.srcObject = null;
+      remotes = [...畳.相手たち];
+      members = [...畳.名簿];
+      人が入った = 畳.人が入った;
+      映像を使う = 畳.映像を使う;
+      支度した = 畳.支度した;
+      sendMode = 畳.送るもの;
+      // **会議キーは導出値**（`鍵たち` から出る）。元を空にする ——
+      // 残すと「待っています」の帯が出たままになる
+      鍵たち = [];
+      選んだ相手 = 畳.選んだ相手;
       await ルームを読み直す();
       await 名簿を読む();
-      選んだ相手 = null;
     } catch (e) {
       notice = 読める(e);
     }
