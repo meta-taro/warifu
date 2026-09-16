@@ -1330,8 +1330,19 @@ fn 汲む(
                             // （`gh issue 9`）—— `connect` は必ず自分の住所を名乗るので、
                             // これを渡すと画面が呼び直し、相手も名乗り返して
                             // **紹介が往復する。**ASUS では 177 回往復して経路が落ちた
-                            let _ =
-                                app.emit(EVENT_INTRODUCED, (key_to_string(*who), address.clone()));
+                            // **投げたことを残す**（**#37**・ASUS の指摘）——
+                            // `let _ =` で投げていたので、**画面へ渡ったかどうかが記録に無かった。**
+                            // 「何も起きていない」と「記録していない」が区別できなかった
+                            記録!(
+                                "紹介: 呼びに行かせます（{}・住所 {} 文字）",
+                                短く(&key_to_string(*who)),
+                                address.len()
+                            );
+                            if let Err(e) =
+                                app.emit(EVENT_INTRODUCED, (key_to_string(*who), address.clone()))
+                            {
+                                記録!("紹介: 画面へ渡せませんでした: {e}");
+                            }
                         } else {
                             記録!("受信: 紹介は自分の住所の名乗りだった。呼び直さない");
                         }
@@ -1500,6 +1511,11 @@ async fn 紹介を配る(
         let 棚 = conferences.lock().await;
         let Some(c) = 棚.get(&meeting) else { return };
         let Some(plan) = introductions_for(c, newcomer, me) else {
+            // **黙って戻らない**（**#37**）—— 配り先が無いのか、部屋が無いのかが読めなかった
+            記録!(
+                "紹介: 配り先がありません（新入り {}）",
+                短く(&key_to_string(newcomer))
+            );
             return;
         };
         plan
@@ -1509,6 +1525,15 @@ async fn 紹介を配る(
 
     let 送る = |to: PublicKey, who: PublicKey| {
         let (Some(tx), Some(address)) = (out.get(&to.to_bytes()), book.get(&who.to_bytes())) else {
+            // **黙って送らない、をやめる**（**#37**）——
+            // **口が無いのか、住所を知らないのか**で、次に見る所が変わる
+            記録!(
+                "紹介: 送れません（{} へ {} の話。口 {} / 住所 {}）",
+                短く(&key_to_string(to)),
+                短く(&key_to_string(who)),
+                if out.contains_key(&to.to_bytes()) { "あり" } else { "なし" },
+                if book.contains_key(&who.to_bytes()) { "あり" } else { "なし" }
+            );
             return None;
         };
         Some(tx.send(Notice::Introduce {
