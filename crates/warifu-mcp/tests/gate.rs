@@ -64,19 +64,27 @@ fn 用意(動作: &[&str]) -> Warifu {
 /// （`受け口::開く` が `code: 123 / InvalidFilename` で落ちる）。
 /// **2026-09-14 に Windows の人が実測して `cargo test` が 7 件落ちた。**
 fn 試験の机(名: &str) -> std::path::PathBuf {
+    // **走るたびに別の口にする**（2026-09-16 に踏んだ）。
+    //
+    // 名前だけで決めていたので、**試験実行が 2 つ重なると口を取り合って落ちた** ——
+    // `AddrInUse`（「この機械はもう開いています」）。
+    // 手元で `cargo test` を回している最中に commit のゲートが走っただけで起きる。
+    // **落ちた理由がコードに見えないので、いちばん時間を食う形**である。
+    let 走り = std::process::id();
     #[cfg(windows)]
     {
-        std::path::PathBuf::from(format!(r"\\.\pipe\warifu-mcp-{名}"))
+        std::path::PathBuf::from(format!(r"\\.\pipe\warifu-mcp-{名}-{走り}"))
     }
     #[cfg(not(windows))]
     {
-        std::env::temp_dir().join(format!("warifu-mcp-{名}.sock"))
+        std::env::temp_dir().join(format!("warifu-mcp-{名}-{走り}.sock"))
     }
 }
 
 /// **控えの置き場所**（`heard/<名乗り>` の親）。**口の親フォルダを使わない。**
 fn 試験の控え(名: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("warifu-mcp-控え-{名}"))
+    // **口と同じ理由で、走るたびに別にする**（重なった実行の控えを読まない）
+    std::env::temp_dir().join(format!("warifu-mcp-控え-{名}-{}", std::process::id()))
 }
 
 #[tokio::test]

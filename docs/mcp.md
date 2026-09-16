@@ -245,7 +245,7 @@ Since **D102**, a reconnecting agent also receives what it missed while away (up
 The MCP server states its version on connect.
 
 ```
-割符の口（版 0.1.7）。受信箱を読み、…
+割符の口（版 0.1.8）。受信箱を読み、…
 ```
 
 **New tools are invisible until you reconnect.** If `room_status` or `profile_set` is missing, **suspect the version first.**
