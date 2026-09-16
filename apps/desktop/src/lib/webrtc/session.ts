@@ -17,7 +17,17 @@ import { applyAction, type PeerLike } from './apply';
 import { ICE_SERVERS, shouldSendVideo } from './media';
 import type { Prefs } from './devices';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
-import { 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, 送り受けを言い表す, 追跡の版, type 統計の行 } from './trace';
+import {
+  候補を言い表す,
+  対を言い表す,
+  数えて言い表す,
+  組の様子,
+  送り受けを言い表す,
+  映像の向き,
+  追跡の版,
+  type 向き,
+  type 統計の行,
+} from './trace';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
@@ -36,6 +46,13 @@ export interface CallHandlers {
   onRemoteStream(stream: MediaStream): void;
   /** 表示すべき経路（直接 / 中継 / 不明）。 */
   onPath(path: LinkPath): void;
+  /**
+   * **映像がどちらへ流れているか**（**#39**）。
+   *
+   * 「つながっています」しか出していなかったので、**片方だけ流れていても人に分からなかった。**
+   * **変わったときだけ呼ぶ**（1 秒ごとに呼ばない）。
+   */
+  on映像の向き?(向き: 向き): void;
 }
 
 /** 1 本の通話。閉じるまで生きている。 */
@@ -51,6 +68,8 @@ export class Call {
   private 様子を出した = false;
   private 組を出した = false;
   private 始めた = 0;
+  /** **前に伝えた映像の向き**（**#39**）。変わったときだけ伝える */
+  private 前の向き: 向き | null = null;
 
   constructor(
     offering: boolean,
@@ -181,6 +200,18 @@ export class Call {
       log(送り受けを言い表す(stats as 統計の行[]));
       const 組 = 対を言い表す(stats as 統計の行[]);
       if (組) log(組);
+    }
+
+    // **映像の向きが変わったら伝える**（**#39**）——
+    // 「受けているのに送っていない」を画面が言えるようにする
+    const 向き = 映像の向き(stats as 統計の行[]);
+    if (
+      this.前の向き === null ||
+      this.前の向き.送っている !== 向き.送っている ||
+      this.前の向き.受けている !== 向き.受けている
+    ) {
+      this.前の向き = 向き;
+      this.handlers.on映像の向き?.(向き);
     }
 
     const before = this.watch.shown;

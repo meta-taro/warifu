@@ -6,6 +6,7 @@ import {
   届く先がある,
   映像を出すか,
   抜けたら畳む,
+  つながりの言い方,
 } from './stage';
 
 describe('画面の状態', () => {
@@ -145,6 +146,39 @@ describe('抜けたら畳む（#33）', () => {
         '相手たち',
         '選んだ相手',
       ].sort(),
+    );
+  });
+});
+
+describe('つながりの言い方（#39・D113）', () => {
+  it('**受けているのに送っていないときは、そう言う**', () => {
+    // 「つながっています」しか出していなかったので、**人は「壊れている」と読んだ**
+    expect(つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: false })).toBe(
+      'meeting.status.recvonly',
+    );
+  });
+
+  it('送っているのに受けていないときも、そう言う', () => {
+    expect(つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: true })).toBe(
+      'meeting.status.sendonly',
+    );
+  });
+
+  it('両方流れていれば、そう言う', () => {
+    expect(つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: true })).toBe(
+      'meeting.status.both',
+    );
+  });
+
+  it('文字だけなら、文字だけと言う（**カメラが点いていないことを隠さない**）', () => {
+    expect(つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: false })).toBe(
+      'meeting.status.textonly',
+    );
+  });
+
+  it('相手が居なければ、待っていると言う', () => {
+    expect(つながりの言い方({ 相手が居る: false, 受けている: false, 送っている: false })).toBe(
+      'meeting.status.wait',
     );
   });
 });

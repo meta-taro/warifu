@@ -192,7 +192,11 @@ meeting.qr.hint	Use this when the other person is in front of you. Scanning it g
 meeting.qr.reveal	Show as a QR code	QR で見せる	显示二维码	QR로 보여주기				
 meeting.start.action	Make a room	ルームをつくる	建一个房间	방 만들기				
 meeting.start.title	Make a room	ルームをつくる	建一个房间	방 만들기				
+meeting.status.both	Connected — video and audio, both ways	つながっています（映像と音を、送って受けています）	已连接（视频和声音，双向）	연결되어 있습니다 (영상과 소리를 주고받고 있습니다)				
 meeting.status.live	Connected	つながっています	已连接	연결되어 있습니다				
+meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours.	つながっています（相手の映像を受けています。あなたは送っていません）	已连接（正在接收对方的视频。你没有发送自己的视频）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다)				
+meeting.status.sendonly	Connected — you are sending video. Theirs has not arrived.	つながっています（あなたは送っています。相手の映像は来ていません）	已连接（你正在发送视频。对方的视频还没有到达）	연결되어 있습니다 (당신은 보내고 있습니다. 상대의 영상은 오지 않았습니다)				
+meeting.status.textonly	Connected — text only. Camera and microphone are not in use	つながっています（いま文字だけです。カメラもマイクも使っていません）	已连接（现在只有文字。没有使用摄像头和麦克风）	연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)				
 meeting.status.waiting	Waiting for the other person	相手を待っています	正在等待对方	상대방을 기다리는 중				
 pane.contacts	Contacts	連絡帳	通讯录	연락처				
 pane.meeting	Room	ルーム	房间	방				

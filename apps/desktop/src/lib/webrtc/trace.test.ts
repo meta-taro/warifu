@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { 伏せる, 候補を読む, 候補を言い表す, 対を言い表す, 数えて言い表す, 組の様子, 送り受けを言い表す } from './trace';
+import {
+  伏せる,
+  候補を読む,
+  候補を言い表す,
+  対を言い表す,
+  数えて言い表す,
+  組の様子,
+  送り受けを言い表す,
+  映像の向き,
+} from './trace';
 
 describe('伏せる', () => {
   it('IPv4 は、網は残して機械だけ隠す', () => {
@@ -147,5 +156,38 @@ describe('送り受けを言い表す', () => {
   it('片側だけ枠があるときは、その側だけ数える', () => {
     const 統計 = [{ id: 'i1', type: 'inbound-rtp', kind: 'video', packetsReceived: 7 }];
     expect(送り受けを言い表す(統計)).toBe('送り なし ／ 受け 映像 7 / 音 なし');
+  });
+});
+
+describe('映像の向き（#39）', () => {
+  it('**受けているのに送っていない**を、そのまま返す', () => {
+    // 2026-09-16、使った人 ——「入った瞬間相手には映っているのに、
+    // こっちがビデオ会議を始めるボタン押さないと見れないのはおかしい、最悪の UX です」
+    const 統計 = [
+      { id: 'o', type: 'outbound-rtp', kind: 'video', packetsSent: 0 },
+      { id: 'i', type: 'inbound-rtp', kind: 'video', packetsReceived: 89 },
+    ];
+    expect(映像の向き(統計)).toEqual({ 送っている: false, 受けている: true });
+  });
+
+  it('両方流れていれば、両方 true', () => {
+    const 統計 = [
+      { id: 'o', type: 'outbound-rtp', kind: 'video', packetsSent: 355863 },
+      { id: 'i', type: 'inbound-rtp', kind: 'video', packetsReceived: 350072 },
+    ];
+    expect(映像の向き(統計)).toEqual({ 送っている: true, 受けている: true });
+  });
+
+  it('**枠が無いのと 0 個を、同じに扱う**（どちらも「流れていない」）', () => {
+    // 言い分けるのは `送り受けを言い表す` の仕事。**画面へ出す判断はここで丸める**
+    expect(映像の向き([])).toEqual({ 送っている: false, 受けている: false });
+    expect(
+      映像の向き([{ id: 'o', type: 'outbound-rtp', kind: 'video', packetsSent: 0 }]),
+    ).toEqual({ 送っている: false, 受けている: false });
+  });
+
+  it('音は見ない（映像の向きだけ）', () => {
+    const 統計 = [{ id: 'o', type: 'outbound-rtp', kind: 'audio', packetsSent: 900 }];
+    expect(映像の向き(統計)).toEqual({ 送っている: false, 受けている: false });
   });
 });

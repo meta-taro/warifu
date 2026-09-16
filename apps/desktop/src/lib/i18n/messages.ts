@@ -295,6 +295,10 @@ export type MessageKey =
   | 'roster.name.placeholder'
   | 'meeting.status.waiting'
   | 'meeting.status.live'
+  | 'meeting.status.recvonly'
+  | 'meeting.status.sendonly'
+  | 'meeting.status.both'
+  | 'meeting.status.textonly'
   | 'setup.mic.none'
   | 'setup.camera.none'
   | 'edit.cut'
@@ -381,6 +385,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
     'meeting.status.live': 'つながっています',
+    'meeting.status.recvonly':
+      'つながっています（相手の映像を受けています。あなたは送っていません）',
+    'meeting.status.sendonly':
+      'つながっています（あなたは送っています。相手の映像は来ていません）',
+    'meeting.status.both': 'つながっています（映像と音を、送って受けています）',
+    'meeting.status.textonly': 'つながっています（いま文字だけです。カメラもマイクも使っていません）',
     'setup.mic.none': 'マイクが見つかりません',
     'setup.camera.none': 'カメラが見つかりません',
     'edit.cut': '切り取る',
@@ -686,6 +696,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
     'meeting.status.live': 'Connected',
+    'meeting.status.recvonly':
+      'Connected — you are receiving their video. You are not sending yours.',
+    'meeting.status.sendonly':
+      'Connected — you are sending video. Theirs has not arrived.',
+    'meeting.status.both': 'Connected — video and audio, both ways',
+    'meeting.status.textonly': 'Connected — text only. Camera and microphone are not in use',
     'setup.mic.none': 'No microphone found',
     'setup.camera.none': 'No camera found',
     'edit.cut': 'Cut',
@@ -991,6 +1007,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
     'meeting.status.live': '已连接',
+    'meeting.status.recvonly': '已连接（正在接收对方的视频。你没有发送自己的视频）',
+    'meeting.status.sendonly': '已连接（你正在发送视频。对方的视频还没有到达）',
+    'meeting.status.both': '已连接（视频和声音，双向）',
+    'meeting.status.textonly': '已连接（现在只有文字。没有使用摄像头和麦克风）',
     'setup.mic.none': '未找到麦克风',
     'setup.camera.none': '未找到摄像头',
     'edit.cut': '剪切',
@@ -1296,6 +1316,13 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',
     'meeting.status.live': '연결되어 있습니다',
+    'meeting.status.recvonly':
+      '연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다)',
+    'meeting.status.sendonly':
+      '연결되어 있습니다 (당신은 보내고 있습니다. 상대의 영상은 오지 않았습니다)',
+    'meeting.status.both': '연결되어 있습니다 (영상과 소리를 주고받고 있습니다)',
+    'meeting.status.textonly':
+      '연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)',
     'setup.mic.none': '마이크를 찾을 수 없습니다',
     'setup.camera.none': '카메라를 찾을 수 없습니다',
     'edit.cut': '오려두기',
