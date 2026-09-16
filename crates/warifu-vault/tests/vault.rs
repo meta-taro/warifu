@@ -1306,3 +1306,94 @@ fn 空の値は_使わない() {
 fn どれも無ければ_無いと言う() {
     assert_eq!(warifu_vault::家の出どころ(None, None, None), "どれも無い");
 }
+
+// ── 出した割符の控え（**#38**・2026-09-16） ────────────────────────
+//
+// **主催が持つ割符の片割れは、メモリだけにあった。**
+// だからアプリを落とすと**配った鍵が全部死ぬ**。
+// オーナー ——「**保存で済むなら保存して試験用につかいまわしてよ。あほらしい**」
+
+#[test]
+fn 出した割符は_控えて読み戻せる() {
+    let dir = 仮の置き場("issued-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.issued().expect("読める").is_empty());
+
+    vault.save_issued("ROOM1", b"\x01\x02\x03").expect("書ける");
+    vault.save_issued("ROOM1", b"\x04\x05").expect("書ける");
+
+    // **開き直しても残る**（これが目的そのもの）
+    let 一覧 = warifu_vault::Vault::at(dir).issued().expect("読める");
+    assert_eq!(
+        一覧,
+        vec![
+            ("ROOM1".to_owned(), vec![1u8, 2, 3]),
+            ("ROOM1".to_owned(), vec![4u8, 5]),
+        ]
+    );
+}
+
+#[test]
+fn 控えは_0600で置く() {
+    // **割符の片割れが入る。**`rejoin.tsv` と同じ扱い
+    let dir = 仮の置き場("issued-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued("ROOM1", b"\x09").expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.issued_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 書き直せる_使った印や期限切れを落とすため() {
+    let dir = 仮の置き場("issued-replace");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued("A", b"\x01").expect("書ける");
+    vault.save_issued("B", b"\x02").expect("書ける");
+
+    vault
+        .replace_issued(&[("B".to_owned(), vec![2u8, 9])])
+        .expect("書き直せる");
+
+    assert_eq!(
+        vault.issued().expect("読める"),
+        vec![("B".to_owned(), vec![2u8, 9])]
+    );
+}
+
+#[test]
+fn 忘れられる_部屋を閉じたら消す() {
+    let dir = 仮の置き場("issued-forget");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued("A", b"\x01").expect("書ける");
+
+    vault.forget_issued().expect("消せる");
+
+    assert!(vault.issued().expect("読める").is_empty());
+    vault.forget_issued().expect("2 度目も通る");
+}
+
+#[test]
+fn 壊れた行は_その行だけ捨てる() {
+    // **1 行の壊れで、配った鍵が全部死ぬのは目的に反する**
+    let dir = 仮の置き場("issued-broken");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(
+        vault.issued_path(),
+        "warifu-issued-v1\nA\tAEBAG\nこわれ\nB\t!!!!\nC\tAEBAG\n",
+    )
+    .expect("書ける");
+
+    let 一覧 = vault.issued().expect("読める");
+    assert_eq!(一覧.len(), 2);
+    assert_eq!(一覧[0].0, "A");
+    assert_eq!(一覧[1].0, "C");
+}

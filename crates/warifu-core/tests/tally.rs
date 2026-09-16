@@ -8,7 +8,7 @@
 //!
 //! ここにネットワークは出てこない。**経路が無くても割符は成立する。**
 
-use warifu_core::{Acceptance, Error, Revocations, Seed, TallyToken};
+use warifu_core::{Acceptance, Error, Revocations, Seed, Tally, TallyToken};
 
 const 一時間: u64 = 60 * 60;
 const 発行時刻: u64 = 1_755_000_000;
@@ -467,4 +467,61 @@ fn 期限が切れたら_戻ってこられない() {
         控え.rematch_half(&受諾, 発行時刻 + 一時間 + 1, &失効なし),
         Err(Error::Expired)
     ));
+}
+
+// ── 手元に置いておく（**#38**・2026-09-16） ────────────────────────
+//
+// **主催が持つ割符の片割れは、メモリだけにあった。**
+// だからアプリを落とすと**配った鍵が全部死ぬ** ——
+// 版を上げるたびに再起動が要るので、**開発中は毎回これが起きていた。**
+// オーナー ——「**保存で済むなら保存して試験用につかいまわしてよ。**」
+
+#[test]
+fn 控えて戻すと_同じ割符になる() {
+    let 種 = Seed::from_bytes([7; 32]);
+    let 端末 = 種.profile("Personal").device("試験");
+    let (割符, _) = 端末.issue_tally_between(1_000, 2_000).expect("出せる");
+
+    let 戻した = Tally::控えから戻す(&割符.控えるバイト列()).expect("戻せる");
+
+    assert_eq!(戻した.id(), 割符.id());
+    assert_eq!(戻した.issuer(), 割符.issuer());
+    assert_eq!(戻した.not_before(), 1_000);
+    assert_eq!(戻した.not_after(), 2_000);
+    assert_eq!(戻した.used_by(), None);
+}
+
+#[test]
+fn 使った相手も_控えに残る() {
+    // **これが無いと、上げ直したときに使い切った鍵が復活する**（1 本＝1 人が壊れる）
+    let 種 = Seed::from_bytes([8; 32]);
+    let 端末 = 種.profile("Personal").device("試験");
+    let (mut 割符, token) = 端末.issue_tally_between(0, u64::MAX).expect("出せる");
+
+    let 相手 = Seed::from_bytes([9; 32]).profile("Personal").device("相手");
+    let 応じ = 相手.accept(&token, 1).expect("応じられる");
+    割符
+        .match_half(&応じ, 1, &Revocations::new())
+        .expect("片割れが合う");
+    assert!(割符.used_by().is_some());
+
+    let 戻した = Tally::控えから戻す(&割符.控えるバイト列()).expect("戻せる");
+    assert_eq!(戻した.used_by(), 割符.used_by());
+}
+
+#[test]
+fn 渡す用のバイト列は_控えとして読めない() {
+    // **種別を分けてある。**間違って配れないようにするため
+    let 種 = Seed::from_bytes([10; 32]);
+    let 端末 = 種.profile("Personal").device("試験");
+    let (_, token) = 端末.issue_tally_between(0, 1).expect("出せる");
+
+    assert!(Tally::控えから戻す(&token.to_bytes()).is_err());
+}
+
+#[test]
+fn 壊れた控えは_受け取らない() {
+    assert!(Tally::控えから戻す(b"").is_err());
+    assert!(Tally::控えから戻す(b"WRF1").is_err());
+    assert!(Tally::控えから戻す(&[0u8; 200]).is_err());
 }

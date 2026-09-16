@@ -359,7 +359,9 @@ impl Bridge {
         Self {
             device,
             node: Mutex::new(None),
-            tally: Arc::new(Mutex::new(Vec::new())),
+            // **出した割符を控えから戻す**（**#38**）——
+            // これが無いと、**上げ直した瞬間に配った鍵が全部死ぬ**
+            tally: Arc::new(Mutex::new(控えた割符())),
             // **置いてある知り合いを連れて開く。**
             // 2026-09-07 まで毎起動で空になっており、「一度開けた相手は
             // 次から割符なしで開ける」（D31）が再起動をまたいで効かなかった
@@ -428,6 +430,69 @@ async fn my_address(bridge: State<'_, Bridge>) -> Answer<String> {
 /// 予定に紐づく鍵（週次 MTG など）を前もって配れるようにするための口で、
 /// これが無いと**渡した瞬間から期限までずっと入れる。**
 /// 画面にまだ予定の UI が無いので、渡さなければ今までどおり「いまから」になる。
+/// **控えから割符を戻す**（**#38**・2026-09-16）。
+///
+/// オーナー ——「**保存で済むなら保存して試験用につかいまわしてよ。あほらしい**」
+///
+/// **期限の切れたものは戻さない**（上げ直しで復活させない）。
+/// **使い切ったものは戻す** —— 戻さないと**1 本＝1 人が壊れて、同じ鍵で 2 人入れる。**
+fn 控えた割符() -> Vec<Tally> {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return Vec::new();
+    };
+    let 控え = match vault.issued() {
+        Ok(控え) => 控え,
+        Err(e) => {
+            記録!("出した割符の控えを読めませんでした: {e}");
+            return Vec::new();
+        }
+    };
+    let いま = now_secs();
+    let 戻した: Vec<Tally> = 控え
+        .iter()
+        .filter_map(|(_, bytes)| Tally::控えから戻す(bytes).ok())
+        .filter(|t| t.not_after() >= いま)
+        .collect();
+    if !戻した.is_empty() {
+        記録!(
+            "出した割符を {} 本戻しました（控え {} 本のうち、期限内）",
+            戻した.len(),
+            控え.len()
+        );
+    }
+    戻した
+}
+
+/// **控えを、いま持っている姿に揃える**（**#38**）。
+///
+/// - **期限の切れたものを落とす**
+/// - **使った印を書き直す**（`match_half` が付けた `used_by` を残す）
+///
+/// **書けなくても会話は止めない** —— 控えが古いほうが、止まるより良い。
+async fn 割符の控えを揃える(bridge: &Bridge) {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return;
+    };
+    let Ok(控え) = vault.issued() else { return };
+    let いま持っている = bridge.tally.lock().await;
+    let なう = now_secs();
+    let 新しい: Vec<(String, Vec<u8>)> = 控え
+        .into_iter()
+        .filter_map(|(ルーム, bytes)| {
+            let 古い = Tally::控えから戻す(&bytes).ok()?;
+            if 古い.not_after() < なう {
+                return None;
+            }
+            // **いま持っているほうが新しい**（使った印が付いている）
+            let 今 = いま持っている.iter().find(|t| t.id() == 古い.id());
+            Some((ルーム, 今.map_or(bytes, Tally::控えるバイト列)))
+        })
+        .collect();
+    if let Err(e) = vault.replace_issued(&新しい) {
+        記録!("出した割符の控えを書き直せませんでした: {e}");
+    }
+}
+
 #[tauri::command]
 async fn invite(
     bridge: State<'_, Bridge>,
@@ -452,6 +517,15 @@ async fn invite(
         .device
         .issue_tally_between(開始, 開始.saturating_add(ttl_secs))?;
     // **前の招待を殺さない。**足していく（D47）
+    //
+    // **控えにも置く**（**#38**）—— これが無いと、
+    // **アプリを落とした瞬間に、配った鍵が全部死ぬ。**
+    // 版を上げるたびに再起動が要るので、開発中は毎回起きていた
+    if let Ok(vault) = warifu_vault::Vault::default_location() {
+        if let Err(e) = vault.save_issued(&meeting.to_string(), &tally.控えるバイト列()) {
+            記録!("出した割符を控えられませんでした: {e}");
+        }
+    }
     bridge.tally.lock().await.push(tally);
     記録!(
         "会議キーを作った（会議 {} / {} から {} 秒）",
@@ -868,6 +942,11 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31）
             記録!("待受: 誰かが来た（{}）", 短く(&key_to_string(peer)));
             let 合った = 割符を確かめる(&mut session, &tally, &subject).await;
+            // **使った印を控えへ写す**（**#38**）——
+            // 写さないと、**上げ直したときに使い切った鍵で 2 人目が入れる**
+            if 合った {
+                割符の控えを揃える(&app.state::<Bridge>()).await;
+            }
             記録!(
                 "待受: 割符は{}",
                 if 合った {
@@ -1660,6 +1739,19 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     let mut いま = bridge.いまのルーム.lock().await;
     if *いま == Some(meeting) {
         *いま = bridge.conferences.lock().await.keys().next().copied();
+    }
+    // **出した割符の控えも落とす**（**#38**）——
+    // 抜けた部屋の鍵を持ち続けない。**使わない秘密を持ち続けない**（D103 と同じ構え）
+    if let Ok(vault) = warifu_vault::Vault::default_location() {
+        if let Ok(控え) = vault.issued() {
+            let 残す: Vec<(String, Vec<u8>)> = 控え
+                .into_iter()
+                .filter(|(ルーム, _)| *ルーム != meeting.to_string())
+                .collect();
+            if let Err(e) = vault.replace_issued(&残す) {
+                記録!("出した割符の控えを落とせませんでした: {e}");
+            }
+        }
     }
     // **名簿で通していた相手を降ろす**（**D111**）。
     // **持ち越さない** —— 「主催が言ったから通した」が次の部屋まで効かないように

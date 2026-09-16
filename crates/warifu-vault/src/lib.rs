@@ -135,6 +135,10 @@ const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
 const MY_ROOM_HEADER: &str = "warifu-room-v1";
 /// **帰り道**の見出し。**中身は 2 欄**（ルーム id・入るのに使ったルームキー）。
 const REJOIN_HEADER: &str = "warifu-rejoin-v1";
+/// **主催が出した割符の控え**（**#38**・2026-09-16）。
+///
+/// 1 行に `<ルーム id>\t<base32 の割符>`。**割符には secret が入っている**ので 0600。
+const ISSUED_HEADER: &str = "warifu-issued-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -480,6 +484,105 @@ impl Vault {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "帰り道を消す")(e)),
+        }
+    }
+
+    /// **出した割符の控え**のファイル（**#38**）。
+    #[must_use]
+    pub fn issued_path(&self) -> PathBuf {
+        self.dir.join("issued.tsv")
+    }
+
+    /// **出した割符を控える**（追記）。
+    ///
+    /// # なぜ要るか
+    ///
+    /// **主催が持つ割符の片割れは、メモリだけにあった。**
+    /// だから**アプリを落とすと、配った鍵が全部死ぬ** ——
+    /// 版を上げるたびに再起動が要るので、**開発中は毎回これが起きていた**。
+    /// オーナー（2026-09-16）——「**保存で済むなら保存して試験用につかいまわしてよ。**」
+    ///
+    /// # ここには秘密が入る
+    ///
+    /// **割符の片割れ（`secret`）が入る。**`rejoin.tsv` と同じ扱いで **0600**、
+    /// **`SECURITY.md` に開示する。**部屋を閉じたら [`Vault::forget_issued`] で消す。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_issued(&self, ルーム: &str, 割符: &[u8]) -> Result<(), Error> {
+        let mut 一覧 = self.issued()?;
+        一覧.push((ルーム.to_owned(), 割符.to_vec()));
+        self.replace_issued(&一覧)
+    }
+
+    /// 控えを丸ごと書き直す（**使った印を付けるとき・期限切れを落とすとき**）。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn replace_issued(&self, 一覧: &[(String, Vec<u8>)]) -> Result<(), Error> {
+        let mut out = String::from(ISSUED_HEADER);
+        out.push('\n');
+        for (ルーム, 割符) in 一覧 {
+            // **タブと改行は入らない**（id は base32、割符も base32 にする）
+            let 削る: String = ルーム
+                .chars()
+                .filter(|c| *c != '\t' && *c != '\n' && *c != '\r')
+                .collect();
+            out.push_str(&削る);
+            out.push('\t');
+            out.push_str(&base32::encode(割符));
+            out.push('\n');
+        }
+        self.write_private(&self.issued_path(), &out, "出した割符を控える")
+    }
+
+    /// 控えた割符を読む。**無ければ空**（初めてはこれ）。
+    ///
+    /// **読めない行は、その行だけ捨てる** ——
+    /// 1 行の壊れで**配った鍵が全部死ぬ**のは、この機能の目的に反する。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn issued(&self) -> Result<Vec<(String, Vec<u8>)>, Error> {
+        let path = self.issued_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(Error::io(&path, "出した割符を読む")(e)),
+        };
+        let mut 行たち = text.lines();
+        let Some(header) = 行たち.next() else {
+            return Ok(Vec::new());
+        };
+        if header.trim() != ISSUED_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{ISSUED_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(行たち
+            .filter_map(|行| {
+                let mut 欄 = 行.split('\t');
+                let ルーム = 欄.next()?.trim();
+                let 割符 = base32::decode(欄.next()?.trim())?;
+                if ルーム.is_empty() || 割符.is_empty() {
+                    return None;
+                }
+                Some((ルーム.to_owned(), 割符))
+            })
+            .collect())
+    }
+
+    /// 控えを忘れる（**部屋を閉じたら消す** —— 使わない秘密を持ち続けない）。
+    ///
+    /// # Errors
+    /// 消せないとき [`Error::Io`]。**無いのは失敗ではない。**
+    pub fn forget_issued(&self) -> Result<(), Error> {
+        let path = self.issued_path();
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::io(&path, "出した割符の控えを消す")(e)),
         }
     }
 

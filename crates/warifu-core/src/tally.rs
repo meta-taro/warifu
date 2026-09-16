@@ -28,6 +28,8 @@ use crate::revocation::Revocations;
 const MAGIC: &[u8; 4] = b"WRF1";
 const KIND_TOKEN: u8 = 0x01;
 const KIND_ACCEPTANCE: u8 = 0x02;
+/// **手元に残す用**（`Tally::控えるバイト列`）。渡すものではない。
+const KIND_KEPT: u8 = 0x03;
 
 /// 目印 4 + 種別 1 + 差出人 32 + 秘密 32 + **開始 8** + 終わり 8 + 署名 64
 ///
@@ -142,6 +144,76 @@ impl Tally {
     #[must_use]
     pub fn used_by(&self) -> Option<PublicKey> {
         self.used_by
+    }
+
+    /// **手元に置いておくためのバイト列**（**#38**・2026-09-16）。
+    ///
+    /// # なぜ要るか
+    ///
+    /// **主催が持つ割符の片割れは、いままでメモリだけにあった。**
+    /// だから**アプリを落とすと、配った鍵が全部死ぬ** ——
+    /// 版を上げるたびに再起動が要るので、**開発中は毎回これが起きていた**。
+    /// オーナー（2026-09-16）——「**それ UX わるすぎるけど。**」
+    ///
+    /// # これは渡すものではない
+    ///
+    /// **中に `secret` が入っている。**渡す側（[`TallyToken`]）と別の種別（`KIND_KEPT`）にして、
+    /// **間違って配れないようにしてある。**置く側は **0600 で置くこと**（`warifu-vault`）。
+    #[must_use]
+    pub fn 控えるバイト列(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(4 + 1 + 32 + 32 + 32 + 8 + 8 + 1 + 32);
+        out.extend_from_slice(MAGIC);
+        out.push(KIND_KEPT);
+        out.extend_from_slice(&self.id.to_bytes());
+        out.extend_from_slice(&self.secret);
+        out.extend_from_slice(&self.issuer.to_bytes());
+        out.extend_from_slice(&self.not_before.to_be_bytes());
+        out.extend_from_slice(&self.not_after.to_be_bytes());
+        match self.used_by {
+            Some(誰) => {
+                out.push(1);
+                out.extend_from_slice(&誰.to_bytes());
+            }
+            None => out.push(0),
+        }
+        out
+    }
+
+    /// 控えから戻す。
+    ///
+    /// # Errors
+    /// - [`Error::Malformed`] 長さ・目印・種別・鍵の形が合わない
+    pub fn 控えから戻す(bytes: &[u8]) -> Result<Self, Error> {
+        // 目印 4 ＋ 種別 1 ＋ id 32 ＋ secret 32 ＋ issuer 32 ＋ 時刻 8 ＋ 8 ＋ 使ったか 1
+        const 頭: usize = 4 + 1 + 32 + 32 + 32 + 8 + 8 + 1;
+        if bytes.len() < 頭 || &bytes[..4] != MAGIC || bytes[4] != KIND_KEPT {
+            return Err(Error::Malformed);
+        }
+        let id = TallyId(take32(bytes, 5));
+        let secret = take32(bytes, 37);
+        let issuer = PublicKey::from_bytes(take32(bytes, 69))?;
+        let not_before =
+            u64::from_be_bytes(bytes[101..109].try_into().map_err(|_| Error::Malformed)?);
+        let not_after =
+            u64::from_be_bytes(bytes[109..117].try_into().map_err(|_| Error::Malformed)?);
+        let used_by = match bytes[117] {
+            0 => None,
+            1 => {
+                if bytes.len() != 頭 + 32 {
+                    return Err(Error::Malformed);
+                }
+                Some(PublicKey::from_bytes(take32(bytes, 118))?)
+            }
+            _ => return Err(Error::Malformed),
+        };
+        Ok(Self {
+            id,
+            secret,
+            issuer,
+            not_before,
+            not_after,
+            used_by,
+        })
     }
 
     /// 返ってきた片割れが、この割符の相方かどうかを見る。

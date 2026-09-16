@@ -29,6 +29,7 @@ Everything below is written `0600` (owner-only) in the vault directory — `~/Li
 | `contacts.tsv` | Remembered peers: public key, the name you gave them, last known address. |
 | `known.tsv` | Peers who may enter **without a room key**. Written when you call someone yourself. |
 | `rejoin.tsv` | **The room key you last used to join** — which contains *half a tally*. It exists so that updating the app does not force you to be re-invited. **It is deleted when you leave that room.** If that trade is not acceptable to you, leave the room and it is gone. |
+| `issued.tsv` | **The tallies you handed out as the host** — each contains *half a tally*. It exists so that restarting the app (or updating it) does not kill every key you already gave out. **Expired ones are dropped on startup; the whole room's entries are deleted when you leave that room.** Used ones are kept on purpose — dropping them would let one key admit a second person. |
 | `schedule.tsv` | Your own appointments. **Only free/busy windows are ever sent to anyone.** |
 | `postbox` | The address of whoever holds your sealed messages while you are offline. |
 
