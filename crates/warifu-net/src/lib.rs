@@ -42,7 +42,9 @@
 mod address;
 mod error;
 mod node;
+mod pick;
 
 pub use address::{Address, RELAY_MAX};
 pub use error::Error;
 pub use node::{MAX_MESSAGE, Node, Session, 中継の使い方};
+pub use pick::{宛先に載せる, 載せる本数};

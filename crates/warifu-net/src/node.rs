@@ -131,7 +131,10 @@ impl Node {
         let mut watcher = self.endpoint.watch_addr();
         loop {
             let addr = watcher.get();
-            let ips: Vec<_> = addr.ip_addrs().copied().collect();
+            // **届きそうな順に並べて、本数を切る**（**#34**）——
+            // 仮想 NIC（WSL / Docker）の番地が**鍵の半分を占めていた。**
+            // **落とすのはループバックだけ**で、あとは後ろへ回す
+            let ips: Vec<_> = crate::宛先に載せる(addr.ip_addrs().copied());
             // **中継を使っていれば、その場所も渡す**（**D78**）。
             // 渡さないと、相手は中継の在り処を知らないまま呼ぶことになる
             let 中継 = addr.relay_urls().next().map(ToString::to_string);
