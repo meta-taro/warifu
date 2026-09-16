@@ -93,6 +93,15 @@ Windows によって PC が保護されました
 **壊れてはいません。****［詳細情報］→［実行］**を 1 回。
 **出どころが分かっているときだけ**にしてください。
 
+**落とし方で変わります**（2026-09-16 実測）—— ブラウザで落とすと `Zone.Identifier` が付き、
+**それが SmartScreen の引き金**です。`gh release download` では付かないので、**警告そのものが出ません**
+（**署名が無いのは、どちらでも同じ**です）。
+
+```powershell
+gh release download v0.1.8 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.8_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
+```
+
 ### **初回はファイアウォールの規則が要ります**（ここで詰まります）
 
 入れても `warifu-desktop.exe` の規則は作られず、**環境によっては確認の窓も出ません。**

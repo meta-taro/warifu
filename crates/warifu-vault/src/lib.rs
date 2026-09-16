@@ -104,10 +104,15 @@ pub fn 家の出どころ(
 /// **画面が使う置き場所**を、家から決める。`WARIFU_HOME` は見ない。
 #[must_use]
 pub fn 画面の置き場所(home: &Path) -> PathBuf {
+    // **区切りを 1 つずつ足す。**"a/b/c" を丸ごと渡すと、Windows で
+    // **`C:\Users\x\.local/share/warifu` のように混ざる**（2026-09-16・ASUS が実測）——
+    // **動きはするが、人が見て「壊れている？」と思う。**記録に出す値なので揃える
     if cfg!(target_os = "macos") {
-        home.join("Library/Application Support/warifu")
+        home.join("Library")
+            .join("Application Support")
+            .join("warifu")
     } else {
-        home.join(".local/share/warifu")
+        home.join(".local").join("share").join("warifu")
     }
 }
 

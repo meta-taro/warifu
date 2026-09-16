@@ -85,6 +85,13 @@ Windows によって PC が保護されました
 
 **It is not broken.** Press **More info** → **Run anyway**, once. Do this only if you know where the file came from.
 
+**How you download it changes this** (measured 2026-09-16): a browser marks the file with `Zone.Identifier`, which is what triggers SmartScreen. `gh release download` does not mark it, so **the warning never appears** — the file is still unsigned either way.
+
+```powershell
+gh release download v0.1.8 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.8_x64-setup.exe -Stream Zone.Identifier   # → not found
+```
+
 ### **First run needs a firewall rule** (this one bites)
 
 Installing does **not** create a rule for `warifu-desktop.exe`, and in many environments **no prompt appears either**. The symptom is the hardest kind to diagnose: **text arrives, video never starts** — or, put differently, **the CLI connects and the GUI does not.**
