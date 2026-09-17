@@ -120,6 +120,7 @@
     EVENT_CLAIMED,
     deskSeats,
     connect,
+    connectInRoom,
     contacts,
     callContact,
     stopKnowing,
@@ -998,7 +999,7 @@
         // **教わった住所へ、自分から呼びに行く**（D41）。
         // どちらが呼ぶかは D38 と同じ規則で決まっているので、
         // 両側から呼んで 2 本張られることは無い
-        await onEvent<[string, string]>(EVENT_INTRODUCED, ([key, address]) => {
+        await onEvent<[string, string, string]>(EVENT_INTRODUCED, ([key, address, 部屋]) => {
           // **同じ相手を二度呼びに行かない**（`gh issue 9`）。
           // `calls` は通話が出来てから入るので、**出来る前は何度でも呼び直せていた** ——
           // 呼ぶたびに自分の住所を名乗り、相手も名乗り返すので**紹介が往復する。**
@@ -1019,8 +1020,13 @@
             return;
           }
           呼びに行った.add(key);
-          log(`紹介: 呼びに行きます（${短く(key)}）`);
-          void connect(address)
+          log(`紹介: 呼びに行きます（${短く(key)}・部屋 ${短く(部屋)}）`);
+          // **部屋の合言葉の証しを見せて呼ぶ**（**D118**）。
+          //
+          // **`connect` は使えない。**あちらは会議キー（`宛先#割符#部屋`）を待つので、
+          // **住所だけ渡すと「割符が付いていません」で止まる** ——
+          // 2026-09-17 に 3 台で実測した、まさにその行である。
+          void connectInRoom(key, address, 部屋)
             .then(() => log(`紹介: 呼べました（${短く(key)}）`))
             .catch((e) => {
               // **失敗したら忘れる。**忘れないと、次の紹介でも呼びに行けない

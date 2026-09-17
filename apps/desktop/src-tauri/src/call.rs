@@ -170,3 +170,137 @@ pub fn 招く(
         roster,
     })
 }
+
+/// **部屋の合言葉の証しを見せて、同じ部屋のゲストを呼ぶ**（**D118** / **#28**）。
+///
+/// ```text
+///   呼ぶ側（ゲスト A）                   呼ばれる側（ゲスト B）
+///     教わった住所へ繋ぐ
+///     部屋の叩きを 1 通 送る   ────►    割符ではない → 部屋の証しとして検める
+///                                       合えば開ける（**知り合いには入れない**）
+///     その部屋へ相手を足す
+///     Notice::Join を送る      ────►
+/// ```
+///
+/// # なぜ `呼ぶ`（割符なし）と別なのか
+///
+/// **あちらは「相手がこちらを覚えていること」に頼っている。**
+/// ゲスト同士は互いを覚えていないので、**それでは通らない** ——
+/// 2026-09-17 に 3 台で測って出た：`割符が付いていません（宛先だけでは繋げません）`。
+///
+/// # なぜ招待を待たないのか
+///
+/// **もう同じ部屋に居る。**部屋 id は主催から教わっている（**D111** の名簿）ので、
+/// **待つと、相手が招待を送らない限り繋がらない**ことになる。
+///
+/// # 繋がらなかった理由を分けない
+///
+/// `呼ぶ` と同じ。**「居ない」も「断られた」も同じ言い分**を返す（**D31**）。
+pub async fn 部屋の合言葉で呼ぶ(
+    app: &AppHandle,
+    bridge: &Bridge,
+    相手: PublicKey,
+    住所: &str,
+    部屋: warifu_meeting::MeetingId,
+) -> Answer<()> {
+    // **合言葉を持っていなければ、繋ぎに行かない。**
+    // 行っても戸口で落ちるので、**押した人を待たせない**（D49 と同じ筋）
+    let 証し = {
+        let 棚 = bridge.部屋の合言葉.lock().await;
+        let Some(言) = 棚.get(&部屋) else {
+            記録!(
+                "呼ぶ: この部屋の合言葉がありません（部屋 {}）",
+                crate::短く(&部屋.to_string())
+            );
+            return Err(居ません());
+        };
+        言.証しを作る(
+            部屋.to_string().as_bytes(),
+            bridge.device.public_key(),
+            相手,
+        )
+    };
+
+    記録!(
+        "呼ぶ: 部屋の証しを見せて（{}・部屋 {}）",
+        crate::短く(&key_to_string(相手)),
+        crate::短く(&部屋.to_string())
+    );
+
+    let node = bridge.node().await?;
+    let 宛先 = Address::from_str(住所).map_err(|_| 居ません())?;
+    let mut session = node
+        .connect(&宛先, &Revocations::new())
+        .await
+        .map_err(|_| 居ません())?;
+    let peer = session.peer();
+    if peer != 相手 {
+        // **別人が同じ住所に居る。**証しはこの相手に縛ってあるので、出しても通らない
+        記録!("呼ぶ: 住所の先が別人だった");
+        return Err(居ません());
+    }
+
+    session
+        .send(&warifu_core::部屋の叩き::new(部屋.to_string().as_bytes(), 証し).to_bytes())
+        .await
+        .map_err(|_| 居ません())?;
+    記録!("呼ぶ: 部屋の証しを差し出した");
+
+    // **相手を、いま居る部屋の名簿へ足す。**
+    // 部屋を作り直さない —— **もう入っている部屋**である
+    let events = 部屋へ足す(bridge, 部屋, peer).await?;
+    emit_events(app, &events);
+
+    let mut channel = Channel::new(session);
+    channel
+        .send(&Notice::Join { meeting: 部屋 }.to_intent()?)
+        .await
+        .map_err(|_| 居ません())?;
+
+    // **名乗りも渡す**（**D75**）
+    if let Ok(名乗り) = crate::自分の名乗り() {
+        let _ = channel
+            .send(
+                &Notice::Profile {
+                    meeting: 部屋,
+                    from: bridge.device.public_key(),
+                    名前: 名乗り.0,
+                    紹介: 名乗り.1,
+                }
+                .to_intent()?,
+            )
+            .await;
+    }
+
+    // **住所は名乗らない。**
+    //
+    // `呼ぶ` は名乗るが、こちらは名乗らない —— **相手はもう主催から教わっている**
+    // （D111 の名簿）。名乗ると、相手が「新入りが名乗った」と読んで
+    // **紹介を配り直し、往復が増える**（0.1.5 で 177 回捨てた形）。
+
+    始める(app, bridge, channel, peer).await;
+    Ok(())
+}
+
+/// いま居る部屋の名簿へ、相手を足す。**部屋を作り直さない。**
+async fn 部屋へ足す(
+    bridge: &Bridge,
+    部屋: warifu_meeting::MeetingId,
+    相手: PublicKey,
+) -> Answer<Vec<warifu_app::Event>> {
+    let mut 棚 = bridge.conferences.lock().await;
+    let Some(c) = 棚.get_mut(&部屋) else {
+        // **部屋が無い。**合言葉を持っているのに部屋が無いのは、抜けた直後くらいである
+        return Ok(Vec::new());
+    };
+    // **もう名簿に居るなら、何も起きない。**冪等にしておく ——
+    // 紹介が 2 度来ることはあり、そのたびに「入った」を画面へ流すと行が二重になる
+    if c.members().contains(&相手) {
+        return Ok(Vec::new());
+    }
+    c.admit(相手).map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+    Ok(vec![warifu_app::Event::Joined(相手)])
+}

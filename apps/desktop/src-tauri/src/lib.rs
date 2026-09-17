@@ -225,6 +225,17 @@ pub struct Bridge {
     /// 三者会議が成り立たなかった。**割符は「1 つの鍵 = 1 人」（D12）なので、
     /// **人数ぶん出すのが正しい形**である。会場鍵（何度でも使える鍵・`issues/009`）とは別の話。
     tally: Arc<Mutex<Vec<Tally>>>,
+    /// **部屋ごとの合言葉**（**D118**・2026-09-17）。
+    ///
+    /// **主催は建てたときに作り、ゲストは戸口を通った直後に受け取る。**
+    /// これを使って**証しを見せ、ゲスト同士が互いを通す**（**#28** の本線 D）。
+    ///
+    /// **割符は 2 人の間のもの。**主催とゲスト A、主催とゲスト B ——
+    /// **A と B の間には何も無い**ので、合言葉が無いとゲスト同士は繋がらない
+    /// （2026-09-17 に 3 台で実測）。
+    ///
+    /// **記録に書かない。**`合言葉` の `Debug` は中身を出さない（型で守ってある）。
+    部屋の合言葉: Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
     /// **部屋ごとの主催**（**#37**・2026-09-16）。
     ///
     /// **ゲストの名簿は先頭が自分**なので、`members().first()` では主催が分からない
@@ -412,6 +423,7 @@ impl Bridge {
             // **出した割符を控えから戻す**（**#38**）——
             // これが無いと、**上げ直した瞬間に配った鍵が全部死ぬ**
             tally: Arc::new(Mutex::new(控えた割符())),
+            部屋の合言葉: Arc::new(Mutex::new(HashMap::new())),
             主催たち: Arc::new(Mutex::new(HashMap::new())),
             // **置いてある知り合いを連れて開く。**
             // 2026-09-07 まで毎起動で空になっており、「一度開けた相手は
@@ -613,6 +625,9 @@ async fn invite(
             ルームを足す(&bridge.conferences, &bridge.いまのルーム, c).await
         }
     };
+    // **鍵を出す前に合言葉を用意する**（**D118**）。
+    // 鍵で入ってきた人へ、戸口を通った直後に渡す
+    部屋の合言葉を用意する(&bridge, meeting).await;
     let 開始 = starts_at.unwrap_or_else(now_secs);
     let (tally, token) = bridge
         .device
@@ -779,6 +794,9 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
         ルームを足す_見るのは奪わない(&bridge.conferences, &bridge.いまのルーム, conference).await;
     // **自分が建てた部屋の主催は自分**（**#37**）
     bridge.主催たち.lock().await.insert(id, 私);
+    // **合言葉もここで用意する**（**D118**）——
+    // 入った人へ渡すものなので、**渡す前に在る**必要がある
+    部屋の合言葉を用意する(&bridge, id).await;
     // **建てた id を書き置く。**名前は画面から付けるので、ここでは触らない
     if let Ok(vault) = warifu_vault::Vault::default_location() {
         let 名前 = vault.my_room().ok().flatten().map_or_else(String::new, |(_, n)| n);
@@ -968,6 +986,31 @@ async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) ->
     call::呼ぶ(&app, &bridge, 相手).await
 }
 
+/// **同じ部屋のゲストを、部屋の合言葉の証しで呼ぶ**（**D118** / **#28**）。
+///
+/// 紹介で教わった住所へ繋ぐ道。**`connect` は使えない** ——
+/// あちらは会議キー（`宛先#割符#部屋`）を待っており、
+/// **住所だけ渡すと「割符が付いていません」で止まる**
+/// （2026-09-17 に 3 台で実測した、まさにその行）。
+#[tauri::command]
+async fn connect_in_room(
+    app: AppHandle,
+    bridge: State<'_, Bridge>,
+    key: String,
+    address: String,
+    meeting: String,
+) -> Answer<()> {
+    let 相手: PublicKey = key.parse().map_err(|_| Failure {
+        message: "公開鍵として読めません".into(),
+        code: None,
+    })?;
+    let 部屋: MeetingId = meeting.parse().map_err(|_| Failure {
+        message: "部屋 id として読めません".into(),
+        code: None,
+    })?;
+    call::部屋の合言葉で呼ぶ(&app, &bridge, 相手, &address, 部屋).await
+}
+
 /// **経路の札を置く**（画面から）。
 ///
 /// 経路を知っているのは画面（WebRTC の統計）だけである。
@@ -1039,6 +1082,8 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let addresses = Arc::clone(&bridge.addresses);
     // **部屋ごとの主催**（**#37**）。名簿の先頭では分からない
     let 主催たち = Arc::clone(&bridge.主催たち);
+    // **部屋ごとの合言葉**（**D118**）。主催は渡し、ゲストは受け取る
+    let 合言葉たち = Arc::clone(&bridge.部屋の合言葉);
 
     tokio::spawn(async move {
         loop {
@@ -1053,18 +1098,22 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 
             // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31）
             記録!("待受: 誰かが来た（{}）", 短く(&key_to_string(peer)));
-            let 合った = 割符を確かめる(&mut session, &tally, &subject).await;
+            let 中身 =
+                割符を確かめる(&mut session, &tally, &合言葉たち, me, &subject).await;
+            let 割符が合った = 中身 == 叩きの中身::割符が合った;
             // **使った印を控えへ写す**（**#38**）——
             // 写さないと、**上げ直したときに使い切った鍵で 2 人目が入れる**
-            if 合った {
+            if 割符が合った {
                 割符の控えを揃える(&app.state::<Bridge>()).await;
             }
             記録!(
-                "待受: 割符は{}",
-                if 合った {
-                    "合った"
-                } else {
-                    "合わなかった"
+                "待受: 最初の 1 通は{}",
+                match 中身 {
+                    叩きの中身::割符が合った => "割符（合った）",
+                    // **部屋の証しは、それ自体が「合った」しか無い**
+                    // （合わなければ `どちらでもない` になる）
+                    叩きの中身::部屋の証しが合った => "部屋の証し（合った）",
+                    叩きの中身::どちらでもない => "どちらでもなかった",
                 }
             );
             let (答え, 知っていた) = {
@@ -1072,10 +1121,16 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 // **answer は通した相手を知り合いに入れる。**前に見ておかないと
                 // 「新しく知り合いになったか」が分からなくなる
                 let 知っていた = door.knows(&subject);
-                let knock = if 合った {
-                    Knock::with_verified_tally(subject.clone(), now_secs())
-                } else {
-                    Knock::new(subject.clone(), now_secs())
+                // **部屋の証しで通った相手は、知り合いにしない**（**D118**）——
+                // 通るのは**その部屋の中だけ**である
+                let knock = match 中身 {
+                    叩きの中身::割符が合った => {
+                        Knock::with_verified_tally(subject.clone(), now_secs())
+                    }
+                    叩きの中身::部屋の証しが合った => {
+                        Knock::with_verified_room_proof(subject.clone(), now_secs())
+                    }
+                    叩きの中身::どちらでもない => Knock::new(subject.clone(), now_secs()),
                 };
                 (door.answer(&knock), 知っていた)
             };
@@ -1109,7 +1164,9 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // **割符なしで来た相手には、会議を教える。**
             // 相手は会議 id を知りようがない（会議キーを持っていない）。
             // 割符つきで来た相手には送らない —— そちらは鍵に id が入っている
-            if !合った
+            // **部屋の証しで来た相手にも教えない。**もう同じ部屋に居るので、
+            // 教えると**別の部屋へ入れ直すことになる**
+            if 中身 == 叩きの中身::どちらでもない
                 && let Some(招待) = call::招く(&conferences, &いまのルーム)
                 && let Ok(intent) = 招待.to_intent()
             {
@@ -1151,6 +1208,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                 Arc::clone(&addresses),
                 Arc::clone(&door),
                 Arc::clone(&主催たち),
+                Arc::clone(&合言葉たち),
                 me,
                 channel,
                 peer,
@@ -1163,39 +1221,117 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 /// 相手が最初に送ってくる片割れを、手元の割符と照らす。
 ///
 /// **待ち続けない。**黙って繋いだだけの相手に、待ち受けを塞がせない。
+/// **最初の 1 通が何だったか**（**D118**）。
+///
+/// **「合った／合わなかった」の 2 値では足りなくなった。**
+/// 部屋の証しで通った相手は**知り合いとして書き置かない**ので、
+/// **どちらで通ったかを、呼んだ側が知っている必要がある。**
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum 叩きの中身 {
+    /// 割符の片割れが合った。**知り合いとして書き置く。**
+    割符が合った,
+    /// 部屋の合言葉の証しが合った。**書き置かない**（その部屋の中だけ）。
+    部屋の証しが合った,
+    /// どちらでもない。**戸口が「知り合いか」で決める。**
+    どちらでもない,
+}
+
 async fn 割符を確かめる(
     session: &mut warifu_net::Session,
     tally: &Arc<Mutex<Vec<Tally>>>,
+    合言葉たち: &Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
+    me: PublicKey,
     _subject: &Subject,
-) -> bool {
+) -> 叩きの中身 {
     let Ok(Ok(bytes)) =
         tokio::time::timeout(std::time::Duration::from_secs(10), session.recv()).await
     else {
-        return false;
+        return 叩きの中身::どちらでもない;
     };
+    // **部屋の証しかどうかを先に見る**（**D118**）。
+    // 種別が別なので、**割符として読もうとして壊れることはない**
+    if let Ok(叩き) = warifu_core::部屋の叩き::from_bytes(&bytes) {
+        return 部屋の証しを確かめる(&叩き, 合言葉たち, session.peer(), me).await;
+    }
     let Ok(acceptance) = Acceptance::from_bytes(&bytes) else {
-        return false;
+        return 叩きの中身::どちらでもない;
     };
     // **署名した本人と、経路で確定した相手が同じか。**
     // `Acceptance` は本人の鍵で署名されているが、**どこで署名されたかまでは言っていない。**
     // 突き合わせないと、写し取った片割れを別の経路で出せてしまう
     if acceptance.accepter() != session.peer() {
-        return false;
+        return 叩きの中身::どちらでもない;
     }
     let mut list = tally.lock().await;
     // **どの招待に対する片割れかは、相手が名乗っている。**総当たりで試さない ——
     // 試すと、別の招待の窓（`not_before` / `not_after`）で通ってしまう
     let Some(t) = list.iter_mut().find(|t| t.id() == acceptance.tally()) else {
-        return false;
+        return 叩きの中身::どちらでもない;
     };
     // **まだ誰も入っていなければ初回、一度入った相手が戻ってきたなら再入場**（D44）。
     // 回線が一瞬切れただけで、10 時から 11 時の会議が終わってはいけない
     let now = now_secs();
     let 名簿 = Revocations::new();
-    if t.used_by().is_none() {
+    let 合った = if t.used_by().is_none() {
         t.match_half(&acceptance, now, &名簿).is_ok()
     } else {
         t.rematch_half(&acceptance, now, &名簿).is_ok()
+    };
+    if 合った {
+        叩きの中身::割符が合った
+    } else {
+        叩きの中身::どちらでもない
+    }
+}
+
+/// **部屋の合言葉の証しを検める**（**D118**）。
+///
+/// # どこで縛っているか
+///
+/// 証しは `(部屋, 呼ぶ側の鍵, 受ける側の鍵)` に縛られている。
+/// **鍵は経路が確定させたものを使う**（`session.peer()` と自分）——
+/// **相手が名乗った鍵は見ない。**見ると「名乗りと経路が食い違ったらどちらを信じるか」
+/// という要らない判断が生まれる。
+///
+/// # 知らない部屋の証しは通さない
+///
+/// **その部屋の合言葉を持っていなければ、検めようがない。**
+/// 持っていない＝その部屋に居ない、なので**断る**。
+async fn 部屋の証しを確かめる(
+    叩き: &warifu_core::部屋の叩き,
+    合言葉たち: &Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
+    呼ぶ側: PublicKey,
+    me: PublicKey,
+) -> 叩きの中身 {
+    let 部屋の文字 = String::from_utf8_lossy(叩き.部屋()).into_owned();
+    let Ok(部屋) = 部屋の文字.parse::<MeetingId>() else {
+        記録!("戸口: 部屋の証しが来たが、部屋 id として読めません");
+        return 叩きの中身::どちらでもない;
+    };
+    let 棚 = 合言葉たち.lock().await;
+    let Some(言) = 棚.get(&部屋) else {
+        // **黙って落とさない**（#37 で直した形と同じ）——
+        // 「合言葉を持っていない」と「証しが合わない」は、次に見る所が違う
+        記録!(
+            "戸口: 部屋の証しが来たが、その部屋の合言葉がありません（部屋 {}）",
+            短く(&部屋の文字)
+        );
+        return 叩きの中身::どちらでもない;
+    };
+    if 言.証しが合うか(&叩き.証し(), 叩き.部屋(), 呼ぶ側, me) {
+        記録!(
+            "戸口: 部屋の証しが合いました（{}・部屋 {}）",
+            短く(&key_to_string(呼ぶ側)),
+            短く(&部屋の文字)
+        );
+        叩きの中身::部屋の証しが合った
+    } else {
+        記録!(
+            "戸口: 部屋の証しが合いませんでした（{}・部屋 {}）",
+            短く(&key_to_string(呼ぶ側)),
+            短く(&部屋の文字)
+        );
+        叩きの中身::どちらでもない
     }
 }
 
@@ -1216,6 +1352,7 @@ async fn 始める(app: &AppHandle, bridge: &Bridge, channel: Channel, peer: Pub
         Arc::clone(&bridge.addresses),
         Arc::clone(&bridge.door),
         Arc::clone(&bridge.主催たち),
+        Arc::clone(&bridge.部屋の合言葉),
         bridge.device.public_key(),
         channel,
         peer,
@@ -1233,6 +1370,8 @@ fn 汲む(
     door: Arc<Mutex<Door>>,
     // **部屋ごとの主催**（**#37**）。名簿の先頭では分からない
     主催たち: Arc<Mutex<HashMap<MeetingId, PublicKey>>>,
+    // **部屋ごとの合言葉**（**D118**）。主催は渡し、ゲストは受け取る
+    合言葉たち: Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
     me: PublicKey,
     mut channel: Channel,
     peer: PublicKey,
@@ -1339,6 +1478,28 @@ fn 汲む(
                         );
                         continue;
                     }
+                    // **合言葉を受け取ってしまう**（**D118**）。
+                    //
+                    // **主催以外から来たものは捨てる。**合言葉は主催が決めるものであり、
+                    // 誰からでも受けると**部屋を乗っ取られる**（別の合言葉に差し替えられる）
+                    if let Notice::RoomSecret { meeting, 合言葉 } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if contacts::主催と同じか(部屋の主催, peer) {
+                            合言葉たち.lock().await.insert(*meeting, 合言葉.clone());
+                            記録!(
+                                "部屋の合言葉を受け取りました（部屋 {}・主催から）",
+                                短く(&meeting.to_string())
+                            );
+                        } else {
+                            // **黙って捨てない。**捨てたことが記録に無いと、
+                            // 「届いていない」と「捨てた」が区別できない
+                            記録!(
+                                "部屋の合言葉を捨てました（部屋 {}・主催でない {} から）",
+                                短く(&meeting.to_string()),
+                                短く(&key_to_string(peer))
+                            );
+                        }
+                    }
                     if let Notice::Introduce { meeting, who, address } = &notice {
                         // **名乗りをそのまま連絡帳へ落とさない。**
                         // 「C さんの住所はここです」と言われるまま書くと、
@@ -1376,6 +1537,12 @@ fn 汲む(
                         // **両側が「自分が主催だ」と思っている場合に往復する** ——
                         // 2026-09-13 に実測: **66 ミリ秒で約 130 件**来て `lost` になった
                         if contacts::配ってよいか(主催 == Some(true), peer, *who) {
+                            // **合言葉を、紹介と同じ瞬間に渡す**（**D118**）。
+                            //
+                            // **ここでしか渡さない。**「戸口を通り、名簿に載り、
+                            // 主催が紹介を配る」が揃った 1 点であり、
+                            // **通る前に渡す理由が無い。**
+                            部屋の合言葉を渡す(&合言葉たち, &outbound, *who, *meeting).await;
                             紹介を配る(&conferences, &outbound, &addresses, me, *who, *meeting)
                                 .await;
                         } else if contacts::呼びに行かせるか(peer, *who) {
@@ -1393,9 +1560,16 @@ fn 汲む(
                                 短く(&key_to_string(*who)),
                                 address.len()
                             );
-                            if let Err(e) =
-                                app.emit(EVENT_INTRODUCED, (key_to_string(*who), address.clone()))
-                            {
+                            // **部屋も渡す**（**D118**）。
+                            // 画面は**どの部屋の合言葉で呼ぶか**を言えないと、証しを作れない
+                            if let Err(e) = app.emit(
+                                EVENT_INTRODUCED,
+                                (
+                                    key_to_string(*who),
+                                    address.clone(),
+                                    meeting.to_string(),
+                                ),
+                            ) {
                                 記録!("紹介: 画面へ渡せませんでした: {e}");
                             }
                         } else {
@@ -1548,6 +1722,91 @@ async fn 他へ配る(
         // **届かない相手で止めない。**1 人が落ちていても、ほかへは配る
         let _ = tx.send(notice.clone()).await;
     }
+}
+
+/// **この部屋の合言葉を用意する**（**D118**）。**主催だけが呼ぶ。**
+///
+/// **同じ部屋で作り直さない。**作り直すと、**前に渡した合言葉で通れなくなる。**
+/// 建てた覚えのない部屋（ゲストとして入った部屋）では呼ばない ——
+/// **合言葉は主催が決めるもの**であり、両側が別々に作ると噛み合わない。
+async fn 部屋の合言葉を用意する(bridge: &Bridge, 部屋: MeetingId) {
+    let mut 棚 = bridge.部屋の合言葉.lock().await;
+    if 棚.contains_key(&部屋) {
+        return;
+    }
+    match warifu_core::合言葉::作る() {
+        Ok(言) => {
+            棚.insert(部屋, 言);
+            記録!(
+                "部屋の合言葉を作りました（部屋 {}）",
+                短く(&部屋.to_string())
+            );
+        }
+        // **黙って進まない。**合言葉が無いと、ゲスト同士は繋がらない（#28）
+        Err(e) => 記録!("部屋の合言葉を作れませんでした: {e}（ゲスト同士は繋がりません）"),
+    }
+}
+
+/// **合言葉を、入った人へ渡す**（**D118**）。**主催だけが呼ぶ。**
+///
+/// # 渡す条件（**1 点しかない**）
+///
+/// 「**戸口を通り、名簿に載り、主催が紹介を配る**」が揃った瞬間だけ。
+/// **通る前に渡す理由が無い。**
+///
+/// # 口が無ければ、黙って諦めない
+///
+/// 相手への口が無いのは「まだ繋がっていない」ときである。
+/// **記録に残す** —— 残さないと、**合言葉が渡っていないのに
+/// 「ゲスト同士が繋がらない」という別の症状として現れる。**
+async fn 部屋の合言葉を渡す(
+    合言葉たち: &Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
+    outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    相手: PublicKey,
+    部屋: MeetingId,
+) {
+    let 言 = {
+        let 棚 = 合言葉たち.lock().await;
+        let Some(言) = 棚.get(&部屋) else {
+            記録!(
+                "合言葉: この部屋の合言葉がありません（部屋 {}）。渡せません",
+                短く(&部屋.to_string())
+            );
+            return;
+        };
+        言.clone()
+    };
+    let 口 = {
+        let out = outbound.lock().await;
+        out.get(&相手.to_bytes()).cloned()
+    };
+    let Some(tx) = 口 else {
+        記録!(
+            "合言葉: 渡せません（{} への口がありません）",
+            短く(&key_to_string(相手))
+        );
+        return;
+    };
+    // **中身は記録しない。**渡したという事実だけ
+    if tx
+        .send(Notice::RoomSecret {
+            meeting: 部屋,
+            合言葉: 言,
+        })
+        .await
+        .is_err()
+    {
+        記録!(
+            "合言葉: 渡せませんでした（{} の口が閉じていました）",
+            短く(&key_to_string(相手))
+        );
+        return;
+    }
+    記録!(
+        "合言葉: 渡しました（{}・部屋 {}）",
+        短く(&key_to_string(相手)),
+        短く(&部屋.to_string())
+    );
 }
 
 /// 紹介を配る（**D41**）。**主催者だけが呼ぶ。**
@@ -2191,6 +2450,7 @@ pub fn run() {
             remember_note,
             desk_seats,
             call_contact,
+            connect_in_room,
             stop_knowing,
             known_keys,
             note_path,

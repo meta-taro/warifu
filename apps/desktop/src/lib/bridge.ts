@@ -148,6 +148,17 @@ export const hostMeeting = (capacity: number) => invoke<string>('host_meeting', 
  */
 export const connect = (invite: string) => invoke<void>('connect', { invite });
 
+/**
+ * **同じ部屋のゲストを、部屋の合言葉の証しで呼ぶ**（**D118** / **#28**）。
+ *
+ * 紹介で教わった住所へ繋ぐ道。**`connect` は使えない** ——
+ * あちらは会議キー（`宛先#割符#部屋`）を待っており、
+ * **住所だけ渡すと「割符が付いていません」で止まる**
+ * （2026-09-17 に 3 台で実測した、まさにその行）。
+ */
+export const connectInRoom = (key: string, address: string, meeting: string) =>
+  invoke<void>('connect_in_room', { key, address, meeting });
+
 /** ルームの鍵を、**渡せる 1 本のリンク**にする（**D79**）。 */
 export const roomLink = (key: string) => invoke<string>('room_link', { key });
 
