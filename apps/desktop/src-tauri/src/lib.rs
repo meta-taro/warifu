@@ -2041,6 +2041,15 @@ async fn should_offer_to(bridge: State<'_, Bridge>, peer: String) -> Answer<bool
 }
 
 /// 知らせの種類だけを言う。**中身は出さない。**
+///
+/// **`Notice` は `non_exhaustive` なので、`_` の枝は外せない。**
+/// だから**足したのに名を付け忘れても、`cargo build` は通る** ——
+/// 記録に「知らない知らせ」と出るだけである。
+///
+/// **2026-09-17 に、それで 1 往復した。**`Profile` に名が無く、
+/// `受信: 知らない知らせ` と出ていた。ASUS へ「そちらで同じ行が出ていないか」と
+/// 聞いてしまった —— **こちらの書き漏らしだった。**
+/// `知らせに名が付いているか` が、いまは見張っている。
 fn 知らせの名(n: &Notice) -> &'static str {
     match n {
         Notice::Invite { .. } => "招待",
@@ -2050,6 +2059,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Link { .. } => "回線の報せ",
         Notice::Introduce { .. } => "紹介",
         Notice::Text { .. } => "文字",
+        Notice::Profile { .. } => "名乗り",
         _ => "知らない知らせ",
     }
 }
@@ -2207,6 +2217,91 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("warifu の窓を開けませんでした");
+}
+
+#[cfg(test)]
+mod 知らせの名の試験 {
+    use super::知らせの名;
+    use warifu_core::Seed;
+    use warifu_meeting::{MeetingId, Notice};
+
+    fn 鍵() -> warifu_core::PublicKey {
+        Seed::from_bytes([9u8; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key()
+    }
+
+    /// **いま在る知らせを、全部 1 つずつ作る。**
+    ///
+    /// `Notice` は `non_exhaustive` なので、`知らせの名` の `_` の枝は外せない。
+    /// **だから「足したのに名を付け忘れた」を build は教えてくれない。**
+    /// ここに 1 行足す手間で、**記録が「知らない知らせ」と言うのを止める。**
+    ///
+    /// **知らせを足したら、ここにも足す。**
+    fn 知らせたち() -> Vec<Notice> {
+        let 部屋 = MeetingId::generate();
+        vec![
+            Notice::Invite {
+                meeting: 部屋,
+                roster: warifu_meeting::Roster::new(鍵()),
+            },
+            Notice::Join { meeting: 部屋 },
+            Notice::Leave { meeting: 部屋 },
+            Notice::Signal(warifu_meeting::Signal::new(
+                部屋,
+                warifu_meeting::Step::Offer,
+                Vec::new(),
+            )),
+            Notice::Link {
+                meeting: 部屋,
+                report: warifu_meeting::Report::new(0, 0, 0),
+            },
+            Notice::Introduce {
+                meeting: 部屋,
+                who: 鍵(),
+                address: String::new(),
+            },
+            Notice::Text {
+                meeting: 部屋,
+                from: 鍵(),
+                話し手: None,
+                body: String::new(),
+            },
+            Notice::Profile {
+                meeting: 部屋,
+                from: 鍵(),
+                名前: String::new(),
+                紹介: String::new(),
+            },
+        ]
+    }
+
+    #[test]
+    fn 知らせに名が付いている() {
+        // **2026-09-17 に、`Profile` の名が無くて 1 往復した。**
+        // 記録に `受信: 知らない知らせ` と出て、相手の機械を疑ってしまった
+        for 知らせ in 知らせたち() {
+            let 名 = 知らせの名(&知らせ);
+            assert_ne!(名, "知らない知らせ", "名が付いていない: {知らせ:?}");
+            assert!(!名.is_empty());
+        }
+    }
+
+    #[test]
+    fn 名に中身を混ぜない() {
+        // **種類だけを言う。**本文や鍵を記録へ出さない（`話の記録` と同じ構え）
+        let 知らせ = Notice::Text {
+            meeting: MeetingId::generate(),
+            from: 鍵(),
+            話し手: Some("たろう".to_owned()),
+            body: "ひみつ".to_owned(),
+        };
+        let 名 = 知らせの名(&知らせ);
+        assert_eq!(名, "文字");
+        assert!(!名.contains("ひみつ"));
+        assert!(!名.contains("たろう"));
+    }
 }
 
 #[cfg(test)]

@@ -59,5 +59,9 @@ mod signal;
 
 pub use error::Error;
 pub use notice::Notice;
+// **`Notice::Link` が `Report` を持っているので、ここから辿れないといけない。**
+// 2026-09-17 まで再公開しておらず、**公開の enum に入っているのに
+// 名前を書けない型**になっていた（画面の試験で気づいた）。
 pub use roster::{DEFAULT_CAPACITY, HARD_LIMIT, MeetingId, Roster};
 pub use signal::{MAX_SIGNAL, Signal, Step};
+pub use warifu_link::Report;
