@@ -26,7 +26,7 @@
  *
  * **記録に出すものを増やしたら、この数を 1 つ上げる。**
  */
-export const 追跡の版 = 5;
+export const 追跡の版 = 6;
 
 /** 候補 1 つから読み取れること。 */
 export interface 候補のあらまし {
@@ -46,6 +46,17 @@ export interface 統計の行 {
   kind?: string;
   packetsSent?: number;
   packetsReceived?: number;
+  /**
+   * **音の積もり**（2026-09-17）。
+   *
+   * **本数だけでは、黙っているのか喋っているのかが分からない。**
+   * `track.enabled = false` にしても、**音は「無音」として送られ続ける**
+   * ——**本数は減らない。**（映像は止まるので 0 になる。音だけ違う）
+   *
+   * だから **`送り 音 121` は「声が 121 個ぶん出た」ではない。**
+   * **無音 121 個かもしれない。**——**そこを分けるのがこれである。**
+   */
+  totalAudioEnergy?: number;
   state?: string;
   nominated?: boolean;
   localCandidateId?: string;
@@ -211,6 +222,29 @@ export function 組の様子(統計: readonly 統計の行[]): string[] {
  * 後者は**送ろうとして出ていない**（経路・符号化の話）。**混ぜると切り分けられない。**
  */
 export function 送り受けを言い表す(統計: readonly 統計の行[]): string {
+  // **音の積もりを、本数の隣に置く**（2026-09-17）。
+  //
+  // **本数だけでは判定できない。**`track.enabled = false` でも
+  // **音は「無音」として送られ続ける**ので、**本数は減らない。**
+  // 2026-09-17、`送り 音 121` を見て「まだ漏れている」と読みかけた ——
+  // **無音 121 個だった可能性**を、本数では切り分けられない。
+  //
+  // **`なし` と `0` を分けたのと、同じ話が 1 段深い所にもあった**
+  // （あちらは ASUS のエージェントの指摘で分けた）。
+  const 積もり = (向き: 'outbound-rtp' | 'inbound-rtp'): string => {
+    const 行たち = 統計.filter((s) => s.type === 向き && s.kind === 'audio');
+    if (行たち.length === 0) return '';
+    // **出していない相手には、何も言わない。**
+    // 古い版は `totalAudioEnergy` を出さない —— **「出していない」を「0」と言うと、
+    // 喋っているのに「無音」と書くことになる。**
+    // （`なし` と `0` を分けたのと、まったく同じ理由）
+    const 出ている = 行たち.filter((s) => s.totalAudioEnergy !== undefined);
+    if (出ている.length === 0) return '（音の積もり 不明）';
+    const 合計 = 出ている.reduce((和, s) => 和 + (s.totalAudioEnergy ?? 0), 0);
+    // **桁を落とさない。**無音は 0 に極めて近い値になるので、丸めると 0 と区別できない
+    if (合計 === 0) return '（音の積もり 0・**無音**）';
+    return `（音の積もり ${合計.toExponential(2)}）`;
+  };
   const 数 = (種: string, 向き: 'outbound-rtp' | 'inbound-rtp'): number | null => {
     const 行たち = 統計.filter((s) => s.type === 向き && s.kind === 種);
     if (行たち.length === 0) return null;
@@ -225,7 +259,10 @@ export function 送り受けを言い表す(統計: readonly 統計の行[]): st
     if (映像 === null && 音 === null) return 'なし';
     return `映像 ${映像 ?? 'なし'} / 音 ${音 ?? 'なし'}`;
   };
-  return `送り ${言う('outbound-rtp')} ／ 受け ${言う('inbound-rtp')}`;
+  return (
+    `送り ${言う('outbound-rtp')}${積もり('outbound-rtp')}` +
+    ` ／ 受け ${言う('inbound-rtp')}${積もり('inbound-rtp')}`
+  );
 }
 
 /** 映像が、どちらへ流れているか。 */

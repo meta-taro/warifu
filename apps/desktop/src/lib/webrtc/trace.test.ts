@@ -146,7 +146,11 @@ describe('送り受けを言い表す', () => {
       { id: 'i1', type: 'inbound-rtp', kind: 'video', packetsReceived: 480 },
       { id: 'i2', type: 'inbound-rtp', kind: 'audio', packetsReceived: 120 },
     ];
-    expect(送り受けを言い表す(統計)).toBe('送り 映像 0 / 音 132 ／ 受け 映像 480 / 音 120');
+    // **音の積もりが「不明」と付く**（2026-09-17）——
+    // この統計は `totalAudioEnergy` を持っていないので、**「無音」とは言えない**
+    expect(送り受けを言い表す(統計)).toBe(
+      '送り 映像 0 / 音 132（音の積もり 不明） ／ 受け 映像 480 / 音 120（音の積もり 不明）',
+    );
   });
 
   it('枠が無ければ「なし」と言う（0 と混ぜない）', () => {
@@ -242,5 +246,48 @@ describe('同じ網に居るか（ハウリングの手がかり）', () => {
 
   it('片方の候補が引けなければ null', () => {
     expect(同じ網に居るか([組('a', 'b'), 候補('a', '192.168.24.11')] as never)).toBe(null);
+  });
+});
+
+describe('音の積もり（本数では黙っているか分からない）', () => {
+  const 音 = (向き: 'outbound-rtp' | 'inbound-rtp', 本数: number, 積もり?: number) => ({
+    id: `a-${向き}`,
+    type: 向き,
+    kind: 'audio',
+    packetsSent: 本数,
+    packetsReceived: 本数,
+    totalAudioEnergy: 積もり,
+  });
+
+  it('**無音なら、そう言う**（本数が出ていても）', () => {
+    // **2026-09-17 の本題。**`track.enabled = false` でも音は無音として送られ続け、
+    // **本数は減らない。**`送り 音 121` を見て「まだ漏れている」と読みかけた
+    const 出た = 送り受けを言い表す([音('outbound-rtp', 121, 0)] as never);
+    expect(出た).toContain('音 121');
+    expect(出た).toContain('無音');
+  });
+
+  it('声が出ていれば、積もりが出る', () => {
+    const 出た = 送り受けを言い表す([音('outbound-rtp', 121, 0.0034)] as never);
+    expect(出た).toContain('音の積もり');
+    expect(出た).not.toContain('無音');
+  });
+
+  it('音の行が無ければ、積もりも言わない', () => {
+    // **「無い」を「0」と言わない**（`なし` と `0` を分けたのと同じ筋）
+    const 出た = 送り受けを言い表す([
+      { id: 'v', type: 'outbound-rtp', kind: 'video', packetsSent: 5 },
+    ] as never);
+    expect(出た).not.toContain('音の積もり');
+  });
+
+  it('**出していない版には「不明」と言う。「無音」と言わない**', () => {
+    // 古い版は `totalAudioEnergy` を出さない。
+    // **「出していない」を「0」と読むと、喋っているのに「無音」と書くことになる。**
+    // （`なし` と `0` を分けたのと、まったく同じ理由）
+    const 出た = 送り受けを言い表す([音('outbound-rtp', 121, undefined)] as never);
+    expect(出た).toContain('音 121');
+    expect(出た).toContain('不明');
+    expect(出た).not.toContain('無音');
   });
 });

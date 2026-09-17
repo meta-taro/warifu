@@ -92,6 +92,14 @@ export class Call {
    */
   private 映像を使う = false;
 
+  /**
+   * 種別ごとの送り手。**張ったときに覚える。**
+   *
+   * `replaceTrack(null)` で止めると `sender.track` が `null` になるので、
+   * **後から種別で探せない。**
+   */
+  private 送り手 = new Map<'audio' | 'video', RTCRtpSender>();
+
   constructor(
     offering: boolean,
     private handlers: CallHandlers,
@@ -166,7 +174,16 @@ export class Call {
       this.見張りを始める();
       return;
     }
-    for (const track of stream.getTracks()) this.pc.addTrack(track, stream);
+    // **送り手を覚える**（2026-09-17）。
+    //
+    // **`replaceTrack(null)` で止めると `sender.track` が null になる**ので、
+    // **後から種別で送り手を探せなくなる。**張ったときに覚えておく
+    for (const track of stream.getTracks()) {
+      const 送り手 = this.pc.addTrack(track, stream);
+      if (track.kind === 'audio' || track.kind === 'video') {
+        this.送り手.set(track.kind, 送り手);
+      }
+    }
     // **測る前に映像を出さない**（D29）。枠は最初から張っておき、流すのは測れてから。
     // こうすると、後から足すための張り直し（再交渉）が要らない
     this.local = stream;
@@ -290,14 +307,6 @@ export class Call {
     log(数えて言い表す([...report.values()] as 統計の行[]));
   }
 
-  /** 映像の枠はそのままに、流すかどうかだけを切り替える。 */
-  private setVideoEnabled(on: boolean): void {
-    for (const track of this.local?.getVideoTracks() ?? []) track.enabled = on;
-  }
-
-  private setAudioEnabled(on: boolean): void {
-    for (const track of this.local?.getAudioTracks() ?? []) track.enabled = on;
-  }
 
   /** この通話の相手へ 1 通送る。**中身は解釈しない。** */
   private 送る = (step: 'offer' | 'answer' | 'candidate', blob: string) => {
@@ -314,17 +323,15 @@ export class Call {
   async replaceTracks(stream: MediaStream | null): Promise<void> {
     if (this.closed) return;
     this.local = stream;
-    for (const tr of this.pc.getTransceivers()) {
-      const kind = tr.sender.track?.kind ?? tr.receiver.track?.kind;
-      if (kind !== 'audio' && kind !== 'video') continue;
-      const 次 = kind === 'audio' ? (stream?.getAudioTracks()[0] ?? null) : (stream?.getVideoTracks()[0] ?? null);
-      try {
-        await tr.sender.replaceTrack(次);
-      } catch {
-        // 握り潰す理由: 1 本の入れ替えに失敗しても、残りは入れ替える。
-        // ここで止めると、音だけ古いまま・映像だけ新しい、という半端な状態で固まる
-      }
+    // **覚えてある送り手へ入れ替える**（2026-09-17）。
+    //
+    // 前は `sender.track?.kind` で送り手を探していたが、
+    // **`replaceTrack(null)` で止めたあとは `sender.track` が null** なので、
+    // **止めている最中に支度をやり直すと、どちらの送り手も見つからなかった。**
+    for (const 種 of ['audio', 'video'] as const) {
+      await this.流す(種, true);
     }
+    // **そのうえで関門を当てる。**入れ替えただけで流し始めない
     this.送り直す();
   }
 
@@ -359,17 +366,47 @@ export class Call {
       カメラ入: this.prefs.cameraOn,
       測れた: shouldSendVideo(this.watch.shown),
     });
-    this.setAudioEnabled(送る.音);
-    // **映像は、まだこの関門を通していない。**
-    //
-    // 支度の「自分の姿」と送り手が**同じトラックを見ている**ので、
-    // ここで `enabled = false` にすると**自分の姿まで黒くなる。**
-    // **送らずに自分だけ見る**には `sender.replaceTrack(null)` が要る ——
-    // それは支度と参加を分ける仕事（**#39 の 3**）でやる。
-    //
-    // **漏れていたのは音だけである**（映像は 3 回とも実測 0 パケット）。
-    // 直し方が要る所と、いま漏れている所を、混ぜない
-    this.setVideoEnabled(送る.映像 || (this.prefs.cameraOn && shouldSendVideo(this.watch.shown)));
+    void this.流す('audio', 送る.音);
+    void this.流す('video', 送る.映像);
+  }
+
+  /**
+   * **その種別を、送るか送らないか。**
+   *
+   * # なぜ `track.enabled` ではないのか
+   *
+   * **`enabled` は 1 本のトラックの性質である。**
+   * 支度の「自分の姿」と送り手は**同じトラックを見ている**ので、
+   * `enabled = false` にすると**自分の姿まで黒くなる。**
+   *
+   * **`sender.replaceTrack(null)` は「この経路で送るのをやめる」だけ**で、
+   * トラックはそのまま残る ——**自分の姿は出たままで、相手へは行かない。**
+   * **再交渉も要らない**（仕様で `null` への差し替えは許されている）。
+   *
+   * # 音にも同じものを使う理由
+   *
+   * **`enabled = false` の音は、無音として送られ続ける。**
+   * 2026-09-17、ASUS の実測で `送り 映像 80 / 音 115` が出た ——
+   * **音は無音だったが、本数は止まっていなかった。**
+   * **`replaceTrack(null)` なら本数も止まる**ので、
+   * **記録を見た人が「止まっている」と読める。**
+   */
+  private async 流す(種: 'audio' | 'video', 流す: boolean): Promise<void> {
+    const 送り手 = this.送り手.get(種);
+    if (!送り手) return;
+    const 持ち玉 =
+      種 === 'audio'
+        ? (this.local?.getAudioTracks()[0] ?? null)
+        : (this.local?.getVideoTracks()[0] ?? null);
+    const 次 = 流す ? 持ち玉 : null;
+    // **変わらないなら触らない。**毎秒呼ばれるので、無駄な差し替えをしない
+    if (送り手.track === 次) return;
+    try {
+      await 送り手.replaceTrack(次);
+    } catch {
+      // 握り潰す理由: 1 本の差し替えに失敗しても、もう 1 本は差し替える。
+      // ここで止めると、**音だけ止まって映像は出たまま**という半端な形で固まる
+    }
   }
 
   close(): void {
