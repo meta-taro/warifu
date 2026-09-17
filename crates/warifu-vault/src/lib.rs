@@ -147,6 +147,9 @@ const ISSUED_HEADER: &str = "warifu-issued-v1";
 
 /// 待っていた口の控えの見出し（**#38 の残り半分**）。
 const PORT_HEADER: &str = "warifu-port-v1";
+
+/// 部屋の合言葉の控えの見出し（**D118**）。
+const ROOM_SECRET_HEADER: &str = "warifu-room-secret-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -669,6 +672,100 @@ impl Vault {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "待つ口の控えを消す")(e)),
+        }
+    }
+
+    /// **部屋の合言葉**の控えのファイル（**D118**）。
+    #[must_use]
+    pub fn room_secret_path(&self) -> PathBuf {
+        self.dir.join("room-secret.tsv")
+    }
+
+    /// **部屋ごとの合言葉を控える**（丸ごと書き直す）。
+    ///
+    /// # なぜ要るか
+    ///
+    /// **主催が落ちて建て直すと、同じ部屋 id で新しい合言葉を作ってしまう。**
+    /// すると**前に渡した合言葉で通れなくなる** ——
+    /// **#38 で踏んだのと同じ形**である（あちらは割符と口だった）。
+    ///
+    /// # ここには秘密が入る
+    ///
+    /// **合言葉を持っている人は、その部屋へ誰でも入れられる。**
+    /// `issued.tsv` と同じ扱いで **0600**、**`SECURITY.md` に開示する。**
+    /// 部屋を抜けたら [`Vault::forget_room_secret`] で消す。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_room_secrets(&self, 一覧: &[(String, [u8; 32])]) -> Result<(), Error> {
+        let mut out = String::from(ROOM_SECRET_HEADER);
+        out.push('\n');
+        for (部屋, 合言葉) in 一覧 {
+            // **タブと改行は入らない**（部屋 id は base32、合言葉も base32 にする）
+            let 削る: String = 部屋
+                .chars()
+                .filter(|c| *c != '\t' && *c != '\n' && *c != '\r')
+                .collect();
+            if 削る.is_empty() {
+                continue;
+            }
+            out.push_str(&削る);
+            out.push('\t');
+            out.push_str(&base32::encode(合言葉));
+            out.push('\n');
+        }
+        self.write_private(&self.room_secret_path(), &out, "部屋の合言葉を控える")
+    }
+
+    /// 控えた合言葉を読む。**無ければ空**。
+    ///
+    /// **読めない行は、その行だけ捨てる** ——
+    /// 1 行の壊れで**全部の部屋が繋がらなくなる**のは、この機能の目的に反する。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn room_secrets(&self) -> Result<Vec<(String, [u8; 32])>, Error> {
+        let path = self.room_secret_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(Error::io(&path, "部屋の合言葉を読む")(e)),
+        };
+        let mut 行たち = text.lines();
+        let Some(header) = 行たち.next() else {
+            return Ok(Vec::new());
+        };
+        if header.trim() != ROOM_SECRET_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{ROOM_SECRET_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(行たち
+            .filter_map(|行| {
+                let mut 欄 = 行.split('\t');
+                let 部屋 = 欄.next()?.trim();
+                let 中身 = base32::decode(欄.next()?.trim())?;
+                // **長さが違うものは捨てる。**短い合言葉を読み戻さない
+                let 合言葉: [u8; 32] = 中身.try_into().ok()?;
+                if 部屋.is_empty() {
+                    return None;
+                }
+                Some((部屋.to_owned(), 合言葉))
+            })
+            .collect())
+    }
+
+    /// 控えを忘れる（**部屋を閉じたら消す**）。
+    ///
+    /// # Errors
+    /// 消せないとき [`Error::Io`]。**無いのは失敗ではない。**
+    pub fn forget_room_secret(&self) -> Result<(), Error> {
+        let path = self.room_secret_path();
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::io(&path, "部屋の合言葉の控えを消す")(e)),
         }
     }
 

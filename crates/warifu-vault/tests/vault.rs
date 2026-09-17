@@ -1497,3 +1497,99 @@ fn 口の控えを_忘れられる() {
     // **無いものを消すのは失敗ではない**
     vault.forget_port().expect("二度目も通る");
 }
+
+// ── 部屋の合言葉の控え（**D118**・2026-09-17） ───────────────────────
+//
+// **主催が落ちて建て直すと、同じ部屋 id で新しい合言葉を作ってしまう。**
+// すると**前に渡した合言葉で通れなくなる** ——
+// **#38 で踏んだのと同じ形**である（あちらは割符と口だった）。
+
+#[test]
+fn 部屋の合言葉は_控えて読み戻せる() {
+    let dir = 仮の置き場("room-secret-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.room_secrets().expect("読める").is_empty());
+
+    vault
+        .save_room_secrets(&[
+            ("ROOM1".to_owned(), [7u8; 32]),
+            ("ROOM2".to_owned(), [9u8; 32]),
+        ])
+        .expect("書ける");
+
+    // **開き直しても残る**（これが目的そのもの）
+    assert_eq!(
+        warifu_vault::Vault::at(dir).room_secrets().expect("読める"),
+        vec![
+            ("ROOM1".to_owned(), [7u8; 32]),
+            ("ROOM2".to_owned(), [9u8; 32])
+        ]
+    );
+}
+
+#[test]
+fn 部屋の合言葉の控えは_0600で置く() {
+    // **合言葉を持っている人は、その部屋へ誰でも入れられる**
+    let dir = 仮の置き場("room-secret-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_room_secrets(&[("ROOM1".to_owned(), [1u8; 32])])
+        .expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.room_secret_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 長さの違う合言葉は_読み戻さない() {
+    // **短い合言葉を読み戻すと、弱いまま使い続けることになる**
+    let dir = 仮の置き場("room-secret-short");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(
+        vault.room_secret_path(),
+        format!(
+            "warifu-room-secret-v1\nROOM1\t{}\nROOM2\t{}\n",
+            warifu_core::base32::encode(&[1u8; 16]),
+            warifu_core::base32::encode(&[2u8; 32])
+        ),
+    )
+    .expect("書ける");
+
+    // **壊れた行だけ落ちて、まともな行は残る**
+    assert_eq!(
+        vault.room_secrets().expect("読める"),
+        vec![("ROOM2".to_owned(), [2u8; 32])]
+    );
+}
+
+#[test]
+fn 部屋の合言葉の控えは_見出しが違えば断る() {
+    let dir = 仮の置き場("room-secret-header");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(vault.room_secret_path(), "warifu-issued-v1\nROOM1\tAAAA\n").expect("書ける");
+
+    assert!(vault.room_secrets().is_err());
+}
+
+#[test]
+fn 部屋の合言葉の控えを_忘れられる() {
+    let dir = 仮の置き場("room-secret-forget");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_room_secrets(&[("ROOM1".to_owned(), [1u8; 32])])
+        .expect("書ける");
+
+    vault.forget_room_secret().expect("消せる");
+    assert!(vault.room_secrets().expect("読める").is_empty());
+    // **無いものを消すのは失敗ではない**
+    vault.forget_room_secret().expect("二度目も通る");
+}

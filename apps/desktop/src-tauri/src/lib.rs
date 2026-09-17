@@ -423,7 +423,10 @@ impl Bridge {
             // **出した割符を控えから戻す**（**#38**）——
             // これが無いと、**上げ直した瞬間に配った鍵が全部死ぬ**
             tally: Arc::new(Mutex::new(控えた割符())),
-            部屋の合言葉: Arc::new(Mutex::new(HashMap::new())),
+            // **控えた合言葉を戻す**（**D118**）——
+            // 戻さないと、**主催が落ちて建て直した瞬間に、渡した合言葉が全部死ぬ**
+            // （**#38** で踏んだのと同じ形）
+            部屋の合言葉: Arc::new(Mutex::new(控えた合言葉())),
             主催たち: Arc::new(Mutex::new(HashMap::new())),
             // **置いてある知り合いを連れて開く。**
             // 2026-09-07 まで毎起動で空になっており、「一度開けた相手は
@@ -1490,6 +1493,10 @@ fn 汲む(
                                 "部屋の合言葉を受け取りました（部屋 {}・主催から）",
                                 短く(&meeting.to_string())
                             );
+                            // **ゲストも控える**（**D118**）。
+                            // 控えないと、**立ち上げ直した瞬間に他のゲストへ届かなくなる**
+                            // —— 主催から貰い直すまで、部屋の中で孤立する
+                            合言葉の控えを揃える(&app.state::<Bridge>()).await;
                         } else {
                             // **黙って捨てない。**捨てたことが記録に無いと、
                             // 「届いていない」と「捨てた」が区別できない
@@ -1741,9 +1748,64 @@ async fn 部屋の合言葉を用意する(bridge: &Bridge, 部屋: MeetingId) {
                 "部屋の合言葉を作りました（部屋 {}）",
                 短く(&部屋.to_string())
             );
+            // **作った瞬間に控える。**渡す前に落ちても、次の起動で同じものを使う
+            drop(棚);
+            合言葉の控えを揃える(bridge).await;
+            return;
         }
         // **黙って進まない。**合言葉が無いと、ゲスト同士は繋がらない（#28）
         Err(e) => 記録!("部屋の合言葉を作れませんでした: {e}（ゲスト同士は繋がりません）"),
+    }
+}
+
+/// **控えた合言葉を戻す**（**D118**）。
+///
+/// **戻さないと、主催が落ちて建て直した瞬間に、渡した合言葉が全部死ぬ。**
+/// 同じ部屋 id で新しい合言葉を作ってしまうためである ——
+/// **#38 で踏んだのと同じ形**（あちらは割符と口だった）。
+///
+/// **読めなくても止めない。**空で始めれば、新しい合言葉を作って続けられる。
+fn 控えた合言葉() -> HashMap<MeetingId, warifu_core::合言葉> {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return HashMap::new();
+    };
+    let 控え = match vault.room_secrets() {
+        Ok(控え) => 控え,
+        Err(e) => {
+            記録!("部屋の合言葉の控えを読めませんでした: {e}");
+            return HashMap::new();
+        }
+    };
+    let 戻した: HashMap<MeetingId, warifu_core::合言葉> = 控え
+        .into_iter()
+        .filter_map(|(部屋, 中身)| {
+            let id = 部屋.parse::<MeetingId>().ok()?;
+            Some((id, warifu_core::合言葉::から(中身)))
+        })
+        .collect();
+    if !戻した.is_empty() {
+        // **本数だけ言う。中身は言わない**
+        記録!("部屋の合言葉を {} 室ぶん戻しました", 戻した.len());
+    }
+    戻した
+}
+
+/// **いま持っている合言葉を、そのまま控えへ写す**（**D118**）。
+///
+/// **書けなくても会話は止めない** —— 控えが古いほうが、止まるより良い
+/// （`割符の控えを揃える` と同じ構え）。
+async fn 合言葉の控えを揃える(bridge: &Bridge) {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return;
+    };
+    let 一覧: Vec<(String, [u8; 32])> = {
+        let 棚 = bridge.部屋の合言葉.lock().await;
+        棚.iter()
+            .map(|(部屋, 言)| (部屋.to_string(), 言.バイト列()))
+            .collect()
+    };
+    if let Err(e) = vault.save_room_secrets(&一覧) {
+        記録!("部屋の合言葉を控えられませんでした: {e}");
     }
 }
 
@@ -2135,6 +2197,11 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     }
     // **抜けたルームは畳む。**居ないルームを持ち続けない
     bridge.conferences.lock().await.remove(&meeting);
+    // **その部屋の合言葉も落とす**（**D118**）——
+    // **抜けた部屋へ、証しで入り直せてしまう。**
+    // 使わない秘密を持ち続けない（`issued.tsv` と同じ構え）
+    bridge.部屋の合言葉.lock().await.remove(&meeting);
+    合言葉の控えを揃える(&bridge).await;
     let mut いま = bridge.いまのルーム.lock().await;
     if *いま == Some(meeting) {
         *いま = bridge.conferences.lock().await.keys().next().copied();
