@@ -2060,6 +2060,8 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Introduce { .. } => "紹介",
         Notice::Text { .. } => "文字",
         Notice::Profile { .. } => "名乗り",
+        // **中身は出さない。**種別だけ言う —— これは合言葉を運ぶ知らせである（**D118**）
+        Notice::RoomSecret { .. } => "部屋の合言葉",
         _ => "知らない知らせ",
     }
 }
@@ -2273,6 +2275,10 @@ mod 知らせの名の試験 {
                 from: 鍵(),
                 名前: String::new(),
                 紹介: String::new(),
+            },
+            Notice::RoomSecret {
+                meeting: 部屋,
+                合言葉: warifu_core::合言葉::作る().expect("作れる"),
             },
         ]
     }

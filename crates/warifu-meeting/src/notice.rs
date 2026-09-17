@@ -24,6 +24,14 @@ const TEXT: &str = "meeting.text";
 /// **本人の名乗り**（プロフィール・**D75**）。
 const PROFILE: &str = "meeting.profile";
 
+/// **部屋の合言葉を渡す口**（**D118**）。
+///
+/// **主催だけが送る。**戸口を通った直後の相手へ、その経路で渡す。
+/// **鍵（`WARIFU1-…`）には載せない** —— 鍵は public な所に貼られる。
+/// **口の名前に `-` は入れられない**（`warifu-intent` の `Kind` が
+/// 小文字と数字だけを通す）。2026-09-17 に `meeting.room-secret` で落ちた。
+const ROOM_SECRET: &str = "meeting.roomsecret";
+
 /// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
 const LINK_LEN: usize = 20;
 /// 住所の長さの上限。**受け取る側でも数える**（D15）。
@@ -154,6 +162,36 @@ pub enum Notice {
         /// 測定値。**絶対時刻ではなく経過秒で運ぶ**（時計のずれで壊れないため）。
         report: Report,
     },
+    /// **部屋の合言葉を渡す**（**D118** / **#28** の本線 D）。
+    ///
+    /// # なぜ要るか
+    ///
+    /// **割符は 2 人の間のもの。**主催とゲスト A、主催とゲスト B ——
+    /// **A と B の間には何も無い。**だから A が B を呼んでも、
+    /// **B の戸口が黙って落とす**（**D31** の正しい拒否）。
+    ///
+    /// **合言葉を渡せば、A は B へ「この部屋の者だ」と示せる。**
+    ///
+    /// # これは秘密である
+    ///
+    /// **これを持っている人は、その部屋へ誰でも入れられる。**
+    ///
+    /// - **主催だけが送る。**受けた側が、さらに配り直さない
+    /// - **戸口を通った相手にだけ送る。**通る前に渡す理由が無い
+    /// - **記録に書かない。**`知らせの名` は種別だけを言う
+    ///
+    /// # 型で守っている
+    ///
+    /// **`[u8; 32]` を直に持たない。**`Notice` は `#[derive(Debug)]` なので、
+    /// **生のバイト列を持たせると `{:?}` 1 つで合言葉が記録へ落ちる。**
+    /// [`warifu_core::合言葉`] は `Debug` が「合言葉(出しません)」としか言わない ——
+    /// **忘れても漏れない形**にしてある。
+    RoomSecret {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 合言葉。**`Debug` では中身が出ない。**
+        合言葉: warifu_core::合言葉,
+    },
 }
 
 impl Notice {
@@ -167,7 +205,8 @@ impl Notice {
             | Self::Link { meeting, .. }
             | Self::Introduce { meeting, .. }
             | Self::Text { meeting, .. }
-            | Self::Profile { meeting, .. } => *meeting,
+            | Self::Profile { meeting, .. }
+            | Self::RoomSecret { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -239,6 +278,7 @@ impl Notice {
                 塊.extend_from_slice(紹介.as_bytes());
                 (PROFILE, 塊)
             }
+            Self::RoomSecret { 合言葉, .. } => (ROOM_SECRET, 合言葉.バイト列().to_vec()),
             Self::Link { report, .. } => {
                 let mut 塊 = Vec::with_capacity(LINK_LEN);
                 塊.extend_from_slice(&report.uplink_bps().to_be_bytes());
@@ -317,6 +357,15 @@ impl Notice {
                     from,
                     名前: String::from_utf8_lossy(&荷物[33..33 + 名前の長さ]).into_owned(),
                     紹介: String::from_utf8_lossy(&荷物[33 + 名前の長さ..]).into_owned(),
+                })
+            }
+            ROOM_SECRET => {
+                // **長さが違うものは通さない。**短いものを通すと、
+                // **弱い合言葉を押し込める**（相手が上限を守る保証は無い）
+                let 中身: [u8; 32] = 荷物.try_into().map_err(|_| Error::Malformed)?;
+                Ok(Self::RoomSecret {
+                    meeting,
+                    合言葉: warifu_core::合言葉::から(中身),
                 })
             }
             INTRODUCE => {
