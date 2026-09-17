@@ -154,8 +154,12 @@ impl Door {
     pub fn answer(&mut self, knock: &Knock) -> Answer {
         // **主催が言った相手も、知り合いと同じ上限で扱う**（D111）。
         // 分けて絞ると、**名簿に居るのに洪水扱いで断る**ことになる
-        let 知り合い =
-            self.知り合い.contains(knock.from()) || self.名簿の相手.contains(knock.from());
+        // **主催が言った相手と、部屋の証しを持つ相手も、知り合いと同じ上限で扱う**
+        // （**D111** / **D118**）。分けて絞ると、
+        // **部屋に居るのに洪水扱いで断る**ことになる
+        let 知り合い = self.知り合い.contains(knock.from())
+            || self.名簿の相手.contains(knock.from())
+            || knock.has_room_proof();
         self.記す(knock, 知り合い);
 
         let 回数 = self.knocks_from(knock.from());
@@ -169,6 +173,16 @@ impl Door {
         }
         if knock.has_tally() {
             self.知り合い.insert(knock.from().clone());
+            return Answer::Open;
+        }
+        // **部屋の合言葉の証しで通す**（**D118**）。
+        //
+        // **知り合いには入れない。**通るのは**その部屋の中だけ**であり、
+        // 書き置くと**次の部屋でも通ってしまう**（D111 で決めた線をそのまま守る）。
+        //
+        // **割符の枝より後ろに置いてある。**割符を持っている相手は、
+        // 証しの有無に関わらず**知り合いになる**べきである（人が手で渡したものなので）。
+        if knock.has_room_proof() {
             return Answer::Open;
         }
         if 知り合い {

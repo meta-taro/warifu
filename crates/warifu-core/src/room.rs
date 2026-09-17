@@ -176,3 +176,100 @@ impl fmt::Debug for 部屋の証し {
         write!(f, "部屋の証し({self})")
     }
 }
+
+/// **部屋の証しを差し出す 1 通**（**D118**）。
+///
+/// # なぜ割符の片割れと別の形なのか
+///
+/// **受ける側は、最初の 1 通を読んで見分けなければならない** ——
+/// 「割符の片割れ（[`crate::Acceptance`]）」か「部屋の証し」か。
+/// **種別を分けていないと、片方を他方として読もうとして、
+/// 理由の分からない不通になる**（2026-09-04 に、会議 id で同じ形を踏んだ）。
+///
+/// # 中に何が入っていないか
+///
+/// **呼ぶ側・受ける側の公開鍵は入れない。**
+/// **経路が確定させた鍵を使う**（`warifu-net` の `Session::peer`）——
+/// 入れてしまうと、**名乗った鍵と経路の鍵が食い違ったときに、
+/// どちらを信じるかという要らない判断が生まれる。**
+///
+/// **合言葉そのものも入っていない。**入っているのは証しだけなので、
+/// **これを見た人は合言葉を復元できない。**
+#[derive(Clone, PartialEq, Eq)]
+pub struct 部屋の叩き {
+    部屋: Vec<u8>,
+    証し: 部屋の証し,
+}
+
+impl 部屋の叩き {
+    /// 組み立てる。
+    #[must_use]
+    pub fn new(部屋: &[u8], 証し: 部屋の証し) -> Self {
+        Self {
+            部屋: 部屋.to_vec(),
+            証し,
+        }
+    }
+
+    /// どの部屋についての証しか。
+    #[must_use]
+    pub fn 部屋(&self) -> &[u8] {
+        &self.部屋
+    }
+
+    /// 証し。
+    #[must_use]
+    pub const fn 証し(&self) -> 部屋の証し {
+        self.証し
+    }
+
+    /// 渡すためのバイト列。
+    #[must_use]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(4 + 1 + 2 + self.部屋.len() + 長さ);
+        out.extend_from_slice(crate::tally::MAGIC);
+        out.push(crate::tally::KIND_ROOM_PROOF);
+        // **長さを前に置く。**置かないと、部屋 id と証しの境目が決まらない
+        let 長 = u16::try_from(self.部屋.len()).unwrap_or(u16::MAX);
+        out.extend_from_slice(&長.to_be_bytes());
+        out.extend_from_slice(&self.部屋);
+        out.extend_from_slice(&self.証し.0);
+        out
+    }
+
+    /// 読む。
+    ///
+    /// # Errors
+    /// 目印・種別・長さが合わなければ [`Error::Malformed`]。
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        const 頭: usize = 4 + 1 + 2;
+        if bytes.len() < 頭 + 長さ
+            || &bytes[..4] != crate::tally::MAGIC
+            || bytes[4] != crate::tally::KIND_ROOM_PROOF
+        {
+            return Err(Error::Malformed);
+        }
+        let 長 = usize::from(u16::from_be_bytes([bytes[5], bytes[6]]));
+        // **長さが合っているかを、必ず見る。**
+        // 見ないと、短い部屋 id を渡して証しの一部を部屋 id として読ませられる
+        if bytes.len() != 頭 + 長 + 長さ {
+            return Err(Error::Malformed);
+        }
+        let 部屋 = bytes[頭..頭 + 長].to_vec();
+        let mut 証し = [0u8; 長さ];
+        証し.copy_from_slice(&bytes[頭 + 長..]);
+        Ok(Self {
+            部屋,
+            証し: 部屋の証し(証し),
+        })
+    }
+}
+
+impl fmt::Debug for 部屋の叩き {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("部屋の叩き")
+            .field("部屋", &String::from_utf8_lossy(&self.部屋))
+            .field("証し", &self.証し)
+            .finish()
+    }
+}

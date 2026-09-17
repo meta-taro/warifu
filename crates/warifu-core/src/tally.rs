@@ -25,11 +25,18 @@ use crate::error::Error;
 use crate::key::{Device, PublicKey, Signature};
 use crate::revocation::Revocations;
 
-const MAGIC: &[u8; 4] = b"WRF1";
+pub(crate) const MAGIC: &[u8; 4] = b"WRF1";
 const KIND_TOKEN: u8 = 0x01;
 const KIND_ACCEPTANCE: u8 = 0x02;
 /// **手元に残す用**（`Tally::控えるバイト列`）。渡すものではない。
 const KIND_KEPT: u8 = 0x03;
+
+/// **部屋の合言葉の証しを差し出すとき**（`room.rs` の `部屋の叩き`・**D118**）。
+///
+/// **別の種別にする理由。**受ける側は、最初の 1 通を読んで
+/// **「割符の片割れ」か「部屋の証し」かを見分けなければならない。**
+/// 種別が同じだと、**片方を他方として読もうとして、理由の分からない不通になる。**
+pub(crate) const KIND_ROOM_PROOF: u8 = 0x04;
 
 /// 目印 4 + 種別 1 + 差出人 32 + 秘密 32 + **開始 8** + 終わり 8 + 署名 64
 ///

@@ -384,3 +384,77 @@ fn 自分から呼んだ相手は_これまでどおり書き置かれる() {
     assert_eq!(戸.known().count(), 1);
     assert!(戸.knows(&誰か("c@例")));
 }
+
+// ── 部屋の合言葉の証しで通す（**D118**・2026-09-17） ──────────────────
+//
+// **ゲスト同士は割符を持っていない。**主催とゲストの間にしか無い。
+// 2026-09-17、3 台で測って出た ——
+//
+//     紹介: 呼べませんでした: 割符が付いていません（宛先だけでは繋げません）
+//
+// **証しで通す。ただし書き置かない** —— 通るのはその部屋の中だけである。
+
+#[test]
+fn 部屋の証しがあれば通す() {
+    let mut door = Door::new();
+    let 相手 = 誰か("GUEST-B");
+
+    let 答え = door.answer(&Knock::with_verified_room_proof(相手, 今));
+
+    assert_eq!(答え, Answer::Open);
+}
+
+#[test]
+fn 部屋の証しで通した相手は_知り合いにしない() {
+    // **ここが D118 の芯。**書き置くと、**次の部屋でも通ってしまう。**
+    // 連絡帳に載るのは、いまも**人が手で渡した割符だけ**である（D12）
+    let mut door = Door::new();
+    let 相手 = 誰か("GUEST-B");
+
+    assert_eq!(
+        door.answer(&Knock::with_verified_room_proof(相手.clone(), 今)),
+        Answer::Open
+    );
+
+    assert!(!door.knows(&相手), "知り合いになっている");
+    assert_eq!(door.known().count(), 0, "書き置く側に出ている");
+}
+
+#[test]
+fn 証しが無くなれば_通らなくなる() {
+    // **部屋が終われば通らない。**証し付きで一度通しても、
+    // **素の叩きは断る**（覚えていないので）
+    let mut door = Door::new();
+    let 相手 = 誰か("GUEST-B");
+
+    door.answer(&Knock::with_verified_room_proof(相手.clone(), 今));
+
+    assert_eq!(door.answer(&Knock::new(相手, 今)), Answer::Refuse);
+}
+
+#[test]
+fn 割符があれば_証しに関わらず知り合いになる() {
+    // **人が手で渡したものは、書き置く。**
+    // 証しの枝を割符より前に置くと、**割符を持った相手が書き置かれなくなる**
+    let mut door = Door::new();
+    let 相手 = 誰か("GUEST-B");
+
+    door.answer(&Knock::with_verified_tally(相手.clone(), 今));
+
+    assert!(door.knows(&相手));
+}
+
+#[test]
+fn 証しを持つ相手は_知り合いと同じ上限で扱う() {
+    // **絞りを分けると、部屋に居るのに洪水扱いで断る**ことになる。
+    // 知らない相手の上限を超えても、証しがあれば通ること
+    let mut door = Door::new();
+    let 相手 = 誰か("GUEST-B");
+
+    let mut 最後 = Answer::Refuse;
+    for _ in 0..(STRANGER_QUOTA + 2) {
+        最後 = door.answer(&Knock::with_verified_room_proof(相手.clone(), 今));
+    }
+
+    assert_eq!(最後, Answer::Open, "知らない相手の上限で断られた");
+}
