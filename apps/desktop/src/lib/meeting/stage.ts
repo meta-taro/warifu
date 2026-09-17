@@ -200,11 +200,30 @@ export function つながりの言い方(いま: {
   相手が居る: boolean;
   受けている: boolean;
   送っている: boolean;
+  /**
+   * **カメラかマイクを掴んでいるか**（2026-09-17・ASUS の実測）。
+   *
+   * **掴んでいるのに「使っていません」と言うのは嘘である。**
+   * ASUS が同じ窓の中で、題字とパネルが逆のことを言っているのを見つけた ——
+   *
+   * ```text
+   * 題字    つながっています（**いま文字だけです。カメラもマイクも使っていません**）
+   * パネル  **カメラとマイクは点いていますが、相手へは何も送っていません。**
+   * ```
+   *
+   * **機械で測って、パネルが正しかった** ——
+   * `msedgewebview2`（warifu の子）の録音の最大が **0.0181**。**マイクは点いていた。**
+   *
+   * **パネルだけ直して、題字に同じ嘘を残していた。**
+   */
+  掴んでいる: boolean;
 }): string {
   if (!いま.相手が居る) return 'meeting.status.wait';
   if (いま.受けている && いま.送っている) return 'meeting.status.both';
   // **ここが今回の本題** —— 受けているのに送っていない
   if (いま.受けている) return 'meeting.status.recvonly';
   if (いま.送っている) return 'meeting.status.sendonly';
+  // **掴んでいるなら、そう言う。**「使っていません」は嘘になる
+  if (いま.掴んでいる) return 'meeting.status.holding';
   return 'meeting.status.textonly';
 }

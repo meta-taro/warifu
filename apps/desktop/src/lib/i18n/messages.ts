@@ -300,6 +300,7 @@ export type MessageKey =
   | 'meeting.status.recvonly'
   | 'meeting.status.sendonly'
   | 'meeting.status.both'
+  | 'meeting.status.holding'
   | 'meeting.status.textonly'
   | 'setup.mic.none'
   | 'setup.camera.none'
@@ -393,6 +394,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
       'つながっています（あなたは送っています。相手の映像は来ていません）',
     'meeting.status.both': 'つながっています（映像と音を、送って受けています）',
     'meeting.status.textonly': 'つながっています（いま文字だけです。カメラもマイクも使っていません）',
+    'meeting.status.holding': 'つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）',
     'setup.mic.none': 'マイクが見つかりません',
     'setup.camera.none': 'カメラが見つかりません',
     'edit.cut': '切り取る',
@@ -706,6 +708,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
       'Connected — you are sending video. Theirs has not arrived.',
     'meeting.status.both': 'Connected — video and audio, both ways',
     'meeting.status.textonly': 'Connected — text only. Camera and microphone are not in use',
+    'meeting.status.holding': 'Connected — your camera and microphone are on, but nothing is being sent',
     'setup.mic.none': 'No microphone found',
     'setup.camera.none': 'No camera found',
     'edit.cut': 'Cut',
@@ -1017,6 +1020,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.sendonly': '已连接（你正在发送视频。对方的视频还没有到达）',
     'meeting.status.both': '已连接（视频和声音，双向）',
     'meeting.status.textonly': '已连接（现在只有文字。没有使用摄像头和麦克风）',
+    'meeting.status.holding': '已连接（摄像头和麦克风已开启，但没有向对方发送任何内容）',
     'setup.mic.none': '未找到麦克风',
     'setup.camera.none': '未找到摄像头',
     'edit.cut': '剪切',
@@ -1331,6 +1335,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.both': '연결되어 있습니다 (영상과 소리를 주고받고 있습니다)',
     'meeting.status.textonly':
       '연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)',
+    'meeting.status.holding':
+      '연결되어 있습니다 (카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다)',
     'setup.mic.none': '마이크를 찾을 수 없습니다',
     'setup.camera.none': '카메라를 찾을 수 없습니다',
     'edit.cut': '오려두기',

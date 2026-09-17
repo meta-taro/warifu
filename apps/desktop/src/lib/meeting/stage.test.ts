@@ -153,32 +153,65 @@ describe('抜けたら畳む（#33）', () => {
 describe('つながりの言い方（#39・D113）', () => {
   it('**受けているのに送っていないときは、そう言う**', () => {
     // 「つながっています」しか出していなかったので、**人は「壊れている」と読んだ**
-    expect(つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: false })).toBe(
+    expect(つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: false, 掴んでいる: false })).toBe(
       'meeting.status.recvonly',
     );
   });
 
   it('送っているのに受けていないときも、そう言う', () => {
-    expect(つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: true })).toBe(
+    expect(つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: true, 掴んでいる: false })).toBe(
       'meeting.status.sendonly',
     );
   });
 
   it('両方流れていれば、そう言う', () => {
-    expect(つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: true })).toBe(
+    expect(つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: true, 掴んでいる: false })).toBe(
       'meeting.status.both',
     );
   });
 
   it('文字だけなら、文字だけと言う（**カメラが点いていないことを隠さない**）', () => {
-    expect(つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: false })).toBe(
+    expect(つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: false, 掴んでいる: false })).toBe(
       'meeting.status.textonly',
     );
   });
 
   it('相手が居なければ、待っていると言う', () => {
-    expect(つながりの言い方({ 相手が居る: false, 受けている: false, 送っている: false })).toBe(
+    expect(つながりの言い方({ 相手が居る: false, 受けている: false, 送っている: false, 掴んでいる: false })).toBe(
       'meeting.status.wait',
     );
+  });
+
+  it('**掴んでいるのに「使っていません」と言わない**', () => {
+    // **2026-09-17、ASUS が同じ窓の中で、題字とパネルが逆のことを言っているのを見つけた。**
+    //
+    //   題字    つながっています（**いま文字だけです。カメラもマイクも使っていません**）
+    //   パネル  **カメラとマイクは点いていますが、相手へは何も送っていません。**
+    //
+    // **機械で測って、パネルが正しかった** ——
+    // `msedgewebview2`（warifu の子）の録音の最大が **0.0181**。
+    //
+    // **パネルだけ直して、題字に同じ嘘を残していた。**
+    expect(
+      つながりの言い方({ 相手が居る: true, 受けている: false, 送っている: false, 掴んでいる: true }),
+    ).toBe('meeting.status.holding');
+  });
+
+  it('掴んでいても、流れているなら流れているほうを言う', () => {
+    // **「掴んでいる」は最後の手前に置く。**
+    // 流れているのに「点いていますが送っていません」と言うほうが、もっと悪い
+    expect(
+      つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: false, 掴んでいる: true }),
+    ).toBe('meeting.status.recvonly');
+    expect(
+      つながりの言い方({ 相手が居る: true, 受けている: true, 送っている: true, 掴んでいる: true }),
+    ).toBe('meeting.status.both');
+  });
+
+  it('相手が居なければ、掴んでいても「待っています」', () => {
+    // **誰も居ない所へ「送っていません」と言っても意味が無い**
+    expect(
+      つながりの言い方({ 相手が居る: false, 受けている: false, 送っている: false, 掴んでいる: true }),
+    ).toBe('meeting.status.wait');
   });
 });

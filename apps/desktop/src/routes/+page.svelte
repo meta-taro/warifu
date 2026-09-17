@@ -762,9 +762,11 @@
     let 試す = nextAttempt(null);
     let 最後の失敗 = '';
     while (試す) {
+      let 取れたもの: MediaStream | null = null;
       try {
         const c = withBackground({ ...試す, ...機器の指定(試す) }, prefs, blurAvailable);
-        localStream = await navigator.mediaDevices.getUserMedia(c);
+        取れたもの = await navigator.mediaDevices.getUserMedia(c);
+        localStream = 取れたもの;
         sendMode = sendModeFor(試す);
         適用する();
         // **会議中なら、いま流れている経路の中身を入れ替える。**張り直さない
@@ -774,6 +776,14 @@
         devices = toOptions(await navigator.mediaDevices.enumerateDevices());
         return;
       } catch (e) {
+        // **取れたのに、その後で落ちたときは、取れたものを放す**（2026-09-17）。
+        //
+        // ここで放さないと、**次の段で取り直した分だけが `localStream` に入り、
+        // 前の段で掴んだカメラとマイクは誰も持っていないまま点き続ける。**
+        // **画面のどこにも出ないので、気づけない** ——
+        // ASUS が「支度を通していないのにマイクが点いている」と測ったのがこの形。
+        取れたもの?.getTracks().forEach((tr) => tr.stop());
+        if (localStream === 取れたもの) localStream = null;
         最後の失敗 = t(CAMERA_MESSAGE[describeMediaFailure(e)]);
         試す = nextAttempt(試す);
       }
@@ -1977,6 +1987,9 @@
           相手が居る: remotes.length > 0,
           受けている: 映像の流れ.受けている,
           送っている: 映像の流れ.送っている,
+          // **掴んでいるなら、題字もそう言う**（2026-09-17・ASUS の実測）。
+          // **パネルだけ直して、題字に同じ嘘を残していた**
+          掴んでいる: localStream !== null,
         }) as MessageKey,
       )
     : 状態 === '待っている'
