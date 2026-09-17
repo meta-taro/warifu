@@ -39,6 +39,7 @@ pub mod base32;
 mod error;
 mod key;
 mod revocation;
+mod room;
 mod tally;
 
 /// **この機械の呼び名。**鍵はこれを混ぜて導かれる（`Profile::device`）。
@@ -66,4 +67,5 @@ pub const 端末の呼び名: &str = "この端末";
 pub use error::Error;
 pub use key::{Device, Profile, PublicKey, Seed, Signature};
 pub use revocation::Revocations;
+pub use room::{合言葉, 部屋の証し};
 pub use tally::{Acceptance, Peer, Tally, TallyId, TallyToken};

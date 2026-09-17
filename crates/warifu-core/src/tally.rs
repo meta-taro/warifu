@@ -69,7 +69,7 @@ impl fmt::Debug for TallyId {
     }
 }
 
-fn digest(domain: &[u8], parts: &[&[u8]]) -> [u8; 32] {
+pub(crate) fn digest(domain: &[u8], parts: &[&[u8]]) -> [u8; 32] {
     let mut hasher = Sha512::new();
     hasher.update(domain);
     for part in parts {
@@ -96,7 +96,7 @@ fn proof(secret: &[u8; 32], accepter: PublicKey, at: u64) -> [u8; 32] {
 /// 中身が違っても同じ時間で終わる比較。
 ///
 /// 早く抜けると、1 byte ずつ当てて証を作れてしまう。
-fn same(a: &[u8; 32], b: &[u8; 32]) -> bool {
+pub(crate) fn same(a: &[u8; 32], b: &[u8; 32]) -> bool {
     let mut diff = 0u8;
     for i in 0..32 {
         diff |= a[i] ^ b[i];
