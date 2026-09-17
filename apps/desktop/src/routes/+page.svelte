@@ -246,6 +246,19 @@
    * **片方だけ流れていても人に分からなかった** —— 人は「壊れている」と読んだ。
    */
   let 映像の流れ = $state({ 送っている: false, 受けている: false });
+
+  /**
+   * **ハウリングの恐れが在るか**（2026-09-17・オーナー依頼）。
+   *
+   * エコー除去（`AUDIO_PROCESSING`）は**自分の出力しか知らない。**
+   * **同じ網に居る相手と音が往復している**とき、机の隣で鳴っている恐れがある。
+   *
+   * **支度のときだけ案内していた。**それでは遅い ——
+   * **危なくなるのは「2 人目が音を出した時」**である。
+   */
+  let ハウリングの恐れ = $state(false);
+  /** 危ない相手の鍵。**1 人でも居れば案内を出す。** */
+  const 危ない相手 = new Set<string>();
   /**
    * 入室の最中か。
    *
@@ -780,6 +793,9 @@
     映像を使う = true;
     面 = '会議';
     if (!支度した) await 支度する();
+    // **ここまで来て初めて、音と映像が流れる**（**D113**）。
+    // 2026-09-17 まで、これが無くても音だけ流れていた（画面は「使っていません」と言っていた）
+    for (const c of calls.values()) c.映像と音を足す(true);
   }
 
   /**
@@ -789,6 +805,11 @@
    */
   async function ビデオ会議をやめる() {
     映像を使う = false;
+    // **先に黙らせる。**機器を放す前に止めないと、放すまでの間だけ流れ続ける
+    for (const c of calls.values()) c.映像と音を足す(false);
+    // **音を止めたら、ハウリングの案内も畳む**（残ると嘘になる）
+    危ない相手.clear();
+    ハウリングの恐れ = false;
     for (const call of calls.values()) await call.replaceTracks(null);
     localStream?.getTracks().forEach((tr) => tr.stop());
     localStream = null;
@@ -808,6 +829,8 @@
 
   /** 支度の値を、いま持っている映像へ反映する。 */
   function 適用する() {
+    // **支度の自分の枠は、支度の入切がそのまま効く**（自分にしか見えないので）。
+    // **相手へ流すかどうかは `Call` が決める** —— ここで直に入にすると関門を跨ぐ
     for (const tr of localStream?.getAudioTracks() ?? []) tr.enabled = prefs.micOn;
     for (const tr of localStream?.getVideoTracks() ?? []) tr.enabled = prefs.cameraOn;
     writeStored(prefs);
@@ -938,6 +961,12 @@
                 // **どちらへ流れているかを画面へ**（**#39**）。
                 // **誰か 1 人でも流れていれば「流れている」**とする（帯は部屋ぜんたいの話）
                 映像の流れ = 向き;
+              },
+              onHowlingRisk: (危ない) => {
+                // **相手ごとに覚える。**1 人でも危ない相手が居れば案内を出す
+                if (危ない) 危ない相手.add(key);
+                else 危ない相手.delete(key);
+                ハウリングの恐れ = 危ない相手.size > 0;
               },
               onPath: (p) => {
                 log(`経路が変わった: ${p}（${短く(key)}）`);
@@ -2172,12 +2201,33 @@
       <h2><Icon name="camera" size={18} />{t('video.title')}</h2>
       {#if 映像を使う}
         <p class="hint">{t('video.hint')}</p>
+        <!--
+          **危なくなった時に言う**（2026-09-17・オーナー依頼）。
+
+          エコー除去は**自分の出力しか知らない**ので、
+          **机の隣で鳴っている別の端末の音は消せない。**
+          支度のときだけ案内していたが、**危なくなるのは 2 人目が音を出した時**である。
+
+          **往復していて、かつ同じ網の相手が居るときだけ出す** ——
+          いつも出ている警告は読まれなくなる（#33 / #35 で踏んだ形）。
+        -->
+        {#if ハウリングの恐れ}
+          <p class="notice howling"><Icon name="headphones" />{t('meeting.howling')}</p>
+        {/if}
         <button type="button" class="quiet" onclick={() => void ビデオ会議をやめる()}>
           <Icon name="camera-off" />{t('video.stop')}
         </button>
       {:else}
-        <!-- **いま文字だけであることを言う。**カメラを使っていないと分かる -->
-        <p class="hint">{t('video.off.hint')}</p>
+        <!--
+          **機器を掴んでいるかで、言うことを変える**（2026-09-17・#39）。
+
+          支度を通った人は**カメラが点いている**（明かりも点く）。
+          そこで「カメラもマイクも使っていません」と書くと**嘘になる** ——
+          Mac Air から「メニューバーにカメラの緑表示が出ている」と報告があった。
+
+          **点いていることは認めて、「送っていない」ほうを言う。**
+        -->
+        <p class="hint">{t(支度した ? 'video.off.held' : 'video.off.hint')}</p>
         <button type="button" onclick={() => void ビデオ会議を始める()}>
           <Icon name="camera" />{t('video.start')}
         </button>
@@ -3111,6 +3161,15 @@
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
     font-weight: 600;
+  }
+  /* **既にある警告の色をそのまま使う**（`--warning-*`）。
+     新しい色を作らない —— 見た目の方向は人が決める領域である（baseline §11） */
+  .notice.howling {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: var(--text-xs-size);
+    line-height: var(--text-xs-line);
   }
   .hint {
     display: flex;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   伏せる,
+  同じ網に居るか,
   候補を読む,
   候補を言い表す,
   対を言い表す,
@@ -189,5 +190,57 @@ describe('映像の向き（#39）', () => {
   it('音は見ない（映像の向きだけ）', () => {
     const 統計 = [{ id: 'o', type: 'outbound-rtp', kind: 'audio', packetsSent: 900 }];
     expect(映像の向き(統計)).toEqual({ 送っている: false, 受けている: false });
+  });
+});
+
+describe('同じ網に居るか（ハウリングの手がかり）', () => {
+  const 候補 = (id: string, address: string) => ({
+    id,
+    type: 'local-candidate' as const,
+    address,
+  });
+  const 組 = (l: string, r: string) => ({
+    id: 'p1',
+    type: 'candidate-pair' as const,
+    state: 'succeeded',
+    nominated: true,
+    localCandidateId: l,
+    remoteCandidateId: r,
+  });
+
+  it('同じ網なら、そう言う', () => {
+    // **机の隣に別の端末が在る形。**エコー除去では消せない
+    const 統計 = [
+      組('a', 'b'),
+      候補('a', '192.168.24.11'),
+      { ...候補('b', '192.168.24.16'), type: 'remote-candidate' as const },
+    ];
+    expect(同じ網に居るか(統計 as never)).toBe(true);
+  });
+
+  it('別の網なら、そう言う', () => {
+    const 統計 = [
+      組('a', 'b'),
+      候補('a', '192.168.24.11'),
+      { ...候補('b', '10.0.5.9'), type: 'remote-candidate' as const },
+    ];
+    expect(同じ網に居るか(統計 as never)).toBe(false);
+  });
+
+  it('組が無ければ null —— 「まだ分からない」を「別の網」と言わない', () => {
+    expect(同じ網に居るか([])).toBe(null);
+  });
+
+  it('mDNS の名前で来たら null —— 比べられないものを比べない', () => {
+    const 統計 = [
+      組('a', 'b'),
+      候補('a', 'f1b2ba37-e746-4426-ad1a-f7762754b545.local'),
+      { ...候補('b', '192.168.24.16'), type: 'remote-candidate' as const },
+    ];
+    expect(同じ網に居るか(統計 as never)).toBe(null);
+  });
+
+  it('片方の候補が引けなければ null', () => {
+    expect(同じ網に居るか([組('a', 'b'), 候補('a', '192.168.24.11')] as never)).toBe(null);
   });
 });

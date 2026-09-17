@@ -274,6 +274,7 @@ export type MessageKey =
   | 'video.title'
   | 'video.hint'
   | 'video.off.hint'
+  | 'video.off.held'
   | 'setup.title'
   | 'setup.hint'
   | 'setup.action'
@@ -282,6 +283,7 @@ export type MessageKey =
   | 'setup.blur'
   | 'setup.blur.os'
   | 'setup.headphones'
+  | 'meeting.howling'
   | 'setup.mode.both'
   | 'setup.mode.audio'
   | 'setup.mode.none'
@@ -621,6 +623,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': 'ビデオ会議',
     'video.hint': 'いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。',
     'video.off.hint': 'このルームは、いま文字だけです。カメラもマイクも使っていません。',
+    'video.off.held': 'カメラとマイクは点いていますが、相手へは何も送っていません。自分の姿は自分にだけ見えています。',
     'setup.title': '入る前のしたく',
     'setup.hint': 'いま自分が何で映って、何で喋るかを、入る前に確かめられます。',
     'setup.action': 'カメラとマイクを確かめる',
@@ -629,6 +632,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.blur': '背景をぼかす',
     'setup.blur.os': 'この環境では、アプリから背景をぼかせません。macOS ならコントロールセンターのビデオエフェクトが使えます。',
     'setup.headphones': '同じ室内で 2 台を鳴らすと、エコー除去では消せません。ヘッドフォンを使ってください。',
+    'meeting.howling': '同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。',
     'camera.unknown': 'カメラを使えませんでした。',
   },
   en: {
@@ -932,6 +936,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': 'Video meeting',
     'video.hint': 'Adds video and sound to the room you are in. Typing keeps working as before.',
     'video.off.hint': 'This room is text only right now. Neither camera nor microphone is in use.',
+    'video.off.held': 'Your camera and microphone are on, but nothing is being sent. Your own view is visible only to you.',
     'setup.title': 'Before you come in',
     'setup.hint': 'Check what you look and sound like before entering.',
     'setup.action': 'Check camera and microphone',
@@ -940,6 +945,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.blur': 'Blur my background',
     'setup.blur.os': 'This environment cannot blur backgrounds from the app. On macOS, use Video Effects in Control Center.',
     'setup.headphones': 'Two devices in one room will echo no matter what. Use headphones.',
+    'meeting.howling': 'Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.',
     'camera.unknown': 'Could not use the camera.',
   },
   zh: {
@@ -1241,6 +1247,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': '视频会议',
     'video.hint': '在当前 room 里加上影像和声音。文字交流照旧继续。',
     'video.off.hint': '这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。',
+    'video.off.held': '摄像头和麦克风已开启，但没有向对方发送任何内容。你自己的画面只有你能看到。',
     'setup.title': '进来之前的准备',
     'setup.hint': '进入之前，先确认自己的画面和声音。',
     'setup.action': '检查摄像头和麦克风',
@@ -1249,6 +1256,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.blur': '虚化背景',
     'setup.blur.os': '此环境无法由应用虚化背景。macOS 可使用控制中心的视频效果。',
     'setup.headphones': '同一房间里的两台设备一定会啸叫，回声消除也无法解决。请使用耳机。',
+    'meeting.howling': '正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。',
     'camera.unknown': '无法使用摄像头。',
   },
   ko: {
@@ -1553,6 +1561,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': '영상 회의',
     'video.hint': '지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.',
     'video.off.hint': '이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.',
+    'video.off.held': '카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다. 자기 모습은 자신에게만 보입니다.',
     'setup.title': '들어가기 전 준비',
     'setup.hint': '들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.',
     'setup.action': '카메라와 마이크 확인',
@@ -1561,6 +1570,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.blur': '배경 흐리게',
     'setup.blur.os': '이 환경에서는 앱이 배경을 흐리게 할 수 없습니다. macOS라면 제어 센터의 비디오 효과를 사용하세요.',
     'setup.headphones': '같은 방에서 두 대를 켜면 에코 제거로도 막을 수 없습니다. 헤드폰을 사용하세요.',
+    'meeting.howling': '같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.',
     'camera.unknown': '카메라를 사용할 수 없습니다.',
   },
 };

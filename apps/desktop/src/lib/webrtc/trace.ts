@@ -139,6 +139,32 @@ export function 対を言い表す(統計: readonly 統計の行[]): string | nu
 }
 
 /**
+ * **選ばれた組の両端が、同じ網に居るか。**
+ *
+ * **ハウリングの手がかりに使う**（2026-09-17・オーナー依頼）。
+ * エコー除去は**自分の出力しか知らない**ので、
+ * **机の隣に居る別の端末から出た音は消せない。**
+ *
+ * **同じ網は「近い」の手がかりであって、確証ではない。**
+ * 同じ網でも別の階に居ることはある。**だから断定せず、案内に使う。**
+ * 逆に**別の網なら、机の隣に居ることはまず無い** —— そこは出さないでよい。
+ *
+ * 組が無ければ `null`（**「まだ分からない」を「別の網」と言わない**）。
+ */
+export function 同じ網に居るか(統計: readonly 統計の行[]): boolean | null {
+  const 組たち = 統計.filter((s) => s.type === 'candidate-pair' && s.state === 'succeeded');
+  if (組たち.length === 0) return null;
+  const 選ばれた = 組たち.find((p) => p.nominated === true) ?? 組たち[0];
+  const 引く = new Map(統計.map((s) => [s.id, s]));
+  const こちら = 引く.get(選ばれた.localCandidateId ?? '')?.address;
+  const あちら = 引く.get(選ばれた.remoteCandidateId ?? '')?.address;
+  if (!こちら || !あちら) return null;
+  // **名前で来たものは比べられない**（mDNS は住所を隠すのが目的）
+  if (こちら.endsWith('.local') || あちら.endsWith('.local')) return null;
+  return 伏せる(こちら) === 伏せる(あちら);
+}
+
+/**
  * 数だけを言う。**付かなかったときに、どこで止まったかが分かる。**
  *
  * 来た候補が 0 なら相手の下ごしらえが届いていない。
@@ -223,9 +249,25 @@ export interface 向き {
  * **人に見せる判断は、ここで丸める。**
  */
 export function 映像の向き(統計: readonly 統計の行[]): 向き {
+  return 向きを数える(統計, 'video');
+}
+
+/**
+ * **音がどちらへ流れているか。**
+ *
+ * **2026-09-17 に、これが要ると分かった。**映像の向きだけ見ていて、
+ * **音が押す前から流れていたのを見落としていた**（Mac Air の実測 `送り 映像 0 / 音 90`）。
+ *
+ * **ハウリングの案内にも使う** —— 自分が黙っていれば、こちらからは回らない。
+ */
+export function 音の向き(統計: readonly 統計の行[]): 向き {
+  return 向きを数える(統計, 'audio');
+}
+
+function 向きを数える(統計: readonly 統計の行[], 種別: 'video' | 'audio'): 向き {
   const 数 = (種: 'outbound-rtp' | 'inbound-rtp'): number =>
     統計
-      .filter((s) => s.type === 種 && s.kind === 'video')
+      .filter((s) => s.type === 種 && s.kind === 種別)
       .reduce(
         (合計, s) =>
           合計 + (種 === 'outbound-rtp' ? (s.packetsSent ?? 0) : (s.packetsReceived ?? 0)),

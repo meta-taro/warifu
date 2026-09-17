@@ -192,6 +192,7 @@ meeting.qr.hint	Use this when the other person is in front of you. Scanning it g
 meeting.qr.reveal	Show as a QR code	QR で見せる	显示二维码	QR로 보여주기				
 meeting.start.action	Make a room	ルームをつくる	建一个房间	방 만들기				
 meeting.start.title	Make a room	ルームをつくる	建一个房间	방 만들기				
+meeting.howling	Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.	同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。	正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。	같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.	★	**断定しない文にすること。**同じ網に居ることは「近い」の手がかりで、確証ではない —— 「ハウリングしています」と言い切る訳にしないこと。**エコー除去が壊れている**とも読ませないこと（除去は効いているが、自分の出力しか消せないのが理由）。逃げ道（ヘッドフォン／片方のマイクを切る）を落とさないこと。		
 meeting.status.both	Connected — video and audio, both ways	つながっています（映像と音を、送って受けています）	已连接（视频和声音，双向）	연결되어 있습니다 (영상과 소리를 주고받고 있습니다)				
 meeting.status.live	Connected	つながっています	已连接	연결되어 있습니다				
 meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours.	つながっています（相手の映像を受けています。あなたは送っていません）	已连接（正在接收对方的视频。你没有发送自己的视频）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다)				
@@ -297,6 +298,7 @@ update.none	You are on the latest ({version}).	いまが最新です（{version}
 update.notes	What changed	何が変わったか	有哪些变化	무엇이 달라졌는지				
 update.notes.none	Nothing written.	書かれていません。	没有写。	쓰여 있지 않습니다.				
 video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
+video.off.held	Your camera and microphone are on, but nothing is being sent. Your own view is visible only to you.	カメラとマイクは点いていますが、相手へは何も送っていません。自分の姿は自分にだけ見えています。	摄像头和麦克风已开启，但没有向对方发送任何内容。你自己的画面只有你能看到。	카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다. 자기 모습은 자신에게만 보입니다.	★	**機器は点いている。**「カメラは切れています」「使っていません」と読める訳にしないこと —— 実際にカメラの明かりは点いており、嘘になる（2026-09-17・Mac Air の報告）。逆に「送信中です」とも読ませないこと。**言うべきは「点いているが、相手へは行っていない」**である。「自分だけに見えている」は、**他の誰にも見えていない**と読めること。		
 video.off.hint	This room is text only right now. Neither camera nor microphone is in use.	このルームは、いま文字だけです。カメラもマイクも使っていません。	这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。	이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.				
 video.start	Start a video meeting	ビデオ会議を始める	开始视频会议	영상 회의 시작				
 video.stop	Stop the video meeting	ビデオ会議をやめる	结束视频会议	영상 회의 끝내기				

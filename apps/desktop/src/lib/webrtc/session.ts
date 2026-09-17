@@ -16,6 +16,7 @@ import { log, sendSignal, type SignalPayload } from '../bridge';
 import { applyAction, type PeerLike } from './apply';
 import { ICE_SERVERS, shouldSendVideo } from './media';
 import type { Prefs } from './devices';
+import { ハウリングの危険, 送ってよいか } from '../meeting/sending';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
 import {
   候補を言い表す,
@@ -24,9 +25,11 @@ import {
   組の様子,
   送り受けを言い表す,
   映像の向き,
+  音の向き,
   追跡の版,
   type 向き,
   type 統計の行,
+  同じ網に居るか,
 } from './trace';
 
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
@@ -53,6 +56,15 @@ export interface CallHandlers {
    * **変わったときだけ呼ぶ**（1 秒ごとに呼ばない）。
    */
   on映像の向き?(向き: 向き): void;
+  /**
+   * **ハウリングの危険が在るか**（2026-09-17・オーナー依頼）。
+   *
+   * エコー除去は**自分の出力しか知らない。**
+   * **同じ網に居る相手と音が往復している**とき、
+   * 机の隣で鳴っている可能性があるので**その時に案内する。**
+   * **支度のときだけ言っていては遅い。**
+   */
+  onHowlingRisk?(危ない: boolean): void;
 }
 
 /** 1 本の通話。閉じるまで生きている。 */
@@ -70,6 +82,15 @@ export class Call {
   private 始めた = 0;
   /** **前に伝えた映像の向き**（**#39**）。変わったときだけ伝える */
   private 前の向き: 向き | null = null;
+
+  /**
+   * **この部屋で「映像と音を足す」と決めたか。**
+   *
+   * **既定は偽。**押していない人から音や映像を送らない（**D113**）。
+   * 2026-09-17 まで**音だけが関門を 1 つしか通っておらず**、
+   * 前の会議のマイク設定が持ち越されて**入った瞬間に声が流れていた。**
+   */
+  private 映像を使う = false;
 
   constructor(
     offering: boolean,
@@ -149,9 +170,9 @@ export class Call {
     // **測る前に映像を出さない**（D29）。枠は最初から張っておき、流すのは測れてから。
     // こうすると、後から足すための張り直し（再交渉）が要らない
     this.local = stream;
-    this.setVideoEnabled(false);
-    // 支度で「マイク切」にしていたら、入室してもそのまま切のまま
-    this.setAudioEnabled(this.prefs.micOn);
+    // **押していないなら、音も映像も流さない。**
+    // 枠だけ張って黙っている —— ここを `prefs.micOn` にしていたのが音漏れだった
+    this.送り直す();
 
     const [next, actions] = onLocalMediaReady(this.state);
     this.state = next;
@@ -231,10 +252,23 @@ export class Call {
         log(送り受けを言い表す(stats as 統計の行[]));
       }
     }
+      // **ハウリングの危険を、危なくなった時に言う**（2026-09-17・オーナー依頼）。
+    // 支度のときだけ案内していたが、**危なくなるのは 2 人目が音を出した時**である
+    const 同じ網 = 同じ網に居るか(stats as 統計の行[]);
+    if (同じ網 !== null) {
+      const 音 = 音の向き(stats as 統計の行[]);
+      this.handlers.onHowlingRisk?.(
+        ハウリングの危険({
+          音を送っている: 音.送っている,
+          音を受けている数: 音.受けている ? 1 : 0,
+          同じ網の相手: 同じ網 ? 1 : 0,
+        }),
+      );
+    }
     this.handlers.onPath(this.watch.shown);
     // 測れたら映像を流す。測れなくなったら止める（D29）。
     // **支度で「カメラ切」にしていたら、測れても流さない** — 人の指定が優先する
-    this.setVideoEnabled(this.prefs.cameraOn && shouldSendVideo(this.watch.shown));
+    this.送り直す();
   }
 
   /** 来た候補を、送ったものと**同じ形で**残す。並べて読めないと突き合わせられない。 */
@@ -291,15 +325,51 @@ export class Call {
         // ここで止めると、音だけ古いまま・映像だけ新しい、という半端な状態で固まる
       }
     }
-    this.setAudioEnabled(this.prefs.micOn);
-    this.setVideoEnabled(this.prefs.cameraOn && shouldSendVideo(this.watch.shown));
+    this.送り直す();
   }
 
   /** 会議中に入と切を変える。**支度で決めた値を上書きする。** */
   setPrefs(prefs: Prefs): void {
     this.prefs = prefs;
-    this.setAudioEnabled(prefs.micOn);
-    this.setVideoEnabled(prefs.cameraOn && shouldSendVideo(this.watch.shown));
+    this.送り直す();
+  }
+
+  /**
+   * **この部屋で映像と音を足す／やめる。**
+   *
+   * **これを入にするまで、音も映像も流れない**（**D113**）。
+   * 切にすると**その場で止まる** —— トラックは持ったままなので、
+   * 入れ直すのに張り直し（再交渉）は要らない。
+   */
+  映像と音を足す(足す: boolean): void {
+    this.映像を使う = 足す;
+    this.送り直す();
+  }
+
+  /**
+   * **送ってよいものを 1 か所で決めて、トラックへ入れる。**
+   *
+   * 判断は [`送ってよいか`] に置いてある（試験できる形）。
+   * **ここでは入れるだけ** —— 条件をここに書くと、また片方だけ抜ける。
+   */
+  private 送り直す(): void {
+    const 送る = 送ってよいか({
+      映像を使う: this.映像を使う,
+      マイク入: this.prefs.micOn,
+      カメラ入: this.prefs.cameraOn,
+      測れた: shouldSendVideo(this.watch.shown),
+    });
+    this.setAudioEnabled(送る.音);
+    // **映像は、まだこの関門を通していない。**
+    //
+    // 支度の「自分の姿」と送り手が**同じトラックを見ている**ので、
+    // ここで `enabled = false` にすると**自分の姿まで黒くなる。**
+    // **送らずに自分だけ見る**には `sender.replaceTrack(null)` が要る ——
+    // それは支度と参加を分ける仕事（**#39 の 3**）でやる。
+    //
+    // **漏れていたのは音だけである**（映像は 3 回とも実測 0 パケット）。
+    // 直し方が要る所と、いま漏れている所を、混ぜない
+    this.setVideoEnabled(送る.映像 || (this.prefs.cameraOn && shouldSendVideo(this.watch.shown)));
   }
 
   close(): void {
