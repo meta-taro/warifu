@@ -1,6 +1,7 @@
 //! 結び目と、その上に立つ 1 本の経路。
 
 use core::time::Duration;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use iroh::endpoint::{Connection, ReadExactError, RecvStream, SendStream, presets};
 use iroh::{Endpoint, EndpointAddr, EndpointId, RelayMode, SecretKey, TransportAddr, Watcher as _};
@@ -44,6 +45,70 @@ pub struct Node {
     key: PublicKey,
     /// 中継を頼まれたか（**D78**）。**宛先を出すときに待つかどうかを決める。**
     中継: 中継の使い方,
+    /// 口がどう決まったか（**#38**）。**呼んだ側が人へ言うために持つ。**
+    口: 口の様子,
+}
+
+/// **待つ口の決め方**（**#38** の残り半分・2026-09-17）。
+///
+/// **鍵は「出したときの口」を焼き込む。**だから、立ち上げ直して口が変わると、
+/// **配った鍵が全部死ぬ** —— 割符（誰を通すか）を控えても、
+/// **待っている場所が変わっていれば、相手はそこへ来られない。**
+///
+/// ASUS の実測（2026-09-17）——
+///
+/// ```text
+/// 鍵が指す口     51728     ← 09-16 10:32 に出した
+/// いま待つ口     57155     ← 入れ替えて立ち上げ直したあと
+/// ```
+///
+/// **51728 では誰も待っていない。**戸口の話ではなく、その手前である。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum 口の決め方 {
+    /// **その場の空きに任せる。**毎回変わる（**前の鍵は死ぬ**）。
+    #[default]
+    まかせる,
+    /// **前と同じ口を取りに行く。**取れなければ空きに落ちる（[`口の様子::取れなかった`]）。
+    同じ口(u16),
+}
+
+/// **口がどう決まったか。****呼んだ側が人へ言うために要る。**
+///
+/// **黙って空きに落ちない。**落ちたなら「配った鍵は使えません」と言えなければ、
+/// **#38 を直した意味が無くなる**（案 A だけでは嘘になる・案 C の文言が要る）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 口の様子 {
+    /// 任せた。**この口は次の起動で変わる。**
+    まかせた(u16),
+    /// **前と同じ口が取れた。****前に配った鍵がそのまま生きる。**
+    取り直せた(u16),
+    /// **取れなかった。****前に配った鍵は、もう使えない。**
+    取れなかった {
+        /// 取りに行った口。
+        望んだ: u16,
+        /// 代わりに取れた口。
+        代わり: u16,
+    },
+}
+
+impl 口の様子 {
+    /// いま待っている口。
+    #[must_use]
+    pub const fn 口(self) -> u16 {
+        match self {
+            Self::まかせた(口) | Self::取り直せた(口) => 口,
+            Self::取れなかった { 代わり, .. } => 代わり,
+        }
+    }
+
+    /// **前に配った鍵が、まだ使えるか。**
+    ///
+    /// `取り直せた` のときだけ true。**`まかせた` は「前が無い」ので false** ——
+    /// 「分からない」を「使える」と言わない。
+    #[must_use]
+    pub const fn 前の鍵が生きているか(self) -> bool {
+        matches!(self, Self::取り直せた(_))
+    }
 }
 
 /// 中継を使うかどうか（**D78**・2026-09-09 オーナー判断）。
@@ -87,6 +152,67 @@ impl Node {
     /// # Errors
     /// 結べなければ [`Error::Network`]。
     pub async fn bind(device: &Device, 中継: 中継の使い方) -> Result<Self, Error> {
+        Self::bind_at(device, 中継, 口の決め方::まかせる).await
+    }
+
+    /// **待つ口まで決めて結び目を作る**（**#38** の残り半分）。
+    ///
+    /// `口の決め方::同じ口(n)` を渡すと、**前と同じ口を取りに行く。**
+    /// **取れなければ空きに落ちる** —— そのとき [`口の様子`] が `取れなかった` になるので、
+    /// **呼んだ側は「配った鍵は使えません」と言える。**
+    ///
+    /// # なぜ黙って落ちないのか
+    ///
+    /// **口が変わると、配った鍵は全部死ぬ。**黙って落ちると、
+    /// **人は鍵が死んだことを知らないまま待つことになる**（2026-09-16 に Mac Air が
+    /// 実際に 6 時間待った）。**「取れなかった」は、必ず外へ出す。**
+    ///
+    /// # Errors
+    /// 結べなければ [`Error::Network`]。
+    pub async fn bind_at(
+        device: &Device,
+        中継: 中継の使い方,
+        決め方: 口の決め方,
+    ) -> Result<Self, Error> {
+        let 望み = match 決め方 {
+            口の決め方::まかせる => None,
+            口の決め方::同じ口(口) => Some(口),
+        };
+
+        // **まず望んだ口で試す。**駄目なら空きで結び直す（**ここで諦めない**）
+        let (endpoint, 口) = match 望み {
+            Some(望んだ) => match Self::結ぶ(device, 中継, 望んだ).await {
+                Ok(endpoint) => (endpoint, 口の様子::取り直せた(望んだ)),
+                Err(_) => {
+                    let endpoint = Self::結ぶ(device, 中継, 0).await?;
+                    let 代わり = Self::いまの口(&endpoint);
+                    (
+                        endpoint,
+                        口の様子::取れなかった {
+                            望んだ, 代わり
+                        },
+                    )
+                }
+            },
+            None => {
+                let endpoint = Self::結ぶ(device, 中継, 0).await?;
+                let 口 = Self::いまの口(&endpoint);
+                (endpoint, 口の様子::まかせた(口))
+            }
+        };
+
+        Ok(Self {
+            endpoint,
+            key: device.public_key(),
+            中継,
+            口,
+        })
+    }
+
+    /// 口を 1 つ指して結ぶ。`0` は「空きに任せる」。
+    async fn 結ぶ(
+        device: &Device, 中継: 中継の使い方, 口: u16
+    ) -> Result<Endpoint, Error> {
         let mut raw = device.secret_key_bytes();
         let secret = SecretKey::from_bytes(&raw);
         raw.zeroize();
@@ -96,19 +222,42 @@ impl Node {
             中継の使い方::使う => RelayMode::Default,
         };
 
-        let endpoint = Endpoint::builder(presets::Minimal)
+        let mut builder = Endpoint::builder(presets::Minimal)
             .secret_key(secret)
             .alpns(vec![ALPN.to_vec()])
-            .relay_mode(中継の設定)
-            .bind()
-            .await
-            .map_err(Error::network("結ぶ"))?;
+            .relay_mode(中継の設定);
 
-        Ok(Self {
-            endpoint,
-            key: device.public_key(),
-            中継,
-        })
+        // **口を指すときだけ、既定の口を外して置き直す。**
+        // iroh の builder は 0.0.0.0:0 と [::]:0 を最初から持っており、
+        // **同じ族に二度指すと経路の選び方が定まらない**（iroh の注意書き）
+        if 口 != 0 {
+            builder = builder
+                .clear_ip_transports()
+                .bind_addr(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 口)))
+                .map_err(|_| Error::network("口を指す")(std::io::Error::other("口が悪い")))?
+                .bind_addr(SocketAddr::from((Ipv6Addr::UNSPECIFIED, 口)))
+                .map_err(|_| Error::network("口を指す")(std::io::Error::other("口が悪い")))?;
+        }
+
+        builder.bind().await.map_err(Error::network("結ぶ"))
+    }
+
+    /// いま待っている口。**v4 を先に見る**（鍵に載るのも v4 が先）。
+    fn いまの口(endpoint: &Endpoint) -> u16 {
+        let 口たち = endpoint.bound_sockets();
+        口たち
+            .iter()
+            .find(|a| a.is_ipv4())
+            .or_else(|| 口たち.first())
+            .map_or(0, SocketAddr::port)
+    }
+
+    /// **口がどう決まったか**（**#38**）。
+    ///
+    /// **`取れなかった` を握り潰さない。**呼んだ側は、これを人へ見せる責任がある。
+    #[must_use]
+    pub const fn 口の様子(&self) -> 口の様子 {
+        self.口
     }
 
     /// 自分の公開鍵。

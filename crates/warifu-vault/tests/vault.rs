@@ -1397,3 +1397,103 @@ fn 壊れた行は_その行だけ捨てる() {
     assert_eq!(一覧[0].0, "A");
     assert_eq!(一覧[1].0, "C");
 }
+
+// ── 待っていた口の控え（**#38 の残り半分**・2026-09-17） ──────────────
+//
+// **割符を控えても、口を控えないと鍵は死ぬ。**
+// 鍵は「出したときの口」を焼き込むので、**立ち上げ直して口が変わると、
+// 相手は誰も居ない所へ来ることになる。**
+//
+// ASUS の実測（2026-09-17）——鍵は `51728` を指し、画面は `57155` で待っていた。
+
+#[test]
+fn 待つ口は_控えて読み戻せる() {
+    let dir = 仮の置き場("port-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert_eq!(vault.port().expect("読める"), None);
+
+    vault.save_port(57155).expect("書ける");
+
+    // **開き直しても残る**（これが目的そのもの）
+    assert_eq!(
+        warifu_vault::Vault::at(dir).port().expect("読める"),
+        Some(57155)
+    );
+}
+
+#[test]
+fn 控えを上書きする_口が変わったら新しいほうを覚える() {
+    // **取れなかったときは、新しい口を覚える。**
+    // 古い口を持ち続けると、**毎回取れない口を取りに行く**ことになる
+    let dir = 仮の置き場("port-overwrite");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(51728).expect("書ける");
+    vault.save_port(57155).expect("書ける");
+
+    assert_eq!(vault.port().expect("読める"), Some(57155));
+}
+
+#[test]
+fn 口の0は_控えが無いのと同じ() {
+    // **`0` は「空きに任せる」の意味。**控えとして読み戻すと、
+    // **「0 番の口を取りに行く」という無い動き**になる
+    let dir = 仮の置き場("port-zero");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(0).expect("書ける");
+
+    assert_eq!(vault.port().expect("読める"), None);
+}
+
+#[test]
+fn 口の控えが壊れていても_立ち上がれる() {
+    // **口は無くても動ける。**壊れた 1 行で立ち上がらなくなるほうが重い
+    // （`issued.tsv` で「1 行の壊れで全部落とさない」と決めたのと同じ筋）
+    let dir = 仮の置き場("port-broken");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(57155).expect("書ける");
+    std::fs::write(vault.port_path(), "warifu-port-v1\nごみ\n").expect("書ける");
+
+    assert_eq!(vault.port().expect("読める"), None);
+}
+
+#[test]
+fn 口の控えは_見出しが違えば断る() {
+    // **別の物を読んで数字に見えた、を起こさない**
+    let dir = 仮の置き場("port-header");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(vault.port_path(), "warifu-issued-v1\n57155\n").expect("書ける");
+
+    assert!(vault.port().is_err());
+}
+
+#[test]
+fn 口の控えも_0600で置く() {
+    // **秘密は入らないが、置き場所の扱いを 1 つにしておく**
+    let dir = 仮の置き場("port-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(57155).expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.port_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 口の控えを_忘れられる() {
+    let dir = 仮の置き場("port-forget");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(57155).expect("書ける");
+
+    vault.forget_port().expect("消せる");
+    assert_eq!(vault.port().expect("読める"), None);
+
+    // **無いものを消すのは失敗ではない**
+    vault.forget_port().expect("二度目も通る");
+}

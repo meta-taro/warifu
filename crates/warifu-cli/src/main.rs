@@ -551,6 +551,50 @@ fn 誰か(vault: &Vault, peer: PublicKey) -> String {
     }
 }
 
+/// **前と同じ口で結び、どう決まったかを人へ言う**（**#38** の案 A ＋ C）。
+///
+/// **黙って空きへ落ちない。**落ちたことを言えなければ、
+/// **人は配った鍵が死んだことを知らないまま待つ**
+/// （2026-09-16 に Mac Air が 6 時間待った）。
+///
+/// **取れなかったときは控えを書き換えない** ——
+/// 取れない理由が「別の warifu が持っている」なら、
+/// **上書きは動いているほうの鍵を殺す。**見分けられないので、消さないほうを選ぶ。
+async fn 結んで口を言う(
+    device: &Device,
+    vault: &warifu_vault::Vault,
+    中継: warifu_net::中継の使い方,
+) -> Result<Node, Box<dyn std::error::Error>> {
+    let 決め方 = vault.port().unwrap_or_default().map_or(
+        warifu_net::口の決め方::まかせる,
+        warifu_net::口の決め方::同じ口,
+    );
+
+    let node = Node::bind_at(device, 中継, 決め方).await?;
+    let 様子 = node.口の様子();
+
+    match 様子 {
+        warifu_net::口の様子::取り直せた(口) => {
+            eprintln!("warifu: 口 {口} を取り直しました（前に配った鍵は、そのまま使えます）");
+        }
+        warifu_net::口の様子::まかせた(口) => {
+            eprintln!("warifu: 口 {口} で待ちます（初めてなので、この口を控えます）");
+        }
+        warifu_net::口の様子::取れなかった {
+            望んだ, 代わり
+        } => {
+            eprintln!("warifu: 前の口 {望んだ} が取れませんでした。{代わり} で待ちます");
+            eprintln!("warifu: **前に配った鍵は、もう使えません。出し直してください**");
+            // **控えは書き換えない**（上の説明のとおり）
+            return Ok(node);
+        }
+    }
+    if let Err(e) = vault.save_port(様子.口()) {
+        eprintln!("warifu: 口を控えられませんでした: {e}（次の起動で口が変わります）");
+    }
+    Ok(node)
+}
+
 async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     let (vault, device) = 身元()?;
 
@@ -558,7 +602,9 @@ async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
     let 開始 = o.from.unwrap_or_else(now_secs);
     let 終わり = o.until.unwrap_or_else(|| 開始.saturating_add(o.ttl));
     let ttl = 終わり.saturating_sub(now_secs());
-    let node = Arc::new(Node::bind(&device, 中継の選び方(o.relay)).await?);
+    // **前と同じ口を取りに行く**（**#38 の残り半分**）。
+    // 鍵は「出したときの口」を焼き込むので、**口が変われば配った鍵は死ぬ**
+    let node = Arc::new(結んで口を言う(&device, &vault, 中継の選び方(o.relay)).await?);
     let 宛先 = node.address().await?;
     let address = 宛先.to_string();
 
@@ -785,6 +831,16 @@ async fn 診る(中継を使う: bool) -> Result<(), Box<dyn std::error::Error>>
     );
 
     println!("\n── 経路 ──");
+    // **`doctor` は口を取りに行かない**（**#38**）。
+    // 取りに行くと、**動いている画面からその口を奪う**ことになる。
+    // 代わりに「画面が待っているはずの口」を控えから言う ——
+    // 2026-09-17 に「doctor の口と画面の口が違う」で 1 往復した所である
+    match vault.port() {
+        Ok(Some(口)) => println!("  控えた口    {口}（**画面がこの口で待ちます**）"),
+        Ok(None) => println!("  控えた口    ありません（**立ち上げるたびに変わります**）"),
+        Err(e) => println!("  控えた口    読めません（{e}）"),
+    }
+    println!("  この口      これから開くのは **doctor 自身の口**です（画面とは別物）");
     let node = Node::bind(&device, 中継の選び方(中継を使う)).await?;
     let 宛先 = node.address().await?;
     let 候補: Vec<_> = 宛先.ip_addrs().collect();

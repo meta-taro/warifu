@@ -388,6 +388,11 @@ pub(crate) fn 自分の名乗り() -> Result<(String, String), warifu_vault::Err
 ///
 /// 画面と端末で別の身元になると、`warifu id` で見せた鍵と、
 /// 画面が名乗る鍵が食い違う。**同じ人が 2 人居るように見える。**
+/// 置き場所。**開けなくても止めない** —— 口の控えは、無くても動ける。
+fn 置き場() -> Option<warifu_vault::Vault> {
+    warifu_vault::Vault::default_location().ok()
+}
+
 fn 身元() -> Result<Device, warifu_vault::Error> {
     let vault = warifu_vault::Vault::default_location()?;
     Ok(vault.open_seed()?.profile("Personal").device("この端末"))
@@ -434,13 +439,63 @@ impl Bridge {
             "中継: {}（WARIFU_RELAY で切り替えます）",
             if 使う { "**使います**" } else { "使いません" }
         );
-        let node = Arc::new(if 使う {
-            Node::bind(&self.device, warifu_net::中継の使い方::使う).await?
+        let 中継 = if 使う {
+            warifu_net::中継の使い方::使う
         } else {
-            Node::bind_without_relay(&self.device).await?
-        });
+            warifu_net::中継の使い方::使わない
+        };
+
+        // **前と同じ口を取りに行く**（**#38 の残り半分**）。
+        // 鍵は「出したときの口」を焼き込むので、**口が変われば配った鍵は死ぬ**
+        let 控えた口 = 置き場()
+            .and_then(|v| v.port().ok())
+            .flatten();
+        let 決め方 = 控えた口.map_or(warifu_net::口の決め方::まかせる, warifu_net::口の決め方::同じ口);
+
+        let node = Arc::new(Node::bind_at(&self.device, 中継, 決め方).await?);
+        self.口を言う(node.口の様子());
         *slot = Some(Arc::clone(&node));
         Ok(node)
+    }
+
+    /// **口がどう決まったかを、記録と画面へ出す**（**#38** の案 C）。
+    ///
+    /// **黙って空きへ落ちない。**落ちたことを言えなければ、
+    /// **人は鍵が死んだことを知らないまま待つ**
+    /// （2026-09-16 に Mac Air が 6 時間待った）。
+    fn 口を言う(&self, 様子: warifu_net::口の様子) {
+        match 様子 {
+            warifu_net::口の様子::取り直せた(口) => {
+                記録!("口 {口} を取り直しました（**前に配った鍵は、そのまま使えます**）");
+            }
+            warifu_net::口の様子::まかせた(口) => {
+                記録!("口 {口} で待ちます（初めてなので、この口を控えます）");
+            }
+            warifu_net::口の様子::取れなかった { 望んだ, 代わり } => {
+                記録!(
+                    "**前の口 {望んだ} が取れませんでした。**{代わり} で待ちます —— \
+                     **前に配った鍵は、もう使えません。出し直してください**"
+                );
+            }
+        }
+        // **取れなかったときは控えを書き換えない。**
+        //
+        // 取れない理由は 2 つあり、**こちらからは見分けられない。**
+        //
+        // 1. **別の warifu がその口を持っている** …… 控えはその子にとって正しい。
+        //    上書きすると、**動いているほうの鍵を殺すことになる**
+        // 2. 関係の無いものが取った …… 控えは古い
+        //
+        // **見分けられないなら、消さないほうを選ぶ。**
+        // 毎回「取れませんでした」と言い続けるが、**言い続けるのは黙るより良い。**
+        if matches!(様子, warifu_net::口の様子::取れなかった { .. }) {
+            return;
+        }
+        match 置き場().map(|v| v.save_port(様子.口())) {
+            Some(Ok(())) => {}
+            Some(Err(e)) => 記録!("口を控えられませんでした: {e}（次の起動で口が変わります）"),
+            None => 記録!("置き場所を開けないので、口を控えられません（次の起動で口が変わります）"),
+        }
     }
 }
 

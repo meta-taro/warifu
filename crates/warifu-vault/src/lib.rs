@@ -144,6 +144,9 @@ const REJOIN_HEADER: &str = "warifu-rejoin-v1";
 ///
 /// 1 行に `<ルーム id>\t<base32 の割符>`。**割符には secret が入っている**ので 0600。
 const ISSUED_HEADER: &str = "warifu-issued-v1";
+
+/// 待っていた口の控えの見出し（**#38 の残り半分**）。
+const PORT_HEADER: &str = "warifu-port-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -588,6 +591,84 @@ impl Vault {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "出した割符の控えを消す")(e)),
+        }
+    }
+
+    /// **待っていた口**のファイル（**#38 の残り半分**）。
+    #[must_use]
+    pub fn port_path(&self) -> PathBuf {
+        self.dir.join("port.tsv")
+    }
+
+    /// **次の起動で取りに行く口を控える。**
+    ///
+    /// # なぜ割符だけでは足りないか
+    ///
+    /// **鍵は 2 つを焼き込んでいる。**
+    ///
+    /// | | 中身 | 控えないとどうなるか |
+    /// |---|---|---|
+    /// | 割符 | 誰を通すか | 戸口が開かない（**[`Vault::save_issued`] で控えた**） |
+    /// | **宛先** | **どこへ来い（住所と口）** | **相手が来る場所が無い** |
+    ///
+    /// **口を控えないと、割符を控えても鍵は死ぬ。**
+    /// ASUS の実測（2026-09-17）——鍵は `51728` を指し、立ち上げ直した画面は
+    /// `57155` で待っていた。**51728 には誰も居ない。**
+    ///
+    /// # ここに秘密は入らない
+    ///
+    /// **口の番号だけ。**それでも `issued.tsv` と同じ所に置くので **0600** にする
+    /// （置き場所の扱いを 1 つにしておく）。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_port(&self, 口: u16) -> Result<(), Error> {
+        let out = format!("{PORT_HEADER}\n{口}\n");
+        self.write_private(&self.port_path(), &out, "待つ口を控える")
+    }
+
+    /// 控えた口を読む。**無ければ `None`**（初めてはこれ）。
+    ///
+    /// **`0` は控えとして扱わない** —— `0` は「空きに任せる」の意味なので、
+    /// 控えに書いてあっても**「控えが無い」と同じ**である。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn port(&self) -> Result<Option<u16>, Error> {
+        let path = self.port_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(Error::io(&path, "待つ口を読む")(e)),
+        };
+        let mut 行たち = text.lines();
+        let Some(header) = 行たち.next() else {
+            return Ok(None);
+        };
+        if header.trim() != PORT_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{PORT_HEADER} を待っていました）"),
+            ));
+        }
+        // **読めない行は「控えが無い」と読む。**ここで失敗にすると、
+        // **壊れた 1 行のせいで立ち上がらなくなる**（口は無くても動ける）
+        Ok(行たち
+            .next()
+            .and_then(|行| 行.trim().parse::<u16>().ok())
+            .filter(|口| *口 != 0))
+    }
+
+    /// 控えた口を忘れる。
+    ///
+    /// # Errors
+    /// 消せないとき [`Error::Io`]。**無いのは失敗ではない。**
+    pub fn forget_port(&self) -> Result<(), Error> {
+        let path = self.port_path();
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::io(&path, "待つ口の控えを消す")(e)),
         }
     }
 
