@@ -3941,6 +3941,7 @@ version = "0.1.9"
 dependencies = [
  "tokio",
  "warifu-core",
+ "warifu-door",
  "warifu-intent",
  "warifu-meeting",
  "warifu-net",
