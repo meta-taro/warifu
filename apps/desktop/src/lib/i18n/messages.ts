@@ -133,6 +133,11 @@ export type MessageKey =
   | 'meeting.link.hint'
   | 'meeting.qr.reveal'
   | 'meeting.qr.hint'
+  | 'pass.asked'
+  | 'pass.asked.hint'
+  | 'pass.allow'
+  | 'pass.refuse'
+  | 'pass.who'
   | 'link.invited'
   | 'link.invited.hint'
   | 'link.invited.enter'
@@ -485,6 +490,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.link.hint': 'これを相手に送ります。相手が押すと割符が開いて、入るかどうかを尋ねます（勝手には入りません）。相手にも割符が入っている必要があります。',
     'meeting.qr.reveal': 'QR で見せる',
     'meeting.qr.hint': '目の前の相手に読ませるときはこちら。読み取ると同じリンクになります。',
+    'pass.asked': 'エージェントが許可を求めています',
+    'pass.asked.hint': '許すと、このエージェントはその動作を使えるようになります。あとで取り消せます。',
+    'pass.allow': '許す',
+    'pass.refuse': '断る',
+    'pass.who': '{who} が {what} を使いたい',
     'link.invited': 'リンクでルームに誘われています。入りますか？',
     'link.invited.hint': 'このリンクは誰でも作れます。心当たりのない誘いには入らないでください。',
     'link.invited.enter': '入る',
@@ -799,6 +809,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.link.hint': 'Send this to the other person. When they open it, warifu asks them whether to enter (it never enters on its own). They need warifu installed too.',
     'meeting.qr.reveal': 'Show as a QR code',
     'meeting.qr.hint': 'Use this when the other person is in front of you. Scanning it gives the same link.',
+    'pass.asked': 'An agent is asking for permission',
+    'pass.asked.hint': 'If you allow it, this agent can use that action. You can revoke it later.',
+    'pass.allow': 'Allow',
+    'pass.refuse': 'Refuse',
+    'pass.who': '{who} wants to use {what}',
     'link.invited': 'A link is inviting you into a room. Enter?',
     'link.invited.hint': 'Anyone can make such a link. Do not enter an invitation you were not expecting.',
     'link.invited.enter': 'Enter',
@@ -1111,6 +1126,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.link.hint': '把它发给对方。对方点开后，割符会询问是否进入（不会擅自进入）。对方也需要装有割符。',
     'meeting.qr.reveal': '显示二维码',
     'meeting.qr.hint': '对方就在眼前时用这个。扫出来是同一个链接。',
+    'pass.asked': '代理正在请求许可',
+    'pass.asked.hint': '允许后，该代理就能使用这个动作。之后可以撤销。',
+    'pass.allow': '允许',
+    'pass.refuse': '拒绝',
+    'pass.who': '{who} 想使用 {what}',
     'link.invited': '有链接邀请你进入房间。要进入吗？',
     'link.invited.hint': '这样的链接谁都能做。没有印象的邀请，请不要进入。',
     'link.invited.enter': '进入',
@@ -1427,6 +1447,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.link.hint': '이것을 상대에게 보냅니다. 상대가 열면 와리후가 들어갈지 묻습니다(멋대로 들어가지 않습니다). 상대에게도 와리후가 설치되어 있어야 합니다.',
     'meeting.qr.reveal': 'QR로 보여주기',
     'meeting.qr.hint': '상대가 눈앞에 있을 때 씁니다. 읽으면 같은 링크가 됩니다.',
+    'pass.asked': '에이전트가 허가를 요청하고 있습니다',
+    'pass.asked.hint': '허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.',
+    'pass.allow': '허용',
+    'pass.refuse': '거절',
+    'pass.who': '{who} 이(가) {what} 을(를) 쓰고 싶어 합니다',
     'link.invited': '링크로 방에 초대받았습니다. 들어가시겠습니까?',
     'link.invited.hint': '이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.',
     'link.invited.enter': '들어간다',

@@ -11,6 +11,7 @@
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
+  import type { 待っている札 } from '$lib/bridge';
   import {
     入退室の知らせ,
     話の記録,
@@ -107,8 +108,10 @@
     EVENT_LINK,
     EVENT_CHECK_UPDATE,
     roomLink,
+    answerPass,
     linkAnswered,
     pendingLinks,
+    pendingPasses,
     nameRoom,
     notePath,
     roomName,
@@ -208,6 +211,15 @@
    * 届いた URL は他人が作れる。**押しただけでルームへ入る作りにしない。**
    */
   let 誘われた鍵 = $state('');
+
+  /**
+   * **人の答えを待っている札**（**D119**）。
+   *
+   * **部屋の会話とは別の所に出す** —— 2026-09-15、ASUS の画面に
+   * 「許可が必要です」が**部屋の発言として**届いた（**#26**）。
+   * **聞く口と流す口を分ける。**
+   */
+  let 待っている札たち = $state<待っている札[]>([]);
   let received = $state('');
   /** 会議キーの有効期間。既定 10 分。**長く置くほど、渡した先が分からなくなる** */
   /**
@@ -842,6 +854,22 @@
     sendMode = 'none';
   }
 
+  /**
+   * **人が札に答えた**（**D119**）。
+   *
+   * **ここが札を出す唯一の所である**（**D56** ——「札を出すのは人である」）。
+   * **押したあとは帯を畳む** —— 残ると、同じことを二度聞かれたように見える。
+   */
+  async function 札に答える(動作: string, 許す: boolean) {
+    try {
+      await answerPass(動作, 許す);
+      待っている札たち = 待っている札たち.filter((待ち) => 待ち.動作 !== 動作);
+    } catch (e) {
+      // **黙って畳まない。**畳むと「押したのに効いていない」が見えなくなる
+      notice = 読める(e);
+    }
+  }
+
   /** 選んだ機器を、その段の制約へ重ねる。 */
   function 機器の指定(attempt: MediaStreamConstraints): MediaStreamConstraints {
     const base = constraintsFor(prefs);
@@ -1022,6 +1050,12 @@
         // **教わった住所へ、自分から呼びに行く**（D41）。
         // どちらが呼ぶかは D38 と同じ規則で決まっているので、
         // 両側から呼んで 2 本張られることは無い
+        await onEvent<待っている札[]>('warifu://pass', (待ち) => {
+          // **札の頼みが来た**（**D119**）。**部屋の会話には出さない**（**#26**）
+          待っている札たち = 待ち;
+        }),
+      );
+      unsubs.push(
         await onEvent<[string, string, string]>(EVENT_INTRODUCED, ([key, address, 部屋]) => {
           // **同じ相手を二度呼びに行かない**（`gh issue 9`）。
           // `calls` は通話が出来てから入るので、**出来る前は何度でも呼び直せていた** ——
@@ -1126,6 +1160,9 @@
       // 知らせが落ちて、**人には押すものが画面のどこにも出なかった。**
       // **数は増えているのに答えられない**という、いちばん質の悪い形だった
       if (誘われた鍵 === null) {
+        // **札の頼みも読み直す**（**D119**）——
+        // **画面を入れ替えると知らせは飛ばない**ので、溜まっている分が出なくなる
+        待っている札たち = (await pendingPasses().catch(() => null)) ?? [];
         const 待ち = (await pendingLinks().catch(() => null)) ?? [];
         const [先頭] = 待ち;
         if (先頭) {
@@ -2090,6 +2127,35 @@
     </div>
   </div>
 {/if}
+
+<!--
+  **札の頼み**（**D119**）。
+
+  **部屋の会話とは別の所に出す** —— 2026-09-15、ASUS の画面に
+  「#19 にメッセージを送信するための許可が必要です」が**部屋の発言として**届いた（**#26**）。
+  **聞く口と流す口を分ける。**
+
+  **誘いの帯と同じ形にしてある**（人が同じ読み方をできるように）。
+-->
+{#each 待っている札たち as 待ち (待ち.動作)}
+  <div class="invited" role="alertdialog" aria-live="polite">
+    <p class="what">{t('pass.asked')}</p>
+    <p class="hint">
+      {format(t('pass.who'), { who: 待ち.頼んだ人, what: 待ち.動作 })}
+    </p>
+    <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
+    <p class="hint">{待ち.訳}</p>
+    <p class="hint">{t('pass.asked.hint')}</p>
+    <div class="tail">
+      <button type="button" onclick={() => void 札に答える(待ち.動作, true)}>
+        {t('pass.allow')}
+      </button>
+      <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, false)}>
+        {t('pass.refuse')}
+      </button>
+    </div>
+  </div>
+{/each}
 
 {#if notice}
   <p class="notice top">{notice}</p>

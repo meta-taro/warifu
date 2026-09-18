@@ -156,6 +156,32 @@ export const connect = (invite: string) => invoke<void>('connect', { invite });
  * **住所だけ渡すと「割符が付いていません」で止まる**
  * （2026-09-17 に 3 台で実測した、まさにその行）。
  */
+/** **人の答えを待っている札**（**D119**）。 */
+export type 待っている札 = {
+  /** 何をしたいか（`chat.send` など）。 */
+  動作: string;
+  /** **なぜ要るか。**人が一言で読む。 */
+  訳: string;
+  /** **どのエージェントが頼んだか。**人が「誰に許すか」を判断する材料。 */
+  頼んだ人: string;
+};
+
+/**
+ * **人の答えを待っている札を並べる**（**D119**）。
+ *
+ * **部屋の会話とは別の口である**（**#26** —— 許可を聞く言葉を部屋へ流さない）。
+ */
+export const pendingPasses = () => invoke<待っている札[]>('pending_passes');
+
+/**
+ * **人が札に答えた**（**D119**）。
+ *
+ * **ここが札を出す唯一の所である**（**D56** ——「札を出すのは人である」）。
+ * **エージェントはこの口を呼べない** —— 机（`desk.sock`）には無い。
+ */
+export const answerPass = (動作: string, 許す: boolean) =>
+  invoke<void>('answer_pass', { 動作, 許す });
+
 export const connectInRoom = (key: string, address: string, meeting: string) =>
   invoke<void>('connect_in_room', { key, address, meeting });
 
