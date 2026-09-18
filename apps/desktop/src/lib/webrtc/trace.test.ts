@@ -291,3 +291,32 @@ describe('音の積もり（本数では黙っているか分からない）', (
     expect(出た).not.toContain('無音');
   });
 });
+
+describe('手元の様子（`なし` の意味を言い分ける）', () => {
+  const 音 = { id: 'a', type: 'outbound-rtp', kind: 'audio', packetsSent: 5, totalAudioEnergy: 0.1 };
+
+  it('**掴んでいるのに外してあるなら、そう言う**', () => {
+    // **2026-09-18・ASUS の指摘。**`replaceTrack(null)` は行ごと消すので、
+    // **「枠が無い」と「外してある」が同じ `なし` になる。**
+    // **外から音量計で測らせていた** —— 道具が自分で言う
+    const 出た = 送り受けを言い表す([], { 掴んでいる: true, 外してある: true });
+    expect(出た).toContain('送り なし');
+    expect(出た).toContain('外してある');
+  });
+
+  it('掴んでいないなら、そう言う', () => {
+    const 出た = 送り受けを言い表す([], { 掴んでいる: false, 外してある: false });
+    expect(出た).toContain('機器を掴んでいない');
+    expect(出た).not.toContain('外してある');
+  });
+
+  it('掴んでいて付いているなら、そう言う', () => {
+    const 出た = 送り受けを言い表す([音] as never, { 掴んでいる: true, 外してある: false });
+    expect(出た).toContain('送り手に付いている');
+  });
+
+  it('手元を渡さなければ、何も足さない（古い呼び方を壊さない）', () => {
+    const 出た = 送り受けを言い表す([音] as never);
+    expect(出た).not.toContain('【');
+  });
+});

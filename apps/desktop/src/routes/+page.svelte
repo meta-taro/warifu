@@ -768,6 +768,15 @@
         取れたもの = await navigator.mediaDevices.getUserMedia(c);
         localStream = 取れたもの;
         sendMode = sendModeFor(試す);
+        // **掴んだことを言う**（2026-09-18・ASUS の求め）。
+        //
+        // **外から音量計で測らせていた** —— ASUS が `msedgewebview2` の録音の最大
+        // （0.0852）を測って「掴んでいる」を示した。**道具が自分で言えるほうがよい。**
+        //
+        // **中身は言わない。**機器の名前は人の環境を表すので、**本数と種別だけ。**
+        log(
+          `支度: 掴みました（映像 ${取れたもの.getVideoTracks().length} 本 / 音 ${取れたもの.getAudioTracks().length} 本）`,
+        );
         適用する();
         // **会議中なら、いま流れている経路の中身を入れ替える。**張り直さない
         for (const call of calls.values()) await call.replaceTracks(localStream);
@@ -792,6 +801,9 @@
     for (const call of calls.values()) await call.replaceTracks(null);
     前のもの?.getTracks().forEach((tr) => tr.stop());
     sendMode = 'none';
+    // **掴めなかったことも言う。**「掴んだ」だけ出すと、**出ないことが 2 つの意味を持つ**
+    // （まだ支度していない／支度したが取れなかった）
+    log(`支度: 掴めませんでした（${最後の失敗 || '訳なし'}）`);
     notice = 最後の失敗;
   }
 
@@ -816,6 +828,7 @@
    */
   async function ビデオ会議をやめる() {
     映像を使う = false;
+    if (localStream) log('支度: 放します（やめるを押した）');
     // **先に黙らせる。**機器を放す前に止めないと、放すまでの間だけ流れ続ける
     for (const c of calls.values()) c.映像と音を足す(false);
     // **音を止めたら、ハウリングの案内も畳む**（残ると嘘になる）

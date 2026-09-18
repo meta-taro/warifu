@@ -100,6 +100,9 @@ export class Call {
    */
   private 送り手 = new Map<'audio' | 'video', RTCRtpSender>();
 
+  /** **送り手から外してある種別**（記録で `なし` の意味を言い分けるために持つ）。 */
+  private 外してある = new Set<'audio' | 'video'>();
+
   constructor(
     offering: boolean,
     private handlers: CallHandlers,
@@ -266,7 +269,12 @@ export class Call {
         log(組);
         // **経路が付いた回に、送り受けの数も残す**（2026-09-15）——
         // 「経路は direct なのに映像が来ない」を、**送り側と受け側に切り分ける**
-        log(送り受けを言い表す(stats as 統計の行[]));
+        log(
+          送り受けを言い表す(stats as 統計の行[], {
+            掴んでいる: this.local !== null,
+            外してある: this.外してある.size > 0,
+          }),
+        );
       }
     }
       // **ハウリングの危険を、危なくなった時に言う**（2026-09-17・オーナー依頼）。
@@ -400,6 +408,9 @@ export class Call {
         : (this.local?.getVideoTracks()[0] ?? null);
     const 次 = 流す ? 持ち玉 : null;
     // **変わらないなら触らない。**毎秒呼ばれるので、無駄な差し替えをしない
+    // **外したかどうかを覚える**（記録で `なし` の意味を言い分けるため）
+    if (次 === null && 持ち玉 !== null) this.外してある.add(種);
+    else this.外してある.delete(種);
     if (送り手.track === 次) return;
     try {
       await 送り手.replaceTrack(次);
