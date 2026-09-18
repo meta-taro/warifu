@@ -536,6 +536,13 @@ export const rejoinKey = () => invoke<[string, string] | null>('rejoin_key');
 export const rejoinRoom = () => invoke<void>('rejoin_room');
 
 /**
+ * **貼られた鍵が、いつまで使えるか。**繋がずに読む（**#18**）。
+ *
+ * **「24 時間」と決め打ちしない** —— 鍵に `いつまで` が入っているので、そのまま読む。
+ */
+export const inviteWindow = (invite: string) => invoke<string>('invite_window', { invite });
+
+/**
  * **この実行ファイルの通信が、ファイアウォールで塞がれていないか**（PR #16）。
  *
  * **名前でまとめて数えない** —— `*warifu*` だとコマンドの規則まで数え、

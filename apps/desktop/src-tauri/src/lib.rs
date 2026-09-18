@@ -1113,6 +1113,23 @@ async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) ->
     call::呼ぶ(&app, &bridge, 相手).await
 }
 
+/// **貼られた鍵が、いつまで使えるか。**繋がずに読む（**#18**・2026-09-18）。
+///
+/// オーナー（2026-09-15）——
+/// 「**毎回「入る」押してるけど、「入らない」押したらどうなるの？永遠に入れない？**」
+///
+/// **答えは「割符は減らない」である**（戸口は使った割符を控えていない）。
+/// **困るのは、画面がその鍵を忘れること**だった ——
+/// **「永遠に入れなくなるかも」と思えば、人は断れない。断る自由が無いのと同じである。**
+///
+/// **「24 時間」と決め打ちしない。**鍵に `いつまで` が入っているので、そのまま読む
+/// （他所が出した鍵の窓は 24 時間とは限らない）。
+#[tauri::command]
+fn invite_window(invite: String) -> Answer<String> {
+    let (_住所, token, _部屋) = parse_invite(&invite)?;
+    Ok(時刻の言い方(token.not_after()))
+}
+
 /// **前に通してもらった部屋へ戻る**（**#21** / **#13**・2026-09-18）。
 ///
 /// # なぜ `connect` では戻れないのか
@@ -2778,6 +2795,7 @@ pub fn run() {
             connect_in_room,
 
             rejoin_room,
+            invite_window,
             pending_passes,
             answer_pass,
             stop_knowing,

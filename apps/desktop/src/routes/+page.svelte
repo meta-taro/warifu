@@ -151,6 +151,7 @@
     firewallState,
     rejoinKey,
     rejoinRoom,
+    inviteWindow,
     setPostbox,
     profiles,
     setProfile,
@@ -213,6 +214,17 @@
    * 届いた URL は他人が作れる。**押しただけでルームへ入る作りにしない。**
    */
   let 誘われた鍵 = $state('');
+  /**
+   * **その鍵がいつまで使えるか**（**#18**・2026-09-18）。
+   *
+   * オーナー（2026-09-15）——
+   * 「**「入らない」押したらどうなるの？永遠に入れない？**」
+   *
+   * **断っても割符は減らない**（戸口は使った割符を控えていない）。
+   * **それが分からないと、人は断れない** ——「永遠に入れなくなるかも」と思うからである。
+   * **断る自由が無いのと同じ**なので、**押す前に言う。**
+   */
+  let 誘いの期限 = $state<string | null>(null);
 
   /**
    * **人の答えを待っている札**（**D119**）。
@@ -1223,6 +1235,11 @@
         // **ここでは入らない。**届いた URL は他人が作れるので、人に尋ねる
         await onEvent<string>(EVENT_LINK, (鍵) => {
           誘われた鍵 = 鍵;
+          // **押す前に、いつまで使えるかを読む**（**#18**）。**繋がない**
+          誘いの期限 = null;
+          void inviteWindow(鍵)
+            .then((まで) => (誘いの期限 = まで))
+            .catch(() => (誘いの期限 = null));
           log(`リンクで誘われました（${鍵.length} 文字）`);
         }),
       );
@@ -1238,6 +1255,11 @@
         const [先頭] = 待ち;
         if (先頭) {
           誘われた鍵 = 先頭;
+          // **押す前に、いつまで使えるかを読む**（**#18**）。**繋がない**
+          誘いの期限 = null;
+          void inviteWindow(先頭)
+            .then((まで) => (誘いの期限 = まで))
+            .catch(() => (誘いの期限 = null));
           log(`起き上がって、待っていたリンクを拾いました（${先頭.length} 文字・残り ${待ち.length - 1} 本）`);
         }
       }
@@ -2211,13 +2233,21 @@
   <div class="invited" role="alertdialog" aria-live="polite">
     <p class="what">{t('link.invited')}</p>
     <p class="hint">{t('link.invited.hint')}</p>
+    {#if 誘いの期限}
+      <p class="hint">{format(t('link.invited.until'), { until: 誘いの期限 })}</p>
+    {/if}
     <div class="tail">
       <button type="button" onclick={() => void 誘いに乗る()}>{t('link.invited.enter')}</button>
       <button
         type="button"
         class="quiet"
         onclick={() => {
+          // **断っても鍵は減らない。**そう言わないと、人は断れない（**#18**）
+          notice = 誘いの期限
+            ? format(t('link.declined'), { until: 誘いの期限 })
+            : '';
           誘われた鍵 = '';
+          誘いの期限 = null;
           void linkAnswered().catch(() => {});
         }}
       >

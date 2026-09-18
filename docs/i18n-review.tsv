@@ -3,10 +3,10 @@ act.address.none	Their whereabouts are not remembered yet. Connect once with a r
 act.already	Already in the same room.	すでに同じルームです。	已经在同一个房间里了。	이미 같은 방에 있습니다.				
 act.calendar	Schedule	予定	日程	일정				
 act.calendar.none	There is no way yet for this screen to read a calendar. It cannot show free slots either.	画面から予定表を読む口が、まだ 1 本もありません。空いている枠も出せません。	这个界面还没有任何读取日程表的入口，也无法显示空闲时段。	이 화면에서 일정표를 읽는 창구가 아직 하나도 없습니다. 빈 시간도 보여줄 수 없습니다.	★	**作っていない**という事実である。「準備中です」「近日対応」のような、待てば来ると読める訳にしないこと。読み込みに失敗した（＝あるのに読めない）とも読ませないこと。		
-act.call	Video meeting	ビデオ会議	视频会议	영상 회의				
-act.call.action	Call into a meeting	ビデオ会議に呼ぶ	请进视频会议	영상 회의로 부르기				
+act.call	Call into the room	ルームに呼ぶ	呼叫进入房间	룸으로 부르기				
+act.call.action	Call (no room key needed)	呼ぶ（ルームキーは要りません）	呼叫（不需要 room key）	부르기（룸 키는 필요 없습니다）				
 act.call.desk.none	Not connected. Once connected, it is in the same conversation from the start.	つながっていません。つながれば、はじめから同じ会話に入っています。	没有连上。连上之后，从一开始就在同一个会话里。	연결되어 있지 않습니다. 연결되면 처음부터 같은 대화에 있습니다.				
-act.call.net	On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.	同じ網なら、そのまま繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.	★	**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。`--relay` は付けられるが、繋がる保証はまだ無い。		
+act.call.net	On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.	覚えている住所へ直接つなぎます。同じ網なら繋がります。相手が受け取る設定でなければ通りません。	同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.	★	**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。`--relay` は付けられるが、繋がる保証はまだ無い。		
 act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중…				
 act.chat	Chat	チャット	聊天	채팅				
 act.chat.desk	A conversation with the agent on this computer only. Type in the conversation box and only that agent receives it.	この PC のエージェントとだけの会話です。会話の欄に打つと、そのエージェントにだけ届きます。	只和这台电脑的智能体的会话。在会话框里输入，只有那个智能体会收到。	이 PC의 에이전트와만 하는 대화입니다. 대화 칸에 입력하면 그 에이전트에게만 갑니다.				
@@ -17,10 +17,10 @@ act.desk.empty	No agent on this computer is connected.	この PC のエージェ
 act.desk.local	Agents on this computer are in the same room from the start. There is nothing to bring in.	この PC のエージェントは、はじめから同じルームに入っています。呼ぶ必要はありません。	这台电脑的智能体从一开始就在同一个 room 里，不需要请进来。	이 PC의 에이전트는 처음부터 같은 룸에 있습니다. 들일 필요가 없습니다.				
 act.desk.stop	Stop this agent	このエージェントを止める	让这个代理停下	이 에이전트를 멈추기				
 act.desk.stop.hint	It is told to stop. Nothing is killed — the other side steps down on its own. To run it again, start it there.	「止まれ」と伝えます。相手を殺すのではなく、受けた側が自分で降ります。もう一度動かすには、そちらで立ち上げ直してください。	会传达「停下」。不是杀掉对方，而是收到的一方自己退出。要再次运行，请在那边重新启动。	「멈추라」고 전합니다. 상대를 죽이는 것이 아니라, 받은 쪽이 스스로 내려옵니다. 다시 움직이려면 그쪽에서 다시 시작해 주세요.				
-act.group	Group chat	グループチャット	群聊	그룹 채팅				
-act.group.action	Create a room	ルームを作る	建一个 room	룸 만들기				
+act.group	Invite to a room	ルームに招く	邀请进入房间	룸에 초대				
+act.group.action	Issue a room key	ルームキーを出す	发一把 room key	룸 키를 발급				
 act.group.desk.none	An agent that is not connected cannot be invited into a room either.	繋がっていないエージェントは、ルームにも呼べません。	没有连上的智能体，也无法请进 room。	연결되지 않은 에이전트는 룸에도 부를 수 없습니다.				
-act.group.what	Create a room and invite them. Pressing this takes you to where keys are issued — one per person you invite.	ルームを作って、この相手を招きます。押すと、人数ぶんのルームキーを出す所へ移ります。	建一个 room，把这位对象请进来。按下后会转到发room key的地方（按邀请人数，一次出一把）。	룸을 만들어 이 상대를 초대합니다. 누르면 인원 수만큼 룸 키를 발급하는 곳으로 이동합니다.				
+act.group.what	Hands this person a room key. One key, one person. Pressing this takes you to where keys are issued.	この相手にルームキーを渡します。1 本につき 1 人です。押すと、ルームキーを出す所へ移ります。	把一把 room key 交给这位对象。一把对一个人。按下后会转到发 room key 的地方。	이 상대에게 룸 키를 건넵니다. 한 개에 한 사람입니다. 누르면 룸 키를 발급하는 곳으로 이동합니다.				
 act.state.no	Not yet	まだできない	还不行	아직 안 됨				
 act.state.ok	Works	できる	可以	가능				
 act.state.wait	Conditions apply	条件つき	有条件	조건부				
@@ -121,10 +121,10 @@ help.this.on	Green dot (bottom right of the face) — an agent attached to this 
 help.this.others	No dot is shown for “People remembered” below. Whether they are running cannot be known from here.	下の「連絡先」には丸を出しません。相手が起動しているかは、こちらから分からないためです。	下面的「记住的对象」不显示圆点。因为从这里无法知道对方是否在运行。	아래 “기억하고 있는 상대”에는 동그라미를 표시하지 않습니다. 상대가 켜져 있는지는 여기서 알 수 없기 때문입니다.				
 help.this.title	Rows under “This computer”	この PC の行	「这台电脑」里的行	“이 PC”의 행				
 home.calendar	You can write and keep your own appointments. You cannot see theirs (only free slots are ever handed over).	自分の予定を書いて置けます。相手の予定は見えません（渡るのは空いている枠だけです）。	可以写下并保存自己的日程。看不到对方的日程（交给对方的只有空闲时段）。	내 일정을 써서 둘 수 있습니다. 상대의 일정은 볼 수 없습니다(넘어가는 것은 빈 시간뿐입니다).				
-home.call	On the same network it connects. A different network needs --relay, and we have not once seen that connect.	同じ網なら繋がります。別の網は --relay が要りますが、繋がったことをまだ一度も見ていません。	同一个网络里可以连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.				
+home.call	Connects straight to the address we remember. On the same network it connects. Calling alone does not turn your camera on — video is added inside the room.	覚えている住所へ直接つなぎます。同じ網なら繋がります。呼ぶだけで、カメラは点きません（映像はルームの中で足します）。	直接连到我们记住的地址。同一个网络里可以连上。只是呼叫不会打开摄像头（影像在房间里才加上）。	기억하고 있는 주소로 바로 연결합니다. 같은 망이면 연결됩니다. 부르기만 해서는 카메라가 켜지지 않습니다（영상은 룸 안에서 더합니다）.				
 home.chat	Pick someone and the conversation is with that person only.	相手を選ぶと、その人とだけの会話になります。	选择一位对象，就变成只和那个人的会话。	상대를 고르면 그 사람과만 하는 대화가 됩니다.				
 home.contacts	Contacts	連絡先	联系人	연락처				
-home.group	Create a room and hand out one room key per person. One key, one person.	ルームを作って、人数ぶんのルームキーを渡します。1 本につき 1 人です。	建一个 room，按人数发room key。一把 room key一个人。	룸을 만들어 인원 수만큼 룸 키를 나눕니다. 키 하나에 한 사람입니다.				
+home.group	Hands this person a room key. One key, one person. Pressing this takes you to where keys are issued.	この相手にルームキーを渡します。1 本につき 1 人です。押すと、ルームキーを出す所へ移ります。	把一把 room key 交给这位对象。一把对一个人。按下后会转到发 room key 的地方。	이 상대에게 룸 키를 건넵니다. 한 개에 한 사람입니다. 누르면 룸 키를 발급하는 곳으로 이동합니다.				
 home.lead	Pick someone and what you can do with them appears here. Choose from the list on the left.	相手を選ぶと、その相手にできることが出ます。左の一覧から選んでください。	选择一位对象，就会显示可以对他做的事。请从左边的列表里选。	상대를 고르면 그 상대에게 할 수 있는 일이 나옵니다. 왼쪽 목록에서 골라 주세요.				
 home.next	First step	はじめの一歩	第一步	첫걸음				
 home.next.hint	Nobody here yet. Press your own row under “This computer” on the left to see how to hand over a room key.	まだ誰もつながっていません。左の「この PC」のあなたの行を押すと、ルームキーの渡し方が出ます。	还没有任何人。按左边「这台电脑」里你自己的那一行，就会显示room key的交付方法。	아직 아무도 없습니다. 왼쪽 “이 PC”의 내 행을 누르면 룸 키를 건네는 방법이 나옵니다.				
@@ -197,7 +197,7 @@ meeting.start.title	Make a room	ルームをつくる	建一个房间	방 만들
 meeting.howling	Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.	同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。	正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。	같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.	★	**断定しない文にすること。**同じ網に居ることは「近い」の手がかりで、確証ではない —— 「ハウリングしています」と言い切る訳にしないこと。**エコー除去が壊れている**とも読ませないこと（除去は効いているが、自分の出力しか消せないのが理由）。逃げ道（ヘッドフォン／片方のマイクを切る）を落とさないこと。		
 meeting.status.both	Connected — video and audio, both ways	つながっています（映像と音を、送って受けています）	已连接（视频和声音，双向）	연결되어 있습니다 (영상과 소리를 주고받고 있습니다)				
 meeting.status.live	Connected	つながっています	已连接	연결되어 있습니다				
-meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours.	つながっています（相手の映像を受けています。あなたは送っていません）	已连接（正在接收对方的视频。你没有发送自己的视频）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다)				
+meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours; press [Add video and sound] to send.	つながっています（相手の映像を受けています。あなたは送っていません —— ［映像と音を足す］を押すと送ります）	已连接（正在接收对方的视频。你没有发送自己的视频 —— 按［为这个房间加上影像］就会发送）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다 —— ［이 룸에 영상을 더하기］를 누르면 보냅니다)				
 meeting.status.sendonly	Connected — you are sending video. Theirs has not arrived.	つながっています（あなたは送っています。相手の映像は来ていません）	已连接（你正在发送视频。对方的视频还没有到达）	연결되어 있습니다 (당신은 보내고 있습니다. 상대의 영상은 오지 않았습니다)				
 pass.allow	Allow	許す	允许	허용	★	**押すと札が出る。**「OK」「確認」のような、何が起きるか分からない語にしないこと。		
 pass.asked	An agent is asking for permission	エージェントが許可を求めています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다	★	**エージェントが頼んでいる**のであって、**警符が求めているのではない。**「システムが許可を要求しています」と読める訳にしないこと —— **誰が頼んだかが分からないと、人は判断できない。**「今すぐ」「必要です」のような急かす言い方にしないこと（**断ってよい**）。		
@@ -242,7 +242,7 @@ revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{devi
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a room key and someone can come in.	まだ自分だけです。ルームキーを渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
 room.back	Back to the last room	前のルームに戻る	回到上一个房间	이전 룸으로 돌아가기				
-room.back.hint	Rejoins the room you were in, with the room key you were given. You do not need a new key.	前に入ったルームへ、もらったルームキーで入り直します。ルームキーをもう一度もらう必要はありません。	用之前收到的 room key 重新进入上一个房间。不需要再要一把新的。	받았던 room key 로 이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다.				
+room.back.hint	Rejoins the room you were in. You do not need a new key — even after the key's 24 hours are up, you can return if they still let you in.	前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。	重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。	이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.				
 room.host	You made this room	あなたが作ったルームです	这个房间由你建立	당신이 만든 방입니다				
 room.invite	Invite someone to this room	このルームに人を呼ぶ	邀请人进这个 room	이 룸에 사람을 부르기				
 room.invite.hint	This one room key lets one person in. Hand the link, the QR or the room key text to the person you want. To invite another person, issue another room key.	この 1 本で 1 人が入れます。リンクか QR、またはルームキーの文字を、呼びたい相手に渡してください。もう 1 人呼ぶなら、もう 1 本出します。	这一把 room key可以让一个人进来。请把链接、二维码或room key 文字交给你想邀请的人。要再邀请一个人，就再出一把。	이 룸 키 한 개로 한 사람이 들어올 수 있습니다. 링크나 QR, 또는 룸 키 문자를 부르고 싶은 상대에게 건네주세요. 한 사람 더 부르려면 한 개 더 발급합니다.				
@@ -308,10 +308,12 @@ update.notes.none	Nothing written.	書かれていません。	没有写。	쓰�
 video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
 video.off.held	Your camera and microphone are on, but nothing is being sent. Your own view is visible only to you.	カメラとマイクは点いていますが、相手へは何も送っていません。自分の姿は自分にだけ見えています。	摄像头和麦克风已开启，但没有向对方发送任何内容。你自己的画面只有你能看到。	카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다. 자기 모습은 자신에게만 보입니다.	★	**機器は点いている。**「カメラは切れています」「使っていません」と読める訳にしないこと —— 実際にカメラの明かりは点いており、嘘になる（2026-09-17・Mac Air の報告）。逆に「送信中です」とも読ませないこと。**言うべきは「点いているが、相手へは行っていない」**である。「自分だけに見えている」は、**他の誰にも見えていない**と読めること。		
 video.off.hint	This room is text only right now. Neither camera nor microphone is in use.	このルームは、いま文字だけです。カメラもマイクも使っていません。	这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。	이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.				
-video.start	Start a video meeting	ビデオ会議を始める	开始视频会议	영상 회의 시작				
-video.stop	Stop the video meeting	ビデオ会議をやめる	结束视频会议	영상 회의 끝내기				
-video.title	Video meeting	ビデオ会議	视频会议	영상 회의				
+video.start	Add video and sound	映像と音を足す	加上影像和声音	영상과 소리를 더하기				
+video.stop	Stop video and sound (you stay in the room)	映像と音をやめる（ルームは抜けません）	停止影像和声音（不退出房间）	영상과 소리를 멈추기（룸에서 나가지 않습니다）				
+video.title	Add video to this room	このルームに映像を足す	为这个房间加上影像	이 룸에 영상을 더하기				
 window.close	Close	閉じる	关闭	닫기				
 window.maximize	Maximize	最大化	最大化	최대화				
 window.minimize	Minimize	最小化	最小化	최소화				
 window.restore	Restore	元のサイズに戻す	还原	이전 크기로				
+link.invited.until	This room key works until {until}. Declining does not use it up.	このルームキーは {until} まで使えます。入らなくても、それまでは使えます。	这把 room key 到 {until} 之前都能用。不进去也不会用掉它。	이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.				
+link.declined	You did not enter. This room key works until {until} — open the link again when you want to enter.	入りませんでした。このルームキーは {until} まで使えます —— 入るときは、もう一度リンクを開いてください。	没有进去。这把 room key 到 {until} 之前都能用 —— 想进去的时候，再打开一次链接。	들어가지 않았습니다. 이 룸 키는 {until} 까지 쓸 수 있습니다 —— 들어갈 때는 링크를 다시 열어 주세요.				
