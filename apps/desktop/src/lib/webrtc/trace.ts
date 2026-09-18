@@ -57,6 +57,13 @@ export interface 統計の行 {
    * **無音 121 個かもしれない。**——**そこを分けるのがこれである。**
    */
   totalAudioEnergy?: number;
+  /**
+   * **送っている行から、音の出どころを指す紐**（2026-09-18・ASUS の指摘）。
+   *
+   * `outbound-rtp` の鍵を全部出してもらったところ、**音量に類するものは 1 つも無く、
+   * `mediaSourceId` が在った** ——**そこから `media-source` を引くのが筋**である。
+   */
+  mediaSourceId?: string;
   state?: string;
   nominated?: boolean;
   localCandidateId?: string;
@@ -267,10 +274,16 @@ export function 送り受けを言い表す(
     // **試験が通っていたのは、入力を自分で作って `outbound-rtp` に積もりを載せていたから。**
     //
     // **受け側は `inbound-rtp` のまま**（あちらには本当に載っている）。
-    const 音量の出所 =
-      向き === 'outbound-rtp'
-        ? [...統計.filter((s) => s.type === 'media-source' && s.kind === 'audio'), ...行たち]
-        : 行たち;
+    // **紐（`mediaSourceId`）が在れば、それで引く**（2026-09-18・ASUS の指摘）。
+    // **送り手が 2 つある回に、他人の音量を足さない**ため。
+    // 紐が無い engine では、`kind: 'audio'` の `media-source` を拾う
+    const 元を引く = (): 統計の行[] => {
+      const 紐たち = new Set(行たち.map((s) => s.mediaSourceId).filter((x) => x !== undefined));
+      const 元たち = 統計.filter((s) => s.type === 'media-source' && s.kind === 'audio');
+      const 紐で引けた = 元たち.filter((s) => 紐たち.has(s.id));
+      return 紐で引けた.length > 0 ? 紐で引けた : 元たち;
+    };
+    const 音量の出所 = 向き === 'outbound-rtp' ? [...元を引く(), ...行たち] : 行たち;
     // **出していない相手には、何も言わない。**
     // 古い版は `totalAudioEnergy` を出さない —— **「出していない」を「0」と言うと、
     // 喋っているのに「無音」と書くことになる。**

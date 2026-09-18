@@ -307,6 +307,7 @@ describe('**本物の getStats() の束**（手で作った束は、在らない
   const 本物 = [
     {
       id: 'OT01A', type: 'outbound-rtp', kind: 'audio', mediaType: 'audio',
+      mediaSourceId: 'SA01',
       bytesSent: 0, packetsSent: 0, active: true, headerBytesSent: 0,
       nackCount: 0, packetsSentWithEct1: 0, retransmittedBytesSent: 0,
       retransmittedPacketsSent: 0, totalPacketSendDelay: 0,
@@ -328,6 +329,18 @@ describe('**本物の getStats() の束**（手で作った束は、在らない
     const 元 = 本物.find((s) => s.type === 'media-source');
     expect(元).toBeDefined();
     expect(元?.totalAudioEnergy).toBe(0);
+  });
+
+  it('**紐（mediaSourceId）で引く**（送り手が 2 つある回に、他人の音量を足さない）', () => {
+    // **2026-09-18・ASUS の指摘。**`outbound-rtp` の 18 個の鍵に音量は無く、
+    // **`mediaSourceId` が在った。**——**そこから引くのが筋である。**
+    const 出た = 送り受けを言い表す([
+      ...本物,
+      // **別の送り手の音源**（こちらは喋っている）。紐が違うので足さない
+      { id: 'SA99', type: 'media-source', kind: 'audio', totalAudioEnergy: 0.5 },
+    ] as never);
+    expect(出た).toContain('無音');
+    expect(出た).not.toContain('5.00e-1');
   });
 
   it('**本物の束で「無音」と言える**（仕様ではなく実測で）', () => {
