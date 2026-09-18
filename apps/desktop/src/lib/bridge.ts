@@ -527,6 +527,15 @@ export const cliState = () => invoke<CLIの様子>('cli_state');
 export const rejoinKey = () => invoke<[string, string] | null>('rejoin_key');
 
 /**
+ * **前に通してもらった部屋へ戻る**（**#21** / **#13**）。
+ *
+ * **鍵の期限が切れていても戻れる** —— 戸口の「知り合い」に期限は無いので、
+ * **割符なしで叩く**（通すかは相手の戸口が決める）。
+ * **鍵の文字は画面へ出さない**ので、貼り直しではなくこちらを押す。
+ */
+export const rejoinRoom = () => invoke<void>('rejoin_room');
+
+/**
  * **この実行ファイルの通信が、ファイアウォールで塞がれていないか**（PR #16）。
  *
  * **名前でまとめて数えない** —— `*warifu*` だとコマンドの規則まで数え、

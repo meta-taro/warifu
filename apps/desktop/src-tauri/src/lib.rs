@@ -1113,6 +1113,46 @@ async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) ->
     call::呼ぶ(&app, &bridge, 相手).await
 }
 
+/// **前に通してもらった部屋へ戻る**（**#21** / **#13**・2026-09-18）。
+///
+/// # なぜ `connect` では戻れないのか
+///
+/// **割符は 24 時間で切れる。戸口の「知り合い」は消えない**（`known.tsv`）。
+///
+/// ```text
+/// 通した側   known.tsv に残る          → **期限が無い**
+/// 通された側 帰り道の鍵（割符入り）    → **24 時間で切れる**
+/// ```
+///
+/// **つまり、相手はまだ通してくれるのに、こちらのアプリが先に断っていた** ——
+/// `connect` は繋ぐ前に窓を見るので（2026-09-18 に足した）、
+/// **期限が切れた鍵はそこで止まる。**
+///
+/// 戸口は `if 知り合い { Answer::Open }` である（`warifu-door`）——
+/// **割符が無くても、知り合いなら開く。**だから**割符なしで叩けば戻れる。**
+///
+/// **通すかどうかは、相手の戸口が決める。**こちらでは決めない ——
+/// 断られたら、そのとき初めて「鍵をもらってください」と言う。
+#[tauri::command]
+async fn rejoin_room(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
+    let vault = warifu_vault::Vault::default_location()?;
+    let Some((_部屋, 鍵)) = vault.rejoin()? else {
+        return Err(Failure {
+            message: "戻る先を覚えていません".into(),
+            code: Some("room.back.none".into()),
+        });
+    };
+    let (address, token, _meeting) = parse_invite(&鍵)?;
+    // **窓の中なら、いつもの道。**割符を持っているほうが強い（名簿にも載る）
+    if bridge.device.accept(&token, now_secs()).is_ok() {
+        return connect(app, bridge, 鍵).await;
+    }
+    // **窓の外。**割符なしで叩く —— 通すかは相手の戸口が決める
+    記録!("戻る: 鍵の窓は過ぎている。割符なしで叩きます");
+    let 宛先 = Address::from_str(&address)?;
+    call::住所へ呼ぶ(&app, &bridge, 宛先.public_key(), &address).await
+}
+
 /// **同じ部屋のゲストを、部屋の合言葉の証しで呼ぶ**（**D118** / **#28**）。
 ///
 /// 紹介で教わった住所へ繋ぐ道。**`connect` は使えない** ——
@@ -2736,6 +2776,8 @@ pub fn run() {
             desk_seats,
             call_contact,
             connect_in_room,
+
+            rejoin_room,
             pending_passes,
             answer_pass,
             stop_knowing,

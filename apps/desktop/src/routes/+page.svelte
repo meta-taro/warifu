@@ -150,6 +150,7 @@
     cliState,
     firewallState,
     rejoinKey,
+    rejoinRoom,
     setPostbox,
     profiles,
     setProfile,
@@ -575,13 +576,20 @@
   );
   let 戻っている = $state(false);
 
-  /** 前のルームへ入り直す。**鍵はもらい直さない**（同じ割符で戻れる・D44）。 */
+  /**
+   * 前のルームへ入り直す。**鍵はもらい直さない**（同じ割符で戻れる・D44）。
+   *
+   * **期限が切れていても戻る**（**#21**・2026-09-18）——
+   * **通した側の記録（`known.tsv`）に期限は無いのに、通された側の鍵は 24 時間で切れる。**
+   * **相手はまだ通してくれるのに、こちらのアプリが先に断っていた。**
+   * 切れていれば**割符なしで叩く** —— 通すかは相手の戸口が決める。
+   */
   async function 前のルームに戻る() {
     if (!帰り道 || 戻っている) return;
     戻っている = true;
     notice = '';
     try {
-      await connect(帰り道[1]);
+      await rejoinRoom();
       await ルームを読み直す();
     } catch (e) {
       notice = 読める(e);
