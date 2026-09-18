@@ -292,6 +292,52 @@ describe('音の積もり（本数では黙っているか分からない）', (
   });
 });
 
+describe('**本物の getStats() の束**（手で作った束は、在らない項目を自分で足せてしまう）', () => {
+  // **2026-09-18、Mac Air の提案でこれを置いた。**
+  //
+  // > **手で作った束だけだと、在らない項目を自分で足せてしまいます。**
+  // > **本物の束が 1 つ在れば、`totalAudioEnergy` が outbound に無いことが、その場で分かります。**
+  //
+  // **取り方**（マイクの許可は使わない）——
+  // `AudioContext` → `createMediaStreamDestination()` の合成音を
+  // `RTCPeerConnection` 2 本のループバックに載せ、`getStats()` を書き出した。
+  //
+  // **測った engine は Chromium**（画面は WKWebView なので、そこは別に測る必要がある）。
+  // **`id` などその場かぎりの値は落としてある。**
+  const 本物 = [
+    {
+      id: 'OT01A', type: 'outbound-rtp', kind: 'audio', mediaType: 'audio',
+      bytesSent: 0, packetsSent: 0, active: true, headerBytesSent: 0,
+      nackCount: 0, packetsSentWithEct1: 0, retransmittedBytesSent: 0,
+      retransmittedPacketsSent: 0, totalPacketSendDelay: 0,
+    },
+    {
+      id: 'SA01', type: 'media-source', kind: 'audio',
+      audioLevel: 0, totalAudioEnergy: 0, totalSamplesDuration: 0,
+    },
+  ];
+
+  it('**送っている行に音量は載っていない**（これが落とし穴 11 の芯）', () => {
+    const 送り = 本物.find((s) => s.type === 'outbound-rtp');
+    expect(送り).toBeDefined();
+    // **`0` ではなく `undefined`。**ここを 0 と読むと「無音」と書いてしまう
+    expect(送り).not.toHaveProperty('totalAudioEnergy');
+  });
+
+  it('**掴んでいる側の音量は `media-source` に載っている**', () => {
+    const 元 = 本物.find((s) => s.type === 'media-source');
+    expect(元).toBeDefined();
+    expect(元?.totalAudioEnergy).toBe(0);
+  });
+
+  it('**本物の束で「無音」と言える**（仕様ではなく実測で）', () => {
+    const 出た = 送り受けを言い表す(本物 as never);
+    expect(出た).toContain('音 0');
+    expect(出た).toContain('無音');
+    expect(出た).not.toContain('不明');
+  });
+});
+
 describe('送り側の積もりは `media-source` から読む（**outbound-rtp には無い**）', () => {
   // **2026-09-18、Mac Air の実測から出た。**
   //
