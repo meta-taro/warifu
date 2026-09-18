@@ -148,6 +148,9 @@ const ISSUED_HEADER: &str = "warifu-issued-v1";
 /// 待っていた口の控えの見出し（**#38 の残り半分**）。
 const PORT_HEADER: &str = "warifu-port-v1";
 
+/// 中継を使うかの控えの見出し（**#5**・2026-09-18）。
+const RELAY_HEADER: &str = "warifu-relay-v1";
+
 /// 部屋の合言葉の控えの見出し（**D118**）。
 const ROOM_SECRET_HEADER: &str = "warifu-room-secret-v1";
 
@@ -604,6 +607,62 @@ impl Vault {
     #[must_use]
     pub fn port_path(&self) -> PathBuf {
         self.dir.join("port.tsv")
+    }
+
+    /// 中継を使うかの控えの置き場所（**#5**）。
+    #[must_use]
+    pub fn relay_path(&self) -> PathBuf {
+        self.dir.join("relay.tsv")
+    }
+
+    /// **中継を使うかを控える**（**#5**・2026-09-18）。
+    ///
+    /// # なぜ要るのか
+    ///
+    /// **画面から中継を入れる道が、環境変数しか無かった** ——
+    /// `WARIFU_RELAY=1` を付けて `.app` を立ち上げるのは、人の手順ではない。
+    /// **だから「網を越えた実測がまだ 0 件」のままだった**（#5）。
+    ///
+    /// **既定は使わない**（**D13**）。**入れるのは人が決めること**である ——
+    /// 中継を使うと、**繋いだことが中継の運用者に見える。**
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_relay(&self, 使う: bool) -> Result<(), Error> {
+        let out = format!(
+            "{RELAY_HEADER}\n{}\n",
+            if 使う { "使う" } else { "使わない" }
+        );
+        self.write_private(&self.relay_path(), &out, "中継の設定を控える")
+    }
+
+    /// 控えた中継の設定を読む。**無ければ `None`**（初めてはこれ）。
+    ///
+    /// **読めない行は「無い」と同じ**にする —— **`false` に倒さない**のではなく、
+    /// **「控えが無い」に倒す**（呼ぶ側が既定を決める）。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn relay(&self) -> Result<Option<bool>, Error> {
+        let path = self.relay_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(Error::io(&path, "中継の設定を読む")(e)),
+        };
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != RELAY_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{RELAY_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(match lines.find(|l| !l.trim().is_empty()).map(str::trim) {
+            Some("使う") => Some(true),
+            Some("使わない") => Some(false),
+            _ => None,
+        })
     }
 
     /// **次の起動で取りに行く口を控える。**

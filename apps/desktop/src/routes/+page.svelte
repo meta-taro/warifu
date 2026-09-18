@@ -117,6 +117,8 @@
     nameRoom,
     notePath,
     noteScreen,
+    relaySetting,
+    setRelay,
     roomName,
     scheduleAdd,
     scheduleList,
@@ -637,6 +639,8 @@
    * 画面がこの値を持っていなかったので、札も規則も動いていなかった**
    * （2026-09-18 に気づいた。`destination.ts` と同じ形である）。
    */
+  /** **中継を使う設定**（**#5**）。**いま効いている値ではなく、控えてある値。** */
+  let 中継を使う = $state(false);
   let 映像がある部屋 = $state<string | null>(null);
   /** **別の部屋へ映像を移すか**、人に尋ねている最中（**D112**）。 */
   let 映像を移すか = $state<string | null>(null);
@@ -1060,6 +1064,7 @@
       // **前に入ったルームへの帰り道**（`gh issue 13`）。
       // 更新は再起動を伴うので、**鍵をもらい直さずに戻れる**ようにする
       帰り道 = (await rejoinKey().catch(() => null)) ?? null;
+      中継を使う = (await relaySetting().catch(() => false)) ?? false;
     })();
   });
 
@@ -2709,6 +2714,35 @@
       置かなければ、これまでどおり**相手が起動している間だけ**届く。
       **割符が用意する中央ではない** —— 立てるのは導入した人である（D68）。
     -->
+    <!--
+      **網を越えてつなぐ**（**#5**・2026-09-18）。
+
+      **画面から入れる道が、環境変数しか無かった** ——
+      `WARIFU_RELAY=1` を付けて `.app` を立ち上げるのは、人の手順ではない。
+      **だから「網を越えた実測がまだ 0 件」のままだった。**
+
+      **既定は使わない**（**D13**）。**入れるのは人が決めること** ——
+      中継を使うと、**誰といつつながったかが中継の運用者から見える。**
+      **そこを隠さずに書く**（隠して入れさせるのは、いちばん悪い）。
+    -->
+    <div class="card">
+      <h2><Icon name="link" size={18} />{t('relay.title')}</h2>
+      <p class="hint">{t('relay.what')}</p>
+      <label class="row">
+        <input
+          type="checkbox"
+          checked={中継を使う}
+          onchange={(e) => {
+            中継を使う = e.currentTarget.checked;
+            void setRelay(中継を使う).catch((err) => (notice = 読める(err)));
+          }}
+        />
+        {t('relay.use')}
+      </label>
+      <!-- **黙って効かないのが、いちばん悪い。**いつから効くかを言う -->
+      <p class="hint">{t('relay.next')}</p>
+    </div>
+
     <div class="card">
       <h2><Icon name="postbox" size={18} />{t('postbox.title')}</h2>
       <p class="hint">{t('postbox.hint')}</p>

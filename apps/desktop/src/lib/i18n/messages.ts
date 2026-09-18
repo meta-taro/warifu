@@ -282,6 +282,10 @@ export type MessageKey =
   | 'video.stop'
   | 'video.title'
   | 'room.hasvideo'
+  | 'relay.title'
+  | 'relay.what'
+  | 'relay.use'
+  | 'relay.next'
   | 'video.noroom'
   | 'video.move.ask'
   | 'video.move.yes'
@@ -647,6 +651,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.stop': '映像と音をやめる（ルームは抜けません）',
     'video.title': 'このルームに映像を足す',
     'room.hasvideo': '● このルームに映像と音が付いています',
+    'relay.title': '網を越えてつなぐ（中継）',
+    'relay.what': '別の網の相手とつなぐには、中継が要ります。中継を使うと、誰といつつながったかが中継の運用者から見えます（中身は見えません）。同じ網の相手には要りません。',
+    'relay.use': '中継を使う',
+    'relay.next': 'この設定は次の起動から効きます。',
     'video.noroom': 'どのルームに足すかが決まっていません。先にルームを選んでください。',
     'video.move.ask': 'いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？',
     'video.move.yes': 'こちらへ移す',
@@ -935,7 +943,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.group.action': 'Issue a room key',
     'act.group.desk.none': 'An agent that is not connected cannot be invited into a room either.',
     'act.call': 'Call into the room',
-    'act.call.net': 'On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.',
+    'act.call.net': 'Connects straight to the address we remember. On the same network it connects. If they are not set to accept, it will not get through.',
     'act.call.action': 'Call (no room key needed)',
     'act.call.desk.none': 'Not connected. Once connected, it is in the same conversation from the start.',
     'act.call.working': 'Calling…',
@@ -975,6 +983,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.stop': 'Stop video and sound (you stay in the room)',
     'video.title': 'Add video to this room',
     'room.hasvideo': '● Video and sound are on this room',
+    'relay.title': 'Connect across networks (relay)',
+    'relay.what': 'Reaching someone on a different network needs a relay. With a relay on, whoever runs it can see who connected and when (not what you say). You do not need it for someone on the same network.',
+    'relay.use': 'Use a relay',
+    'relay.next': 'This takes effect the next time you start warifu.',
     'video.noroom': 'No room is selected to add video to. Pick a room first.',
     'video.move.ask': 'Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?',
     'video.move.yes': 'Move them here',
@@ -1261,7 +1273,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.group.action': '发一把 room key',
     'act.group.desk.none': '没有连上的智能体，也无法请进 room。',
     'act.call': '呼叫进入房间',
-    'act.call.net': '同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。',
+    'act.call.net': '直接连到我们记住的地址。同一个网络里可以连上。对方没有设成接收的话，就通不过去。',
     'act.call.action': '呼叫（不需要 room key）',
     'act.call.desk.none': '没有连上。连上之后，从一开始就在同一个会话里。',
     'act.call.working': '正在呼叫…',
@@ -1301,6 +1313,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.stop': '停止影像和声音（不退出房间）',
     'video.title': '为这个房间加上影像',
     'room.hasvideo': '● 影像和声音加在这个房间',
+    'relay.title': '跨网络连接（中继）',
+    'relay.what': '要连到别的网络里的人，需要中继。开了中继，运营中继的人能看到谁在什么时候连上（看不到内容）。同一个网络里的人不需要。',
+    'relay.use': '使用中继',
+    'relay.next': '这个设置从下次启动开始生效。',
     'video.noroom': '还没有决定加到哪个房间。请先选一个房间。',
     'video.move.ask': '影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？',
     'video.move.yes': '移到这里',
@@ -1591,7 +1607,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'act.group.action': '룸 키를 발급',
     'act.group.desk.none': '연결되지 않은 에이전트는 룸에도 부를 수 없습니다.',
     'act.call': '룸으로 부르기',
-    'act.call.net': '같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.',
+    'act.call.net': '기억하고 있는 주소로 바로 연결합니다. 같은 망이면 연결됩니다. 상대가 받는 설정이 아니면 통하지 않습니다.',
     'act.call.action': '부르기（룸 키는 필요 없습니다）',
     'act.call.desk.none': '연결되어 있지 않습니다. 연결되면 처음부터 같은 대화에 있습니다.',
     'act.call.working': '부르는 중…',
@@ -1631,6 +1647,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.stop': '영상과 소리를 멈추기（룸에서 나가지 않습니다）',
     'video.title': '이 룸에 영상을 더하기',
     'room.hasvideo': '● 이 룸에 영상과 소리가 붙어 있습니다',
+    'relay.title': '망을 넘어 연결하기（중계）',
+    'relay.what': '다른 망에 있는 상대와 연결하려면 중계가 필요합니다. 중계를 쓰면 누가 언제 연결했는지가 중계 운영자에게 보입니다（내용은 보이지 않습니다）. 같은 망의 상대에게는 필요 없습니다.',
+    'relay.next': '이 설정은 다음 실행부터 적용됩니다.',
+    'relay.use': '중계를 사용',
     'video.noroom': '어느 룸에 더할지 정해지지 않았습니다. 먼저 룸을 선택해 주세요.',
     'video.move.ask': '지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?',
     'video.move.yes': '이쪽으로 옮기기',

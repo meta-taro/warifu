@@ -1686,3 +1686,41 @@ fn 札の控えは_見出しが違えば断る() {
 
     assert!(vault.passes().is_err());
 }
+
+/// **中継の設定を控える**（**#5**・2026-09-18）。
+///
+/// **画面から中継を入れる道が、環境変数しか無かった** ——
+/// `WARIFU_RELAY=1` を付けて `.app` を立ち上げるのは人の手順ではなく、
+/// **だから「網を越えた実測がまだ 0 件」のままだった。**
+#[test]
+fn 中継の設定は_控えて読み戻せる() {
+    let vault = Vault::at(仮の置き場("relay"));
+
+    // **初めては「控えが無い」。**`false` ではない —— 既定を決めるのは呼ぶ側
+    assert_eq!(
+        vault.relay().expect("読める"),
+        None,
+        "**初めては控えが無い**"
+    );
+
+    vault.save_relay(true).expect("書ける");
+    assert_eq!(vault.relay().expect("読める"), Some(true));
+
+    vault.save_relay(false).expect("書ける");
+    assert_eq!(vault.relay().expect("読める"), Some(false));
+}
+
+#[test]
+fn 中継の控えは_人にだけ読める() {
+    // **置き場所の中のものは 0600**（ほかの控えと同じ）
+    let vault = Vault::at(仮の置き場("relay-mode"));
+    vault.save_relay(true).expect("書ける");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let 権限 = std::fs::metadata(vault.relay_path())
+            .expect("在る")
+            .permissions();
+        assert_eq!(権限.mode() & 0o777, 0o600, "0600 であること");
+    }
+}

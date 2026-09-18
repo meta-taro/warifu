@@ -6,7 +6,7 @@ act.calendar.none	There is no way yet for this screen to read a calendar. It can
 act.call	Call into the room	ルームに呼ぶ	呼叫进入房间	룸으로 부르기				
 act.call.action	Call (no room key needed)	呼ぶ（ルームキーは要りません）	呼叫（不需要 room key）	부르기（룸 키는 필요 없습니다）				
 act.call.desk.none	Not connected. Once connected, it is in the same conversation from the start.	つながっていません。つながれば、はじめから同じ会話に入っています。	没有连上。连上之后，从一开始就在同一个会话里。	연결되어 있지 않습니다. 연결되면 처음부터 같은 대화에 있습니다.				
-act.call.net	On the same network it connects as it is. A different network needs --relay, and we have not once seen that connect.	覚えている住所へ直接つなぎます。同じ網なら繋がります。相手が受け取る設定でなければ通りません。	同一个网络里可以直接连上。不同网络需要 --relay，但我们还没有见过它真的连上过。	같은 망이면 그대로 연결됩니다. 다른 망은 --relay가 필요하지만, 연결된 것을 아직 한 번도 보지 못했습니다.	★	**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。`--relay` は付けられるが、繋がる保証はまだ無い。		
+act.call.net	Connects straight to the address we remember. On the same network it connects. If they are not set to accept, it will not get through.	覚えている住所へ直接つなぎます。同じ網なら繋がります。相手が受け取る設定でなければ通りません。	直接连到我们记住的地址。同一个网络里可以连上。对方没有设成接收的话，就通不过去。	기억하고 있는 주소로 바로 연결합니다. 같은 망이면 연결됩니다. 상대가 받는 설정이 아니면 통하지 않습니다.	★	**別の網を越えて繋がったことを、一度も見ていない**（実測 0 件）。「どこからでも繋がります」「中継が自動で繋ぎます」と読める訳にしないこと。`--relay` は付けられるが、繋がる保証はまだ無い。		
 act.call.working	Calling…	呼んでいます…	正在呼叫…	부르는 중…				
 act.chat	Chat	チャット	聊天	채팅				
 act.chat.desk	A conversation with the agent on this computer only. Type in the conversation box and only that agent receives it.	この PC のエージェントとだけの会話です。会話の欄に打つと、そのエージェントにだけ届きます。	只和这台电脑的智能体的会话。在会话框里输入，只有那个智能体会收到。	이 PC의 에이전트와만 하는 대화입니다. 대화 칸에 입력하면 그 에이전트에게만 갑니다.				
@@ -322,3 +322,7 @@ video.move.ask	Video and sound are on another room. You have one camera and one 
 video.move.yes	Move them here	こちらへ移す	移到这里	이쪽으로 옮기기				
 video.move.no	Leave them there	そのままにする	留在那边	그대로 두기				
 room.hasvideo	● Video and sound are on this room	● このルームに映像と音が付いています	● 影像和声音加在这个房间	● 이 룸에 영상과 소리가 붙어 있습니다				
+relay.title	Connect across networks (relay)	網を越えてつなぐ（中継）	跨网络连接（中继）	망을 넘어 연결하기（중계）				
+relay.what	Reaching someone on a different network needs a relay. With a relay on, whoever runs it can see who connected and when (not what you say). You do not need it for someone on the same network.	別の網の相手とつなぐには、中継が要ります。中継を使うと、誰といつつながったかが中継の運用者から見えます（中身は見えません）。同じ網の相手には要りません。	要连到别的网络里的人，需要中继。开了中继，运营中继的人能看到谁在什么时候连上（看不到内容）。同一个网络里的人不需要。	다른 망에 있는 상대와 연결하려면 중계가 필요합니다. 중계를 쓰면 누가 언제 연결했는지가 중계 운영자에게 보입니다（내용은 보이지 않습니다）. 같은 망의 상대에게는 필요 없습니다.				
+relay.use	Use a relay	中継を使う	使用中继	중계를 사용				
+relay.next	This takes effect the next time you start warifu.	この設定は次の起動から効きます。	这个设置从下次启动开始生效。	이 설정은 다음 실행부터 적용됩니다.				

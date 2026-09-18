@@ -463,7 +463,21 @@ impl Bridge {
         // **既定は中継を使わない**（**D13**）。
         // 付けたときだけ通す —— 中継を通すと「誰がいつ誰に繋いだか」が
         // 中継の運用者に見える（**D10**）。**画面でも同じ形にする**（D78 は CLI だけだった）
-        let 使う = 中継を使うか(std::env::var("WARIFU_RELAY").ok().as_deref());
+        // **環境変数が勝つ。**次に控え（画面の設定）を見る（**#5**・2026-09-18）。
+        //
+        // **画面から入れる道が、環境変数しか無かった** ——
+        // `WARIFU_RELAY=1` を付けて `.app` を立ち上げるのは、人の手順ではない。
+        // **だから「網を越えた実測がまだ 0 件」のままだった。**
+        //
+        // **既定は使わない**（**D13**）。中継を使うと、
+        // **繋いだことが中継の運用者に見える**ので、**入れるのは人が決めること**である。
+        let 使う = match std::env::var("WARIFU_RELAY").ok() {
+            Some(言葉) => 中継を使うか(Some(&言葉)),
+            None => warifu_vault::Vault::default_location()
+                .ok()
+                .and_then(|v| v.relay().ok().flatten())
+                .unwrap_or(false),
+        };
         記録!(
             "中継: {}（WARIFU_RELAY で切り替えます）",
             if 使う { "**使います**" } else { "使いません" }
@@ -566,6 +580,28 @@ fn 中継を使うか(言葉: Option<&str>) -> bool {
         言葉.map(str::trim).map(str::to_ascii_lowercase).as_deref(),
         Some("1" | "true" | "yes" | "on")
     )
+}
+
+/// **中継を使う設定を読む**（**#5**）。**いま効いている値**ではなく、**控えてある値**。
+#[tauri::command]
+fn relay_setting() -> Answer<bool> {
+    let vault = warifu_vault::Vault::default_location()?;
+    Ok(vault.relay()?.unwrap_or(false))
+}
+
+/// **中継を使うかを控える**（**#5**・2026-09-18）。
+///
+/// **いますぐには変わらない** —— 結び目は起動のときに建てるので、
+/// **次の起動から効く。**画面はそう言う（黙って効かないのが、いちばん悪い）。
+#[tauri::command]
+fn set_relay(on: bool) -> Answer<()> {
+    let vault = warifu_vault::Vault::default_location()?;
+    vault.save_relay(on)?;
+    記録!(
+        "中継: 次の起動から {}",
+        if on { "使います" } else { "使いません" }
+    );
+    Ok(())
 }
 
 /// 自分の宛先。**これを相手へ渡す**（QR・紙・口頭でも成立する・M1）。
@@ -2844,6 +2880,8 @@ pub fn run() {
             rejoin_room,
             invite_window,
             note_screen,
+            relay_setting,
+            set_relay,
             pending_passes,
             answer_pass,
             stop_knowing,

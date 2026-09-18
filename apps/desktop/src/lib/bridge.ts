@@ -551,6 +551,17 @@ export const inviteWindow = (invite: string) => invoke<string>('invite_window', 
  * **知っているのは画面だけ**なので、画面が置きに行く（`notePath` と同じ形）。
  * **押す口ではない。読むための材料を置くだけ。**
  */
+/** **中継を使う設定を読む**（**#5**）。**いま効いている値ではなく、控えてある値。** */
+export const relaySetting = () => invoke<boolean>('relay_setting');
+
+/**
+ * **中継を使うかを控える**（**#5**）。**次の起動から効く。**
+ *
+ * 中継を使うと、**誰といつつながったかが中継の運用者から見える**（中身は見えない）。
+ * **既定は使わない**（**D13**）——**入れるのは人が決めること。**
+ */
+export const setRelay = (on: boolean) => invoke<void>('set_relay', { on });
+
 export const noteScreen = (
   sending: boolean,
   receiving: boolean,
