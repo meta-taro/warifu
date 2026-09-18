@@ -53,12 +53,16 @@
 //! # 例().unwrap();
 //! ```
 
+mod ask;
 mod error;
 mod gate;
 mod grant;
 mod log;
 mod name;
 
+pub use ask::{
+    受け付けない訳, 札の控え, 札の答え, 訳の上限, 訳を検める, 頼みの行き先, 頼みをどうするか,
+};
 pub use error::Error;
 pub use gate::{Decision, Gate, Trust};
 pub use grant::{Grant, Request};
