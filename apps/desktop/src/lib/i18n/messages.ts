@@ -281,6 +281,11 @@ export type MessageKey =
   | 'video.start'
   | 'video.stop'
   | 'video.title'
+  | 'room.hasvideo'
+  | 'video.noroom'
+  | 'video.move.ask'
+  | 'video.move.yes'
+  | 'video.move.no'
   | 'video.hint'
   | 'video.off.hint'
   | 'video.off.held'
@@ -641,6 +646,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.start': '映像と音を足す',
     'video.stop': '映像と音をやめる（ルームは抜けません）',
     'video.title': 'このルームに映像を足す',
+    'room.hasvideo': '● このルームに映像と音が付いています',
+    'video.noroom': 'どのルームに足すかが決まっていません。先にルームを選んでください。',
+    'video.move.ask': 'いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？',
+    'video.move.yes': 'こちらへ移す',
+    'video.move.no': 'そのままにする',
     'video.hint': 'いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。',
     'video.off.hint': 'このルームは、いま文字だけです。カメラもマイクも使っていません。',
     'video.off.held': 'カメラとマイクは点いていますが、相手へは何も送っていません。自分の姿は自分にだけ見えています。',
@@ -964,6 +974,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.start': 'Add video and sound',
     'video.stop': 'Stop video and sound (you stay in the room)',
     'video.title': 'Add video to this room',
+    'room.hasvideo': '● Video and sound are on this room',
+    'video.noroom': 'No room is selected to add video to. Pick a room first.',
+    'video.move.ask': 'Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?',
+    'video.move.yes': 'Move them here',
+    'video.move.no': 'Leave them there',
     'video.hint': 'Adds video and sound to the room you are in. Typing keeps working as before.',
     'video.off.hint': 'This room is text only right now. Neither camera nor microphone is in use.',
     'video.off.held': 'Your camera and microphone are on, but nothing is being sent. Your own view is visible only to you.',
@@ -1285,6 +1300,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.start': '加上影像和声音',
     'video.stop': '停止影像和声音（不退出房间）',
     'video.title': '为这个房间加上影像',
+    'room.hasvideo': '● 影像和声音加在这个房间',
+    'video.noroom': '还没有决定加到哪个房间。请先选一个房间。',
+    'video.move.ask': '影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？',
+    'video.move.yes': '移到这里',
+    'video.move.no': '留在那边',
     'video.hint': '在当前 room 里加上影像和声音。文字交流照旧继续。',
     'video.off.hint': '这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。',
     'video.off.held': '摄像头和麦克风已开启，但没有向对方发送任何内容。你自己的画面只有你能看到。',
@@ -1610,6 +1630,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.start': '영상과 소리를 더하기',
     'video.stop': '영상과 소리를 멈추기（룸에서 나가지 않습니다）',
     'video.title': '이 룸에 영상을 더하기',
+    'room.hasvideo': '● 이 룸에 영상과 소리가 붙어 있습니다',
+    'video.noroom': '어느 룸에 더할지 정해지지 않았습니다. 먼저 룸을 선택해 주세요.',
+    'video.move.ask': '지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?',
+    'video.move.yes': '이쪽으로 옮기기',
+    'video.move.no': '그대로 두기',
     'video.hint': '지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.',
     'video.off.hint': '이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.',
     'video.off.held': '카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다. 자기 모습은 자신에게만 보입니다.',

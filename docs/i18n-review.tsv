@@ -317,3 +317,8 @@ window.minimize	Minimize	最小化	最小化	최소화
 window.restore	Restore	元のサイズに戻す	还原	이전 크기로				
 link.invited.until	This room key works until {until}. Declining does not use it up.	このルームキーは {until} まで使えます。入らなくても、それまでは使えます。	这把 room key 到 {until} 之前都能用。不进去也不会用掉它。	이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.				
 link.declined	You did not enter. This room key works until {until} — open the link again when you want to enter.	入りませんでした。このルームキーは {until} まで使えます —— 入るときは、もう一度リンクを開いてください。	没有进去。这把 room key 到 {until} 之前都能用 —— 想进去的时候，再打开一次链接。	들어가지 않았습니다. 이 룸 키는 {until} 까지 쓸 수 있습니다 —— 들어갈 때는 링크를 다시 열어 주세요.				
+video.noroom	No room is selected to add video to. Pick a room first.	どのルームに足すかが決まっていません。先にルームを選んでください。	还没有决定加到哪个房间。请先选一个房间。	어느 룸에 더할지 정해지지 않았습니다. 먼저 룸을 선택해 주세요.				
+video.move.ask	Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?	いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？	影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？	지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?				
+video.move.yes	Move them here	こちらへ移す	移到这里	이쪽으로 옮기기				
+video.move.no	Leave them there	そのままにする	留在那边	그대로 두기				
+room.hasvideo	● Video and sound are on this room	● このルームに映像と音が付いています	● 影像和声音加在这个房间	● 이 룸에 영상과 소리가 붙어 있습니다				
