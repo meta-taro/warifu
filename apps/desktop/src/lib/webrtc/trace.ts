@@ -252,12 +252,30 @@ export function 送り受けを言い表す(
   // （あちらは ASUS のエージェントの指摘で分けた）。
   const 積もり = (向き: 'outbound-rtp' | 'inbound-rtp'): string => {
     const 行たち = 統計.filter((s) => s.type === 向き && s.kind === 'audio');
+    // **枠が無ければ何も言わない。**枠の有無は、送り／受けの行で決める
+    // （`media-source` は掴んでいるだけで出るので、これを枠と数えると
+    //  **送っていないのに送り側の音量を言う**ことになる）
     if (行たち.length === 0) return '';
+    // **送っている側の音量は、送っている行には載っていない**（2026-09-18）。
+    //
+    // W3C webrtc-stats —— **`totalAudioEnergy` は `outbound-rtp` に無い。**
+    // 「For audio levels of tracks attached locally, see **RTCAudioSourceStats** instead」
+    // **`RTCAudioSourceStats` の型名は `media-source`** である。
+    //
+    // **在らないものを探していたので、送り側は永久に「不明」だった** ——
+    // Mac Air の実測『送り 映像 0 / 音 0（音の積もり **不明**）』がそれである。
+    // **試験が通っていたのは、入力を自分で作って `outbound-rtp` に積もりを載せていたから。**
+    //
+    // **受け側は `inbound-rtp` のまま**（あちらには本当に載っている）。
+    const 音量の出所 =
+      向き === 'outbound-rtp'
+        ? [...統計.filter((s) => s.type === 'media-source' && s.kind === 'audio'), ...行たち]
+        : 行たち;
     // **出していない相手には、何も言わない。**
     // 古い版は `totalAudioEnergy` を出さない —— **「出していない」を「0」と言うと、
     // 喋っているのに「無音」と書くことになる。**
     // （`なし` と `0` を分けたのと、まったく同じ理由）
-    const 出ている = 行たち.filter((s) => s.totalAudioEnergy !== undefined);
+    const 出ている = 音量の出所.filter((s) => s.totalAudioEnergy !== undefined);
     if (出ている.length === 0) return '（音の積もり 不明）';
     const 合計 = 出ている.reduce((和, s) => 和 + (s.totalAudioEnergy ?? 0), 0);
     // **桁を落とさない。**無音は 0 に極めて近い値になるので、丸めると 0 と区別できない

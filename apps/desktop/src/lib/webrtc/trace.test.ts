@@ -292,6 +292,64 @@ describe('音の積もり（本数では黙っているか分からない）', (
   });
 });
 
+describe('送り側の積もりは `media-source` から読む（**outbound-rtp には無い**）', () => {
+  // **2026-09-18、Mac Air の実測から出た。**
+  //
+  //     実測  送り 映像 0 / 音 0（音の積もり **不明**）
+  //
+  // **本数は 0 になったのに、積もりが永久に「不明」だった。**
+  // 仕様（W3C webrtc-stats）を見ると、**`totalAudioEnergy` は `outbound-rtp` に無い** ——
+  // **送っている側の音量は `media-source`（`RTCAudioSourceStats`）に載る。**
+  // 「For audio levels of tracks attached locally, see RTCAudioSourceStats instead」
+  //
+  // **在らないものを探していたので、送り側は常に「不明」だった。**
+  // 試験が通っていたのは、**試験の入力を自分で作って `outbound-rtp` に積もりを載せていた**から。
+  const 送る枠 = { id: 'o', type: 'outbound-rtp', kind: 'audio', packetsSent: 0 };
+
+  it('**media-source が 0 なら「無音」と言える**（これが測れないと シート 38 が永久に保留）', () => {
+    const 出た = 送り受けを言い表す([
+      送る枠,
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0 },
+    ] as never);
+    expect(出た).toContain('音 0');
+    expect(出た).toContain('無音');
+  });
+
+  it('media-source に声が出ていれば、積もりが出る', () => {
+    const 出た = 送り受けを言い表す([
+      送る枠,
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0.0034 },
+    ] as never);
+    expect(出た).toContain('音の積もり 3.40e-3');
+    expect(出た).not.toContain('無音');
+    expect(出た).not.toContain('不明');
+  });
+
+  it('**media-source が無ければ「不明」のまま**（言い過ぎない）', () => {
+    const 出た = 送り受けを言い表す([送る枠] as never);
+    expect(出た).toContain('不明');
+    expect(出た).not.toContain('無音');
+  });
+
+  it('**送る枠が無ければ、media-source があっても言わない**（枠と中身を混ぜない）', () => {
+    // **掴んでいるだけで送っていない**とき、送り側の積もりを言うと
+    // 「送っている」と読めてしまう（`なし` と `0` を分けたのと同じ筋）
+    const 出た = 送り受けを言い表す([
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0 },
+    ] as never);
+    expect(出た).toBe('送り なし ／ 受け なし');
+  });
+
+  it('受け側は `inbound-rtp` のまま（media-source を混ぜない）', () => {
+    const 出た = 送り受けを言い表す([
+      { id: 'i', type: 'inbound-rtp', kind: 'audio', packetsReceived: 9, totalAudioEnergy: 0 },
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0.5 },
+    ] as never);
+    // **受けが無音なら無音。**送り側の声（0.5）に引きずられない
+    expect(出た).toContain('受け 映像 なし / 音 9（音の積もり 0・**無音**）');
+  });
+});
+
 describe('手元の様子（`なし` の意味を言い分ける）', () => {
   const 音 = { id: 'a', type: 'outbound-rtp', kind: 'audio', packetsSent: 5, totalAudioEnergy: 0.1 };
 
