@@ -288,6 +288,14 @@ pub struct Bridge {
     ///
     /// **分からないものは入れない。**入っていなければ「不明」である。
     経路: Arc<Mutex<HashMap<[u8; 32], String>>>,
+    /// **いま画面に映っているもの**（**#32**・2026-09-18）。
+    ///
+    /// ASUS のエージェント ——
+    /// 「**測るたびに人のマウスを奪って画面を撮っていた。**」
+    ///
+    /// **知っているのは画面だけ**なので、画面が置きに来る（`経路` と同じ形）。
+    /// **置きに来ていなければ `None`** ——「出ていない」ではない（原則 7）。
+    画面に映っているもの: Arc<Mutex<Option<画面の映り>>>,
 }
 
 /// いま居るルームたち。**複数持てる**（`issues/015`）。
@@ -443,6 +451,7 @@ impl Bridge {
             outbound: Arc::new(Mutex::new(HashMap::new())),
             desk: tokio::sync::broadcast::Sender::new(desk::配る溜め),
             経路: Arc::new(Mutex::new(HashMap::new())),
+            画面に映っているもの: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -1213,6 +1222,44 @@ fn answer_pass(動作: String, 許す: bool) -> Answer<()> {
         message,
         code: None,
     })
+}
+
+/// **いま画面に映っているもの**（**#32**）。**画面だけが知っている。**
+#[derive(Debug, Clone)]
+pub(crate) struct 画面の映り {
+    pub 送っている: bool,
+    pub 受けている: bool,
+    /// **カメラかマイクを掴んでいるか。**「送っていない」と別のこと（**D116**）
+    pub 掴んでいる: bool,
+    /// **出ている題字そのもの**（訳したあとの文字）。札ではなく文字を渡す
+    pub 題字: String,
+}
+
+/// **画面に映っているものを置く**（**#32**・2026-09-18）。
+///
+/// ASUS のエージェント（#32）——
+///
+/// > **自分の枠に映像が出ているか** —— 今日いちばん要った
+/// > **相手の枠に映像が出ているか** —— **本題そのもの**
+/// > **`経路` は在るが、画面の文言と一致する保証が無い**
+///
+/// **これが無いので、測るたびに人のマウスを奪って画面を撮っていた。**
+/// **押す口ではない** —— **読むだけ。**カメラを点ける口はここに作らない。
+#[tauri::command]
+async fn note_screen(
+    bridge: State<'_, Bridge>,
+    sending: bool,
+    receiving: bool,
+    holding: bool,
+    title: String,
+) -> Answer<()> {
+    *bridge.画面に映っているもの.lock().await = Some(画面の映り {
+        送っている: sending,
+        受けている: receiving,
+        掴んでいる: holding,
+        題字: title,
+    });
+    Ok(())
 }
 
 /// **経路の札を置く**（画面から）。
@@ -2796,6 +2843,7 @@ pub fn run() {
 
             rejoin_room,
             invite_window,
+            note_screen,
             pending_passes,
             answer_pass,
             stop_knowing,

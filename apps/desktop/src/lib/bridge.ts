@@ -543,6 +543,22 @@ export const rejoinRoom = () => invoke<void>('rejoin_room');
 export const inviteWindow = (invite: string) => invoke<string>('invite_window', { invite });
 
 /**
+ * **いま画面に映っているものを置く**（**#32**）。
+ *
+ * ASUS のエージェント ——
+ * 「**測るたびに人のマウスを奪って画面を撮っていた。**」
+ *
+ * **知っているのは画面だけ**なので、画面が置きに行く（`notePath` と同じ形）。
+ * **押す口ではない。読むための材料を置くだけ。**
+ */
+export const noteScreen = (
+  sending: boolean,
+  receiving: boolean,
+  holding: boolean,
+  title: string,
+) => invoke<void>('note_screen', { sending, receiving, holding, title });
+
+/**
  * **この実行ファイルの通信が、ファイアウォールで塞がれていないか**（PR #16）。
  *
  * **名前でまとめて数えない** —— `*warifu*` だとコマンドの規則まで数え、
