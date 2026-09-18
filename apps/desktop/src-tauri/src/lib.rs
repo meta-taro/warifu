@@ -519,6 +519,34 @@ impl Bridge {
     }
 }
 
+/// **鍵の窓について、人に分かる言い方をする**（2026-09-18）。
+///
+/// **これまでは、期限切れが「宛先に届きませんでした」として出ていた。**
+/// **2026-09-17、Mac Air がその文言で 6 時間待った** ——
+/// 相手を疑い、網を疑い、口を疑った。**鍵を疑う材料が、どこにも無かった。**
+///
+/// **鍵には `いつまで` が入っている。**繋ぐ前に読めば言える。
+///
+/// # 「どうすれば通るか」は言う
+///
+/// **D31 の「断る理由を相手に返さない」とは別である。**
+/// あれは**叩かれた側が叩いた相手へ**返さない話で、
+/// こちらは**自分の画面が、自分に**言う話である ——**隠す理由が無い。**
+fn 鍵の窓を言う(e: warifu_core::Error) -> Failure {
+    use warifu_core::Error;
+    match e {
+        Error::Expired => Failure {
+            message: "この会議キーは期限が切れています。新しいものをもらってください".into(),
+            code: Some("meeting.key.expired".into()),
+        },
+        Error::TooEarly => Failure {
+            message: "この会議キーは、まだ始まっていません".into(),
+            code: Some("meeting.key.tooearly".into()),
+        },
+        他 => Failure::from(他),
+    }
+}
+
 /// **中継を使うか**（環境変数の言葉から決める）。
 ///
 /// **既定は使わない**（**D13**）。`1` / `true` / `yes` / `on` のときだけ使う。
@@ -862,6 +890,21 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         });
     }
     記録!("入室: 会議キーを読んだ（宛先 {}）", 短く(&address));
+
+    // **呼ぶ前に窓を見る**（2026-09-18）。
+    //
+    // **これまでは、繋いでから窓を見ていた。**だから期限切れの鍵で押すと、
+    // **「宛先に届きませんでした」と出ていた** ——
+    // **期限が切れたことは、どこにも出なかった。**
+    //
+    // **2026-09-17、Mac Air がその文言で 6 時間待った。**
+    // **割符には `いつまで` が入っているので、繋ぐ前に読めば言える。**
+    //
+    // CLI（`warifu join`）は前からこうしてある ——
+    // 「**呼ぶ前に窓を見る。始まっていない・切れている鍵で相手を叩かない**」。
+    // **画面だけが揃っていなかった。**
+    let acceptance = bridge.device.accept(&token, now_secs()).map_err(鍵の窓を言う)?;
+
     let node = bridge.node().await?;
     let to = Address::from_str(&address)?;
     let mut session = node.connect(&to, &Revocations::new()).await?;
@@ -871,10 +914,9 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         短く(&key_to_string(peer))
     );
 
-    // **最初に割符へ応じる。**会議の話をする前に、通ってよい相手かを相手が決める。
+    // **応じるものは、もう作ってある**（上で窓を見たときに作った）。
     // ここは Intent の下（生のバイト列）で済ませる。「何を話すか」ではなく
     // 「そもそも話してよいか」の段なので、口の語彙を増やさない（D11）
-    let acceptance = bridge.device.accept(&token, now_secs())?;
     session.send(&acceptance.to_bytes()).await?;
     記録!("入室: 割符に応じた");
 

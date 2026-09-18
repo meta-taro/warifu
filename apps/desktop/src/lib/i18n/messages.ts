@@ -273,6 +273,8 @@ export type MessageKey =
   | 'call.mic'
   | 'call.camera'
   | 'call.controls'
+  | 'meeting.key.expired'
+  | 'meeting.key.tooearly'
   | 'meeting.key.own'
   | 'video.start'
   | 'video.stop'
@@ -371,6 +373,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': 'もらった側が入ります。渡した側は待つだけです。',
     'meeting.join.action': 'ルームに入る',
     'meeting.key.own': 'これは自分のルームキーです。入ってほしい人に渡してください。',
+    'meeting.key.expired': 'このルームキーは期限が切れています。新しいものをもらってください。',
+    'meeting.key.tooearly': 'このルームキーは、まだ始まっていません。',
     'link.closed': '相手が退出しました。',
     'link.lost': '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。',
     'link.blocked.copy': '直し方をコピー（管理者の PowerShell に貼ります）',
@@ -690,6 +694,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': 'The one who was given the room key comes in. The one who gave it just waits.',
     'meeting.join.action': 'Come in',
     'meeting.key.own': 'This is your own room key. Hand it to the person you want in.',
+    'meeting.key.expired': 'This room key has expired. Ask for a new one.',
+    'meeting.key.tooearly': 'This room key has not started yet.',
     'link.closed': 'The other person left.',
     'link.lost': 'The route to them broke. They can come back with the same key — waiting.',
     'link.blocked.copy': 'Copy the fix (paste into an admin PowerShell)',
@@ -1009,6 +1015,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': '拿到密钥的一方进来。交出去的一方只需等待。',
     'meeting.join.action': '进入房间',
     'meeting.key.own': '这是你自己房间的密钥。请交给你想让进来的人。',
+    'meeting.key.expired': '这个 room 密钥已过期。请索取新的密钥。',
+    'meeting.key.tooearly': '这个 room 密钥还没有开始生效。',
     'link.closed': '对方已离开。',
     'link.lost': '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。',
     'link.blocked.copy': '复制修复命令（粘贴到管理员 PowerShell）',
@@ -1326,6 +1334,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.join.hint': '받은 쪽이 들어갑니다. 건넨 쪽은 기다리기만 하면 됩니다.',
     'meeting.join.action': '방에 들어가기',
     'meeting.key.own': '이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.',
+    'meeting.key.expired': '이 룸 열쇠는 기한이 지났습니다. 새것을 받아 주세요.',
+    'meeting.key.tooearly': '이 룸 열쇠는 아직 시작되지 않았습니다.',
     'link.closed': '상대방이 나갔습니다.',
     'link.lost': '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.',
     'link.blocked.copy': '해결 방법 복사(관리자 PowerShell 에 붙여넣기)',

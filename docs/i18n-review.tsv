@@ -183,6 +183,8 @@ meeting.key.label	Room key	ルームキー	房间密钥	방 열쇠
 meeting.key.more	Hand out one more key	ルームキーをもう 1 本出す	再发一把密钥	열쇠를 한 개 더 내기				
 meeting.key.more.hint	One key lets exactly one person in. To let another person in, hand out one more key. The earlier key keeps working.	1 本のルームキーで入れるのは 1 人だけです。もう 1 人入れるなら、もう 1 本出してその人に渡します。前のルームキーは使えたままです。	一把密钥只能让一个人进来。要再让一个人进来，就再发一把交给他。之前的密钥仍然有效。	열쇠 하나로 들어올 수 있는 사람은 한 명뿐입니다. 한 명 더 들이려면 한 개 더 내어 그 사람에게 건넵니다. 앞의 열쇠는 그대로 쓸 수 있습니다.				
 meeting.key.nth	Key {n}	{n} 本目	第 {n} 把	{n} 번째				
+meeting.key.expired	This room key has expired. Ask for a new one.	このルームキーは期限が切れています。新しいものをもらってください。	这个 room 密钥已过期。请索取新的密钥。	이 룸 열쇠는 기한이 지났습니다. 새것을 받아 주세요.	★	**鍵のせいだと分かる訳にすること。**「接続できません」「相手が見つかりません」と読める訳にしないこと —— **2026-09-17、Mac Air が「宛先に届きませんでした」の文言で 6 時間待った。**相手を疑い、網を疑い、口を疑い、**鍵を疑う材料がどこにも無かった。**「もらってください」を落とさないこと（**次に何をすればよいかが要る**）。		
+meeting.key.tooearly	This room key has not started yet.	このルームキーは、まだ始まっていません。	这个 room 密钥还没有开始生效。	이 룸 열쇠는 아직 시작되지 않았습니다.	★	**「期限が切れた」と混ぜないこと。**こちらは**まだ始まっていない**（予定に紐づく鍵・**D43**）。混ぜると、待てば入れるのに「もらい直し」に行くことになる。		
 meeting.key.own	This is your own room key. Hand it to the person you want in.	これは自分のルームキーです。入ってほしい人に渡してください。	这是你自己房间的密钥。请交给你想让进来的人。	이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.				
 meeting.key.reveal	Show the whole key	ルームキーの全文を見る	查看密钥全文	열쇠 전체 보기				
 meeting.link.copy	Copy the link	リンクをコピー	复制链接	링크 복사				
