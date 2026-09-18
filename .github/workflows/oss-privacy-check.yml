@@ -44,3 +44,10 @@ jobs:
       # CLI の署名がこの形で 2 版ぶん飛んでいた。
       - name: workflow の段の順番
         run: python3 scripts/check-step-order.py
+
+      # **受け取る人が読む手順が、いまの版を指しているか**（2026-09-18）。
+      # `docs/install*.md` が v0.1.8 のままで、**落とすファイル名まで古かった** ——
+      # `gh release download v0.1.8 …` は**もう無いものを指す。**
+      # **古い文書は、無い文書より悪い**（baseline §10）
+      - name: 手順の版
+        run: python3 scripts/check-doc-version.py

@@ -38,6 +38,11 @@ echo "commit 前のゲート:"
 # python3 は macOS にも Windows の CI にも入っている
 走る "workflow の段の順番" python3 scripts/check-step-order.py
 
+# 2-2. **受け取る人が読む手順が、いまの版を指しているか**（2026-09-18）。
+# **install.md が v0.1.8 のままで、落とすファイル名まで古かった** ——
+# **そのまま打つと見つからない。**人が気をつける方式は必ず漏れる
+走る "手順の版" python3 scripts/check-doc-version.py
+
 # 3. Rust のゲート。cargo が無ければ実行できない
 if command -v cargo >/dev/null 2>&1; then
   走る "cargo fmt --check" cargo fmt --all -- --check
