@@ -29,6 +29,7 @@ warifu-meeting = { path = "../../../crates/warifu-meeting" }
 warifu-app = { path = "../../../crates/warifu-app" }
 warifu-door = { path = "../../../crates/warifu-door" }
 warifu-vault = { path = "../../../crates/warifu-vault" }
+warifu-capability = { path = "../../../crates/warifu-capability" }
 warifu-desk = { path = "../../../crates/warifu-desk" }
 warifu-postbox = { path = "../../../crates/warifu-postbox" }
 # **遮る物を調べる**（開けはしない・baseline §13）

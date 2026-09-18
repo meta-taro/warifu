@@ -49,6 +49,11 @@ const EVENT_DESK: &str = "warifu://desk";
 /// 会議に人が居なくても、**同じエージェントの AI が居るなら人は話しかけられる。**
 /// これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
 const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
+
+/// **札の頼みが来た**（**D119**）。
+///
+/// **部屋の会話とは別の口である**（**#26** —— 許可を聞く言葉を部屋へ流さない）。
+const EVENT_PASS: &str = "warifu://pass";
 /// **メニューからテーマを選んだ。**`auto` / `light` / `dark` のどれかを渡す。
 ///
 /// **覚えるのも当てるのも画面側**（`localStorage` は Rust から読めない）。
@@ -1012,6 +1017,26 @@ async fn connect_in_room(
         code: None,
     })?;
     call::部屋の合言葉で呼ぶ(&app, &bridge, 相手, &address, 部屋).await
+}
+
+/// **人の答えを待っている札**を並べる（**D119**）。
+///
+/// **部屋の会話とは別の口である**（**#26**）。
+#[tauri::command]
+fn pending_passes() -> Vec<desk::待ち> {
+    desk::待っている札()
+}
+
+/// **人が札に答えた**（**D119**）。
+///
+/// **ここが札を出す唯一の所である**（**D56** ——「札を出すのは人である」）。
+/// **エージェントはこの口を呼べない** —— 机（`desk.sock`）には無い。
+#[tauri::command]
+fn answer_pass(動作: String, 許す: bool) -> Answer<()> {
+    desk::人が答えた(&動作, 許す).map_err(|message| Failure {
+        message,
+        code: None,
+    })
 }
 
 /// **経路の札を置く**（画面から）。
@@ -2518,6 +2543,8 @@ pub fn run() {
             desk_seats,
             call_contact,
             connect_in_room,
+            pending_passes,
+            answer_pass,
             stop_knowing,
             known_keys,
             note_path,

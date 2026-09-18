@@ -150,6 +150,9 @@ const PORT_HEADER: &str = "warifu-port-v1";
 
 /// 部屋の合言葉の控えの見出し（**D118**）。
 const ROOM_SECRET_HEADER: &str = "warifu-room-secret-v1";
+
+/// 人が答えた札の控えの見出し（**D119**）。
+const PASS_HEADER: &str = "warifu-pass-v1";
 /// プロフィール。**この端末の人と、この端末の AI が名乗るもの。**
 const PROFILES_HEADER: &str = "warifu-profiles-v1";
 /// 預かり所の宛先。**1 つだけ。**人が書き、割符が拾ってこない。
@@ -767,6 +770,93 @@ impl Vault {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "部屋の合言葉の控えを消す")(e)),
         }
+    }
+
+    /// **人が答えた札**の控えのファイル（**D119**）。
+    #[must_use]
+    pub fn pass_path(&self) -> PathBuf {
+        self.dir.join("pass.tsv")
+    }
+
+    /// **人が押した答えを控える**（丸ごと書き直す）。
+    ///
+    /// # なぜファイルなのか
+    ///
+    /// **`warifu mcp` は別のプロセスである。**画面が覚えていても、
+    /// **口の側からは見えない。**——**同じ置き場所のファイルが、2 つの間の橋になる。**
+    ///
+    /// # ここに秘密は入らない
+    ///
+    /// **動作の名と、許したか断ったかだけ。**それでも
+    /// **これを書き換えると、エージェントの出来ることが変わる**ので **0600** にする。
+    ///
+    /// # 人が取り消せる形にしておく
+    ///
+    /// **行を消せば取り消せる**（**D58** の「持ち越すなら取り消す口も要る」）。
+    /// **人が読める並びにしてある**のは、そのためである。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_passes(&self, 一覧: &[(String, bool)]) -> Result<(), Error> {
+        let mut out = String::from(PASS_HEADER);
+        out.push('\n');
+        for (動作, 許した) in 一覧 {
+            // **タブと改行は入らない**（動作は小文字・数字・点だけ）
+            let 削る: String = 動作
+                .chars()
+                .filter(|c| *c != '\t' && *c != '\n' && *c != '\r')
+                .collect();
+            if 削る.is_empty() {
+                continue;
+            }
+            out.push_str(&削る);
+            out.push('\t');
+            out.push_str(if *許した { "許した" } else { "断った" });
+            out.push('\n');
+        }
+        self.write_private(&self.pass_path(), &out, "札の答えを控える")
+    }
+
+    /// 控えた答えを読む。**無ければ空**。
+    ///
+    /// **読めない行は、その行だけ捨てる** ——
+    /// 1 行の壊れで**全部の札が消える**のは、この機能の目的に反する。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn passes(&self) -> Result<Vec<(String, bool)>, Error> {
+        let path = self.pass_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(Error::io(&path, "札の答えを読む")(e)),
+        };
+        let mut 行たち = text.lines();
+        let Some(header) = 行たち.next() else {
+            return Ok(Vec::new());
+        };
+        if header.trim() != PASS_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{PASS_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(行たち
+            .filter_map(|行| {
+                let mut 欄 = 行.split('\t');
+                let 動作 = 欄.next()?.trim();
+                // **知らない言葉は捨てる。**「許した」以外を許しに読まない
+                let 許した = match 欄.next()?.trim() {
+                    "許した" => true,
+                    "断った" => false,
+                    _ => return None,
+                };
+                if 動作.is_empty() {
+                    return None;
+                }
+                Some((動作.to_owned(), 許した))
+            })
+            .collect())
     }
 
     /// 予定のファイル。

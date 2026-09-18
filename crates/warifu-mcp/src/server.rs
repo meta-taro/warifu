@@ -291,6 +291,26 @@ impl Warifu {
             .join("\n"))
     }
 
+    /// **札を頼む**（**D119**）。
+    ///
+    /// **この口には札が要らない。**——**頼むことを禁じると、頼めなくなる。**
+    /// **出すのは人である**（押したときだけ通る）。
+    #[tool(
+        description = "札（許可）を人に頼む。何をしたいか（動作）と、なぜ要るか（訳）を書く。                       返りは まだ／許した／断った／受け付けない。                       **まだ なら間を置いてもう一度頼む**（同じことを何度も頼まない）。                       **断られたら、もう一度頼んでも断られる** —— 取り消すのは人である。                       この頼みは部屋へ流れない（同じ PC の中だけを通る）。"
+    )]
+    pub async fn pass_ask(
+        &self,
+        Parameters(args): Parameters<crate::tools::AskArgs>,
+    ) -> Result<String, ErrorData> {
+        // **札を求めない。**頼む口に札を要求すると、**最初の 1 歩が踏めない**
+        let 机 = self.この機械().await?;
+        let 返り = 机
+            .札を頼む(&args.動作, &args.訳)
+            .await
+            .map_err(|e| ToolError::Unavailable(e.to_string()))?;
+        Ok(返り)
+    }
+
     /// 会話へ 1 行流す。**人の画面にも同じ行が出る。**
     #[tool(description = "会話へ 1 行流す。同じ PC の人の画面と、繋がっている相手にも届く。")]
     pub async fn chat_send(

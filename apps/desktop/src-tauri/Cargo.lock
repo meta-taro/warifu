@@ -6398,6 +6398,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "warifu-capability"
+version = "0.1.10"
+
+[[package]]
 name = "warifu-core"
 version = "0.1.10"
 dependencies = [
@@ -6433,6 +6437,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "warifu-app",
+ "warifu-capability",
  "warifu-core",
  "warifu-desk",
  "warifu-door",

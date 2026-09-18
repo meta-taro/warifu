@@ -126,6 +126,34 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
     Ok(設)
 }
 
+/// **人が画面で押して許した札**を読む（**D119**）。
+///
+/// 置き場所は**この機械（`desk.sock`）と同じ所**である ——
+/// **画面と口は別のプロセス**なので、**同じ置き場所のファイルが 2 つの間の橋になる。**
+///
+/// **読めなくても止めない。**空で始めれば `--allow` の分だけで動く
+/// （**札が 1 つも無ければ、どの口も通らない**・D56）。
+///
+/// **断ったものは返さない。**返すのは**人が許したものだけ**である。
+fn 人が押した札(この機械: &std::path::Path) -> Vec<String> {
+    // **この機械の場所から、置き場所を割り出す。**`--desk` で移されていても付いていく
+    let Some(置き場所) = この機械.parent() else {
+        return Vec::new();
+    };
+    let vault = warifu_vault::Vault::at(置き場所.to_path_buf());
+    match vault.passes() {
+        Ok(棚) => 棚
+            .into_iter()
+            .filter(|(_, 許した)| *許した)
+            .map(|(動作, _)| 動作)
+            .collect(),
+        Err(e) => {
+            eprintln!("warifu mcp: 人が押した札を読めません（{e}）");
+            Vec::new()
+        }
+    }
+}
+
 /// 口を出す。**繋いだ相手が閉じるまで戻らない。**
 pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     use rmcp::ServiceExt;
@@ -139,12 +167,29 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         関所.issue(Grant::new(subject(), Action::new(動作)?, 今 + 札の効き目));
     }
 
+    // **人が画面で押した札も読む**（**D119**）。
+    //
+    // **`--allow` は立ち上げるときに人が書くもので、そのあと増やせない。**
+    // オーナー ——「**許可をください。OK って言えば始まる。**」
+    // **目と耳の中に居るなら、JSON は開けない。**
+    //
+    // **「人が行う」は保つ。**押したのは人であり、ここは**その結果を読むだけ**である。
+    // 断ったものは**入れない**（`--allow` に書いてあっても、人が断ったなら通さない）。
+    let 押した = 人が押した札(&設.この機械);
+    for 動作 in &押した {
+        関所.issue(Grant::new(subject(), Action::new(動作)?, 今 + 札の効き目));
+    }
+
     // 受信箱と規則はまだ空。**空であることを、繋がっていることと混ぜない**
     // （`issues/011` が決まるまで、inbox_* は「無い」を返す）
     let mut 口 =
         Warifu::new(Vec::new(), RuleStore::new(), 関所, 今).この機械を覚える(&設.この機械);
     if let Some(名) = &設.名乗り {
         口 = 口.名乗る(名);
+    }
+
+    if !押した.is_empty() {
+        eprintln!("warifu mcp: 人が押した札 {}", 押した.join(" "));
     }
 
     // **標準出力は MCP のもの。**言いたいことは標準エラーへ出す

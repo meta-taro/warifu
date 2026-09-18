@@ -1593,3 +1593,96 @@ fn 部屋の合言葉の控えを_忘れられる() {
     // **無いものを消すのは失敗ではない**
     vault.forget_room_secret().expect("二度目も通る");
 }
+
+// ── 人が答えた札の控え（**D119**・2026-09-18） ────────────────────────
+//
+// **`warifu mcp` は別のプロセスである。**画面が覚えていても口からは見えない ——
+// **同じ置き場所のファイルが、2 つの間の橋になる。**
+
+#[test]
+fn 札の答えは_控えて読み戻せる() {
+    let dir = 仮の置き場("pass-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.passes().expect("読める").is_empty());
+
+    vault
+        .save_passes(&[
+            ("chat.send".to_owned(), true),
+            ("inbox.open.2".to_owned(), false),
+        ])
+        .expect("書ける");
+
+    assert_eq!(
+        warifu_vault::Vault::at(dir).passes().expect("読める"),
+        vec![
+            ("chat.send".to_owned(), true),
+            ("inbox.open.2".to_owned(), false)
+        ]
+    );
+}
+
+#[test]
+fn 人が読める並びで置く_取り消せるように() {
+    // **行を消せば取り消せる**（**D58**）。だから人が読める形にしてある
+    let dir = 仮の置き場("pass-readable");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_passes(&[
+            ("chat.send".to_owned(), true),
+            ("chat.read".to_owned(), false),
+        ])
+        .expect("書ける");
+
+    let 中身 = std::fs::read_to_string(vault.pass_path()).expect("読める");
+    assert!(中身.contains("chat.send\t許した"));
+    assert!(中身.contains("chat.read\t断った"));
+}
+
+#[test]
+fn 知らない言葉は_許しに読まない() {
+    // **「許した」以外を許しに読むと、書き換えで札が増える**
+    let dir = 仮の置き場("pass-unknown");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(
+        vault.pass_path(),
+        "warifu-pass-v1\nchat.send\tyes\nchat.read\t許した\nchat.wait\t\n",
+    )
+    .expect("書ける");
+
+    // **壊れた行だけ落ちて、まともな行は残る**
+    assert_eq!(
+        vault.passes().expect("読める"),
+        vec![("chat.read".to_owned(), true)]
+    );
+}
+
+#[test]
+fn 札の控えは_0600で置く() {
+    // **これを書き換えると、エージェントの出来ることが変わる**
+    let dir = 仮の置き場("pass-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_passes(&[("chat.send".to_owned(), true)])
+        .expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.pass_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 札の控えは_見出しが違えば断る() {
+    let dir = 仮の置き場("pass-header");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(vault.pass_path(), "warifu-port-v1\nchat.send\t許した\n").expect("書ける");
+
+    assert!(vault.passes().is_err());
+}

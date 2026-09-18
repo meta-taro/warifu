@@ -29,6 +29,18 @@ pub struct SlotsArgs {
     pub duration: u64,
 }
 
+/// [`crate::Warifu::pass_ask`] の引数（**D119**）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct AskArgs {
+    /// 何をしたいか（`chat.send` など）。
+    pub 動作: String,
+    /// **なぜ要るか。**人が一言で読める長さにする。
+    ///
+    /// **これが無いと受け付けない** ——
+    /// **何を許すかが一言で読めなければ、「OK」は同意ではない。**
+    pub 訳: String,
+}
+
 /// [`crate::Warifu::chat_send`] の引数。
 ///
 /// **差出人を書く場所が無いのは意図。**誰が言ったかはこの機械が刻む

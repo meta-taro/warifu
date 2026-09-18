@@ -64,6 +64,28 @@ pub struct Chat {
     印の道: std::path::PathBuf,
 }
 
+/// 札の答えを、エージェントが読める 1 行にする（**D119**）。
+///
+/// **次に何をすればよいかを書く** —— ただし**断りには「どうすれば通るか」を書かない**
+/// （書くと、断られた側が総当たりで札の形を探れる）。
+fn 答えの言い方(動作: &str, 答え: &warifu_desk::頼みの返り) -> String {
+    use warifu_desk::頼みの返り;
+    match 答え {
+        頼みの返り::まだ => format!(
+            "{動作}: **まだ人が答えていません。**画面に出してあります。\
+             間を置いてもう一度頼んでください（同じことを何度も頼まないこと）。"
+        ),
+        頼みの返り::許した => format!("{動作}: **許されました。**次の呼びで通ります。"),
+        頼みの返り::断った => format!(
+            "{動作}: **人が断りました。**もう一度頼んでも同じ答えが返ります。\
+             取り消すのは人です（頼み直さないこと）。"
+        ),
+        頼みの返り::受け付けない { 訳 } => {
+            format!("{動作}: 受け付けませんでした（{訳}）。**人には見せていません。**")
+        }
+    }
+}
+
 impl Chat {
     /// この機械へ繋いで、会話を聞き始める。
     ///
@@ -187,6 +209,55 @@ impl Chat {
             )),
             FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
             // 発言や入退室は返事ではない。**ここへ来た時点で仕分けが壊れている**
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// **札を頼む**（**D119**）。返るのは**いまの答え**だけ。
+    ///
+    /// **頼みは部屋へ流れない。**この機械（同じ PC の中）を通る ——
+    /// 2026-09-15、ASUS の画面に「許可が必要です」が届いたのは、
+    /// **聞く口と流す口が同じだった**からである（**#26**）。
+    ///
+    /// # Errors
+    /// この機械が閉じている・返事をしないとき [`crate::ToolError::Unavailable`]。
+    /// 訳が長い・行を壊すとき [`crate::ToolError::BadArgs`]。
+    pub async fn 札を頼む(&self, 動作: &str, 訳: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::Ask {
+            動作: 動作.to_owned(),
+            訳: 訳.to_owned(),
+        };
+        // **書き手の側でも検める**（長さ・行や欄を壊すもの）
+        let 行 = ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返す);
+
+        self.送り
+            .send(行)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
+
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
+
+        match 返事 {
+            FromDesk::Asked { 動作, 答え } => Ok(答えの言い方(&動作, &答え)),
+            // **古い画面は、この口を知らない。**
+            //
+            // 行そのものを「形が壊れている」と断ってくるので、
+            // **そのまま渡すと「訳が悪いのか」と読める** ——
+            // **実際は画面が古いだけ**である（この口の説明にも書いてある筋）。
+            //
+            // **2026-09-18 に実物で踏んだ。**入っている画面は v0.1.10 で、
+            // `Ask` はまだ入っていなかった
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(format!(
+                "画面がこの口を知りません（{why}）。**画面の版が古い可能性があります** ——\
+                 人に立て直してもらってください。訳や動作の書き方の問題ではありません。"
+            ))),
             他 => Err(crate::ToolError::Unavailable(format!(
                 "この機械が想定しない返事をしました: {他:?}"
             ))),
@@ -486,6 +557,10 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Stop => "\t\t（止まれと言われました）".to_owned(),
             // **様子は会話の行ではない。**尋ねたときだけ返るので、ここには並ばない
             FromDesk::様子 { .. } => String::new(),
+            // **札の答えも会話の行ではない**（**D119**）。
+            // 頼んだときだけ返るので、ここには並ばない ——
+            // **並べると、部屋の発言として人の目に入る**（それは **#26** で塞いだ形である）
+            FromDesk::Asked { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
