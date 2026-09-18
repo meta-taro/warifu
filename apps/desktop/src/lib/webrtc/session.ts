@@ -168,9 +168,28 @@ export class Call {
    */
   async begin(stream: MediaStream | null): Promise<void> {
     if (stream === null) {
-      // 送らないが受け取る。**この 2 行が無いと、相手の映像も音も来ない**
-      this.pc.addTransceiver('audio', { direction: 'recvonly' });
-      this.pc.addTransceiver('video', { direction: 'recvonly' });
+      // **枠は張る。中身は入れない。**
+      //
+      // # なぜ `recvonly` ではなく `sendrecv` なのか（2026-09-18・オーナー指摘）
+      //
+      // オーナー ——「**そもそも気色悪い。**」
+      //
+      // **前は、相手が入った瞬間にカメラを掴んでいた。**
+      // 理由はここにあった ——「後から足すための張り直し（再交渉）が要らない」。
+      // **再交渉を省くために、人のカメラを先に点けていた。**交換条件が逆である。
+      //
+      // **`sendrecv` で枠だけ張れば、送り手は最初から在る**ので、
+      // **あとで `replaceTrack` で中身を入れられる** —— 再交渉も要らず、
+      // **機器も掴まない。**
+      //
+      // **`0 本流れている` と `掴んでいない` は別のこと。**
+      // パケットが 0 でも、**明かりが点いていれば気色悪い。**
+      for (const 種 of ['audio', 'video'] as const) {
+        const 枠 = this.pc.addTransceiver(種, { direction: 'sendrecv' });
+        this.送り手.set(種, 枠.sender);
+        // **掴んでいないので「外してある」。**記録で `なし` の意味を言い分ける
+        this.外してある.add(種);
+      }
       const [next, actions] = onLocalMediaReady(this.state);
       this.state = next;
       for (const action of actions) await applyAction(this.adapter, action, this.送る);
