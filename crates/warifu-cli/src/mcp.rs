@@ -77,21 +77,52 @@ pub fn 名乗りを検める(名: &str) -> Result<String, String> {
     Ok(名)
 }
 
-/// 起動した場所のフォルダ名。
+/// 起動した場所から名乗る。**まず仕事場（リポジトリ）の名前、無ければフォルダ名。**
 ///
 /// **人が書かなくても、どこで動いているかは分かる。**
 /// 取れなければ名乗らない（この機械が既定の呼び方をする）。
+///
+/// # なぜフォルダ名だけでは足りなかったか（2026-09-20）
+///
+/// **オーナーが、ASUS の再起動のあと「どのエージェントが動いていたか分からない」**と言った。
+/// 記録に残っていたのはこれだけである ——
+///
+/// ```text
+/// この機械: scratchpad から着きました
+/// 札: 人に聞きます（chat.send・scratchpad のエージェント）
+/// ```
+///
+/// **`scratchpad` は、その場のフォルダ名**である。
+/// **どのプロジェクトの席かを言っていない** ——
+/// 探し当てたあとで分かったのは「**別のプロダクトを開発していたエージェント**」だった。
+///
+/// **仕事場の名前なら、それだけで分かる**（`rendou-kun` / `warifu`）。
+/// **`.git` を上へ辿るだけ**にしてある —— `git` を起こさない（速さと、入っていない機械のため）。
 pub fn 居場所から名乗る() -> Option<String> {
-    let 名 = std::env::current_dir()
-        .ok()?
-        .file_name()?
-        .to_string_lossy()
-        .into_owned();
+    let ここ = std::env::current_dir().ok()?;
+    let 名 =
+        仕事場の名(&ここ).or_else(|| ここ.file_name().map(|n| n.to_string_lossy().into_owned()))?;
     let 名 = 名.trim().to_owned();
     if 名.is_empty() || 名.chars().count() > warifu_desk::名乗りの上限 {
         return None;
     }
     Some(名)
+}
+
+/// **仕事場（`.git` のある所）の名前。**無ければ `None`。
+///
+/// **`git` を起こさない。**`.git` を上へ辿るだけ ——
+/// 入っていない機械でも動き、ここで待たされない。
+#[must_use]
+pub fn 仕事場の名(ここ: &std::path::Path) -> Option<String> {
+    let mut 場 = Some(ここ);
+    while let Some(p) = 場 {
+        if p.join(".git").exists() {
+            return p.file_name().map(|n| n.to_string_lossy().into_owned());
+        }
+        場 = p.parent();
+    }
+    None
 }
 
 /// 引数を読む。
@@ -219,4 +250,66 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let 務め = 口.serve(rmcp::transport::stdio()).await?;
     務め.waiting().await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod 名乗りの試験 {
+    use super::仕事場の名;
+
+    /// 試験ごとに別の場所。**本物のリポジトリに触らない。**
+    fn 仮の場(名: &str) -> std::path::PathBuf {
+        let p = std::env::temp_dir().join(format!(
+            "warifu-cli-{名}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&p);
+        p
+    }
+
+    #[test]
+    fn 仕事場の名を上へ辿って拾う() {
+        // **2026-09-20 に踏んだ形。**エージェントは `<仕事場>/scratchpad` で動いていて、
+        // **名乗りが `scratchpad` になり、どのプロダクトの席か分からなかった。**
+        let 根 = 仮の場("rendou-kun");
+        let 中 = 根.join("scratchpad");
+        std::fs::create_dir_all(&中).expect("作れる");
+        std::fs::create_dir_all(根.join(".git")).expect("作れる");
+
+        assert_eq!(
+            仕事場の名(&中).as_deref(),
+            根.file_name().and_then(|n| n.to_str()),
+            "**フォルダ名ではなく、仕事場の名を返す**"
+        );
+    }
+
+    #[test]
+    fn 仕事場の中なら_その名をそのまま返す() {
+        let 根 = 仮の場("warifu");
+        std::fs::create_dir_all(根.join(".git")).expect("作れる");
+        assert_eq!(
+            仕事場の名(&根).as_deref(),
+            根.file_name().and_then(|n| n.to_str())
+        );
+    }
+
+    #[test]
+    fn 仕事場の外なら_名乗らない() {
+        // **`None` を返す。**呼ぶ側がフォルダ名へ落とす ——
+        // **ここで勝手に決めない**（どこまで辿ったかを混ぜない）
+        let 外 = 仮の場("nowhere");
+        std::fs::create_dir_all(&外).expect("作れる");
+        assert_eq!(仕事場の名(&外), None);
+    }
+
+    #[test]
+    fn 上に一つでも見つかれば_そこで止まる() {
+        // **いちばん近い仕事場を返す**（入れ子のとき、外側まで行かない）
+        let 外 = 仮の場("outer");
+        let 内 = 外.join("inner");
+        std::fs::create_dir_all(内.join("src")).expect("作れる");
+        std::fs::create_dir_all(外.join(".git")).expect("作れる");
+        std::fs::create_dir_all(内.join(".git")).expect("作れる");
+        assert_eq!(仕事場の名(&内.join("src")).as_deref(), Some("inner"));
+    }
 }
