@@ -18,3 +18,8 @@ SECRETS.local.md
 # node_modules / target / build は上で既に無視している。ここは足りないぶんだけ。
 .svelte-kit/
 apps/desktop/src-tauri/gen/
+
+# **3 台試験の段取り（公開 Issue から退避した原本）。**
+# **コミットしない** —— 外から読むと意味が分からず、ルームキーも貼られていた
+# （2026-09-21・オーナー判断）。`product-baseline.full.md` と同じ形
+.claude/archive/issues-3台試験/

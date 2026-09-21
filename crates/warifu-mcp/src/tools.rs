@@ -41,6 +41,18 @@ pub struct AskArgs {
     pub 訳: String,
 }
 
+/// [`crate::Warifu::room_invite`] の引数（**#32 の段 2**・2026-09-21）。
+///
+/// **どの部屋かを書く場所が無いのは意図。**いま見ている部屋に出る ——
+/// 書けると、**画面が見ていない部屋へ人を入れられる。**
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct InviteArgs {
+    /// 何本出すか。**1 本＝1 人**（**D12**）。省くと 1 本。
+    pub count: Option<u8>,
+    /// いつまで使えるか（秒）。省くと 24 時間。
+    pub ttl_secs: Option<u64>,
+}
+
 /// [`crate::Warifu::chat_send`] の引数。
 ///
 /// **差出人を書く場所が無いのは意図。**誰が言ったかはこの機械が刻む

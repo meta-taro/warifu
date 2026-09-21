@@ -10,6 +10,7 @@ use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
 use crate::chat::{Chat, 並べる};
+use crate::tools::InviteArgs;
 use crate::{OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError, WaitArgs};
 
 /// この口を叩いている相手の名前。
@@ -329,6 +330,41 @@ impl Warifu {
         ))
     }
 
+    /// **ルームキーを出す**（**#32 の段 2**・2026-09-21）。
+    #[tool(
+        description = "いま見ているルームへ入るためのルームキーを出す。**1 本につき 1 人**で、\
+                       渡した相手だけが入れる。既定は 24 時間で切れる。\
+                       **渡した相手だけに渡すこと** —— 鍵は持参人式で、\
+                       その文字列を持っている者が期限まで入れる。\
+                       **公開の場（Issue・チャット・記録）に貼らない。**\
+                       この口には札（room.invite）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn room_invite(
+        &self,
+        Parameters(args): Parameters<InviteArgs>,
+    ) -> Result<String, ErrorData> {
+        // **人の 1 回は、ここに置いてある**（**D119**）。
+        //
+        // オーナー（2026-09-21）——
+        // 「**人を介すときというのは、UI/UX とかのテスト以外は、
+        //   基本エージェントが動かせることの方が重要になります。**」
+        //
+        // **鍵を出すのに人を介す意味は無かった**（人が押しても判断していない）。
+        // **意味があるのは札のほう** —— 一度出せば、以後はエージェントが招ける。
+        self.通るか("room.invite")?;
+        let この機械 = self.この機械().await?;
+        let 何本 = args.count.unwrap_or(1);
+        let (鍵たち, いつまで) = この機械.招く(何本, args.ttl_secs).await?;
+        // **本数と期限を先に言う。**渡す側が、期限を計算しなくてよいように
+        let 頭 = format!(
+            "ルームキーを {} 本出しました（**{} まで使えます**）。\
+             1 本につき 1 人です。渡した相手だけに渡してください（公開の場に貼らないこと）。",
+            鍵たち.len(),
+            いつまで
+        );
+        Ok(format!("{頭}\n\n{}", 鍵たち.join("\n")))
+    }
+
     /// **自分のエージェントのプロフィールを書く。**
     #[tool(
         description = "自分のエージェントのプロフィール（名前と短い紹介）を書く。\
@@ -634,6 +670,8 @@ impl ServerHandler for Warifu {
              **足りない札は `pass_ask` で頼める**（動作と、なぜ要るかを書く）——\
              返りが「まだ」なら間を置いてもう一度。「断った」なら頼み直さない。\
              この頼みは部屋へ流れない（同じ PC の中だけを通る）。\
+             **人を呼ぶには `room_invite`**（ルームキーが出る。1 本＝1 人・24 時間）——\
+             **渡した相手だけに渡す。公開の場に貼らない**（鍵は持参人式）。\
              **`profile_set` で名乗ること**（何をしている席かを 1 行で）——\
              名乗らないと、人からは起動した所のフォルダ名でしか見えない。\
              2026-09-20、機械を立ち上げ直したあとに\

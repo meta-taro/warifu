@@ -33,7 +33,7 @@ mod place;
 mod talk;
 
 pub use line::{
-    Error, FromDesk, ToDesk, 名乗りの上限, 本文の上限, 訳の上限, 頼みの返り
+    Error, FromDesk, ToDesk, 名乗りの上限, 招ける本数, 本文の上限, 訳の上限, 頼みの返り,
 };
 pub use pipe::{一本, 受け口, 繋ぐ, 開いているか};
 pub use place::{

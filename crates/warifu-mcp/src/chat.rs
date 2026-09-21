@@ -311,6 +311,42 @@ impl Chat {
         }
     }
 
+    /// **ルームキーを出してもらう**（**#32 の段 2**・2026-09-21）。
+    ///
+    /// **鍵はここを通るが、記録には書かない**（割符の片割れである）。
+    pub async fn 招く(
+        &self,
+        何本: u8,
+        秒: Option<u64>,
+    ) -> Result<(Vec<String>, String), crate::ToolError> {
+        let 行 = ToDesk::招く { 何本, 秒 };
+        // **本数は出す前に検める**（机の側でも見るが、待たせる前に落とす）
+        ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返す);
+
+        self.送り
+            .send(行)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
+
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(返事を待つ秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
+
+        match 返事 {
+            FromDesk::招いた {
+                鍵たち, いつまで
+            } => Ok((鍵たち, いつまで)),
+            // **断られた理由は、そのまま渡す**（人が読むので）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **その発言の届き方**を尋ねる（**D76**）。届いたエージェントと、読んだエージェントを返す。
     ///
     /// # Errors
@@ -557,6 +593,10 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Stop => "\t\t（止まれと言われました）".to_owned(),
             // **様子は会話の行ではない。**尋ねたときだけ返るので、ここには並ばない
             FromDesk::様子 { .. } => String::new(),
+            // **出した鍵は会話の行ではない**（**#32 の段 2**）。
+            // **そして、会話へ混ぜてはいけない** —— 鍵は割符の片割れである。
+            // 並べる所へ落ちてきたら、**空にする**（貼らない・書かない）
+            FromDesk::招いた { .. } => String::new(),
             // **札の答えも会話の行ではない**（**D119**）。
             // 頼んだときだけ返るので、ここには並ばない ——
             // **並べると、部屋の発言として人の目に入る**（それは **#26** で塞いだ形である）

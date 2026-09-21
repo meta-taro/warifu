@@ -271,11 +271,50 @@ fn 出している口を_数えて名前で押さえる() {
             "inbox_open",
             "pass_ask",
             "profile_set",
+            "room_invite",
             "room_status",
             "rules_list",
         ],
         "口が増えたら、札の種類を決めてからここを直す"
     );
+}
+
+#[test]
+fn 招く口は_札が無ければ通らない() {
+    // **2026-09-21 に room_invite を足した** —— 札は **`room.invite`**（**#32 の段 2**）。
+    //
+    // オーナー ——
+    //
+    // > **人を介すときというのは、UI/UX とかのテスト以外は、
+    // > 基本エージェントが動かせることの方が重要になります。**
+    //
+    // **鍵を出すのに人を介す意味が無かった。**人が押しても判断していない
+    // （数字の `1` とボタンがあるだけ）。**そして主張と矛盾していた** ——
+    // シート 24 は「最初の 1 回だけ人が許し、**以後は人抜きで往復する**」なのに、
+    // **招くたびに人が押していた。**
+    //
+    // # **札を出す口とは別物である**
+    //
+    // `answer_pass`（札を出す）を MCP に置かないのは、**AI が自分に許可を出せてしまう**から。
+    // `room_invite` は**許可を出さない** —— **人が出した札を使う**だけである。
+    // **出るのは部屋への招待**（1 本＝1 人・24 時間）であって、**権限ではない。**
+    //
+    // **そして、札が無ければ 1 本も出ない。**ここを確かめる。
+    let 口 = 用意(&[]);
+    let 出た = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime")
+        .block_on(口.room_invite(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::InviteArgs {
+                count: Some(1),
+                ttl_secs: None,
+            },
+        )));
+    let 文 = format!("{:?}", 出た.expect_err("札が無いので通らない"));
+    assert!(文.contains("room.invite"), "{文}");
+    // **ほかの口の札を、断りのついでに教えない**
+    assert!(!文.contains("chat"), "ほかの札を並べない: {文}");
 }
 
 // ── 予定表（企画書 v2 §17 / roadmap Phase 3 の代表 Demo） ──
