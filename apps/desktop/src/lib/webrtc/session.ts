@@ -32,6 +32,16 @@ import {
   同じ網に居るか,
 } from './trace';
 
+/**
+ * **記録に出す鍵の短い形。**
+ *
+ * **相手が 2 人以上居ると、鍵の無い行は読めない**（2026-09-24 に踏んだ）——
+ * 生きている経路が壊れたように読める。
+ */
+export function 短い鍵(key: string): string {
+  return key.length > 12 ? `${key.slice(0, 12)}…` : key;
+}
+
 /** 経路を見に行く間隔。短くしても、`watch.ts` が表示を落ち着かせる。 */
 const STATS_EVERY_MS = 1000;
 
@@ -147,7 +157,14 @@ export class Call {
     // これしか手掛かりにならない（Windows・2026-09-14）
     this.pc.oniceconnectionstatechange = () => {
       const 具合 = this.pc.iceConnectionState;
-      log(`経路の具合 ${具合}`);
+      // **どの相手の話かを書く**（2026-09-24 に読めなくなった）。
+      //
+      // 相手が 2 人居るとき、**この行だけでは、生きている経路が壊れたように読める** ——
+      // 実際に 2026-09-24、`経路の具合 failed` が出た 30 秒後に
+      // `room_status` は `direct` を返していた（**落ちたのは、もう居ない相手の通話**）。
+      //
+      // **`経路が変わった` には前から鍵が入っている。**ここだけ抜けていた。
+      log(`経路の具合 ${具合}（${短い鍵(this.peer)}）`);
       if (具合 === 'failed' || 具合 === 'disconnected') void this.様子を記録する();
     };
     this.pc.ontrack = (e) => {
@@ -330,7 +347,7 @@ export class Call {
     if (this.closed || this.様子を出した) return;
     this.様子を出した = true;
     const report = await this.pc.getStats();
-    log(数えて言い表す([...report.values()] as 統計の行[]));
+    log(`${数えて言い表す([...report.values()] as 統計の行[])}（${短い鍵(this.peer)}）`);
   }
 
 

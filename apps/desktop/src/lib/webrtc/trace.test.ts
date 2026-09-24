@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { 短い鍵 } from './session';
 import {
   伏せる,
   同じ網に居るか,
@@ -435,5 +436,19 @@ describe('手元の様子（`なし` の意味を言い分ける）', () => {
   it('手元を渡さなければ、何も足さない（古い呼び方を壊さない）', () => {
     const 出た = 送り受けを言い表す([音] as never);
     expect(出た).not.toContain('【');
+  });
+});
+
+describe('記録に出す鍵の短い形（2026-09-24）', () => {
+  it('長い鍵は 12 文字で切って … を付ける', () => {
+    // **相手が 2 人以上居ると、鍵の無い行は読めない** ——
+    // 2026-09-24、`経路の具合 failed` が出た直後に `room_status` は `direct` を返した
+    // （**落ちたのは、もう居ない相手の通話**だった）
+    expect(短い鍵('6X7BDCXBJ3DW57YTLELHUOUQBPVBMBE47LTIB45SPKHX2DD2QUAQ')).toBe('6X7BDCXBJ3DW…');
+  });
+
+  it('短い鍵は、そのまま出す', () => {
+    // **切る意味が無いものを切らない**（`…` が付くと、続きが在ると読める）
+    expect(短い鍵('KEY1')).toBe('KEY1');
   });
 });
