@@ -30,7 +30,11 @@ use std::net::{IpAddr, SocketAddr};
 pub const 載せる本数: usize = 4;
 
 /// その番地の「届きそうさ」。**小さいほど先に載る。**
-fn 見込み(ip: IpAddr) -> u8 {
+///
+/// **`Address` からも使う。**あちらが番地の数値順に並べ直していたので、
+/// **ここで並べた順が消えていた**（2026-09-24・ASUS の実測）——
+/// **順を決める規則は 1 つにする。**
+pub(crate) fn 見込み(ip: IpAddr) -> u8 {
     match ip {
         IpAddr::V4(v4) => {
             let [a, b, ..] = v4.octets();
