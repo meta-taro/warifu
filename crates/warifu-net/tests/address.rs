@@ -197,3 +197,44 @@ mod 宛先の並び {
         );
     }
 }
+
+/// **届かなかったときに、どこへ当てにいったかを言う**（2026-09-24）。
+///
+/// ASUS の席は「宛先に届きませんでした」しか見えず、
+/// **鍵が古いのか・相手が落ちたのか・網が違うのか**を切り分けるために ping を打った。
+/// **warifu は UDP なので、ping も TCP も決め手にならない。**
+mod 届かなかったとき {
+    use super::番;
+    use warifu_core::Seed;
+    use warifu_net::Address;
+
+    fn 鍵() -> warifu_core::PublicKey {
+        Seed::from_bytes([9u8; 32])
+            .profile("Personal")
+            .device("mini")
+            .public_key()
+    }
+
+    #[tokio::test]
+    async fn 当てにいった番地が_文面に出る() {
+        // **相手のいまの番地と見比べられるように、そのまま出す**
+        let 宛先 = Address::from_ip_addrs(鍵(), [番("192.168.24.17:55698")]);
+        let 私 = warifu_core::Seed::from_bytes([1u8; 32])
+            .profile("Personal")
+            .device("me");
+        let node = warifu_net::Node::bind(&私, warifu_net::中継の使い方::使わない)
+            .await
+            .expect("建つ");
+        let 失敗 = node
+            .connect_within(
+                &宛先,
+                &warifu_core::Revocations::new(),
+                std::time::Duration::from_millis(300),
+            )
+            .await
+            .expect_err("届かない");
+        let 文 = 失敗.to_string();
+        assert!(文.contains("192.168.24.17:55698"), "{文}");
+        assert!(文.contains("番地が変わった"), "{文}");
+    }
+}

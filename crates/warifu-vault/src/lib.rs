@@ -148,6 +148,9 @@ const ISSUED_HEADER: &str = "warifu-issued-v1";
 /// 待っていた口の控えの見出し（**#38 の残り半分**）。
 const PORT_HEADER: &str = "warifu-port-v1";
 
+/// **出した鍵に焼いた番地**の見出し（2026-09-24）。
+const ISSUED_ADDRS_HEADER: &str = "warifu-issued-addrs-v1";
+
 /// 中継を使うかの控えの見出し（**#5**・2026-09-18）。
 const RELAY_HEADER: &str = "warifu-relay-v1";
 
@@ -601,6 +604,77 @@ impl Vault {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "出した割符の控えを消す")(e)),
         }
+    }
+
+    /// **出した鍵に焼いた番地**のファイル（2026-09-24）。
+    #[must_use]
+    pub fn issued_addrs_path(&self) -> PathBuf {
+        self.dir.join("issued-addrs.tsv")
+    }
+
+    /// **鍵に焼いた番地を控える**（2026-09-24）。
+    ///
+    /// # なぜ口だけでは足りなかったか
+    ///
+    /// [`Vault::save_port`] の表に **「宛先＝どこへ来い（住所と口）」**と書いてある。
+    /// **口は控えていたが、住所は控えていなかった。**
+    ///
+    /// **2026-09-24 に実物で踏んだ** —— この機械の番地が
+    /// `192.168.24.17` から `192.168.24.16` へ変わり、
+    /// **配った鍵が全部死んだ。**そのとき起動の記録はこう言っていた ——
+    ///
+    /// ```text
+    /// 口 55698 を取り直しました（**前に配った鍵は、そのまま使えます**）
+    /// ```
+    ///
+    /// **口は同じだったので、そう書いていた。**
+    /// **渡した相手は「宛先に届きませんでした」で入れず、原因を探した。**
+    ///
+    /// # ここに秘密は入らない
+    ///
+    /// **その機械の番地と口だけ**（鍵の中身ではない）。
+    /// それでも `issued.tsv` と同じ所に置くので **0600** にする。
+    ///
+    /// # Errors
+    /// 書けないとき [`Error::Io`]。
+    pub fn save_issued_addrs(&self, 番地たち: &[String]) -> Result<(), Error> {
+        let mut out = String::from(ISSUED_ADDRS_HEADER);
+        out.push('\n');
+        for 番地 in 番地たち {
+            // **行を壊すものは載せない**（番地に改行は入らないが、念のため）
+            if 番地.contains(['\n', '\t']) {
+                continue;
+            }
+            out.push_str(番地);
+            out.push('\n');
+        }
+        self.write_private(&self.issued_addrs_path(), &out, "鍵に焼いた番地を控える")
+    }
+
+    /// 控えた番地を読む。**無ければ空**（初めてはこれ）。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn issued_addrs(&self) -> Result<Vec<String>, Error> {
+        let path = self.issued_addrs_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(Error::io(&path, "鍵に焼いた番地を読む")(e)),
+        };
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != ISSUED_ADDRS_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{ISSUED_ADDRS_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(lines
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(ToOwned::to_owned)
+            .collect())
     }
 
     /// **待っていた口**のファイル（**#38 の残り半分**）。

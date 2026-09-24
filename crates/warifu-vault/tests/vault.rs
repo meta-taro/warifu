@@ -1724,3 +1724,85 @@ fn 中継の控えは_人にだけ読める() {
         assert_eq!(権限.mode() & 0o777, 0o600, "0600 であること");
     }
 }
+
+// ── 鍵に焼いた番地の控え（2026-09-24） ──────────────
+//
+// **口だけでは足りなかった。**鍵は「口**と番地**」を焼き込む。
+//
+// **実物で踏んだ** —— この機械の番地が `192.168.24.17` から `.16` へ変わり、
+// **配った鍵が全部死んだ。**そのとき起動の記録は
+// 「口 55698 を取り直しました（**前に配った鍵は、そのまま使えます**）」と言っていた。
+// **口は同じだったので、そう書いていた。**
+
+#[test]
+fn 鍵に焼いた番地は_控えて読み戻せる() {
+    let dir = 仮の置き場("issued-addrs-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.issued_addrs().expect("読める").is_empty());
+
+    vault
+        .save_issued_addrs(&[
+            "192.168.24.17:55698".to_owned(),
+            "[fe80::1]:55698".to_owned(),
+        ])
+        .expect("書ける");
+
+    assert_eq!(
+        warifu_vault::Vault::at(dir).issued_addrs().expect("読める"),
+        vec![
+            "192.168.24.17:55698".to_owned(),
+            "[fe80::1]:55698".to_owned()
+        ]
+    );
+}
+
+#[test]
+fn 番地の控えは_鍵を出し直したら上書きする() {
+    // **新しい鍵は新しい番地を焼く。**古い番地を持ち続けると、
+    // **直ったあとも「変わりました」と言い続ける**
+    let dir = 仮の置き場("issued-addrs-overwrite");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_issued_addrs(&["192.168.24.17:55698".to_owned()])
+        .expect("書ける");
+    vault
+        .save_issued_addrs(&["192.168.24.16:55698".to_owned()])
+        .expect("書ける");
+
+    assert_eq!(
+        vault.issued_addrs().expect("読める"),
+        vec!["192.168.24.16:55698".to_owned()]
+    );
+}
+
+#[test]
+fn 番地が1つも無いときも_控えられる() {
+    // **番地が出ていない回もある**（CGNAT・中継だけ）。
+    // **そのときは空で控える** —— 書けないと、次の起動で「控えが無い」と読まれる
+    let dir = 仮の置き場("issued-addrs-empty");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued_addrs(&[]).expect("書ける");
+
+    assert!(vault.issued_addrs().expect("読める").is_empty());
+}
+
+#[test]
+fn 番地の控えは_この機械の人だけが読める() {
+    // **鍵の中身ではないが、置き場所の扱いを 1 つにする**（`issued.tsv` と同じ 0600）
+    let dir = 仮の置き場("issued-addrs-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_issued_addrs(&["192.168.1.2:1234".to_owned()])
+        .expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(vault.issued_addrs_path())
+            .expect("在る")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "0600 で置く");
+    }
+}

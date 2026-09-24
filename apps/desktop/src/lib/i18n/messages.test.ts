@@ -62,6 +62,17 @@ describe('文言辞書（DESIGN.md §9 / D35）', () => {
     expect(MESSAGES.en['link.lost'].toLowerCase()).not.toContain('create a new');
   });
 
+  it('「同じ鍵で戻れる」を、番地が変わった場合まで約束しない（2026-09-24）', () => {
+    // **実物で嘘になった。**mini の番地が 192.168.24.17 → .16 へ変わり、
+    // **配った鍵が全部死んだ**のに、この知らせは 11 回
+    // 「同じルームキーで戻ってこられます」と言い続けた。
+    // 鍵は `WARIFU1-<宛先>#<割符>#<ルーム>` で、**宛先が中に入っている。**
+    expect(MESSAGES.ja['link.lost']).toContain('番地');
+    expect(MESSAGES.en['link.lost'].toLowerCase()).toContain('address');
+    // **既定は「戻れる」のまま**（D44）。条件付きの但し書きであること
+    expect(MESSAGES.ja['link.lost']).toContain('戻ってこられます');
+  });
+
   it('注記は辞書にある鍵にしか付けられない', () => {
     const base = keysOf('en');
     for (const key of Object.keys(TRANSLATOR_NOTES)) {

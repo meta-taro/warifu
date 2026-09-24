@@ -2687,6 +2687,28 @@
     {/if}
 
     {#if 鍵の口を出す}
+    <!--
+      **入る口を、つくる口より先に置く**（2026-09-24・オーナー指摘）。
+
+      > **はいろうとするときに、うえからどこかなーってよんで、
+      > すくろーるしないといけないです。はいる、つくるはべつがめんでもいいくらいです。**
+
+      **招かれた側のほうが、初めてこの画面を開く人である。**
+      その人が、自分には関係の無い「ルームキーを出す」を読み飛ばしてから
+      下の欄にたどり着いていた。**先に置く。**
+
+      **別画面には分けていない** —— オーナーの「べつがめんでもいいくらい」は
+      **重さの言い方**であって、指定ではない。**並びで足りるなら、並びで直す。**
+    -->
+    <div class="card">
+      <h2><Icon name="enter" size={18} />{t('meeting.join.title')}</h2>
+      <p class="hint">{t('meeting.join.hint')}</p>
+      <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
+      <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
+        <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
+      </button>
+    </div>
+
     <div class="card">
       <h2><Icon name="people" size={18} />{t('meeting.start.title')}</h2>
       <p class="hint">{t('meeting.key.hint')}</p>
@@ -2709,15 +2731,6 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <div class="card">
-      <h2><Icon name="enter" size={18} />{t('meeting.join.title')}</h2>
-      <p class="hint">{t('meeting.join.hint')}</p>
-      <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
-      <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
-        <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
-      </button>
     </div>
     {/if}
 

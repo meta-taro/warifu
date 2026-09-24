@@ -389,7 +389,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': 'このルームキーは期限が切れています。新しいものをもらってください。',
     'meeting.key.tooearly': 'このルームキーは、まだ始まっていません。',
     'link.closed': '相手が退出しました。',
-    'link.lost': '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。',
+    'link.lost':
+      '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。' +
+      '（届かないときは、この機械の番地が変わっています — ルームキーを出し直してください）',
     'link.blocked.copy': '直し方をコピー（管理者の PowerShell に貼ります）',
     'link.blocked.copied': 'コピーしました',
     'link.blocked.notit': '経路が付きません。この PC の通信の許可はあるので、ふさがりが原因ではなさそうです。相手の側か、網の途中かもしれません。',
@@ -723,7 +725,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': 'This room key has expired. Ask for a new one.',
     'meeting.key.tooearly': 'This room key has not started yet.',
     'link.closed': 'The other person left.',
-    'link.lost': 'The route to them broke. They can come back with the same key — waiting.',
+    'link.lost':
+      'The route to them broke. They can come back with the same key — waiting. ' +
+      '(If it does not reach, this machine’s address changed — issue a new room key.)',
     'link.blocked.copy': 'Copy the fix (paste into an admin PowerShell)',
     'link.blocked.copied': 'Copied',
     'link.blocked.notit': 'No route. This PC is allowed to communicate, so the firewall is probably not the cause — it may be their side or the network in between.',
@@ -1057,7 +1061,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': '这个 room 密钥已过期。请索取新的密钥。',
     'meeting.key.tooearly': '这个 room 密钥还没有开始生效。',
     'link.closed': '对方已离开。',
-    'link.lost': '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。',
+    'link.lost':
+      '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。' +
+      '（如果连不上，是这台机器的地址变了 —— 请重新发放房间密钥。）',
     'link.blocked.copy': '复制修复命令（粘贴到管理员 PowerShell）',
     'link.blocked.copied': '已复制',
     'link.blocked.notit': '连不上。这台电脑已被允许通信，所以大概不是防火墙的问题 —— 可能在对方一侧或中间的网络。',
@@ -1389,7 +1395,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': '이 룸 열쇠는 기한이 지났습니다. 새것을 받아 주세요.',
     'meeting.key.tooearly': '이 룸 열쇠는 아직 시작되지 않았습니다.',
     'link.closed': '상대방이 나갔습니다.',
-    'link.lost': '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다.',
+    'link.lost':
+      '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. ' +
+      '(닿지 않으면 이 기기의 주소가 바뀐 것입니다 — 룸 키를 다시 발급하세요.)',
     'link.blocked.copy': '해결 방법 복사(관리자 PowerShell 에 붙여넣기)',
     'link.blocked.copied': '복사했습니다',
     'link.blocked.notit': '경로가 생기지 않습니다. 이 PC 의 통신은 허용되어 있으므로 방화벽이 원인은 아닌 듯합니다. 상대 쪽이나 중간 네트워크일 수 있습니다.',
@@ -1768,6 +1776,11 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '「渡した相手だけが入れる」は仕組みの説明であって、安全の保証ではない。' +
     '「安全です」と読める訳にしないこと — **ルームの鍵を他人に見られたら、その人が入れる。**',
   'link.lost':
+    '**2026-09-24 に括弧を足した。**「同じルームキーで戻ってこられます」だけだと、' +
+    '**この機械の番地が変わった場合に嘘になる** —— 鍵は `WARIFU1-<宛先>#<割符>#<ルーム>` で、' +
+    '**宛先（番地と口）が中に入っている。**実際に番地が `192.168.24.17` から `.16` へ変わり、' +
+    '相手が同じ 1 本を貼り直して「宛先に届きませんでした」になった。' +
+    '**括弧は条件付きである** —— 既定では戻れるので、「作り直してください」とは読ませないこと（D44）。' +
     '**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、' +
     'ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。' +
     '「誰でも入れるようになりました」と読める訳にしないこと。' +
