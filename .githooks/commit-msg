@@ -13,9 +13,26 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 printf '  %-38s' "commit message の個人情報"
 if out=$(bash .github/scripts/oss-privacy-check.sh --message-file "$1" 2>&1); then
   printf 'ok\n'
+else
+  printf 'NG\n'
+  printf '%s\n' "$out" >&2
+  printf '\033[31m%s\033[0m\n' "**--no-verify で回避しないこと。**history に焼き付くと消せません（baseline §18 / §25）。" >&2
+  exit 1
+fi
+
+# **画面を触ったなら、実物を見たことを書く**（2026-09-24・オーナー指示）。
+#
+# オーナー ——「**タブ切り替えはいいけど、見てくれチェックが抜けていると思うので、
+# ワークフロー見直してください。**」
+#
+# **規則には書いてあったが、工程には入っていなかった** ——
+# だから同じ指摘を 3 回させた（v0.1.14 / v0.1.15 / v0.1.16・gh issue 41）。
+printf '  %-38s' "画面を見たか"
+if out=$(python3 scripts/check-screen-seen.py "$1" 2>&1 || python scripts/check-screen-seen.py "$1" 2>&1); then
+  printf 'ok\n'
   exit 0
 fi
 printf 'NG\n'
 printf '%s\n' "$out" >&2
-printf '\033[31m%s\033[0m\n' "**--no-verify で回避しないこと。**history に焼き付くと消せません（baseline §18 / §25）。" >&2
+printf '\033[31m%s\033[0m\n' "**--no-verify で回避しないこと。**見ていないなら「見た: 見ていない（訳）」と書きます。" >&2
 exit 1
