@@ -49,6 +49,6 @@ mod tools;
 pub use chat::Chat;
 pub use server::{Warifu, subject};
 pub use tools::{
-    ChangesArgs, InviteArgs, OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError,
-    WaitArgs,
+    AskArgs, ChangesArgs, InviteArgs, OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs,
+    ToolError, WaitArgs,
 };

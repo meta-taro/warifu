@@ -855,3 +855,64 @@ async fn 待っている最中にこの機械が閉じたら_繋ぎ直して待�
     この機械.abort();
     let _ = std::fs::remove_file(&場所);
 }
+
+#[test]
+fn 外へ出る引数名は_asciiだけ() {
+    // **2026-09-24 に踏んだ。**`pass_ask` の引数名を日本語にしていたので、
+    // **この口は Claude から呼べなかった。**
+    //
+    // ```text
+    // "pass_ask" は除外されました:
+    //   property key **動作** does not match /^[a-zA-Z0-9_.-]{1,64}$/
+    // ```
+    //
+    // **つまり D119 の「エージェントが札を頼む」が、一度も動いていなかった。**
+    // **9/18 に「端から端まで確かめた」と書いたのは `--allow` を書いた口で試したから**で、
+    // **`pass_ask` そのものは呼べていない。**
+    //
+    // **中の識別子は日本語でよい。外へ出る引数名は駄目**である ——
+    // **シェルの変数名（落とし穴 1）と同じ形。**
+    //
+    // **人が気をつける方式は必ず漏れる**ので、ここで機械に見させる。
+    fn 名を検める(口: &str, schema: &schemars::Schema) {
+        let Some(欄) = schema
+            .as_value()
+            .get("properties")
+            .and_then(serde_json::Value::as_object)
+        else {
+            return;
+        };
+        for 名 in 欄.keys() {
+            assert!(
+                !名.is_empty()
+                    && 名.len() <= 64
+                    && 名
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-')),
+                "**{口} の引数 `{名}` は外へ出せません**（ASCII の英数字と `_ . -` だけ）"
+            );
+        }
+    }
+
+    名を検める("pass_ask", &schemars::schema_for!(warifu_mcp::AskArgs));
+    名を検める(
+        "room_invite",
+        &schemars::schema_for!(warifu_mcp::InviteArgs),
+    );
+    名を検める("chat_send", &schemars::schema_for!(warifu_mcp::SayArgs));
+    名を検める("chat_wait", &schemars::schema_for!(warifu_mcp::WaitArgs));
+    名を検める(
+        "chat_status",
+        &schemars::schema_for!(warifu_mcp::StatusArgs),
+    );
+    名を検める("inbox_open", &schemars::schema_for!(warifu_mcp::OpenArgs));
+    名を検める(
+        "profile_set",
+        &schemars::schema_for!(warifu_mcp::ProfileArgs),
+    );
+    名を検める(
+        "calendar_slots",
+        &schemars::schema_for!(warifu_mcp::SlotsArgs),
+    );
+    名を検める("changes", &schemars::schema_for!(warifu_mcp::ChangesArgs));
+}

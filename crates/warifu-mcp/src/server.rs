@@ -306,7 +306,7 @@ impl Warifu {
         // **札を求めない。**頼む口に札を要求すると、**最初の 1 歩が踏めない**
         let 机 = self.この機械().await?;
         let 返り = 机
-            .札を頼む(&args.動作, &args.訳)
+            .札を頼む(&args.action, &args.why)
             .await
             .map_err(|e| ToolError::Unavailable(e.to_string()))?;
         Ok(返り)
