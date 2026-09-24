@@ -269,6 +269,7 @@ roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capac
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
 roster.name.save	Save	決める	保存	저장				
+roster.title	People in this room	このルームに居る人	这个房间里的人	이 방에 있는 사람				
 schedule.add	Write an appointment	予定を書く	写一个日程	일정 쓰기				
 schedule.bad	Write the date and time in this shape (date 2026-09-11, start 9:30).	日と時刻を、この形で書いてください（日は 2026-09-11、始まりは 9:30）。	请按这个格式写日期和时间（日期 2026-09-11，开始 9:30）。	날짜와 시각을 이 형식으로 써 주세요(날짜 2026-09-11, 시작 9:30).				
 schedule.date	Date	日	日期	날짜				

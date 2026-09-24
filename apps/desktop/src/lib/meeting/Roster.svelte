@@ -65,9 +65,21 @@
   const shown = $derived(clampCapacity(capacity));
 </script>
 
-<section class="roster" aria-label={MESSAGES[locale]['app.name']}>
+<!--
+  **見出しを付ける**（2026-09-24）。
+
+  **ASUS の席が、この帯を見つけられなかった** ——
+  「**名簿がどの画面にあるか分かりませんでした。人の一覧は出ていません。**」
+  実際には在って、**映像の札と会話の間**に出ていた。
+  **h2 が無いので、上から見出しを拾うと飛ばす。**
+
+  **02（経路が direct になる）を測る所がここ**なので、
+  見つけられないと**測れない行がある。**
+-->
+<section class="roster" aria-label={MESSAGES[locale]['roster.title']}>
   <header>
     <Icon name="people" />
+    <h2>{MESSAGES[locale]['roster.title']}</h2>
     <span class="count"
       >{format(MESSAGES[locale]['roster.capacity'], {
         current: members.length,
@@ -147,11 +159,20 @@
   header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--space-2);
     color: var(--text-tertiary);
     padding: var(--space-2) var(--space-3);
     background: var(--bg-sunken);
     border-bottom: 1px solid var(--border);
+  }
+
+  /* **見出しは、札の見出しと同じ重さで出す**（飛ばされないため） */
+  header h2 {
+    flex: 1;
+    margin: 0;
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+    color: var(--text-secondary);
   }
   .count {
     font-family: var(--font-mono);

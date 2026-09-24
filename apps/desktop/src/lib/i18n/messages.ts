@@ -35,6 +35,7 @@ export type MessageKey =
   | 'link.relayed'
   | 'link.unknown'
   | 'roster.capacity'
+  | 'roster.title'
   | 'tile.me'
   | 'tile.peer'
   | 'meeting.start.title'
@@ -369,6 +370,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.relayed': '中継',
     'link.unknown': '不明',
     'roster.capacity': '{current} / {capacity}',
+    'roster.title': 'このルームに居る人',
     'tile.me': '自分',
     'tile.peer': '相手',
     'meeting.start.title': 'ルームをつくる',
@@ -707,6 +709,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.relayed': 'Relayed',
     'link.unknown': 'Unknown',
     'roster.capacity': '{current} / {capacity}',
+    'roster.title': 'People in this room',
     'tile.me': 'You',
     'tile.peer': 'Them',
     'meeting.start.title': 'Make a room',
@@ -1045,6 +1048,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.relayed': '中继',
     'link.unknown': '未知',
     'roster.capacity': '{current} / {capacity}',
+    'roster.title': '这个房间里的人',
     'tile.me': '自己',
     'tile.peer': '对方',
     'meeting.start.title': '建一个房间',
@@ -1381,6 +1385,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.relayed': '중계',
     'link.unknown': '알 수 없음',
     'roster.capacity': '{current} / {capacity}',
+    'roster.title': '이 방에 있는 사람',
     'tile.me': '나',
     'tile.peer': '상대',
     'meeting.start.title': '방 만들기',
