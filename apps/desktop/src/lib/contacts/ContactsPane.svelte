@@ -1296,7 +1296,8 @@
   }
   .key .label {
     margin-right: 6px;
-    font-family: var(--font-sans);
+    /* **`--font-sans` は無い**（2026-09-24 に機械が見つけた）。在るのは `--font-ui` */
+    font-family: var(--font-ui);
     color: var(--text-tertiary);
   }
   /*

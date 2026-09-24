@@ -25,6 +25,11 @@
   --accent-active: #5a3f2b;
   --accent-subtle: #f3e9dd;
   --accent-border: #e0cdb6;
+  /* **操作の色の上に置く字。**（2026-09-24 に足した）
+     `ChatPanel` の【送る】が `var(--on-accent)` を書いていたが、**この名前は無かった** ——
+     字の色が当たらず、**濃い木の上に濃い字**が乗っていた（暗い所では逆に、
+     明るいカフェオレの上に白い字）。**どちらも読みにくい。** */
+  --on-accent: #fffdfa;
 
   /* ── §3.2 ニュートラル（カフェオレへ寄せた温かい灰） ─────── */
   --bg-app: #fffdfa;
@@ -143,6 +148,8 @@
   --accent-active: #e6d4bf;
   --accent-subtle: #2e2419;
   --accent-border: #453626;
+  /* **暗い所では操作の色が明るいので、字は沈める**（明暗の役割が入れ替わる） */
+  --on-accent: #14100c;
 
   --bg-app: #14100c;
   --bg-subtle: #1a1511;
