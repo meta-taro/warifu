@@ -370,11 +370,9 @@ impl Warifu {
     ) -> Result<String, ErrorData> {
         // **札を求めない。**頼む口に札を要求すると、**最初の 1 歩が踏めない**
         let 机 = self.この機械().await?;
-        let 返り = 机
-            .札を頼む(&args.action, &args.why)
-            .await
-            .map_err(|e| ToolError::Unavailable(e.to_string()))?;
-        Ok(返り)
+        // **包み直さない。**`ToolError` の Display は「出せません」を自分で書くので、
+        // もう一度包むと **「出せません: 出せません: …」**になる（2026-09-24 に実物で見た）
+        Ok(机.札を頼む(&args.action, &args.why).await?)
     }
 
     /// **人が札に答えるのを待つ**（2026-09-24・Mac Air の席の提案）。
@@ -400,11 +398,8 @@ impl Warifu {
     ) -> Result<String, ErrorData> {
         // **札を求めない。**待つ口に札を要求すると、**最初の 1 歩が踏めない**
         let 机 = self.この機械().await?;
-        let 返り = 机
-            .札を待つ(&args.action, &args.why, args.seconds)
-            .await
-            .map_err(|e| ToolError::Unavailable(e.to_string()))?;
-        Ok(返り)
+        // **包み直さない**（`pass_ask` と同じ）
+        Ok(机.札を待つ(&args.action, &args.why, args.seconds).await?)
     }
 
     /// 会話へ 1 行流す。**人の画面にも同じ行が出る。**
