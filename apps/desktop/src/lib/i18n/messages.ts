@@ -286,6 +286,7 @@ export type MessageKey =
   | 'video.title'
   | 'room.hasvideo'
   | 'relay.title'
+  | 'room.entry.more'
   | 'settings.title'
   | 'settings.hint'
   | 'relay.what'
@@ -662,6 +663,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': 'このルームに映像を足す',
     'room.hasvideo': '● このルームに映像と音が付いています',
     'relay.title': '網を越えてつなぐ（中継）',
+    'room.entry.more': '人を招く／別のルームに入る',
     'settings.title': 'ふだんは触らない設定',
     'settings.hint': '一度決めたら、たいてい触りません。押すと開きます。',
     'relay.what': '別の網の相手とつなぐには、中継が要ります。中継を使うと、誰といつつながったかが中継の運用者から見えます（中身は見えません）。同じ網の相手には要りません。',
@@ -1001,6 +1003,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': 'Add video to this room',
     'room.hasvideo': '● Video and sound are on this room',
     'relay.title': 'Connect across networks (relay)',
+    'room.entry.more': 'Invite someone / join another room',
     'settings.title': 'Settings you rarely touch',
     'settings.hint': 'Set once and mostly forgotten. Click to open.',
     'relay.what': 'Reaching someone on a different network needs a relay. With a relay on, whoever runs it can see who connected and when (not what you say). You do not need it for someone on the same network.',
@@ -1338,6 +1341,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': '为这个房间加上影像',
     'room.hasvideo': '● 影像和声音加在这个房间',
     'relay.title': '跨网络连接（中继）',
+    'room.entry.more': '邀请他人／进入其他房间',
     'settings.title': '平时不会碰的设置',
     'settings.hint': '设定一次后基本不会再动。点击展开。',
     'relay.what': '要连到别的网络里的人，需要中继。开了中继，运营中继的人能看到谁在什么时候连上（看不到内容）。同一个网络里的人不需要。',
@@ -1679,6 +1683,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'video.title': '이 룸에 영상을 더하기',
     'room.hasvideo': '● 이 룸에 영상과 소리가 붙어 있습니다',
     'relay.title': '망을 넘어 연결하기（중계）',
+    'room.entry.more': '사람 초대／다른 방에 들어가기',
     'settings.title': '평소에는 건드리지 않는 설정',
     'settings.hint': '한 번 정하면 대개 그대로입니다. 누르면 열립니다.',
     'relay.what': '다른 망에 있는 상대와 연결하려면 중계가 필요합니다. 중계를 쓰면 누가 언제 연결했는지가 중계 운영자에게 보입니다（내용은 보이지 않습니다）. 같은 망의 상대에게는 필요 없습니다.',

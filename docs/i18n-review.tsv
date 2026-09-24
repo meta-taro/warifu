@@ -251,6 +251,7 @@ revoke.irreversible	This revocation cannot be undone.	この失効は取り消�
 room.alone	Just you so far. Hand out a room key and someone can come in.	まだ自分だけです。ルームキーを渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
 room.back	Back to the last room	前のルームに戻る	回到上一个房间	이전 룸으로 돌아가기				
 room.back.hint	Rejoins the room you were in. You do not need a new key — even after the key\'s 24 hours are up, you can return if they still let you in.	前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。	重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。	이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.				
+room.entry.more	Invite someone / join another room	人を招く／別のルームに入る	邀请他人／进入其他房间	사람 초대／다른 방에 들어가기				
 room.hasvideo	● Video and sound are on this room	● このルームに映像と音が付いています	● 影像和声音加在这个房间	● 이 룸에 영상과 소리가 붙어 있습니다				
 room.host	You made this room	あなたが作ったルームです	这个房间由你建立	당신이 만든 방입니다				
 room.invite	Invite someone to this room	このルームに人を呼ぶ	邀请人进这个 room	이 룸에 사람을 부르기				
