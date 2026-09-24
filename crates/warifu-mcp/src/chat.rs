@@ -537,6 +537,22 @@ fn 仕分ける(
         return;
     }
 
+    // **ルームキーは、頼んだ相手にだけ返す**（**#32** の段 2）。
+    //
+    // **2026-09-24 に踏んだ。**この枝が無かったので `招いた` は溜め箱へ落ち、
+    // **鍵は出ているのに、頼んだ側は「この機械が返事をしません」で時間切れ**になった
+    // （机の記録には「ルームキーを 1 本出しました」と書いてある）。
+    // **`pass_ask` と同じ形である** —— 書いてあって、一度も通していなかった。
+    //
+    // **待っている人が居なければ捨てる。**溜めに置くと、割符の片割れが
+    // 会話の箱に残る（`並べる` は出さないので、置いても誰も読めない）。
+    if let FromDesk::招いた { .. } = 中身 {
+        if let Some(返す) = 返し先.lock().expect("毒されていない").take() {
+            let _ = 返す.send(中身);
+        }
+        return;
+    }
+
     if matches!(
         中身,
         FromDesk::Sent { .. }
@@ -724,6 +740,56 @@ mod tests {
                 届いた: vec!["画面".to_owned()]
             }
         );
+    }
+
+    #[tokio::test]
+    async fn 出したルームキーは_頼んだ相手に返る() {
+        // **2026-09-24 に踏んだ。**この枝が無く、鍵は溜め箱へ落ちていた ——
+        // **机は出しているのに、頼んだ側は時間切れになる。**
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let (返す, 待つ) = oneshot::channel();
+        let 返し先 = Arc::new(Mutex::new(Some(返す)));
+
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::招いた {
+                鍵たち: vec!["WARIFU1-x#y#z".to_owned()],
+                いつまで: "09-25 05:58 UTC".to_owned(),
+            }
+            .書く(),
+        );
+
+        assert!(箱.lock().unwrap().is_empty(), "溜めに入っていない");
+        assert_eq!(
+            待つ.await.unwrap(),
+            FromDesk::招いた {
+                鍵たち: vec!["WARIFU1-x#y#z".to_owned()],
+                いつまで: "09-25 05:58 UTC".to_owned(),
+            }
+        );
+    }
+
+    #[test]
+    fn 待っている人が居なければ_ルームキーは溜めに残さない() {
+        // **鍵だけは例外。**割符の片割れを会話の箱に残さない
+        // （`並べる` も出さないので、置いても誰も読めない）
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let 返し先 = Arc::new(Mutex::new(None));
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::招いた {
+                鍵たち: vec!["WARIFU1-x#y#z".to_owned()],
+                いつまで: "09-25 05:58 UTC".to_owned(),
+            }
+            .書く(),
+        );
+        assert!(箱.lock().unwrap().is_empty(), "鍵は溜めに残さない");
     }
 
     #[test]
