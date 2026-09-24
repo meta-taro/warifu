@@ -154,12 +154,14 @@ link.blocked.copy	Copy the fix (paste into an admin PowerShell)	直し方をコ�
 link.blocked.notit	No route. This PC is allowed to communicate, so the firewall is probably not the cause — it may be their side or the network in between.	経路が付きません。この PC の通信の許可はあるので、ふさがりが原因ではなさそうです。相手の側か、網の途中かもしれません。	连不上。这台电脑已被允许通信，所以大概不是防火墙的问题 —— 可能在对方一侧或中间的网络。	경로가 생기지 않습니다. 이 PC 의 통신은 허용되어 있으므로 방화벽이 원인은 아닌 듯합니다. 상대 쪽이나 중간 네트워크일 수 있습니다.				
 link.blocked.unknown	No route. Could not check whether this PC is allowed to communicate ({why}). Since that is unknown, look at their side too before adding rules.	経路が付きません。この PC の通信の許可を調べられませんでした（{why}）。許可の有無は分かっていないので、足す前に相手の側も見てください。	连不上。无法确认这台电脑是否被允许通信（{why}）。既然不确定，添加规则前也请看看对方一侧。	경로가 생기지 않습니다. 이 PC 의 통신 허용 여부를 확인할 수 없었습니다({why}). 알 수 없는 상태이므로 규칙을 추가하기 전에 상대 쪽도 확인해 주세요.				
 link.closed	The other person left.	相手が退出しました。	对方已离开。	상대방이 나갔습니다.				
+link.declined	You did not enter. This room key works until {until} — open the link again when you want to enter.	入りませんでした。このルームキーは {until} まで使えます —— 入るときは、もう一度リンクを開いてください。	没有进去。这把 room key 到 {until} 之前都能用 —— 想进去的时候，再打开一次链接。	들어가지 않았습니다. 이 룸 키는 {until} 까지 쓸 수 있습니다 —— 들어갈 때는 링크를 다시 열어 주세요.				
 link.direct	Direct	直接	直连	직접				
 link.invited	A link is inviting you into a room. Enter?	リンクでルームに誘われています。入りますか？	有链接邀请你进入房间。要进入吗？	링크로 방에 초대받았습니다. 들어가시겠습니까?				
 link.invited.enter	Enter	入る	进入	들어간다				
 link.invited.hint	Anyone can make such a link. Do not enter an invitation you were not expecting.	このリンクは誰でも作れます。心当たりのない誘いには入らないでください。	这样的链接谁都能做。没有印象的邀请，请不要进入。	이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.	★	**警告である。**「安全です」「割符が確認済みです」と読める訳にしないこと。このリンクは誰でも作れる。割符は差出人を確かめていない。確かめられるのは、心当たりがあるかどうかだけで、それは人にしか分からない。		
 link.invited.no	Do not enter	入らない	不进入	들어가지 않는다				
-link.lost	The route to them broke. They can come back with the same key — waiting. (If it does not reach, this machine’s address changed — issue a new room key.)	相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。（届かないときは、この機械の番地が変わっています — ルームキーを出し直してください）	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。（如果连不上，是这台机器的地址变了 —— 请重新发放房间密钥。）	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. (닿지 않으면 이 기기의 주소가 바뀐 것입니다 — 룸 키를 다시 발급하세요.)	★	**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。／**2026-09-24 に括弧を足した。**「同じルームキーで戻ってこられます」だけだと、**この機械の番地が変わった場合に嘘になる**（鍵は宛先を中に持っている）。実物で 11 回この知らせが出ているあいだ、相手は同じ 1 本を貼り直して届かなかった。**括弧は条件付き** —— 既定では戻れるので「作り直してください」とは読ませない（D44）		
+link.invited.until	This room key works until {until}. Declining does not use it up.	このルームキーは {until} まで使えます。入らなくても、それまでは使えます。	这把 room key 到 {until} 之前都能用。不进去也不会用掉它。	이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.				
+link.lost	The route to them broke. They can come back with the same key — waiting. 	相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. 	★	**2026-09-24 に括弧を足した。**「同じルームキーで戻ってこられます」だけだと、**この機械の番地が変わった場合に嘘になる** —— 鍵は `WARIFU1-<宛先>#<割符>#<ルーム>` で、**宛先（番地と口）が中に入っている。**実際に番地が `192.168.24.17` から `.16` へ変わり、相手が同じ 1 本を貼り直して「宛先に届きませんでした」になった。**括弧は条件付きである** —— 既定では戻れるので、「作り直してください」とは読ませないこと（D44）。**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
 link.relayed	Relayed	中継	中继	중계				
 link.unknown	Unknown	不明	未知	알 수 없음				
 mark.kept	Waiting to be received	受信待ち	等待接收	수신 대기	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
@@ -169,6 +171,7 @@ mark.none.hint	There was no route and no poste restante, so it is kept nowhere.	
 mark.sent	Sent	送信済み	已发送	보냄	★	**渡したのは相手の機械までである。**「既読」「読みました」と読める訳にしないこと。割符には既読を集める機械が無い。**読んだかどうかは、こちらには分からない。**		
 mark.sent.hint	Handed to their machine. Whether they read it is unknown (there is no machine collecting read receipts).	相手の機械まで届きました。読んだかどうかは分かりません（既読を集める機械が無いためです）。	已交到对方的机器。是否读过无法知道（没有收集已读的机器）。	상대의 기기로 전달했습니다. 읽었는지는 알 수 없습니다(읽음을 모으는 기계가 없습니다).				
 meeting.copy.which	Normally hand over the link — they just press it. When a link will not work (CLI, paper, chats that strip links), copy the room key text instead.	ふだんは「リンクをコピー」で渡します。相手が押すだけで入れます。リンクが使えない相手（CLI・紙・リンクを剥がすチャット）には、「ルームキーをコピー」で文字を渡してください。	平时用「复制链接」交给对方，对方按一下就能进来。链接不可用时（CLI、纸面、会剥掉链接的聊天），请用「复制 room key」交出文字。	보통은 「링크 복사」로 건넵니다. 상대가 누르기만 하면 들어옵니다. 링크를 쓸 수 없는 상대(CLI·종이·링크를 없애는 채팅)에는 「룸 키 복사」로 문자를 건네주세요.				
+meeting.howling	Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.	同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。	正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。	같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.				
 meeting.join.action	Come in	ルームに入る	进入房间	방에 들어가기				
 meeting.join.hint	The one who was given the room key comes in. The one who gave it just waits.	もらった側が入ります。渡した側は待つだけです。	拿到密钥的一方进来。交出去的一方只需等待。	받은 쪽이 들어갑니다. 건넨 쪽은 기다리기만 하면 됩니다.				
 meeting.join.title	Come in with a room key you were given	もらったルームキーでルームに入る	用拿到的密钥进入房间	받은 열쇠로 방에 들어가기				
@@ -177,16 +180,16 @@ meeting.key.copied	Copied	コピーしました	已复制	복사했습니다
 meeting.key.copy	Copy the room key	ルームキーをコピー	复制 room key	룸 키 복사				
 meeting.key.count	{n} issued	{n} 本出しました	已发 {n} 把	{n} 개 냈습니다				
 meeting.key.each	One key lets one person in. Hand each person their own key.	1 本につき 1 人です。呼ぶ人ごとに、別のルームキーを渡してください。	一把 room key只能让一个人进入。请给每个人各自的room key。	열쇠 하나에 한 사람입니다. 부를 사람마다 다른 열쇠를 건네세요.				
+meeting.key.expired	This room key has expired. Ask for a new one.	このルームキーは期限が切れています。新しいものをもらってください。	这个 room 密钥已过期。请索取新的密钥。	이 룸 열쇠는 기한이 지났습니다. 새것을 받아 주세요.				
 meeting.key.hint	Hand this to the person you want in. Only they can come in. It expires in 24 hours. Writing it down or reading it aloud both work.	これを入ってほしい人に渡します。渡した相手だけが入れます。24 時間で切れます。紙に書いても、読み上げても渡せます。	把它交给你想让进来的人。只有拿到的人能进来。24 小时后失效。写在纸上、口头念出来都可以。	들어오게 하고 싶은 사람에게 건넵니다. 건넨 상대만 들어올 수 있습니다. 24 시간이면 끊깁니다. 종이에 적어도, 읽어 줘도 건넬 수 있습니다.	★	「渡した相手だけが入れる」は仕組みの説明であって、安全の保証ではない。「安全です」と読める訳にしないこと — **ルームの鍵を他人に見られたら、その人が入れる。**		
 meeting.key.howmany	How many	何人ぶん	几人份	몇 사람 분				
 meeting.key.label	Room key	ルームキー	房间密钥	방 열쇠				
 meeting.key.more	Hand out one more key	ルームキーをもう 1 本出す	再发一把密钥	열쇠를 한 개 더 내기				
 meeting.key.more.hint	One key lets exactly one person in. To let another person in, hand out one more key. The earlier key keeps working.	1 本のルームキーで入れるのは 1 人だけです。もう 1 人入れるなら、もう 1 本出してその人に渡します。前のルームキーは使えたままです。	一把密钥只能让一个人进来。要再让一个人进来，就再发一把交给他。之前的密钥仍然有效。	열쇠 하나로 들어올 수 있는 사람은 한 명뿐입니다. 한 명 더 들이려면 한 개 더 내어 그 사람에게 건넵니다. 앞의 열쇠는 그대로 쓸 수 있습니다.				
 meeting.key.nth	Key {n}	{n} 本目	第 {n} 把	{n} 번째				
-meeting.key.expired	This room key has expired. Ask for a new one.	このルームキーは期限が切れています。新しいものをもらってください。	这个 room 密钥已过期。请索取新的密钥。	이 룸 열쇠는 기한이 지났습니다. 새것을 받아 주세요.	★	**鍵のせいだと分かる訳にすること。**「接続できません」「相手が見つかりません」と読める訳にしないこと —— **2026-09-17、Mac Air が「宛先に届きませんでした」の文言で 6 時間待った。**相手を疑い、網を疑い、口を疑い、**鍵を疑う材料がどこにも無かった。**「もらってください」を落とさないこと（**次に何をすればよいかが要る**）。		
-meeting.key.tooearly	This room key has not started yet.	このルームキーは、まだ始まっていません。	这个 room 密钥还没有开始生效。	이 룸 열쇠는 아직 시작되지 않았습니다.	★	**「期限が切れた」と混ぜないこと。**こちらは**まだ始まっていない**（予定に紐づく鍵・**D43**）。混ぜると、待てば入れるのに「もらい直し」に行くことになる。		
 meeting.key.own	This is your own room key. Hand it to the person you want in.	これは自分のルームキーです。入ってほしい人に渡してください。	这是你自己房间的密钥。请交给你想让进来的人。	이것은 자기 방의 열쇠입니다. 들어오게 하고 싶은 사람에게 건네주세요.				
 meeting.key.reveal	Show the whole key	ルームキーの全文を見る	查看密钥全文	열쇠 전체 보기				
+meeting.key.tooearly	This room key has not started yet.	このルームキーは、まだ始まっていません。	这个 room 密钥还没有开始生效。	이 룸 열쇠는 아직 시작되지 않았습니다.				
 meeting.link.copy	Copy the link	リンクをコピー	复制链接	링크 복사				
 meeting.link.hint	Send this to the other person. When they open it, warifu asks them whether to enter (it never enters on its own). They need warifu installed too.	これを相手に送ります。相手が押すと割符が開いて、入るかどうかを尋ねます（勝手には入りません）。相手にも割符が入っている必要があります。	把它发给对方。对方点开后，割符会询问是否进入（不会擅自进入）。对方也需要装有割符。	이것을 상대에게 보냅니다. 상대가 열면 와리후가 들어갈지 묻습니다(멋대로 들어가지 않습니다). 상대에게도 와리후가 설치되어 있어야 합니다.	★	**「押すと入る」と読める訳にしないこと。**押すと割符が開いて、**入るかどうかを尋ねる**（そこで人が決める）。また、相手に割符が入っていなければ、リンクは何も起こさない。		
 meeting.link.label	Link to let them in	入ってもらうリンク	让对方进入的链接	들어오게 할 링크				
@@ -194,22 +197,23 @@ meeting.qr.hint	Use this when the other person is in front of you. Scanning it g
 meeting.qr.reveal	Show as a QR code	QR で見せる	显示二维码	QR로 보여주기				
 meeting.start.action	Make a room	ルームをつくる	建一个房间	방 만들기				
 meeting.start.title	Make a room	ルームをつくる	建一个房间	방 만들기				
-meeting.howling	Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.	同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。	正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。	같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.	★	**断定しない文にすること。**同じ網に居ることは「近い」の手がかりで、確証ではない —— 「ハウリングしています」と言い切る訳にしないこと。**エコー除去が壊れている**とも読ませないこと（除去は効いているが、自分の出力しか消せないのが理由）。逃げ道（ヘッドフォン／片方のマイクを切る）を落とさないこと。		
 meeting.status.both	Connected — video and audio, both ways	つながっています（映像と音を、送って受けています）	已连接（视频和声音，双向）	연결되어 있습니다 (영상과 소리를 주고받고 있습니다)				
+meeting.status.holding	Connected — your camera and microphone are on, but nothing is being sent	つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）	已连接（摄像头和麦克风已开启，但没有向对方发送任何内容）	연결되어 있습니다 (카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다)				
 meeting.status.live	Connected	つながっています	已连接	연결되어 있습니다				
 meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours; press [Add video and sound] to send.	つながっています（相手の映像を受けています。あなたは送っていません —— ［映像と音を足す］を押すと送ります）	已连接（正在接收对方的视频。你没有发送自己的视频 —— 按［为这个房间加上影像］就会发送）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다 —— ［이 룸에 영상을 더하기］를 누르면 보냅니다)				
 meeting.status.sendonly	Connected — you are sending video. Theirs has not arrived.	つながっています（あなたは送っています。相手の映像は来ていません）	已连接（你正在发送视频。对方的视频还没有到达）	연결되어 있습니다 (당신은 보내고 있습니다. 상대의 영상은 오지 않았습니다)				
-pass.allow	Allow	通す	允许	허용	★	**押すと札が出る。**「OK」「確認」のような、何が起きるか分からない語にしないこと。		
-pass.asked	An agent is asking for permission	エージェントが、これを使ってよいか聞いています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다	★	**エージェントが頼んでいる**のであって、**警符が求めているのではない。**「システムが許可を要求しています」と読める訳にしないこと —— **誰が頼んだかが分からないと、人は判断できない。**「今すぐ」「必要です」のような急かす言い方にしないこと（**断ってよい**）。		
-pass.asked.hint	If you allow it, this agent can use that action. You can revoke it later.	通すと、このエージェントはそれを使えるようになります。あとで取り消せます。	允许后，该代理就能使用这个动作。之后可以撤销。	허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.	★	**あとで取り消せることを必ず残す**（**D58**）。「永久に許可します」と読める訳にしないこと。逆に「一時的です」とも読ませないこと —— **取り消すまで効く。**		
-pass.refuse	Don't allow	通さない	不允许	허용하지 않음	★	**断っても、もう一度は聞かれない**（D119）。「あとで」「今回は」のように、また聞かれると読める訳にしないこと。		
-pass.who	{who} wants to use {what}	{who} が {what} を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다	★	**誰が・何を**の 2 つが要る。{who} は「◯◯ のエージェント」、{what} は動作の名（`chat.send` など）。**訳さない**（動作の名はそのまま出す）。		
-meeting.status.holding	Connected — your camera and microphone are on, but nothing is being sent	つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）	已连接（摄像头和麦克风已开启，但没有向对方发送任何内容）	연결되어 있습니다 (카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다)	★	**掴んでいることを認める文にすること。**「使っていません」「切れています」と読める訳にしないこと —— **実際にカメラの明かりは点いており、嘘になる**（2026-09-17・ASUS が録音の最大 0.0181 で実測）。逆に「送信中です」とも読ませないこと。**言うべきは「点いているが、相手へは行っていない」**である。		
 meeting.status.textonly	Connected — text only. Camera and microphone are not in use	つながっています（いま文字だけです。カメラもマイクも使っていません）	已连接（现在只有文字。没有使用摄像头和麦克风）	연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)				
 meeting.status.waiting	Waiting for the other person	相手を待っています	正在等待对方	상대방을 기다리는 중				
 pane.contacts	Contacts	連絡帳	通讯录	연락처				
 pane.meeting	Room	ルーム	房间	방				
 pane.schedule	Schedule	予定	日程	일정				
+pass.allow	Allow	通す	允许	허용				
+pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
+pass.asked	An agent is asking for permission	エージェントが、これを使ってよいか聞いています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다				
+pass.asked.hint	If you allow it, this agent can use that action. You can revoke it later.	通すと、このエージェントはそれを使えるようになります。あとで取り消せます。	允许后，该代理就能使用这个动作。之后可以撤销。	허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.				
+pass.refuse	Don't allow	通さない	不允许	허용하지 않음				
+pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は {what} を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
+pass.who	{who} wants to use {what}	{who} が {what} を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
 postbox.clear	Remove	外す	取消	해제				
 postbox.cleared	Mailbox removed.	留守中の受け取りを外しました。	已移除寄存处。	보관소를 내렸습니다.				
 postbox.hint	A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.	あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。	在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。	당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.				
@@ -232,6 +236,10 @@ profile.face.drop	Drag and drop an image onto the avatar to crop it and replace 
 profile.name	Name	名前	名字	이름				
 profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
 profile.save	Save	決める	保存	정하기				
+relay.next	This takes effect the next time you start warifu.	この設定は次の起動から効きます。	这个设置从下次启动开始生效。	이 설정은 다음 실행부터 적용됩니다.				
+relay.title	Connect across networks (relay)	網を越えてつなぐ（中継）	跨网络连接（中继）	망을 넘어 연결하기（중계）				
+relay.use	Use a relay	中継を使う	使用中继	중계를 사용				
+relay.what	Reaching someone on a different network needs a relay. With a relay on, whoever runs it can see who connected and when (not what you say). You do not need it for someone on the same network.	別の網の相手とつなぐには、中継が要ります。中継を使うと、誰といつつながったかが中継の運用者から見えます（中身は見えません）。同じ網の相手には要りません。	要连到别的网络里的人，需要中继。开了中继，运营中继的人能看到谁在什么时候连上（看不到内容）。同一个网络里的人不需要。	다른 망에 있는 상대와 연결하려면 중계가 필요합니다. 중계를 쓰면 누가 언제 연결했는지가 중계 운영자에게 보입니다（내용은 보이지 않습니다）. 같은 망의 상대에게는 필요 없습니다.				
 reunion.call	You can call them from Contacts (no room key needed). It only goes through if they remember you too.	連絡先から呼べます（ルームキーは要りません）。ただし相手の側でも覚えていないと、呼んでも通りません。	可以从联系人里呼叫（不需要 room key）。但对方也要记住你，否则呼叫不会通。	연락처에서 부를 수 있습니다(룸 키는 필요 없습니다). 다만 상대도 기억하고 있어야 연결됩니다.	★	**呼べば必ず繋がる、と読める訳にしないこと。**通るのは相手の戸口がこちらを通すときだけで、それは相手が決めることである。「いつでも繋がります」「自動で繋がります」と書かない。		
 reunion.key	Same as the first time: you hand each other a room key. To skip the room key next time, give them a name with the pencil beside their name.	初回と同じで、ルームキーを渡し合います。次からルームキーなしにしたいなら、名前の隣の鉛筆で呼び名を付けてください。	和第一次一样，互相交换room key。想让下次不需要 room key，请用名字旁边的铅笔起个称呼。	처음과 같이 서로 룸 키를 건넵니다. 다음부터 키 없이 하려면 이름 옆의 연필로 이름을 붙여 주세요.				
 reunion.name	Give them a name	呼び名を付ける	起个称呼	이름 붙이기				
@@ -242,7 +250,8 @@ revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{devi
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a room key and someone can come in.	まだ自分だけです。ルームキーを渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
 room.back	Back to the last room	前のルームに戻る	回到上一个房间	이전 룸으로 돌아가기				
-room.back.hint	Rejoins the room you were in. You do not need a new key — even after the key's 24 hours are up, you can return if they still let you in.	前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。	重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。	이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.				
+room.back.hint	Rejoins the room you were in. You do not need a new key — even after the key\'s 24 hours are up, you can return if they still let you in.	前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。	重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。	이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.				
+room.hasvideo	● Video and sound are on this room	● このルームに映像と音が付いています	● 影像和声音加在这个房间	● 이 룸에 영상과 소리가 붙어 있습니다				
 room.host	You made this room	あなたが作ったルームです	这个房间由你建立	당신이 만든 방입니다				
 room.invite	Invite someone to this room	このルームに人を呼ぶ	邀请人进这个 room	이 룸에 사람을 부르기				
 room.invite.hint	This one room key lets one person in. Hand the link, the QR or the room key text to the person you want. To invite another person, issue another room key.	この 1 本で 1 人が入れます。リンクか QR、またはルームキーの文字を、呼びたい相手に渡してください。もう 1 人呼ぶなら、もう 1 本出します。	这一把 room key可以让一个人进来。请把链接、二维码或room key 文字交给你想邀请的人。要再邀请一个人，就再出一把。	이 룸 키 한 개로 한 사람이 들어올 수 있습니다. 링크나 QR, 또는 룸 키 문자를 부르고 싶은 상대에게 건네주세요. 한 사람 더 부르려면 한 개 더 발급합니다.				
@@ -278,6 +287,8 @@ schedule.time	Start	始まり	开始	시작
 schedule.title	Schedule	予定	日程	일정				
 schedule.what	What it is	何の予定か	是什么日程	무슨 일정인지				
 send.absent	Not here right now. Set up a mailbox and messages will reach them later.	いま届きません。留守中の受け取りを設定すると、留守でも届きます。	对方现在不在。设置寄存处后，离线期间也能送达。	지금 없습니다. 보관소를 두면 부재 중에도 전달됩니다.	★	**まだ送れていない。**「送信しました」「あとで届きます」と読める訳にしないこと。預かり所を置いていない状態なので、打った言葉はどこにも残っていない。「預かり所を置くと」は条件であって、約束ではない。		
+settings.hint	Set once and mostly forgotten. Click to open.	一度決めたら、たいてい触りません。押すと開きます。	设定一次后基本不会再动。点击展开。	한 번 정하면 대개 그대로입니다. 누르면 열립니다.				
+settings.title	Settings you rarely touch	ふだんは触らない設定	平时不会碰的设置	평소에는 건드리지 않는 설정				
 setup.action	Check camera and microphone	カメラとマイクを確かめる	检查摄像头和麦克风	카메라와 마이크 확인				
 setup.blur	Blur my background	背景をぼかす	虚化背景	배경 흐리게				
 setup.blur.os	This environment cannot blur backgrounds from the app. On macOS, use Video Effects in Control Center.	この環境では、アプリから背景をぼかせません。macOS ならコントロールセンターのビデオエフェクトが使えます。	此环境无法由应用虚化背景。macOS 可使用控制中心的视频效果。	이 환경에서는 앱이 배경을 흐리게 할 수 없습니다. macOS라면 제어 센터의 비디오 효과를 사용하세요.				
@@ -306,7 +317,11 @@ update.none	You are on the latest ({version}).	いまが最新です（{version}
 update.notes	What changed	何が変わったか	有哪些变化	무엇이 달라졌는지				
 update.notes.none	Nothing written.	書かれていません。	没有写。	쓰여 있지 않습니다.				
 video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
-video.off.held	Your camera and microphone are on, but nothing is being sent. Your own view is visible only to you.	カメラとマイクは点いていますが、相手へは何も送っていません。自分の姿は自分にだけ見えています。	摄像头和麦克风已开启，但没有向对方发送任何内容。你自己的画面只有你能看到。	카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다. 자기 모습은 자신에게만 보입니다.	★	**機器は点いている。**「カメラは切れています」「使っていません」と読める訳にしないこと —— 実際にカメラの明かりは点いており、嘘になる（2026-09-17・Mac Air の報告）。逆に「送信中です」とも読ませないこと。**言うべきは「点いているが、相手へは行っていない」**である。「自分だけに見えている」は、**他の誰にも見えていない**と読めること。		
+video.move.ask	Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?	いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？	影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？	지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?				
+video.move.no	Leave them there	そのままにする	留在那边	그대로 두기				
+video.move.yes	Move them here	こちらへ移す	移到这里	이쪽으로 옮기기				
+video.noroom	No room is selected to add video to. Pick a room first.	どのルームに足すかが決まっていません。先にルームを選んでください。	还没有决定加到哪个房间。请先选一个房间。	어느 룸에 더할지 정해지지 않았습니다. 먼저 룸을 선택해 주세요.				
+video.off.held	Your camera and microphone are on, but nothing is being sent. Your own view is visible only to you.	カメラとマイクは点いていますが、相手へは何も送っていません。自分の姿は自分にだけ見えています。	摄像头和麦克风已开启，但没有向对方发送任何内容。你自己的画面只有你能看到。	카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다. 자기 모습은 자신에게만 보입니다.				
 video.off.hint	This room is text only right now. Neither camera nor microphone is in use.	このルームは、いま文字だけです。カメラもマイクも使っていません。	这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。	이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.				
 video.start	Add video and sound	映像と音を足す	加上影像和声音	영상과 소리를 더하기				
 video.stop	Stop video and sound (you stay in the room)	映像と音をやめる（ルームは抜けません）	停止影像和声音（不退出房间）	영상과 소리를 멈추기（룸에서 나가지 않습니다）				
@@ -315,16 +330,3 @@ window.close	Close	閉じる	关闭	닫기
 window.maximize	Maximize	最大化	最大化	최대화				
 window.minimize	Minimize	最小化	最小化	최소화				
 window.restore	Restore	元のサイズに戻す	还原	이전 크기로				
-link.invited.until	This room key works until {until}. Declining does not use it up.	このルームキーは {until} まで使えます。入らなくても、それまでは使えます。	这把 room key 到 {until} 之前都能用。不进去也不会用掉它。	이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.				
-link.declined	You did not enter. This room key works until {until} — open the link again when you want to enter.	入りませんでした。このルームキーは {until} まで使えます —— 入るときは、もう一度リンクを開いてください。	没有进去。这把 room key 到 {until} 之前都能用 —— 想进去的时候，再打开一次链接。	들어가지 않았습니다. 이 룸 키는 {until} 까지 쓸 수 있습니다 —— 들어갈 때는 링크를 다시 열어 주세요.				
-video.noroom	No room is selected to add video to. Pick a room first.	どのルームに足すかが決まっていません。先にルームを選んでください。	还没有决定加到哪个房间。请先选一个房间。	어느 룸에 더할지 정해지지 않았습니다. 먼저 룸을 선택해 주세요.				
-video.move.ask	Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?	いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？	影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？	지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?				
-video.move.yes	Move them here	こちらへ移す	移到这里	이쪽으로 옮기기				
-video.move.no	Leave them there	そのままにする	留在那边	그대로 두기				
-room.hasvideo	● Video and sound are on this room	● このルームに映像と音が付いています	● 影像和声音加在这个房间	● 이 룸에 영상과 소리가 붙어 있습니다				
-relay.title	Connect across networks (relay)	網を越えてつなぐ（中継）	跨网络连接（中继）	망을 넘어 연결하기（중계）				
-relay.what	Reaching someone on a different network needs a relay. With a relay on, whoever runs it can see who connected and when (not what you say). You do not need it for someone on the same network.	別の網の相手とつなぐには、中継が要ります。中継を使うと、誰といつつながったかが中継の運用者から見えます（中身は見えません）。同じ網の相手には要りません。	要连到别的网络里的人，需要中继。开了中继，运营中继的人能看到谁在什么时候连上（看不到内容）。同一个网络里的人不需要。	다른 망에 있는 상대와 연결하려면 중계가 필요합니다. 중계를 쓰면 누가 언제 연결했는지가 중계 운영자에게 보입니다（내용은 보이지 않습니다）. 같은 망의 상대에게는 필요 없습니다.				
-relay.use	Use a relay	中継を使う	使用中继	중계를 사용				
-relay.next	This takes effect the next time you start warifu.	この設定は次の起動から効きます。	这个设置从下次启动开始生效。	이 설정은 다음 실행부터 적용됩니다.				
-pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
-pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は {what} を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				

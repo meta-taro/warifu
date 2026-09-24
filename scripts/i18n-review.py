@@ -30,6 +30,11 @@ OUT = ROOT / "docs/i18n-review.tsv"
 LOCALES = ["en", "ja", "zh", "ko"]  # DESIGN.md §9 の並び
 
 
+# **鍵と値の形。**値は単引用符でも二重引用符でも書ける
+# （中にアポストロフィが在ると、TypeScript 側は二重引用符になる）。
+値の形 = re.compile(r"""'([^']+)':\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")""")
+
+
 def 読む() -> tuple[dict[str, dict[str, str]], set[str], dict[str, str]]:
     src = SRC.read_text(encoding="utf-8")
     body = src[src.index("export const MESSAGES") :]
@@ -38,7 +43,12 @@ def 読む() -> tuple[dict[str, dict[str, str]], set[str], dict[str, str]]:
     for lang in LOCALES:
         i = body.index(f"\n  {lang}: {{")
         j = body.index("\n  },", i)
-        出[lang] = dict(re.findall(r"'([^']+)':\s*'((?:[^'\\]|\\.)*)'", body[i:j]))
+        # **二重引用符の値も拾う**（2026-09-24 に踏んだ）——
+        # `'pass.refuse': "Don't allow",` のように、**中にアポストロフィが在ると
+        # TypeScript 側は二重引用符で書く。**単引用符だけ見ていたので、
+        # **その鍵だけ数から落ちて「言語ごとに鍵の数が違う」で止まった。**
+        組 = re.findall(値の形, body[i:j])
+        出[lang] = {鍵: 単 or 二 for 鍵, 単, 二 in 組}
 
     数 = {l: len(d) for l, d in 出.items()}
     if len(set(数.values())) != 1:

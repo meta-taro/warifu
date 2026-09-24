@@ -39,6 +39,7 @@
   import { 戻る口を出すか } from '$lib/contacts/rejoin';
   import { 宛先を据え置くか } from '$lib/chat/keep';
   import { 経路が付かないと言うか, 黙っている秒 } from '$lib/link/blocked';
+  import { 入る口を先に出すか, 初めの入退の面, type 入退の面 } from '$lib/shell/並び';
   import { ふさがりの直し方 } from '$lib/link/fix';
   import { ふさがりの言い方 } from '$lib/link/firewall';
   import type { 口の種類 } from '$lib/contacts/actions';
@@ -763,6 +764,20 @@
   // 包んでいた `映像を使う` のせいで、**文字だけの人は入る口を持てなかった**
   const 支度の口を出す = $derived(支度を出すか(状態, 映像を使う));
   const 鍵の口を出す = $derived(鍵を出すか(状態));
+  /**
+   * **入る／つくるの、どちらを出しているか**（2026-09-24）。
+   *
+   * **1 枚の札の中で切り替える。**両方を縦に積まない ——
+   * オーナー「**縦一列なので、まったくUXは改善していませんね。**」
+   */
+  let 入退 = $state<入退の面>(初めの入退の面);
+  /**
+   * **入る口を、会話より先に出すか**（2026-09-24）。
+   *
+   * **相手が居ないうちは、入る口が主役**（招かれた側は今日初めて開く人）。
+   * **相手が居たら、会話が主役に変わる**（2026-09-07 の「チャットが 3 枚の札の下」）。
+   */
+  const 入る口が先 = $derived(入る口を先に出すか({ 相手が居る: 会議中 }));
   /** 映像の枠を出すか（`stage.ts` が決める）。 */
   const 映像を出す = $derived(
     映像を出すか({ 映像を使う, 支度した, 相手が居る: remotes.length > 0 }),
@@ -2509,10 +2524,48 @@
       （2026-09-04 にオーナーから「場所が悪い。気づかなかった」と指摘された所である）
     -->
     <!--
+      **相手が居ないうちは、入る口が主役**（2026-09-24）——
+      招かれた側は、この画面を**今日初めて開く人**である。
+      **相手が居たら、会話が主役に変わる**（下で出す）。
+    -->
+    {#if 入る口が先}
+      {@render 入退の札()}
+    {/if}
+
+    <Roster
+      {locale}
+      {members}
+      capacity={DEFAULT_CAPACITY}
+      names={画面での名簿}
+      onRename={(key, label) => void 名前を付ける(key, label)}
+      {この機械のAIたち}
+    />
+
+    <ChatPanel {画面での名簿}
+      {locale}
+      {会話}
+      {届く先がある}
+      {会議中}
+      {この機械の人数}
+      送る={(body) => void 話す(body)}
+      {届く先}
+      宛先={会話の宛先}
+      下書きが変わった={(ある) => (下書きがある = ある)}
+      据え置いている={!!据え置き}
+      新しい宛先へ移る={() => (据え置き = null)}
+    />
+
+    <!--
       **ビデオ会議は、ここで足す**（グループチャットと分ける・オーナー・2026-09-10
       「ビデオ会議するからカレンダーもいるのにそれもないし」）。
-      **ルームは 1 つ。**映像を足すか足さないかだけが違う
+      **ルームは 1 つ。**映像を足すか足さないかだけが違う（**D108**）。
+
+      **相手が居ないときは出さない**（2026-09-24）——
+      **映像は「ルームの中のスイッチ」である。**相手が 0 人のルームで
+      「映像と音を足す」を押しても、**誰にも送らない。**
+      並べておくと、**入ろうとしている人の前に、要らない札が 1 枚立つ。**
     -->
+    {#if 会議中}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('video.title')}</h2>
       <!--
@@ -2567,29 +2620,15 @@
         </button>
       {/if}
     </div>
+    {/if}
 
-    <Roster
-      {locale}
-      {members}
-      capacity={DEFAULT_CAPACITY}
-      names={画面での名簿}
-      onRename={(key, label) => void 名前を付ける(key, label)}
-      {この機械のAIたち}
-    />
-
-    <ChatPanel {画面での名簿}
-      {locale}
-      {会話}
-      {届く先がある}
-      {会議中}
-      {この機械の人数}
-      送る={(body) => void 話す(body)}
-      {届く先}
-      宛先={会話の宛先}
-      下書きが変わった={(ある) => (下書きがある = ある)}
-      据え置いている={!!据え置き}
-      新しい宛先へ移る={() => (据え置き = null)}
-    />
+    <!--
+      **相手が居るときは、会話のあとに出す**（2026-09-24）——
+      **入ったあとも招ける**ので、口は消さない。**順だけ下げる。**
+    -->
+    {#if !入る口が先}
+      {@render 入退の札()}
+    {/if}
 
     {#if 支度の口を出す}
     <div class="card">
@@ -2686,53 +2725,81 @@
     </div>
     {/if}
 
-    {#if 鍵の口を出す}
     <!--
-      **入る口を、つくる口より先に置く**（2026-09-24・オーナー指摘）。
+      **入る／つくるは、1 つずつ出す**（2026-09-24・オーナー判定で作り直した）。
 
-      > **はいろうとするときに、うえからどこかなーってよんで、
-      > すくろーるしないといけないです。はいる、つくるはべつがめんでもいいくらいです。**
+      **1 度目の直しは並べ替えだった。**入る口をつくる口の上へ置いた。
+      **オーナーの判定** ——
 
-      **招かれた側のほうが、初めてこの画面を開く人である。**
-      その人が、自分には関係の無い「ルームキーを出す」を読み飛ばしてから
-      下の欄にたどり着いていた。**先に置く。**
+      > **縦一列なので、まったくUXは改善していませんね。**
 
-      **別画面には分けていない** —— オーナーの「べつがめんでもいいくらい」は
-      **重さの言い方**であって、指定ではない。**並びで足りるなら、並びで直す。**
+      **足りなかった。**「上へ移す」ではなく「**分ける**」と言っていた ——
+      最初の言葉は「**はいる、つくるはべつがめんでもいいくらいです**」である。
+
+      **ASUS の席の観察が、本体を言い当てていた** ——
+
+      > **中継と留守番は、ほとんどの人が一度も触らない設定**だと思いますが、
+      > 同じ大きさの札で同じ列に並んでいます。
+      > **いちばん使う文字の欄が 2 番目**にあります。
+
+      **「縦一列に、重さの違うものが同じ大きさで並んでいる」**——そこを直す。
+      **札は 1 枚。**中で「入る」と「つくる」を切り替える（両方を積まない）。
     -->
+    {#snippet 入退の札()}
+    {#if 鍵の口を出す}
     <div class="card">
-      <h2><Icon name="enter" size={18} />{t('meeting.join.title')}</h2>
-      <p class="hint">{t('meeting.join.hint')}</p>
-      <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
-      <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
-        <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
-      </button>
-    </div>
-
-    <div class="card">
-      <h2><Icon name="people" size={18} />{t('meeting.start.title')}</h2>
-      <p class="hint">{t('meeting.key.hint')}</p>
-      <!--
-        **最初から人数ぶん出せる**（**D84**）。1 人なら 1 本で、
-        10 人なら 10 本 —— **1 本につき 1 人**なので、そこは足せない
-      -->
-      <div class="issue">
-        <label for="howmany-start">{t('meeting.key.howmany')}</label>
-        <div class="行">
-          <input
-            id="howmany-start"
-            type="number"
-            min="1"
-            max={出せる本数}
-            bind:value={何人ぶん}
-          />
-          <button type="button" onclick={() => void はじめる(何人ぶん)}>
-            <Icon name="people" />{t('meeting.start.action')}
-          </button>
-        </div>
+      <div class="切り替え" role="tablist" aria-label={t('meeting.join.title')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={入退 === '入る'}
+          class:選んでいる={入退 === '入る'}
+          onclick={() => (入退 = '入る')}
+        >
+          <Icon name="enter" size={16} />{t('meeting.join.title')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={入退 === 'つくる'}
+          class:選んでいる={入退 === 'つくる'}
+          onclick={() => (入退 = 'つくる')}
+        >
+          <Icon name="people" size={16} />{t('meeting.start.title')}
+        </button>
       </div>
+
+      {#if 入退 === '入る'}
+        <p class="hint">{t('meeting.join.hint')}</p>
+        <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
+        <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
+          <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
+        </button>
+      {:else}
+        <p class="hint">{t('meeting.key.hint')}</p>
+        <!--
+          **最初から人数ぶん出せる**（**D84**）。1 人なら 1 本で、
+          10 人なら 10 本 —— **1 本につき 1 人**なので、そこは足せない
+        -->
+        <div class="issue">
+          <label for="howmany-start">{t('meeting.key.howmany')}</label>
+          <div class="行">
+            <input
+              id="howmany-start"
+              type="number"
+              min="1"
+              max={出せる本数}
+              bind:value={何人ぶん}
+            />
+            <button type="button" onclick={() => void はじめる(何人ぶん)}>
+              <Icon name="people" />{t('meeting.start.action')}
+            </button>
+          </div>
+        </div>
+      {/if}
     </div>
     {/if}
+    {/snippet}
 
     <!--
       **預かり所は任意である**（D71 / `docs/relay.md`）。
@@ -2750,47 +2817,61 @@
       中継を使うと、**誰といつつながったかが中継の運用者から見える。**
       **そこを隠さずに書く**（隠して入れさせるのは、いちばん悪い）。
     -->
-    <div class="card">
-      <h2><Icon name="link" size={18} />{t('relay.title')}</h2>
-      <p class="hint">{t('relay.what')}</p>
-      <label class="row">
-        <input
-          type="checkbox"
-          checked={中継を使う}
-          onchange={(e) => {
-            中継を使う = e.currentTarget.checked;
-            void setRelay(中継を使う).catch((err) => (notice = 読める(err)));
-          }}
-        />
-        {t('relay.use')}
-      </label>
-      <!-- **黙って効かないのが、いちばん悪い。**いつから効くかを言う -->
-      <p class="hint">{t('relay.next')}</p>
-    </div>
+    <!--
+      **ふだん触らない設定は畳む**（2026-09-24・ASUS の席の観察）。
 
-    <div class="card">
-      <h2><Icon name="postbox" size={18} />{t('postbox.title')}</h2>
-      <p class="hint">{t('postbox.hint')}</p>
-      <textarea
-        bind:value={預かり所の下書き}
-        rows="2"
-        placeholder={t('postbox.placeholder')}
-      ></textarea>
-      <div class="row">
-        <button type="button" onclick={() => void 預かり所を置く(預かり所の下書き)}>
-          {t('postbox.save')}
-        </button>
-        <!-- **外す口を、置く口と同じ所に出す。**置いたきり戻せない物を作らない -->
-        <button
-          type="button"
-          class="quiet"
-          disabled={!預かり所}
-          onclick={() => void 預かり所を置く(null)}
-        >
-          {t('postbox.clear')}
-        </button>
+      > **中継と留守番は、ほとんどの人が一度も触らない設定**だと思いますが、
+      > 同じ大きさの札で同じ列に並んでいます。
+
+      **重さの違うものを、同じ大きさで同じ列に並べない。**
+      **消さずに畳む** —— どちらも要る人には要る（中継は #5、留守番は D71）。
+    -->
+    <details class="card 設定">
+      <!-- **絵は付けない。**この束に歯車が無いので、文字だけで言う -->
+      <summary>{t('settings.title')}</summary>
+      <p class="hint">{t('settings.hint')}</p>
+      <div class="card">
+        <h2><Icon name="link" size={18} />{t('relay.title')}</h2>
+        <p class="hint">{t('relay.what')}</p>
+        <label class="row">
+          <input
+            type="checkbox"
+            checked={中継を使う}
+            onchange={(e) => {
+              中継を使う = e.currentTarget.checked;
+              void setRelay(中継を使う).catch((err) => (notice = 読める(err)));
+            }}
+          />
+          {t('relay.use')}
+        </label>
+        <!-- **黙って効かないのが、いちばん悪い。**いつから効くかを言う -->
+        <p class="hint">{t('relay.next')}</p>
       </div>
-    </div>
+
+      <div class="card">
+        <h2><Icon name="postbox" size={18} />{t('postbox.title')}</h2>
+        <p class="hint">{t('postbox.hint')}</p>
+        <textarea
+          bind:value={預かり所の下書き}
+          rows="2"
+          placeholder={t('postbox.placeholder')}
+        ></textarea>
+        <div class="row">
+          <button type="button" onclick={() => void 預かり所を置く(預かり所の下書き)}>
+            {t('postbox.save')}
+          </button>
+          <!-- **外す口を、置く口と同じ所に出す。**置いたきり戻せない物を作らない -->
+          <button
+            type="button"
+            class="quiet"
+            disabled={!預かり所}
+            onclick={() => void 預かり所を置く(null)}
+          >
+            {t('postbox.clear')}
+          </button>
+        </div>
+      </div>
+    </details>
 
     <!--
       **会議キーは畳んで置く。**全文は 346〜357 文字で、開いたままだと 177px を占める。
@@ -3530,6 +3611,60 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     background: var(--bg-subtle);
+  }
+
+  /*
+    **入る／つくるの切り替え**（2026-09-24）。
+    **1 枚の札の中で切り替える** —— 両方を縦に積まない
+    （オーナー「縦一列なので、まったくUXは改善していませんね」）。
+  */
+  .切り替え {
+    display: flex;
+    gap: var(--space-1);
+    padding: 3px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    background: var(--bg);
+  }
+
+  .切り替え button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+    white-space: nowrap;
+  }
+
+  /* **選んでいるほうを、色だけで言わない**（§2 原則 6）—— 枠と地も変える */
+  .切り替え button.選んでいる {
+    border-color: var(--border);
+    background: var(--bg-subtle);
+    color: var(--text);
+    font-weight: var(--text-2xs-weight);
+  }
+
+  /*
+    **ふだん触らない設定**（中継・留守番）。**消さずに畳む。**
+    ASUS の席 ——「**同じ大きさの札で同じ列に並んでいます**」
+  */
+  .設定 > summary {
+    cursor: pointer;
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+    color: var(--text-muted);
+  }
+
+  /* 畳んである間は、地を抑える（**開いている札と同じ重さに見せない**） */
+  .設定:not([open]) {
+    background: transparent;
   }
   h2 {
     display: flex;
