@@ -3,7 +3,7 @@
 > **English:** [install.md](install.md)
 
 配布物は [ダウンロードのページ](https://meta-taro.github.io/warifu/) と
-[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.14**。
+[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.15**。
 
 **何かを預ける前に、[`SECURITY.ja.md`](../SECURITY.ja.md) を読んでください。**アルファ版です。
 
@@ -41,7 +41,7 @@ spctl -a -vv -t exec /Applications/warifu.app
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.14
+./warifu version          # → warifu 0.1.15
 mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば
 ```
 
@@ -78,8 +78,8 @@ pnpm tauri build --bundles app
 
 | ファイル | |
 |---|---|
-| **`warifu_0.1.14_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
-| `warifu_0.1.14_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
+| **`warifu_0.1.15_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
+| `warifu_0.1.15_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
 | `warifu.exe` | CLI。置いた場所から、そのまま打てます |
 
 ### SmartScreen が出ます
@@ -98,8 +98,8 @@ Windows によって PC が保護されました
 （**署名が無いのは、どちらでも同じ**です）。
 
 ```powershell
-gh release download v0.1.14 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.14_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
+gh release download v0.1.15 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.15_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
 ```
 
 ### **初回はファイアウォールの規則が要ります**（ここで詰まります）
