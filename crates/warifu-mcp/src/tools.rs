@@ -57,6 +57,21 @@ pub struct AskArgs {
     pub why: String,
 }
 
+/// [`crate::Warifu::pass_wait`] の引数（2026-09-24・Mac Air の席の提案）。
+///
+/// **引数名は ASCII だけ**（この上の `AskArgs` で踏んだ）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct WaitPassArgs {
+    /// 何をしたいか（`chat.send` など）。
+    pub action: String,
+    /// **なぜ要るか。**人が一言で読める長さにする（帯に出るのはこれ）。
+    pub why: String,
+    /// 何秒まで待つか。省くと 30 秒。**上限は 60 秒。**
+    ///
+    /// **永遠には待たない。**待っている間、そのエージェントは何もできない。
+    pub seconds: Option<u64>,
+}
+
 /// [`crate::Warifu::room_invite`] の引数（**#32 の段 2**・2026-09-21）。
 ///
 /// **どの部屋かを書く場所が無いのは意図。**いま見ている部屋に出る ——

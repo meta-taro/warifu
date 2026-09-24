@@ -86,6 +86,25 @@ fn 答えの言い方(動作: &str, 答え: &warifu_desk::頼みの返り) -> St
     }
 }
 
+/// **待ったのに答えが無かったとき**の言い方（2026-09-24）。
+///
+/// **`答えの言い方` の「間を置いてもう一度頼んでください」は、待った側には合わない** ——
+/// **待ったのだから、間は置いてある。**
+fn 待った答えの言い方(
+    動作: &str,
+    答え: &warifu_desk::頼みの返り,
+    待った秒: u64,
+) -> String {
+    match 答え {
+        warifu_desk::頼みの返り::まだ => format!(
+            "{動作}: **{待った秒} 秒待ちましたが、まだ押されていません。**\
+             画面には出してあります。もう一度待つか、人に一言かけてください\
+             （**同じ頼みを積み直さないこと** —— 帯は 1 つだけ出ています）。"
+        ),
+        他 => 答えの言い方(動作, 他),
+    }
+}
+
 impl Chat {
     /// この機械へ繋いで、会話を聞き始める。
     ///
@@ -347,6 +366,60 @@ impl Chat {
         }
     }
 
+    /// **人が札に答えるのを待つ**（2026-09-24・Mac Air の席の提案）。
+    ///
+    /// **`chat_wait` と同じ形である** —— この層の説明にこう書いてある ——
+    /// 「**覗きに行く口しか無いと、エージェントは自分から気づけない**」。
+    /// **同じ理屈が札にも当たっていた。**
+    ///
+    /// # Errors
+    /// この機械が閉じている・返事をしないとき [`crate::ToolError::Unavailable`]。
+    /// 訳が長い・秒が上限を超えるとき [`crate::ToolError::BadArgs`]。
+    pub async fn 札を待つ(
+        &self,
+        動作: &str,
+        訳: &str,
+        秒: Option<u64>,
+    ) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::札を待つ {
+            動作: 動作.to_owned(),
+            訳: 訳.to_owned(),
+            秒,
+        };
+        let 行 = ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返す);
+
+        self.送り
+            .send(行)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
+
+        // **待つ口なので、返事の待ち時間は頼んだ秒より長く取る** ——
+        // 同じ長さだと、**人が押した瞬間にこちらが諦めている**ことがある
+        let 待てる秒 = 秒.unwrap_or(30).min(warifu_desk::札を待てる秒) + 返事を待つ秒;
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(待てる秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
+
+        match 返事 {
+            FromDesk::Asked { 動作, 答え } => Ok(待った答えの言い方(
+                &動作,
+                &答え,
+                秒.unwrap_or(30).min(warifu_desk::札を待てる秒),
+            )),
+            // **古い画面は、この口を知らない**（`札を頼む` と同じ形）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(format!(
+                "画面がこの口を知りません（{why}）。**画面の版が古い可能性があります** ——\
+                 人に立て直してもらってください。訳や秒の書き方の問題ではありません。"
+            ))),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **その発言の届き方**を尋ねる（**D76**）。届いたエージェントと、読んだエージェントを返す。
     ///
     /// # Errors
@@ -553,6 +626,11 @@ fn 仕分ける(
         return;
     }
 
+    // **`Asked` も返事である**（**D119**）。
+    //
+    // **2026-09-24、ここに無かった。**——`pass_ask` は引数名を ASCII に直したあとも
+    // **「この機械が返事をしません」で時間切れ**になっていた（実物で呼んで見つけた）。
+    // **`招いた` と同じ穴で、同じ日に 2 つ空いていた。**
     if matches!(
         中身,
         FromDesk::Sent { .. }
@@ -561,6 +639,7 @@ fn 仕分ける(
             | FromDesk::Wrote { .. }
             | FromDesk::Status { .. }
             | FromDesk::様子 { .. }
+            | FromDesk::Asked { .. }
     ) && let Some(返す) = 返し先.lock().expect("毒されていない").take()
     {
         // 待っている人が居なくなっていても構わない。**捨てて先へ進む**
@@ -790,6 +869,36 @@ mod tests {
             .書く(),
         );
         assert!(箱.lock().unwrap().is_empty(), "鍵は溜めに残さない");
+    }
+
+    #[tokio::test]
+    async fn 札の答えは_頼んだ相手に返る() {
+        // **2026-09-24 に踏んだ。**`Asked` が返事の一覧に無く、
+        // **`pass_ask` は引数名を直したあとも時間切れになっていた。**
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let (返す, 待つ) = oneshot::channel();
+        let 返し先 = Arc::new(Mutex::new(Some(返す)));
+
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::Asked {
+                動作: "room.invite".to_owned(),
+                答え: warifu_desk::頼みの返り::許した,
+            }
+            .書く(),
+        );
+
+        assert!(箱.lock().unwrap().is_empty(), "溜めに入っていない");
+        assert_eq!(
+            待つ.await.unwrap(),
+            FromDesk::Asked {
+                動作: "room.invite".to_owned(),
+                答え: warifu_desk::頼みの返り::許した,
+            }
+        );
     }
 
     #[test]

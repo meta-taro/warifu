@@ -50,5 +50,5 @@ pub use chat::Chat;
 pub use server::{Warifu, subject};
 pub use tools::{
     AskArgs, ChangesArgs, InviteArgs, OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs,
-    ToolError, WaitArgs,
+    ToolError, WaitArgs, WaitPassArgs,
 };

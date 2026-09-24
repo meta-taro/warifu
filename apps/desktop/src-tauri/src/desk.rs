@@ -106,6 +106,32 @@ static エージェントたち: Mutex<BTreeMap<u64, String>> = Mutex::new(BTree
 /// **2 か所で違う値を持つと、「24 時間」と書いた案内が嘘になる。**
 const 既定の鍵の寿命: u64 = 60 * 60 * 24;
 
+/// **人が札に答えたことを、待っている口へ知らせる**（2026-09-24）。
+///
+/// # なぜ要るか —— **押されたことは、エージェントへ届かなかった**
+///
+/// オーナー（Mac Air の席ごしに・2026-09-24）——
+///
+/// > **押した時点であなたが検知できないということでしょう。
+/// > ずーっと前から指摘しています。**
+///
+/// **そのとおりだった。**`Ask` は「いまの答え」を返すだけで、
+/// **人が押しても、エージェントには何も届かない** ——
+/// だから毎回「押しましたか」「押しました」の往復が要っていた。
+/// **人が、エージェントの目の代わりをしていた。**
+///
+/// **`notify_waiters` は、待っている者が居なければ何もしない** ——
+/// 誰も待っていないときに押しても、あとから届いたりはしない（そこは `Ask` の役）。
+static 答えの知らせ: std::sync::OnceLock<tokio::sync::Notify> = std::sync::OnceLock::new();
+
+/// 知らせの口。**初めて使うときに作る**（`Notify::new` は const ではない）。
+fn 答えの知らせ口() -> &'static tokio::sync::Notify {
+    答えの知らせ.get_or_init(tokio::sync::Notify::new)
+}
+
+/// **待つ口の既定**（秒）。書かなければこれで待つ。
+const 既定の待ち秒: u64 = 30;
+
 /// **人の答えを待っている札の頼み**（**D119**）。
 ///
 /// **部屋へは流さない。**画面の別の所に出す ——
@@ -358,6 +384,24 @@ async fn 応じる(
         // **聞く口と流す口が同じだった**からである。
         ToDesk::Ask { 動作, 訳 } => {
             let 答え = 頼みを受ける(app, &動作, &訳, 名乗り.as_deref());
+            let _ = 口.送る(&FromDesk::Asked { 動作, 答え }.書く()).await;
+            Ok(())
+        }
+        // **人が答えるまで待つ**（2026-09-24・Mac Air の席の提案）。
+        //
+        // **待つだけで、答えは作らない**（**D56** ——「札を出すのは人である」）。
+        // 時間切れなら `まだ` を返す。**「押させる」口ではない。**
+        ToDesk::札を待つ { 動作, 訳, 秒 } => {
+            let 待つ秒 = 秒.unwrap_or(既定の待ち秒).min(warifu_desk::札を待てる秒);
+            // **まず帯を出す。**待つ前に頼んでおかないと、人は何も見ない
+            let 答え = 頼みを受ける(app, &動作, &訳, 名乗り.as_deref());
+            let 答え = if matches!(答え, warifu_desk::頼みの返り::まだ) {
+                記録!("札: 待ちます（{動作}・{待つ秒} 秒・{}）", 呼び方(名乗り.as_deref()));
+                答えを待つ(&動作, 待つ秒).await
+            } else {
+                // **すでに答えが出ているものは待たない**（許した／断った／受け付けない）
+                答え
+            };
             let _ = 口.送る(&FromDesk::Asked { 動作, 答え }.書く()).await;
             Ok(())
         }
@@ -891,6 +935,53 @@ fn 頼みを受ける(
     }
 }
 
+/// **人が答えるまで待つ**（2026-09-24）。
+///
+/// **`Notify` を先に構えてから控えを見る** ——
+/// 逆にすると、**見たあとに押された 1 回を取り落とす。**
+///
+/// **時間切れは失敗ではない。**`まだ` を返す ——
+/// **待った側が「まだ押されていない」と分かればよい。**
+async fn 答えを待つ(動作: &str, 待つ秒: u64) -> warifu_desk::頼みの返り {
+    答えを待つ_控えは(動作, 待つ秒, 札の控え).await
+}
+
+/// **控えを読む手を渡して待つ**（試験のために開けてある）。
+///
+/// **本物の置き場所を読む試験は書けない** —— その機械の `pass.tsv` を見てしまう。
+async fn 答えを待つ_控えは(
+    動作: &str,
+    待つ秒: u64,
+    控えを読む: impl Fn() -> 控え,
+) -> warifu_desk::頼みの返り {
+    use warifu_capability::札の答え;
+    use warifu_desk::頼みの返り;
+
+    let 終わり = tokio::time::Instant::now() + std::time::Duration::from_secs(待つ秒);
+    loop {
+        // **構えてから見る。**この順でないと、取り落とす
+        let 知らせ = 答えの知らせ口().notified();
+        // **動作の名は、ここで読み直す** —— 読めない名は待つ前に落ちているので、
+        // ここへ来た名は必ず読める（読めなければ `まだ` で返す）
+        let Ok(名) = warifu_capability::Action::new(動作) else {
+            return 頼みの返り::まだ;
+        };
+        match warifu_capability::札の控え::答え(&控えを読む(), &名) {
+            Some(札の答え::許した) => return 頼みの返り::許した,
+            Some(札の答え::断った) => return 頼みの返り::断った,
+            // **`まだ` は控えに書かれない**ので、ここへは来ない
+            Some(札の答え::まだ) | None => {}
+        }
+        let 残り = 終わり.saturating_duration_since(tokio::time::Instant::now());
+        if 残り.is_zero() {
+            return 頼みの返り::まだ;
+        }
+        if tokio::time::timeout(残り, 知らせ).await.is_err() {
+            return 頼みの返り::まだ;
+        }
+    }
+}
+
 /// 控えから作る、引ける形。
 struct 控え(BTreeMap<String, bool>);
 
@@ -940,6 +1031,9 @@ pub fn 人が答えた(動作: &str, 許した: bool) -> Result<(), String> {
         .lock()
         .expect("毒されていない")
         .retain(|待| 待.動作 != 動作);
+    // **待っている口を起こす**（2026-09-24）。
+    // **起こさないと、押されたことがエージェントへ永久に届かない。**
+    答えの知らせ口().notify_waiters();
     // **「人が」と書かない**（2026-09-18・ASUS の指摘）。
     //
     // **この機械からは、押したのが人か合成クリックか分からない。**
@@ -980,6 +1074,92 @@ mod tests {
             from: "だれか".to_owned(),
             body: body.to_owned(),
             at: "18:00".to_owned(),
+        }
+    }
+
+    /// **人が押した瞬間に返る**（2026-09-24・Mac Air の席の提案）。
+    ///
+    /// オーナー ——「**押した時点であなたが検知できないということでしょう。
+    /// ずーっと前から指摘しています。**」
+    mod 押されるのを待つ {
+        use super::super::{答えの知らせ口, 答えを待つ_控えは, 控え};
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        fn 空の控え() -> 控え {
+            控え(std::collections::BTreeMap::new())
+        }
+
+        #[tokio::test]
+        async fn 押された瞬間に返る() {
+            // **時間切れを待たずに返る**ことが要点である ——
+            // 返らなければ、人が「押しました」と言う手間が残る
+            let 押した = Arc::new(AtomicBool::new(false));
+            let 写し = Arc::clone(&押した);
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                写し.store(true, Ordering::SeqCst);
+                答えの知らせ口().notify_waiters();
+            });
+
+            let 始め = std::time::Instant::now();
+            let 答え = 答えを待つ_控えは("chat.send", 30, move || {
+                if 押した.load(Ordering::SeqCst) {
+                    控え([("chat.send".to_owned(), true)].into_iter().collect())
+                } else {
+                    空の控え()
+                }
+            })
+            .await;
+
+            assert_eq!(答え, warifu_desk::頼みの返り::許した);
+            assert!(
+                始め.elapsed() < std::time::Duration::from_secs(5),
+                "**30 秒待たずに返る**（かかった: {:?}）",
+                始め.elapsed()
+            );
+        }
+
+        #[tokio::test]
+        async fn 断られたことも_その場で返る() {
+            // **断りも押下である。**「まだ」で待ち続けない
+            let 押した = Arc::new(AtomicBool::new(false));
+            let 写し = Arc::clone(&押した);
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                写し.store(true, Ordering::SeqCst);
+                答えの知らせ口().notify_waiters();
+            });
+
+            let 答え = 答えを待つ_控えは("chat.send", 30, move || {
+                if 押した.load(Ordering::SeqCst) {
+                    控え([("chat.send".to_owned(), false)].into_iter().collect())
+                } else {
+                    空の控え()
+                }
+            })
+            .await;
+
+            assert_eq!(答え, warifu_desk::頼みの返り::断った);
+        }
+
+        #[tokio::test]
+        async fn 時間切れは_まだで返る() {
+            // **時間切れは失敗ではない。**待った側が「まだ」と分かればよい
+            let 答え = 答えを待つ_控えは("chat.send", 1, 空の控え).await;
+            assert_eq!(答え, warifu_desk::頼みの返り::まだ);
+        }
+
+        #[tokio::test]
+        async fn すでに答えが在れば_待たない() {
+            // **押す前から答えが在るものは、その場で返る**（帯も出さない）
+            let 始め = std::time::Instant::now();
+            let 答え = 答えを待つ_控えは("chat.send", 30, || {
+                控え([("chat.send".to_owned(), true)].into_iter().collect())
+            })
+            .await;
+            assert_eq!(答え, warifu_desk::頼みの返り::許した);
+            assert!(始め.elapsed() < std::time::Duration::from_secs(1));
         }
     }
 
