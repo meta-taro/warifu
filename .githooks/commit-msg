@@ -28,7 +28,12 @@ fi
 # **規則には書いてあったが、工程には入っていなかった** ——
 # だから同じ指摘を 3 回させた（v0.1.14 / v0.1.15 / v0.1.16・gh issue 41）。
 printf '  %-38s' "画面を見たか"
-if out=$(python3 scripts/check-screen-seen.py "$1" 2>&1 || python scripts/check-screen-seen.py "$1" 2>&1); then
+# **`||` で繋がない**（2026-09-24 に踏んだ）——
+# `python3` が**在るのに落ちた**ときまで `python` を試して、
+# **「python: command not found」が本当の理由の下に出る。**
+# 無いときだけ切り替える。
+if command -v python3 >/dev/null 2>&1; then py=python3; else py=python; fi
+if out=$("$py" scripts/check-screen-seen.py "$1" 2>&1); then
   printf 'ok\n'
   exit 0
 fi
