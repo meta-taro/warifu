@@ -3647,13 +3647,26 @@
     **1 枚の札の中で切り替える** —— 両方を縦に積まない
     （オーナー「縦一列なので、まったくUXは改善していませんね」）。
   */
+  /*
+    **押した方が分からなかった**（2026-09-24・オーナー指摘）——
+
+    > あと押した方ホバーじゃないとどっち押したかわかんなくね？
+
+    **原因は、存在しないトークンを書いていたこと** ——
+    `var(--bg)` も `var(--text)` も `tokens.css` に無い（在るのは
+    `--bg-app` / `--bg-subtle` / `--bg-sunken` / `--bg-elevated`、
+    `--text-primary` / `--text-secondary` / `--text-tertiary`）。
+    **地も文字色も当たらず、選んでいる側が周りと同じ見た目になっていた。**
+    残っていたのは `:hover` の見た目だけで、**触ったほうが選ばれて見えた。**
+  */
   .切り替え {
     display: flex;
     gap: var(--space-1);
     padding: 3px;
     border: 1px solid var(--border);
     border-radius: var(--radius-full);
-    background: var(--bg);
+    /* **沈んだ溝。**選んだ札が浮いて見えるように、下地を落とす */
+    background: var(--bg-sunken);
   }
 
   .切り替え button {
@@ -3666,18 +3679,29 @@
     border: 1px solid transparent;
     border-radius: var(--radius-full);
     background: transparent;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
+    font-weight: 400;
     white-space: nowrap;
   }
 
-  /* **選んでいるほうを、色だけで言わない**（§2 原則 6）—— 枠と地も変える */
+  /* **触れたときは、選んだときより弱く。**同じ見た目にすると、どちらか分からない */
+  .切り替え button:not(.選んでいる):hover {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+  }
+
+  /*
+    **選んでいるほうを、色だけで言わない**（DESIGN §2 原則 6）——
+    **浮いた地・濃い枠・太い字**の 3 つで言う。
+  */
   .切り替え button.選んでいる {
-    border-color: var(--border);
-    background: var(--bg-subtle);
-    color: var(--text);
-    font-weight: var(--text-2xs-weight);
+    border-color: var(--border-strong);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
   }
 
   /*
@@ -3688,7 +3712,8 @@
     cursor: pointer;
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
-    color: var(--text-muted);
+    /* **`--text-muted` は無い**（2026-09-24 に気づいた）。在るのは tertiary まで */
+    color: var(--text-tertiary);
   }
 
   /* 畳んである間は、地を抑える（**開いている札と同じ重さに見せない**） */
