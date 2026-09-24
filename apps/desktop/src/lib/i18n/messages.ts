@@ -137,6 +137,8 @@ export type MessageKey =
   | 'pass.asked.hint'
   | 'pass.allow'
   | 'pass.refuse'
+  | 'pass.allowed'
+  | 'pass.refused'
   | 'pass.who'
   | 'link.invited'
   | 'link.invited.hint'
@@ -509,6 +511,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.asked.hint': '通すと、このエージェントはそれを使えるようになります。あとで取り消せます。',
     'pass.allow': '通す',
     'pass.refuse': '通さない',
+    'pass.allowed': '通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。',
+    'pass.refused': '通しませんでした。{who} は {what} を使えません。',
     'pass.who': '{who} が {what} を使いたい',
     'link.invited': 'リンクでルームに誘われています。入りますか？',
     'link.invited.hint': 'このリンクは誰でも作れます。心当たりのない誘いには入らないでください。',
@@ -841,6 +845,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.asked.hint': 'If you allow it, this agent can use that action. You can revoke it later.',
     'pass.allow': 'Allow',
     'pass.refuse': "Don't allow",
+    'pass.allowed': 'Allowed. {who} can now use {what} (you can revoke it later).',
+    'pass.refused': 'Not allowed. {who} cannot use {what}.',
     'pass.who': '{who} wants to use {what}',
     'link.invited': 'A link is inviting you into a room. Enter?',
     'link.invited.hint': 'Anyone can make such a link. Do not enter an invitation you were not expecting.',
@@ -1171,6 +1177,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.asked.hint': '允许后，该代理就能使用这个动作。之后可以撤销。',
     'pass.allow': '允许',
     'pass.refuse': '不允许',
+    'pass.allowed': '已放行。{who} 现在可以使用 {what}（之后可以撤销）。',
+    'pass.refused': '没有放行。{who} 不能使用 {what}。',
     'pass.who': '{who} 想使用 {what}',
     'link.invited': '有链接邀请你进入房间。要进入吗？',
     'link.invited.hint': '这样的链接谁都能做。没有印象的邀请，请不要进入。',
@@ -1505,6 +1513,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.asked.hint': '허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.',
     'pass.allow': '허용',
     'pass.refuse': '허용하지 않음',
+    'pass.allowed': '통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.',
+    'pass.refused': '통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.',
     'pass.who': '{who} 이(가) {what} 을(를) 쓰고 싶어 합니다',
     'link.invited': '링크로 방에 초대받았습니다. 들어가시겠습니까?',
     'link.invited.hint': '이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.',

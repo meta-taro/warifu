@@ -36,6 +36,26 @@ pub struct Warifu {
     名乗り: Option<String>,
     /// いまつながっているこの機械。切れていれば繋ぎ直す。
     chat: Arc<tokio::sync::Mutex<Option<Chat>>>,
+    /// **人が画面で押した札を、いま読み直す手**（2026-09-24）。
+    ///
+    /// # なぜ要るのか
+    ///
+    /// **押しても何も起きなかった。**
+    ///
+    /// ```text
+    /// 人が【通す】を押す → pass.tsv に入る → **口は知らない** → 断られる
+    /// ```
+    ///
+    /// **札は口を立てるときに 1 回しか読んでいなかった。**
+    /// そして `pass_ask` の返りは「**次の呼びで通ります**」と言っていた ——**嘘である。**
+    /// **口を立て直すまで通らなかった。**
+    ///
+    /// オーナー（2026-09-24）——
+    /// 「**通すを押しても何も起きません。何が起きたのか人には意味がわかりません。**」
+    ///
+    /// **だから、断る前にもう一度読む。**
+    /// **読む所は外から渡す** —— この層は置き場所を知らない（`warifu-vault` に依存しない）。
+    札を読み直す: Option<Arc<dyn Fn() -> Vec<String> + Send + Sync>>,
 }
 
 struct Inner {
@@ -55,6 +75,12 @@ const 既定で待つ秒: u64 = 30;
 /// 長くしすぎると、繋いだ側の待ち時間にも当たる。
 const 待てる上限の秒: u64 = 60;
 
+/// **人が押した札の効き目**（秒・24 時間）。
+///
+/// **`warifu-cli` の `札の効き目` と同じ値にしてある** ——
+/// 2 か所で違うと、**同じ札が口によって違う長さで効く。**
+const 札の効き目: u64 = 60 * 60 * 24;
+
 /// 一度に返す空き枠の上限。
 ///
 /// **相手に決めさせない。**細かく刻んで尋ねられても、一度に出る量はこちらが決める。
@@ -69,6 +95,7 @@ impl Warifu {
             この機械の場所: None,
             名乗り: None,
             chat: Arc::new(tokio::sync::Mutex::new(None)),
+            札を読み直す: None,
             inner: Arc::new(Mutex::new(Inner {
                 messages,
                 reader: Reader::with_rules(rules),
@@ -110,6 +137,19 @@ impl Warifu {
         let 名乗り = self.名乗り.clone();
         *self.chat.lock().await = Some(Chat::つながる_控えは(場所, 名乗り, Some(控え)).await?);
         Ok(self)
+    }
+
+    /// **人が押した札を、いま読み直す手**を渡す（2026-09-24）。
+    ///
+    /// **渡さなければ、これまでどおり口を立てたときの札だけで動く。**
+    /// **渡すと、断る直前にもう一度読む** —— **押したその場で効く。**
+    #[must_use]
+    pub fn 札を読み直すには(
+        mut self,
+        読む: Arc<dyn Fn() -> Vec<String> + Send + Sync>,
+    ) -> Self {
+        self.札を読み直す = Some(読む);
+        self
     }
 
     /// **どこで動いているか**を名乗る。
@@ -166,12 +206,37 @@ impl Warifu {
         let mut inner = self.inner.lock().expect("毒されていない");
         let 動作 = Action::new(action).map_err(|e| ToolError::BadArgs(e.to_string()))?;
         let 今 = inner.now;
-        match inner.gate.decide(&Request::new(subject(), 動作), 今) {
-            Decision::Allow => Ok(()),
-            // **断った理由に「どうすれば通るか」を書かない。**
-            // 書くと、断られた側が総当たりで札の形を探れる
-            Decision::Deny => Err(ToolError::Denied(action.to_owned())),
+        if matches!(
+            inner
+                .gate
+                .decide(&Request::new(subject(), 動作.clone()), 今),
+            Decision::Allow
+        ) {
+            return Ok(());
         }
+        // **断る前に、人がいま押した分をもう一度読む**（2026-09-24）。
+        //
+        // **押しても何も起きなかった** —— 札は口を立てるときに 1 回しか読んでおらず、
+        // **立て直すまで通らなかった。**
+        // `pass_ask` の返りは「**次の呼びで通ります**」と言っている。**そう動かす。**
+        //
+        // **読むのは断る直前だけ。**毎回読むと、通る呼びまで置き場所を触ることになる。
+        let Some(読み直す) = self.札を読み直す.clone() else {
+            return Err(ToolError::Denied(action.to_owned()));
+        };
+        drop(inner);
+        let 押した = 読み直す();
+        if !押した.iter().any(|a| a == action) {
+            return Err(ToolError::Denied(action.to_owned()));
+        }
+        // **見つかったら関所へ入れる。**次からは読み直さずに通る
+        let mut inner = self.inner.lock().expect("毒されていない");
+        inner.gate.issue(warifu_capability::Grant::new(
+            subject(),
+            動作,
+            今 + 札の効き目,
+        ));
+        Ok(())
     }
 
     /// この機械を取り出す。**つながっていなければ、断りではなく「出せない」。**

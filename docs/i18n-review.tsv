@@ -326,3 +326,5 @@ relay.title	Connect across networks (relay)	網を越えてつなぐ（中継）
 relay.what	Reaching someone on a different network needs a relay. With a relay on, whoever runs it can see who connected and when (not what you say). You do not need it for someone on the same network.	別の網の相手とつなぐには、中継が要ります。中継を使うと、誰といつつながったかが中継の運用者から見えます（中身は見えません）。同じ網の相手には要りません。	要连到别的网络里的人，需要中继。开了中继，运营中继的人能看到谁在什么时候连上（看不到内容）。同一个网络里的人不需要。	다른 망에 있는 상대와 연결하려면 중계가 필요합니다. 중계를 쓰면 누가 언제 연결했는지가 중계 운영자에게 보입니다（내용은 보이지 않습니다）. 같은 망의 상대에게는 필요 없습니다.				
 relay.use	Use a relay	中継を使う	使用中继	중계를 사용				
 relay.next	This takes effect the next time you start warifu.	この設定は次の起動から効きます。	这个设置从下次启动开始生效。	이 설정은 다음 실행부터 적용됩니다.				
+pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
+pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は {what} を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
