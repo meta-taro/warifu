@@ -41,7 +41,11 @@
   --border-strong: #d5c6b3;
   --text-primary: #241d16;
   --text-secondary: #6b5c4c;
-  --text-tertiary: #9b8c7b;
+  /* **2026-09-24 に少し暗くした**（#9b8c7b → #918373）——
+     沈んだ地（--bg-sunken）の上で **2.76 : 1** しか無く、
+     切り替えの選んでいない側と、名簿の見出しが**そこで読みにくかった**。
+     数えたら落ちた（`contrast.test.ts`）。**3 : 1 を満たす所まで**寄せた */
+  --text-tertiary: #918373;
   --text-on-accent: #fffdfa;
 
   /* ── §3.3 セマンティック（地 / 文字） ───────────────────── */
