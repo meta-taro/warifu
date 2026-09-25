@@ -45,7 +45,12 @@ jobs:
         run: |
           test -f site/index.html
           test -f site/icon.png
+          # **OGP の画像は、参照とアップロードを一緒に確かめる**（baseline §23・2026-09-25）——
+          # **参照だけ足して忘れると、ビルドも試験も通ったまま、貼ったときにだけ壊れる。**
+          test -f site/og.png
           grep -q '<title>' site/index.html
+          grep -q 'twitter:card' site/index.html
+          grep -q 'https://meta-taro.github.io/warifu/og.png' site/index.html
 
       - uses: actions/configure-pages@v5
 
