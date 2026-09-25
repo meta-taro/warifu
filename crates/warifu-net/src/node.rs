@@ -497,9 +497,14 @@ impl Session {
         tokio::spawn(async move {
             use futures::StreamExt as _;
             let mut 出来事 = 結び.path_events();
+            let mut 前 = None;
             while let Some(一つ) = 出来事.next().await {
                 if let iroh::endpoint::PathEvent::Selected { remote_addr, .. } = 一つ {
-                    知らせ(通り道::から(&remote_addr));
+                    let 今 = 通り道::から(&remote_addr);
+                    if 通り道::知らせるか(前.as_ref(), &今) {
+                        知らせ(今.clone());
+                    }
+                    前 = Some(今);
                 }
             }
         });
@@ -616,6 +621,14 @@ pub enum 通り道 {
 }
 
 impl 通り道 {
+    /// **種類（直接・中継・不明）が変わったときだけ知らせる。**
+    ///
+    /// 2026-09-25、直接のまま LAN 側と外側の番地を行き来して「変わりました」が 7 行続いた。
+    /// 人が知りたいのは「中継を通っているか」であって、直接の中の番地の揺れではない。
+    fn 知らせるか(前: Option<&Self>, 今: &Self) -> bool {
+        前.is_none_or(|前| std::mem::discriminant(前) != std::mem::discriminant(今))
+    }
+
     fn から(宛: &iroh::TransportAddr) -> Self {
         match 宛 {
             iroh::TransportAddr::Ip(番地) => Self::直接(*番地),
@@ -656,6 +669,23 @@ mod 通り道の試験 {
         let 外 = 通り道::直接("203.0.113.5:39756".parse().unwrap());
         assert_eq!(外.to_string(), "直接（外側の番地）");
         assert!(!外.to_string().contains("203.0.113.5"));
+    }
+
+    #[test]
+    fn 直接の中で番地が揺れても_知らせない() {
+        let lan = 通り道::直接("192.168.24.15:61706".parse().unwrap());
+        let 外 = 通り道::直接("203.0.113.5:61706".parse().unwrap());
+        assert!(!通り道::知らせるか(Some(&lan), &外));
+        assert!(!通り道::知らせるか(Some(&外), &lan));
+    }
+
+    #[test]
+    fn 直接と中継が入れ替わったら_知らせる() {
+        let lan = 通り道::直接("192.168.24.15:61706".parse().unwrap());
+        let 中 = 通り道::中継("https://relay.example/".to_owned());
+        assert!(通り道::知らせるか(Some(&中), &lan));
+        assert!(通り道::知らせるか(Some(&lan), &中));
+        assert!(通り道::知らせるか(None, &lan), "最初の 1 回は知らせる");
     }
 
     #[test]
