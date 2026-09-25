@@ -148,6 +148,16 @@ fn 起動からの秒() -> f64 {
 }
 
 /// 鍵や住所を、追える範囲で短く。**全桁は出さない。**
+/// **文字の通り道（直接か中継か）を記録に書き、変わったらまた書く。**
+///
+/// 2026-09-25、網を越えて初めてつながったとき、これがどこにも出ていなかった。
+/// 画面の「経路」は映像（WebRTC）の経路なので、画面なしの相手だと必ず unknown になる。
+fn 通り道を書き置く(session: &warifu_net::Session) {
+    let 誰 = 短く(&key_to_string(session.peer()));
+    記録!("通り道（文字）: {}（{誰}）", session.通り道());
+    session.通り道を見張る(move |道| 記録!("通り道（文字）が変わりました: {道}（{誰}）"));
+}
+
 fn 短く(s: &str) -> String {
     s.chars().take(12).collect::<String>() + "…"
 }
@@ -1194,6 +1204,7 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         "入室: 経路がつながった（相手 {}）",
         短く(&key_to_string(peer))
     );
+    通り道を書き置く(&session);
 
     // **応じるものは、もう作ってある**（上で窓を見たときに作った）。
     // ここは Intent の下（生のバイト列）で済ませる。「何を話すか」ではなく
@@ -1544,6 +1555,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 
             // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31）
             記録!("待受: 誰かが来た（{}）", 短く(&key_to_string(peer)));
+            通り道を書き置く(&session);
             let 中身 =
                 割符を確かめる(&mut session, &tally, &合言葉たち, me, &subject).await;
             let 割符が合った = 中身 == 叩きの中身::割符が合った;

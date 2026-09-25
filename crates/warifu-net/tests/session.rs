@@ -423,3 +423,34 @@ fn リンクローカルと自動割り当てを外向きに数えない() {
         assert!(!a.外から届きうる(), "{s} を外向きに数えた");
     }
 }
+
+#[tokio::test]
+async fn つながった相手への通り道が_直接と分かる() {
+    // **2026-09-25、網を越えて初めてつながったとき、文字が直接か中継かを言えなかった。**
+    // `room_status` の「経路」は映像（WebRTC）の経路で、画面なしの相手だと必ず unknown になる。
+    // 文字の通り道（iroh）は**どこにも出ていなかった**。
+    let alice = 端末(11, "PC");
+    let bob = 端末(12, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **中継を使っていないので、両側とも直接のはず**
+    assert!(
+        matches!(こちら.通り道(), warifu_net::通り道::直接(_)),
+        "呼んだ側: {}",
+        こちら.通り道()
+    );
+    assert!(
+        matches!(あちら.通り道(), warifu_net::通り道::直接(_)),
+        "受けた側: {}",
+        あちら.通り道()
+    );
+}

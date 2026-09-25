@@ -46,7 +46,9 @@ mod pick;
 
 pub use address::{Address, RELAY_MAX};
 pub use error::Error;
-pub use node::{MAX_MESSAGE, Node, Session, 中継の使い方, 口の様子, 口の決め方};
+pub use node::{
+    MAX_MESSAGE, Node, Session, 中継の使い方, 口の様子, 口の決め方, 通り道
+};
 pub use pick::{
     口の種類, 宛先に載せる, 宛先に載せる_口の種類つき, 載せる本数
 };

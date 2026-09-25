@@ -476,6 +476,35 @@ impl Session {
         self.connection.close_reason().is_none()
     }
 
+    /// **いま文字が流れている通り道**（直接か、中継か）。
+    ///
+    /// **2026-09-25、網を越えて初めてつながったとき、これをどこにも出していなかった。**
+    /// 画面の「経路」は映像（WebRTC）の経路なので、画面なしの相手だと必ず unknown になる。
+    #[must_use]
+    pub fn 通り道(&self) -> 通り道 {
+        self.connection
+            .paths()
+            .iter()
+            .find(|道| 道.is_selected())
+            .map_or(通り道::不明, |道| 通り道::から(道.remote_addr()))
+    }
+
+    /// **通り道が変わるたびに知らせる**（穴があいて中継から直接へ移った、など）。
+    ///
+    /// 経路が閉じたら終わる。知らせは別の仕事の上で呼ばれる。
+    pub fn 通り道を見張る(&self, 知らせ: impl Fn(通り道) + Send + 'static) {
+        let 結び = self.connection.clone();
+        tokio::spawn(async move {
+            use futures::StreamExt as _;
+            let mut 出来事 = 結び.path_events();
+            while let Some(一つ) = 出来事.next().await {
+                if let iroh::endpoint::PathEvent::Selected { remote_addr, .. } = 一つ {
+                    知らせ(通り道::から(&remote_addr));
+                }
+            }
+        });
+    }
+
     /// バイト列を 1 つ送る。
     ///
     /// # Errors
@@ -573,4 +602,65 @@ fn 届かなかった言い方(宛先: &Address) -> String {
          どれかです。相手のいまの番地と見比べてください",
         番地.join("・")
     )
+}
+
+/// 文字が流れている通り道。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum 通り道 {
+    /// 相手の番地へ直に（穴あけ・同じ網）。
+    直接(std::net::SocketAddr),
+    /// 中継を通っている。
+    中継(String),
+    /// まだ決まっていない・知らない種類。
+    不明,
+}
+
+impl 通り道 {
+    fn から(宛: &iroh::TransportAddr) -> Self {
+        match 宛 {
+            iroh::TransportAddr::Ip(番地) => Self::直接(*番地),
+            iroh::TransportAddr::Relay(url) => Self::中継(url.to_string()),
+            _ => Self::不明,
+        }
+    }
+}
+
+/// **外側の番地（グローバル IP）は出さない。**記録は人が Issue に貼る
+/// （2026-09-25・sshboard の席の指摘）。LAN の番地は出す —— 切り分けに要る。
+impl std::fmt::Display for 通り道 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::直接(番地) if 内側か(番地.ip()) => write!(f, "直接（{番地}）"),
+            Self::直接(_) => write!(f, "直接（外側の番地）"),
+            Self::中継(url) => write!(f, "中継（{url}）"),
+            Self::不明 => write!(f, "不明"),
+        }
+    }
+}
+
+fn 内側か(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => v4.is_private() || v4.is_loopback() || v4.is_link_local(),
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback() || v6.is_unique_local() || v6.is_unicast_link_local()
+        }
+    }
+}
+
+#[cfg(test)]
+mod 通り道の試験 {
+    use super::通り道;
+
+    #[test]
+    fn 外側の番地は_字に出さない() {
+        let 外 = 通り道::直接("203.0.113.5:39756".parse().unwrap());
+        assert_eq!(外.to_string(), "直接（外側の番地）");
+        assert!(!外.to_string().contains("203.0.113.5"));
+    }
+
+    #[test]
+    fn 内側の番地は_字に出す() {
+        let 内 = 通り道::直接("192.168.24.3:55335".parse().unwrap());
+        assert_eq!(内.to_string(), "直接（192.168.24.3:55335）");
+    }
 }

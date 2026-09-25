@@ -10,6 +10,7 @@ repository.workspace = true
 [dependencies]
 warifu-core.workspace = true
 iroh.workspace = true
+futures.workspace = true
 tokio.workspace = true
 zeroize.workspace = true
 
