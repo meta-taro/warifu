@@ -38,7 +38,7 @@
   import { 溜める, 取り出す, 忘れる, type 溜め } from '$lib/webrtc/pending';
   import { 戻る口を出すか } from '$lib/contacts/rejoin';
   import { 宛先を据え置くか } from '$lib/chat/keep';
-  import { 経路が付かないと言うか, 黙っている秒 } from '$lib/link/blocked';
+  import { 画面なしで入っているか, 経路が付かないと言うか, 黙っている秒 } from '$lib/link/blocked';
   import { 入る口を先に出すか, 初めの入退の面, type 入退の面 } from '$lib/shell/並び';
   import { ふさがりの直し方 } from '$lib/link/fix';
   import { ふさがりの言い方 } from '$lib/link/firewall';
@@ -772,6 +772,13 @@
    */
   let 入退 = $state<入退の面>(初めの入退の面);
   /**
+   * **下ごしらえ（SDP / ICE）を 1 本でも返してきた相手**（2026-09-25）。
+   *
+   * **画面なしで入った相手は、1 本も返さない**（`warifu join` に WebRTC は無い）。
+   * **文字は通っているので不具合ではない** —— ふさがりの案内と分けるために控える。
+   */
+  const 返してきた相手 = new Set<string>();
+  /**
    * **入る口を、会話より先に出すか**（2026-09-24）。
    *
    * **相手が居ないうちは、入る口が主役**（招かれた側は今日初めて開く人）。
@@ -1131,13 +1138,22 @@
           const 入った時刻 = Date.now();
           setTimeout(async () => {
             const 相手 = remotes.find((r) => r.key === key);
-            if (
-              経路が付かないと言うか({
-                相手が居る: !!相手,
-                経路: 相手?.path ?? 'unknown',
-                入ってからの秒: Math.round((Date.now() - 入った時刻) / 1000),
-              })
-            ) {
+            const 場 = {
+              相手が居る: !!相手,
+              経路: 相手?.path ?? 'unknown',
+              入ってからの秒: Math.round((Date.now() - 入った時刻) / 1000),
+              // **下ごしらえが 1 本でも返ってきたか**（2026-09-25 に実測で分かった）。
+              // **`warifu join`（画面なし）の相手は 1 本も返さない** ——
+              // それを「ふさがっているかもしれません」と案内していた。**誤案内である。**
+              返してきた: 返してきた相手.has(key),
+            } as const;
+            if (画面なしで入っているか(場)) {
+              log(`相手は画面なしで入っています（${短く(key)}）。下ごしらえが 1 本も返っていません`);
+              notice = t('link.screenless');
+              直し方 = null;
+              return;
+            }
+            if (経路が付かないと言うか(場)) {
               // **規則の有無を見てから言う**（PR #16）。
               // 規則があるのに「ファイアウォールが止めています」と言うのは嘘に近い ——
               // 実機で**足した人が「足したのに直らない」で 3 時間止まった**
@@ -1387,6 +1403,10 @@
       unsubs.push(
         await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => {
           // **誰から来たかで振り分ける。**間違えると別の組の経路が壊れる
+          // **誰から返ってきたかを控える**（2026-09-25）——
+          // **1 本も返ってこない相手は、画面を持っていない**（`warifu join`）。
+          // ふさがりの案内と分けるのに、これしか手掛かりが無い
+          if (p.from) 返してきた相手.add(p.from);
           const 宛先 = p.from ? calls.get(p.from) : undefined;
           if (宛先) {
             log(`下ごしらえが来た: ${p.step}（${短く(p.from as string)}）`);

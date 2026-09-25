@@ -334,6 +334,7 @@ export type MessageKey =
   | 'edit.selectAll'
   | 'edit.pasteHint'
   | 'link.closed'
+  | 'link.screenless'
   | 'link.lost'
   | 'link.blocked'
   | 'link.blocked.copy'
@@ -394,6 +395,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': 'このルームキーは期限が切れています。新しいものをもらってください。',
     'meeting.key.tooearly': 'このルームキーは、まだ始まっていません。',
     'link.closed': '相手が退出しました。',
+    'link.screenless': '相手は画面なしで入っています（文字だけ）。映像と音は使えません。',
     'link.lost':
       '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。' +
       '（届かないときは、この機械の番地が変わっています — ルームキーを出し直してください）',
@@ -734,6 +736,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': 'This room key has expired. Ask for a new one.',
     'meeting.key.tooearly': 'This room key has not started yet.',
     'link.closed': 'The other person left.',
+    'link.screenless': 'They joined without a screen (text only). Video and audio are not available.',
     'link.lost':
       'The route to them broke. They can come back with the same key — waiting. ' +
       '(If it does not reach, this machine’s address changed — issue a new room key.)',
@@ -1074,6 +1077,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': '这个 room 密钥已过期。请索取新的密钥。',
     'meeting.key.tooearly': '这个 room 密钥还没有开始生效。',
     'link.closed': '对方已离开。',
+    'link.screenless': '对方是以无界面方式加入的（仅文字）。无法使用视频和音频。',
     'link.lost':
       '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。' +
       '（如果连不上，是这台机器的地址变了 —— 请重新发放房间密钥。）',
@@ -1412,6 +1416,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.expired': '이 룸 열쇠는 기한이 지났습니다. 새것을 받아 주세요.',
     'meeting.key.tooearly': '이 룸 열쇠는 아직 시작되지 않았습니다.',
     'link.closed': '상대방이 나갔습니다.',
+    'link.screenless': '상대는 화면 없이 들어와 있습니다(문자만). 영상과 음성은 사용할 수 없습니다.',
     'link.lost':
       '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. ' +
       '(닿지 않으면 이 기기의 주소가 바뀐 것입니다 — 룸 키를 다시 발급하세요.)',
