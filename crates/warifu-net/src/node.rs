@@ -492,21 +492,31 @@ impl Session {
     /// **通り道が変わるたびに知らせる**（穴があいて中継から直接へ移った、など）。
     ///
     /// 経路が閉じたら終わる。知らせは別の仕事の上で呼ばれる。
-    pub fn 通り道を見張る(&self, 知らせ: impl Fn(通り道) + Send + 'static) {
+    pub fn 通り道を見張る(
+        &self, 知らせ: impl Fn(通り道の出来事) + Send + 'static
+    ) {
         let 結び = self.connection.clone();
         tokio::spawn(async move {
             use futures::StreamExt as _;
             let mut 出来事 = 結び.path_events();
             let mut 前 = None;
+            let mut 入れ替え = 0_u32;
             while let Some(一つ) = 出来事.next().await {
                 if let iroh::endpoint::PathEvent::Selected { remote_addr, .. } = 一つ {
                     let 今 = 通り道::から(&remote_addr);
                     if 通り道::知らせるか(前.as_ref(), &今) {
-                        知らせ(今.clone());
+                        知らせ(通り道の出来事::変わった(今.clone()));
+                    } else if 前.as_ref() != Some(&今) {
+                        // **番地の揺れは行にしない。数だけ残す**（sshboard の席の提案）——
+                        // 落ち着かない網では、ここが映像の途切れの手がかりになる
+                        入れ替え = 入れ替え.saturating_add(1);
                     }
                     前 = Some(今);
                 }
             }
+            知らせ(通り道の出来事::閉じた {
+                番地の入れ替え: 入れ替え,
+            });
         });
     }
 
@@ -609,6 +619,34 @@ fn 届かなかった言い方(宛先: &Address) -> String {
     )
 }
 
+/// 通り道を見張って知らせること。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum 通り道の出来事 {
+    /// 直接・中継・不明の種類が変わった。
+    変わった(通り道),
+    /// 経路が閉じた。**直接（または中継）の中で番地が入れ替わった回数**を添える。
+    閉じた {
+        /// 同じ種類のまま、相手の番地が入れ替わった回数。
+        番地の入れ替え: u32,
+    },
+}
+
+impl std::fmt::Display for 通り道の出来事 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::変わった(道) => write!(f, "通り道が変わりました: {道}"),
+            Self::閉じた {
+                番地の入れ替え
+            } => {
+                write!(
+                    f,
+                    "通り道が閉じました（番地の入れ替え {番地の入れ替え} 回）"
+                )
+            }
+        }
+    }
+}
+
 /// 文字が流れている通り道。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum 通り道 {
@@ -686,6 +724,14 @@ mod 通り道の試験 {
         assert!(通り道::知らせるか(Some(&中), &lan));
         assert!(通り道::知らせるか(Some(&lan), &中));
         assert!(通り道::知らせるか(None, &lan), "最初の 1 回は知らせる");
+    }
+
+    #[test]
+    fn 閉じたときに_番地の入れ替えの回数を言う() {
+        let 閉 = super::通り道の出来事::閉じた {
+            番地の入れ替え: 7
+        };
+        assert_eq!(閉.to_string(), "通り道が閉じました（番地の入れ替え 7 回）");
     }
 
     #[test]

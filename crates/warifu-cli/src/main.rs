@@ -1115,7 +1115,7 @@ async fn 迎える(
         match 結果 {
             Ok(()) => {
                 eprintln!("warifu: 通り道 {}", session.通り道());
-                session.通り道を見張る(|道| eprintln!("warifu: 通り道が変わりました: {道}"));
+                session.通り道を見張る(|出来事| eprintln!("warifu: {出来事}"));
                 return Some((session, peer));
             }
             // **理由は主催の手元にだけ出す。**相手には返さない（戸口の構え・D31）
@@ -1174,7 +1174,7 @@ async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>
     eprintln!("warifu: つながりました（{}）", 誰か(&vault, peer));
     // **文字の通り道を出す**（2026-09-25・網を越えたとき、直接か中継かを言えなかった）
     eprintln!("warifu: 通り道 {}", session.通り道());
-    session.通り道を見張る(|道| eprintln!("warifu: 通り道が変わりました: {道}"));
+    session.通り道を見張る(|出来事| eprintln!("warifu: {出来事}"));
     覚える(&vault, peer, o.remember.as_ref());
 
     let mut channel = Channel::new(session);

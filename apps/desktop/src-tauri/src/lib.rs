@@ -155,7 +155,7 @@ fn 起動からの秒() -> f64 {
 fn 通り道を書き置く(session: &warifu_net::Session) {
     let 誰 = 短く(&key_to_string(session.peer()));
     記録!("通り道（文字）: {}（{誰}）", session.通り道());
-    session.通り道を見張る(move |道| 記録!("通り道（文字）が変わりました: {道}（{誰}）"));
+    session.通り道を見張る(move |出来事| 記録!("{出来事}（文字・{誰}）"));
 }
 
 fn 短く(s: &str) -> String {
