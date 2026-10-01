@@ -1,0 +1,530 @@
+//! 2 台をつなぐところ。
+//!
+//! ここは **iroh の上に載る薄い層**であって、暗号も NAT 越えも自前では書かない。
+//! この層が引き受けるのは 2 つだけ。
+//!
+//! 1. **相手が本当にその公開鍵の持ち主か**を、繋がった時点で確かめる
+//! 2. **失効している相手を通さない**
+//!
+//! テストは中継を一切使わない（`bind_without_relay`）。
+//! 外に出ないので、回線が無くても走る。
+
+use std::time::Duration;
+
+use warifu_core::{Revocations, Seed};
+use warifu_net::{Error, Node};
+
+/// つながらないまま止まると、落ちたのか待っているのか分からなくなる。
+const 待つ限度: Duration = Duration::from_secs(20);
+
+fn 端末(seed: u8, label: &str) -> warifu_core::Device {
+    Seed::from_bytes([seed; 32])
+        .profile("Personal")
+        .device(label)
+}
+
+async fn 時間を切る<T>(f: impl Future<Output = T>) -> T {
+    tokio::time::timeout(待つ限度, f)
+        .await
+        .expect("待つ限度を超えた")
+}
+
+#[tokio::test]
+async fn 二つの結び目がつながる() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move {
+        let 名簿 = Revocations::new();
+        受け手.accept(&名簿).await
+    });
+
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    assert_eq!(こちら.peer(), alice.public_key(), "呼んだ側から見た相手");
+    assert_eq!(あちら.peer(), bob.public_key(), "受けた側から見た相手");
+}
+
+#[tokio::test]
+async fn 宛先は文字列にして渡せる() {
+    // 割符と同じで、宛先も QR や貼り付けで渡る。読めない形だと配れない
+    let alice = 端末(1, "PC");
+    let node = Node::bind_without_relay(&alice).await.unwrap();
+
+    let 宛先 = node.address().await.unwrap();
+    let 文字列 = 宛先.to_string();
+
+    assert!(文字列.is_ascii(), "読み上げ・手入力で壊れる形にしない");
+
+    let 戻り: warifu_net::Address = 文字列.parse().expect("自分が出した文字列を読めない");
+
+    assert_eq!(戻り.public_key(), alice.public_key());
+    assert_eq!(戻り.to_string(), 文字列);
+}
+
+#[tokio::test]
+async fn 宛先の公開鍵が相手の名前そのものになっている() {
+    let alice = 端末(1, "PC");
+    let node = Node::bind_without_relay(&alice).await.unwrap();
+
+    assert_eq!(
+        node.address().await.unwrap().public_key(),
+        alice.public_key(),
+        "宛先と Identity が別物だと、割符で確定した相手に繋いだことにならない"
+    );
+}
+
+#[tokio::test]
+async fn 割符で確定した相手にそのまま繋がる() {
+    // これが warifu の芯。割符で相手が確定したら、その公開鍵だけで呼べる
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+    let 名簿 = Revocations::new();
+
+    let (mut 控え, 渡す半分) = alice.issue_tally(1_755_000_000, 3600).unwrap();
+    let 受諾 = bob.accept(&渡す半分, 1_755_000_010).unwrap();
+    let 相手 = 控え.match_half(&受諾, 1_755_000_020, &名簿).unwrap();
+
+    let 受け手 = Node::bind_without_relay(&bob).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&alice).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+
+    let session = 時間を切る(呼ぶ側.connect(&宛先, &名簿)).await.unwrap();
+    時間を切る(待ち受け).await.unwrap().unwrap();
+
+    assert_eq!(
+        session.peer(),
+        相手.public_key(),
+        "割符が指した相手と、実際に繋がった相手が一致しない"
+    );
+}
+
+#[tokio::test]
+async fn バイト列が往復する() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move {
+        let mut s = 受け手.accept(&Revocations::new()).await.unwrap();
+        let 届いた = s.recv().await.unwrap();
+        s.send(&届いた).await.unwrap();
+        // 送ってすぐ落とすと、まだ網に出ていない分が消える。
+        // **送り終わりだと分かっているなら、相手が受け取り切るまで待つ**
+        s.finish().await.unwrap();
+        届いた
+    });
+
+    let mut session = 時間を切る(呼ぶ側.connect(&宛先, &Revocations::new()))
+        .await
+        .unwrap();
+
+    let 送る = "割符".as_bytes();
+    時間を切る(session.send(送る)).await.unwrap();
+    let 返り = 時間を切る(session.recv()).await.unwrap();
+
+    assert_eq!(返り, 送る);
+    assert_eq!(時間を切る(待ち受け).await.unwrap(), 送る);
+}
+
+#[tokio::test]
+async fn 大きいバイト列も壊れない() {
+    // 文書 1 個ぶん（md-business の TSV / 画像込みの md）が通らないと使い物にならない
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move {
+        let mut s = 受け手.accept(&Revocations::new()).await.unwrap();
+        s.recv().await.unwrap()
+    });
+
+    let mut session = 時間を切る(呼ぶ側.connect(&宛先, &Revocations::new()))
+        .await
+        .unwrap();
+
+    let 送る: Vec<u8> = (0..4 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+    時間を切る(session.send(&送る)).await.unwrap();
+
+    assert_eq!(時間を切る(待ち受け).await.unwrap(), 送る);
+}
+
+#[tokio::test]
+async fn 何度でも送れる() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move {
+        let mut s = 受け手.accept(&Revocations::new()).await.unwrap();
+        let mut 集めた = Vec::new();
+        for _ in 0..10 {
+            集めた.push(s.recv().await.unwrap());
+        }
+        集めた
+    });
+
+    let mut session = 時間を切る(呼ぶ側.connect(&宛先, &Revocations::new()))
+        .await
+        .unwrap();
+
+    for i in 0..10u8 {
+        時間を切る(session.send(&[i; 3])).await.unwrap();
+    }
+
+    let 集めた = 時間を切る(待ち受け).await.unwrap();
+    assert_eq!(集めた.len(), 10);
+    for (i, 中身) in 集めた.iter().enumerate() {
+        assert_eq!(中身.as_slice(), &[i as u8; 3], "送った順に届いていない");
+    }
+}
+
+#[tokio::test]
+async fn 失効させた相手からは受けない() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let mut 名簿 = Revocations::new();
+    名簿.revoke_device(bob.public_key(), 1_755_000_000);
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&名簿).await });
+
+    // 呼ぶ側は繋いだつもりになるかもしれないが、受けた側は必ず断る
+    let _ = 時間を切る(呼ぶ側.connect(&宛先, &Revocations::new())).await;
+
+    assert!(
+        matches!(時間を切る(待ち受け).await.unwrap(), Err(Error::Revoked)),
+        "失効させた端末を通してしまっている"
+    );
+}
+
+#[tokio::test]
+async fn 失効させた相手へは呼びに行かない() {
+    // 名簿は各自が持つ。呼ぶ側でも止まらないと、失くした端末を自分から呼びに行く
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let mut 名簿 = Revocations::new();
+    名簿.revoke_device(alice.public_key(), 1_755_000_000);
+
+    assert!(matches!(
+        時間を切る(呼ぶ側.connect(&宛先, &名簿)).await,
+        Err(Error::Revoked)
+    ));
+}
+
+#[tokio::test]
+async fn 別人の鍵を名乗る宛先には繋がらない() {
+    // 宛先の公開鍵だけ他人のものに差し替えられた場合。
+    // 経路の暗号が相手の鍵に紐付いているので、ここで必ず落ちる
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+    let carol = 端末(3, "PC");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+
+    let 偽の宛先 = 受け手
+        .address()
+        .await
+        .unwrap()
+        .with_public_key(carol.public_key());
+
+    assert!(
+        時間を切る(呼ぶ側.connect(&偽の宛先, &Revocations::new()))
+            .await
+            .is_err(),
+        "alice を carol だと言われて、そのまま繋いでしまっている"
+    );
+}
+
+#[tokio::test]
+async fn 読めない宛先の文字列は受け取らない() {
+    use warifu_net::Address;
+
+    assert!("".parse::<Address>().is_err());
+    assert!("ふつうの文字列".parse::<Address>().is_err());
+    assert!("WARIFU1-AAAA".parse::<Address>().is_err());
+}
+
+#[tokio::test]
+async fn 結び目を落としても経路は生きている() {
+    // 呼び出す側は「繋がったら Session だけ持ち回す」と書きたくなる。
+    // そこで経路が黙って死ぬと、**送った側は成功が返り、受ける側は永久に待つ**。
+    // 落ちたことにすら気づけないので、Session は自分で結び目を生かす。
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = {
+        let 受け手 = 受け手.clone();
+        tokio::spawn(async move { 受け手.accept(&Revocations::new()).await })
+    };
+    let mut こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let mut あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // ここで結び目を手放す。**経路はまだ使う**
+    drop(受け手);
+    drop(呼ぶ側);
+
+    時間を切る(こちら.send(b"warifu")).await.expect("送れない");
+    let 届いた = 時間を切る(あちら.recv()).await.expect("届かない");
+    assert_eq!(届いた, b"warifu", "結び目を落とした後も往復する");
+}
+
+/// **「正しく閉じた」と「落ちた」を混ぜない。**
+///
+/// 主催は、相手が挨拶して帰ったのか、回線が切れて消えたのかで、
+/// **待ち直すべきかどうかが変わる**（予定に紐づく会議キー・D43）。
+/// どちらも `Network` にしてしまうと、上の層には区別する手がかりが残らない。
+#[tokio::test]
+async fn 相手が正しく閉じたのは_落ちたのとは別の誤りになる() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let mut あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **挨拶して帰る**（送る側を閉じて、相手が受け取り切るのを待つ）
+    時間を切る(こちら.finish()).await.expect("閉じられない");
+
+    let 誤り = 時間を切る(あちら.recv())
+        .await
+        .expect_err("閉じた後も届いてしまった");
+    assert!(
+        matches!(誤り, Error::Closed),
+        "正しく閉じたのに「落ちた」と言っている: {誤り}"
+    );
+}
+
+#[tokio::test]
+async fn 相手が黙って消えたら_落ちたと分かる() {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let mut あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **挨拶せずに消える。**結び目は生かしたまま経路だけ手放す
+    // （結び目ごと落とすと閉じる合図すら飛ばず、相手が気づくのは QUIC の
+    // idle timeout まで待った後になる——実測 33 秒。テストで待つには長い）
+    drop(こちら);
+
+    let 誤り = 時間を切る(あちら.recv())
+        .await
+        .expect_err("消えた後も届いてしまった");
+    assert!(
+        matches!(誤り, Error::Network { .. }),
+        "落ちたのに「正しく閉じた」と言っている: {誤り}"
+    );
+}
+
+/// **外から届きうるかを、待たせる前に言えること。**
+///
+/// 2026-09-07、Windows で踏んだ —— host は「待っています」と出したまま、
+/// 外から到達できない状態で待ち続け、2 時間ぶん待たせるところだった。
+///
+/// **候補が全部プライベートなら、その時点で言える。**言わないのは、
+/// 「押せるのに効かないボタン」（D49）と同じ形である。
+#[test]
+fn 外から届きうるかが分かる() {
+    use std::net::SocketAddr;
+    use warifu_net::Address;
+
+    let 鍵 = 端末(1, "PC").public_key();
+
+    let 内だけ = Address::from_ip_addrs(
+        鍵,
+        ["192.168.1.5:41000", "10.0.0.2:41000", "127.0.0.1:41000"]
+            .iter()
+            .map(|s| s.parse::<SocketAddr>().unwrap()),
+    );
+    assert!(
+        !内だけ.外から届きうる(),
+        "私有アドレスだけなのに、届きうると言った"
+    );
+
+    let 外もある = Address::from_ip_addrs(
+        鍵,
+        // 文書用（203.0.113.0/24 など）は実在しないので使わない
+        ["192.168.1.5:41000", "93.184.216.34:41000"]
+            .iter()
+            .map(|s| s.parse::<SocketAddr>().unwrap()),
+    );
+    assert!(
+        外もある.外から届きうる(),
+        "外向きの候補があるのに、無いと言った"
+    );
+
+    // **候補が 1 つも無いのは「届きうる」ではない**
+    let 空 = Address::from_ip_addrs(鍵, std::iter::empty());
+    assert!(!空.外から届きうる());
+}
+
+/// **リンクローカルと CGNAT も、外からは届かない。**
+///
+/// `169.254.0.0/16` は同じ線の上だけ。`100.64.0.0/10` は事業者の内側（CGNAT）で、
+/// **グローバルに見えて外から呼べない** —— モバイル回線でよくある。
+#[test]
+fn リンクローカルと自動割り当てを外向きに数えない() {
+    use std::net::SocketAddr;
+    use warifu_net::Address;
+
+    let 鍵 = 端末(2, "スマホ").public_key();
+    for s in ["169.254.1.2:41000", "100.64.0.1:41000", "[fe80::1]:41000"] {
+        let a = Address::from_ip_addrs(鍵, std::iter::once(s.parse::<SocketAddr>().unwrap()));
+        assert!(!a.外から届きうる(), "{s} を外向きに数えた");
+    }
+}
+
+#[tokio::test]
+async fn つながった相手への通り道が_直接と分かる() {
+    // **2026-09-25、網を越えて初めてつながったとき、文字が直接か中継かを言えなかった。**
+    // `room_status` の「経路」は映像（WebRTC）の経路で、画面なしの相手だと必ず unknown になる。
+    // 文字の通り道（iroh）は**どこにも出ていなかった**。
+    let alice = 端末(11, "PC");
+    let bob = 端末(12, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **中継を使っていないので、両側とも直接のはず**
+    assert!(
+        matches!(こちら.通り道(), warifu_net::通り道::直接(_)),
+        "呼んだ側: {}",
+        こちら.通り道()
+    );
+    assert!(
+        matches!(あちら.通り道(), warifu_net::通り道::直接(_)),
+        "受けた側: {}",
+        あちら.通り道()
+    );
+}
+
+#[tokio::test]
+async fn 中継なしの試験用の結び目は_ルーターに口を頼まない() {
+    // **2026-09-27、本番の結び目がルーターに口を頼むようにしたら、
+    // 試験のたびに本物のルーターへ頼みに行き、1 束が 4 秒 → 70 秒になった。**
+    let node = Node::bind_without_relay(&端末(21, "PC")).await.unwrap();
+    assert!(
+        node.外への口(Duration::ZERO).await.is_none(),
+        "試験用はルーターに頼まない"
+    );
+    assert!(node.口開けを調べる().await.is_none());
+}
+
+#[tokio::test]
+async fn 見張りは_いまの通り道から言い始める() {
+    // **2026-09-27、入り直しで「通り道 不明」と出たまま、直接だと一度も言わなかった。**
+    // 道が選ばれたのが、見張りを始める前だった（知らせを取りこぼした）。
+    // **見張りが最初に「いま」を言う**なら、取りこぼしても直接と分かる。
+    let alice = 端末(31, "PC");
+    let bob = 端末(32, "スマホ");
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let _あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    // **道が選ばれ終わってから見張る**（取りこぼす形をわざと作る）
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let (送る, mut 受ける) = tokio::sync::mpsc::unbounded_channel();
+    こちら.通り道を見張る(move |出来事| {
+        let _ = 送る.send(出来事);
+    });
+    let 最初 = 時間を切る(受ける.recv()).await.expect("何も言わない");
+    assert!(
+        matches!(
+            最初,
+            warifu_net::通り道の出来事::いま(warifu_net::通り道::直接(_))
+        ),
+        "最初の 1 行が「いま 直接」ではない: {最初}"
+    );
+}
+
+#[tokio::test]
+async fn 包みの口で_小さな包みが相手に届く() {
+    // **D125 —— 映像の包みを iroh の道で運ぶ。**
+    // 映像は遅れて届くより落ちたほうがよいので、順も再送も無い datagram を使う。
+    // **Session を会話（Channel）に渡したあとでも使える**よう、口だけを先に取り出す
+    let alice = 端末(41, "PC");
+    let bob = 端末(42, "スマホ");
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 受け手の宛先 = 受け手.address().await.unwrap();
+    let 待ち受け = tokio::spawn(async move { 受け手.accept(&Revocations::new()).await });
+    let こちら = 時間を切る(呼ぶ側.connect(&受け手の宛先, &Revocations::new()))
+        .await
+        .expect("繋がらない");
+    let あちら = 時間を切る(待ち受け).await.unwrap().expect("受けられない");
+
+    let 送る口 = こちら.包みの口();
+    let 受ける口 = あちら.包みの口();
+    assert!(
+        送る口.最大の大きさ().is_some_and(|n| n >= 1000),
+        "映像の包み（1200 前後）が載る大きさがあるはず: {:?}",
+        送る口.最大の大きさ()
+    );
+    // **会話の口を手放しても、包みの口は生きている**
+    drop(こちら);
+
+    送る口.送る(b"frame-1".to_vec()).unwrap();
+    let 届いた = 時間を切る(受ける口.受ける()).await.unwrap();
+    assert_eq!(届いた, b"frame-1");
+}

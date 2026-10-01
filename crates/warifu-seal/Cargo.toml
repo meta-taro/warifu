@@ -1,0 +1,24 @@
+[package]
+name = "warifu-seal"
+description = "相手の公開鍵に封をする。中継は中身を読めない。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+warifu-core.workspace = true
+# 身元の鍵（ed25519）から鍵合わせ用の鍵を導く。**鍵を 2 つにしない**（D42）
+ed25519-dalek.workspace = true
+x25519-dalek = { version = "2.0", default-features = false, features = ["static_secrets", "zeroize"] }
+# 封そのもの。**AES を選ばない** —— 機械によっては遅く、時間差が漏れる
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+hkdf.workspace = true
+sha2.workspace = true
+getrandom.workspace = true
+zeroize.workspace = true
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

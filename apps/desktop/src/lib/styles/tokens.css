@@ -1,0 +1,194 @@
+/*
+ * warifu Desktop — デザイントークン（唯一の出典 = DESIGN.md §3 / §5 / §6）
+ * ------------------------------------------------------------------
+ * - ライトを既定（:root）、ダークは :root[data-theme='dark'] で「値だけ」上書きする。
+ * - @media (prefers-color-scheme) との二重定義を持たない。持つとダーク値の管理が
+ *   二重化して必ずずれる。data-theme は `app.html` の頭のスクリプトが
+ *   **描く前に**立てる（OS の切り替えにもその場で従う）。
+ *   **2026-09-08 まで、その所が無かった** —— ダークの値は書かれていたのに、
+ *   **一度も出ていなかった。**
+ * - **コンポーネントは色をハードコードしない。**必ずこのファイルのトークンを参照する。
+ * - **色はアイコンから採る**（**D73**・2026-09-08）。全体の色味をアイコンの色調に合わせる。
+ *   地はカフェオレ（`#cdb295`）、操作の色は木（`#7b5a3e`）、濃い木目（`#6b4c33`）。
+ *   **変えるときは DESIGN.md と同じ commit で。**
+ */
+
+:root {
+  /* WebView のネイティブ UI（スクロールバー・フォーム部品）をテーマへ追従させる */
+  color-scheme: light;
+
+  /* ── §3.1 アクセント ────────────────────────────────────── */
+  /* 木の板（アイコンの印そのもの）。**押せる一点の色** */
+  --accent: #7b5a3e;
+  --accent-hover: #6b4c33;
+  --accent-active: #5a3f2b;
+  --accent-subtle: #f3e9dd;
+  --accent-border: #e0cdb6;
+  /* **操作の色の上に置く字。**（2026-09-24 に足した）
+     `ChatPanel` の【送る】が `var(--on-accent)` を書いていたが、**この名前は無かった** ——
+     字の色が当たらず、**濃い木の上に濃い字**が乗っていた（暗い所では逆に、
+     明るいカフェオレの上に白い字）。**どちらも読みにくい。** */
+  --on-accent: #fffdfa;
+
+  /* ── §3.2 ニュートラル（カフェオレへ寄せた温かい灰） ─────── */
+  --bg-app: #fffdfa;
+  --bg-subtle: #faf6f0;
+  --bg-sunken: #f2ebe1;
+  --bg-elevated: #fffdfa;
+  --bg-hover: #f5eee4;
+  --border: #e7ddd0;
+  --border-strong: #d5c6b3;
+  --text-primary: #241d16;
+  --text-secondary: #6b5c4c;
+  /* **2026-09-24 に少し暗くした**（#9b8c7b → #918373）——
+     沈んだ地（--bg-sunken）の上で **2.76 : 1** しか無く、
+     切り替えの選んでいない側と、名簿の見出しが**そこで読みにくかった**。
+     数えたら落ちた（`contrast.test.ts`）。**3 : 1 を満たす所まで**寄せた */
+  --text-tertiary: #918373;
+  --text-on-accent: #fffdfa;
+
+  /* ── §3.3 セマンティック（地 / 文字） ───────────────────── */
+  /* **意味の色は、意味のまま残す**（緑は通った・赤は危ない）。
+     地だけを温かい側へ寄せて、周りから浮かないようにする */
+  --success-bg: #e8f3e4;
+  --success-fg: #2f6f3a;
+  --warning-bg: #fbf0dc;
+  --warning-fg: #8a6412;
+  --neutral-bg: #f2ebe1;
+  --neutral-fg: #6b5c4c;
+  --danger-bg: #f9e9e4;
+  --danger-fg: #a83a2c;
+  --info-bg: #eaf0f2;
+  --info-fg: #3a6274;
+
+  /* ── §4 warifu 固有の第 3 軸 ─────────────────────────────
+     「どうなっているか」ではなく「何であるか」。セマンティックから借りない。
+     **色だけで言わない** — 呼び出し側はラベルと形を必ず一緒に出す。 */
+  --link-direct-bg: var(--success-bg);
+  --link-direct-fg: var(--success-fg);
+  --link-relayed-bg: var(--warning-bg);
+  --link-relayed-fg: var(--warning-fg);
+  --link-unknown-bg: var(--neutral-bg);
+  --link-unknown-fg: var(--neutral-fg);
+
+  --key-valid-bg: var(--success-bg);
+  --key-valid-fg: var(--success-fg);
+  --key-revoked-bg: var(--danger-bg);
+  --key-revoked-fg: var(--danger-fg);
+  --key-expired-bg: var(--neutral-bg);
+  --key-expired-fg: var(--neutral-fg);
+  --key-unused-bg: var(--accent-subtle);
+  --key-unused-fg: var(--accent);
+
+  /* ── §5 タイポグラフィ ──────────────────────────────────── */
+  --font-ui: 'Inter', 'Noto Sans JP', system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --text-2xs-size: 11px;
+  --text-2xs-line: 16px;
+  --text-2xs-weight: 500;
+  --text-xs-size: 12px;
+  --text-xs-line: 18px;
+  --text-xs-weight: 400;
+  --text-sm-size: 13px; /* UI 既定 */
+  --text-sm-line: 20px;
+  --text-sm-weight: 400;
+  --text-base-size: 14px; /* 本文既定 */
+  --text-base-line: 22px;
+  --text-base-weight: 400;
+  --text-md-size: 16px;
+  --text-md-line: 24px;
+  --text-md-weight: 500;
+  --text-lg-size: 20px;
+  --text-lg-line: 28px;
+  --text-lg-weight: 600;
+  --text-xl-size: 24px;
+  --text-xl-line: 32px;
+  --text-xl-weight: 600;
+
+  --tracking-tight: -0.01em; /* --text-lg 以上の見出し */
+
+  /* ── §6 スペーシング（4px グリッド） ────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-8: 48px;
+  --space-10: 64px;
+
+  /* ── §6 角丸 ────────────────────────────────────────────── */
+  --radius-sm: 6px;
+  --radius-md: 8px; /* 既定 */
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* ── §6 影（ライト・低アルファ） ────────────────────────── */
+  --shadow-xs: 0 1px 2px rgba(60, 42, 26, 0.05);
+  --shadow-sm: 0 1px 3px rgba(60, 42, 26, 0.07), 0 1px 2px rgba(60, 42, 26, 0.05);
+  --shadow-md: 0 4px 12px rgba(60, 42, 26, 0.1), 0 2px 4px rgba(60, 42, 26, 0.05);
+  --shadow-lg: 0 12px 32px rgba(60, 42, 26, 0.16);
+
+  /* ── §6 モーション ──────────────────────────────────────── */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur-base: 160ms;
+  --dur-slow: 240ms;
+
+  /* ── §8 レイアウト寸法 ──────────────────────────────────── */
+  --topbar-h: 44px;
+}
+
+/* ── ダーク（同等パリティ・値だけ差し替え） ─────────────────── */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* **暗い所では、木は沈む。**アイコンの地（カフェオレ）を操作の色にする。
+     色そのものは変えていない —— 明暗の役割を入れ替えただけである */
+  --accent: #cdb295;
+  --accent-hover: #dbc4aa;
+  --accent-active: #e6d4bf;
+  --accent-subtle: #2e2419;
+  --accent-border: #453626;
+  /* **暗い所では操作の色が明るいので、字は沈める**（明暗の役割が入れ替わる） */
+  --on-accent: #14100c;
+
+  --bg-app: #14100c;
+  --bg-subtle: #1a1511;
+  --bg-sunken: #211a14;
+  --bg-elevated: #231c16;
+  --bg-hover: #2b231b;
+  --border: #31281f;
+  --border-strong: #42362b;
+  --text-primary: #f6f1ea;
+  --text-secondary: #b3a493;
+  --text-tertiary: #7d7062;
+  /* **淡い地には濃い文字。**白のままだと読めない */
+  --text-on-accent: #241d16;
+
+  --success-bg: #14251a;
+  --success-fg: #86c98d;
+  --warning-bg: #2a2010;
+  --warning-fg: #e5bd6f;
+  --neutral-bg: #241d16;
+  --neutral-fg: #b3a493;
+  --danger-bg: #2a1512;
+  --danger-fg: #e8998a;
+  --info-bg: #14212a;
+  --info-fg: #8fb4c4;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── §12 アクセシビリティ：モーション抑制 ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+  }
+}

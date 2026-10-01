@@ -1,0 +1,31 @@
+[package]
+name = "warifu-net"
+description = "割符で確定した相手に、公開鍵だけで繋ぐ経路。iroh の上に載る薄い層。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+warifu-core.workspace = true
+iroh.workspace = true
+futures.workspace = true
+# 映像の包み（D125）を iroh の datagram で送るときの型
+bytes = "1"
+# **ルーターに外への口を頼む**（D124・中継を切ると iroh は頼まない）。iroh が既に使っている版
+portmapper = { version = "0.19.1", default-features = false }
+# **自前の UPnP**（2026-09-29）—— portmapper は 0.0.0.0 に結んで探すので、
+# Windows の ASUS でルーターの返事を聞けなかった。**番地を決めて探す**ために直に使う。
+# どちらも portmapper が既に引いている版（新しい crate は増えない）
+igd-next = { version = "0.17.1", features = ["aio_tokio"] }
+netwatch = "0.19.1"
+tokio.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

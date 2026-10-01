@@ -1,0 +1,35 @@
+node_modules/
+target/
+.env
+.env.local
+dist/
+build/
+coverage/
+*.log
+.DS_Store
+
+# ローカル秘密控え（🟡 識別子のみ・🔴 token/key は置かない）— commit 禁止
+SECRETS.local.md
+
+# ベースルール完全版（内部事例を含むため公開しない）— commit 禁止
+.claude/rules/product-baseline.full.md
+
+# --- SvelteKit / Tauri（M5-a で追加）---
+# node_modules / target / build は上で既に無視している。ここは足りないぶんだけ。
+.svelte-kit/
+apps/desktop/src-tauri/gen/
+
+# **3 台試験の段取り（公開 Issue から退避した原本）。**
+# **コミットしない** —— 外から読むと意味が分からず、ルームキーも貼られていた
+# （2026-09-21）。`product-baseline.full.md` と同じ形
+.claude/archive/issues-3台試験/
+
+# 内部の記録は公開しない（別のリポジトリ warifu-notes に置く）
+.claude/decisions.md
+.claude/project-status.md
+.claude/roadmap.md
+.claude/rules/踏んだ落とし穴.md
+.claude/archive/
+.claude/issues/
+.claude/pdca/
+.claude/worktrees/

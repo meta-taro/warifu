@@ -1,0 +1,700 @@
+//! 割符 — 二つに割った札。
+//!
+//! | | 誰が持つ | 何が入っているか |
+//! |---|---|---|
+//! | [`Tally`] | 差し出した側の手元 | 秘密・期限・使用済みかどうか |
+//! | [`TallyToken`] | 相手に渡す | 秘密・差出人・期限・差出人の署名 |
+//! | [`Acceptance`] | 受け取った側が返す | 割符の番号・自分の鍵・**秘密を知っている証** |
+//!
+//! [`TallyToken`] は **warifu の外**を通って相手に届く（QR を撮る・文字列を貼る）。
+//! ここにネットワークは出てこない。**経路が無くても割符は成立する。**
+//!
+//! # 秘密そのものを送り返させない
+//!
+//! [`Acceptance`] に入るのは秘密ではなく、秘密から作った証だけ。
+//! そのまま返させると、経路を覗いていた者が横から同じものを名乗れる。
+
+use core::fmt;
+use core::str::FromStr;
+
+use sha2::{Digest as _, Sha512};
+use zeroize::Zeroize as _;
+
+use crate::base32;
+use crate::error::Error;
+use crate::key::{Device, PublicKey, Signature};
+use crate::revocation::Revocations;
+
+pub(crate) const MAGIC: &[u8; 4] = b"WRF1";
+const KIND_TOKEN: u8 = 0x01;
+const KIND_ACCEPTANCE: u8 = 0x02;
+/// **手元に残す用**（`Tally::控えるバイト列`）。渡すものではない。
+const KIND_KEPT: u8 = 0x03;
+
+/// **部屋の合言葉の証しを差し出すとき**（`room.rs` の `部屋の叩き`・**D118**）。
+///
+/// **別の種別にする理由。**受ける側は、最初の 1 通を読んで
+/// **「割符の片割れ」か「部屋の証し」かを見分けなければならない。**
+/// 種別が同じだと、**片方を他方として読もうとして、理由の分からない不通になる。**
+pub(crate) const KIND_ROOM_PROOF: u8 = 0x04;
+
+/// 目印 4 + 種別 1 + 差出人 32 + 秘密 32 + **開始 8** + 終わり 8 + 署名 64
+///
+/// **開始が入ったぶん、旧版より 8 byte 長い**（D43）。旧版の鍵はここで長さが合わず
+/// [`Error::Malformed`] になる。**黙って「いつでも入れる鍵」として読まない。**
+const TOKEN_LEN: usize = 4 + 1 + 32 + 32 + 8 + 8 + 64;
+/// 目印 4 + 種別 1 + 番号 32 + 応じた鍵 32 + 時刻 8 + 証 32 + 署名 64
+const ACCEPTANCE_LEN: usize = 4 + 1 + 32 + 32 + 8 + 32 + 64;
+
+const TEXT_PREFIX: &str = "WARIFU1-";
+
+/// 割符の番号。秘密から一方向に決まるので、**番号から秘密は戻らない。**
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TallyId([u8; 32]);
+
+impl TallyId {
+    /// 生の 32 byte。
+    #[must_use]
+    pub fn to_bytes(self) -> [u8; 32] {
+        self.0
+    }
+
+    pub(crate) fn from_raw(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+}
+
+impl fmt::Display for TallyId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&base32::encode(&self.0))
+    }
+}
+
+impl fmt::Debug for TallyId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "TallyId({self})")
+    }
+}
+
+pub(crate) fn digest(domain: &[u8], parts: &[&[u8]]) -> [u8; 32] {
+    let mut hasher = Sha512::new();
+    hasher.update(domain);
+    for part in parts {
+        hasher.update((part.len() as u64).to_be_bytes());
+        hasher.update(part);
+    }
+    let full = hasher.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&full[..32]);
+    out
+}
+
+fn tally_id(secret: &[u8; 32]) -> TallyId {
+    TallyId(digest(b"warifu/v1/tally-id", &[secret]))
+}
+
+fn proof(secret: &[u8; 32], accepter: PublicKey, at: u64) -> [u8; 32] {
+    digest(
+        b"warifu/v1/tally-proof",
+        &[secret, &accepter.to_bytes(), &at.to_be_bytes()],
+    )
+}
+
+/// 中身が違っても同じ時間で終わる比較。
+///
+/// 早く抜けると、1 byte ずつ当てて証を作れてしまう。
+pub(crate) fn same(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    let mut diff = 0u8;
+    for i in 0..32 {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
+}
+
+/// 差し出した側の手元に残る半分。
+#[derive(Clone)]
+pub struct Tally {
+    id: TallyId,
+    secret: [u8; 32],
+    issuer: PublicKey,
+    not_before: u64,
+    not_after: u64,
+    used_by: Option<PublicKey>,
+}
+
+impl Tally {
+    /// 割符の番号。
+    #[must_use]
+    pub fn id(&self) -> TallyId {
+        self.id
+    }
+
+    /// 差し出した端末の公開鍵。
+    #[must_use]
+    pub fn issuer(&self) -> PublicKey {
+        self.issuer
+    }
+
+    /// 開始（Unix 秒）。この時刻**から**有効。
+    #[must_use]
+    pub fn not_before(&self) -> u64 {
+        self.not_before
+    }
+
+    /// 期限（Unix 秒）。この時刻**まで**有効。
+    #[must_use]
+    pub fn not_after(&self) -> u64 {
+        self.not_after
+    }
+
+    /// すでに応じた相手がいれば、その鍵。
+    #[must_use]
+    pub fn used_by(&self) -> Option<PublicKey> {
+        self.used_by
+    }
+
+    /// **手元に置いておくためのバイト列**（**#38**・2026-09-16）。
+    ///
+    /// # なぜ要るか
+    ///
+    /// **主催が持つ割符の片割れは、いままでメモリだけにあった。**
+    /// だから**アプリを落とすと、配った鍵が全部死ぬ** ——
+    /// 版を上げるたびに再起動が要るので、**開発中は毎回これが起きていた**。
+    /// 利用者から見れば、使い勝手が悪すぎる（2026-09-16）。
+    ///
+    /// # これは渡すものではない
+    ///
+    /// **中に `secret` が入っている。**渡す側（[`TallyToken`]）と別の種別（`KIND_KEPT`）にして、
+    /// **間違って配れないようにしてある。**置く側は **0600 で置くこと**（`warifu-vault`）。
+    #[must_use]
+    pub fn 控えるバイト列(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(4 + 1 + 32 + 32 + 32 + 8 + 8 + 1 + 32);
+        out.extend_from_slice(MAGIC);
+        out.push(KIND_KEPT);
+        out.extend_from_slice(&self.id.to_bytes());
+        out.extend_from_slice(&self.secret);
+        out.extend_from_slice(&self.issuer.to_bytes());
+        out.extend_from_slice(&self.not_before.to_be_bytes());
+        out.extend_from_slice(&self.not_after.to_be_bytes());
+        match self.used_by {
+            Some(誰) => {
+                out.push(1);
+                out.extend_from_slice(&誰.to_bytes());
+            }
+            None => out.push(0),
+        }
+        out
+    }
+
+    /// 控えから戻す。
+    ///
+    /// # Errors
+    /// - [`Error::Malformed`] 長さ・目印・種別・鍵の形が合わない
+    pub fn 控えから戻す(bytes: &[u8]) -> Result<Self, Error> {
+        // 目印 4 ＋ 種別 1 ＋ id 32 ＋ secret 32 ＋ issuer 32 ＋ 時刻 8 ＋ 8 ＋ 使ったか 1
+        const 頭: usize = 4 + 1 + 32 + 32 + 32 + 8 + 8 + 1;
+        if bytes.len() < 頭 || &bytes[..4] != MAGIC || bytes[4] != KIND_KEPT {
+            return Err(Error::Malformed);
+        }
+        let id = TallyId(take32(bytes, 5));
+        let secret = take32(bytes, 37);
+        let issuer = PublicKey::from_bytes(take32(bytes, 69))?;
+        let not_before =
+            u64::from_be_bytes(bytes[101..109].try_into().map_err(|_| Error::Malformed)?);
+        let not_after =
+            u64::from_be_bytes(bytes[109..117].try_into().map_err(|_| Error::Malformed)?);
+        let used_by = match bytes[117] {
+            0 => None,
+            1 => {
+                if bytes.len() != 頭 + 32 {
+                    return Err(Error::Malformed);
+                }
+                Some(PublicKey::from_bytes(take32(bytes, 118))?)
+            }
+            _ => return Err(Error::Malformed),
+        };
+        Ok(Self {
+            id,
+            secret,
+            issuer,
+            not_before,
+            not_after,
+            used_by,
+        })
+    }
+
+    /// 返ってきた片割れが、この割符の相方かどうかを見る。
+    ///
+    /// 合えば相手が確定し、**その割符は使用済みになる。**
+    ///
+    /// # Errors
+    /// - [`Error::TooEarly`] まだ始まっていない
+    /// - [`Error::Expired`] 期限が切れている
+    /// - [`Error::AlreadyUsed`] すでに誰かが応じている
+    /// - [`Error::WrongTally`] 別の割符に対する片割れ、または証が合わない
+    /// - [`Error::Revoked`] 割符か相手の端末が失効している
+    pub fn match_half(
+        &mut self,
+        acceptance: &Acceptance,
+        now: u64,
+        revocations: &Revocations,
+    ) -> Result<Peer, Error> {
+        // **相手の時計を信じない。**受ける側が自分の時計で窓を見直す
+        if now < self.not_before {
+            return Err(Error::TooEarly);
+        }
+        if now > self.not_after {
+            return Err(Error::Expired);
+        }
+        if self.used_by.is_some() {
+            return Err(Error::AlreadyUsed);
+        }
+        if acceptance.tally != self.id {
+            return Err(Error::WrongTally);
+        }
+        if revocations.is_revoked_tally(&self.id)
+            || revocations.is_revoked_device(&acceptance.accepter)
+        {
+            return Err(Error::Revoked);
+        }
+        if !same(
+            &acceptance.proof,
+            &proof(&self.secret, acceptance.accepter, acceptance.at),
+        ) {
+            return Err(Error::WrongTally);
+        }
+
+        self.used_by = Some(acceptance.accepter);
+        Ok(Peer {
+            public_key: acceptance.accepter,
+            tally: self.id,
+            at: acceptance.at,
+        })
+    }
+
+    /// **一度応じた相手が、戻ってくるのを受ける。**別人は通さない。
+    ///
+    /// 会議中に回線が切れた相手は、割符が生きている間は戻れなければならない。
+    /// 予定に紐づく会議キー（**D43**）を入れた以上、
+    /// **10 時から 11 時の会議で、相手の Wi-Fi が一瞬切れただけで会議が終わる**のは実害である
+    /// （2026-09-04 に実測。会議キーが 10 分残っていても、主催は終わっていた）。
+    ///
+    /// # 一回性（D12）は崩していない
+    ///
+    /// 通すのは [`Tally::used_by`] と**同じ相手だけ**である。
+    /// [`Acceptance`] は**応じた本人の鍵で署名されている**ので、
+    /// 片割れが漏れても、別人がその名前で応じることはできない。
+    /// **割符が公開できるようになるわけではない**（公開する鍵＝会場鍵は別物・`issues/009`）。
+    ///
+    /// 窓（`not_before` / `not_after`）は伸びない。**会議が終われば戻れない。**
+    ///
+    /// # Errors
+    /// - [`Error::NotTheHolder`] まだ誰も応じていないか、**別人**
+    /// - ほかは [`Tally::match_half`] と同じ
+    pub fn rematch_half(
+        &mut self,
+        acceptance: &Acceptance,
+        now: u64,
+        revocations: &Revocations,
+    ) -> Result<Peer, Error> {
+        if now < self.not_before {
+            return Err(Error::TooEarly);
+        }
+        if now > self.not_after {
+            return Err(Error::Expired);
+        }
+        // **戻れるのは、その割符で入っていた本人だけ。**
+        // まだ誰も応じていない割符は、こちらではなく `match_half` の担当である
+        if self.used_by != Some(acceptance.accepter) {
+            return Err(Error::NotTheHolder);
+        }
+        if acceptance.tally != self.id {
+            return Err(Error::WrongTally);
+        }
+        if revocations.is_revoked_tally(&self.id)
+            || revocations.is_revoked_device(&acceptance.accepter)
+        {
+            return Err(Error::Revoked);
+        }
+        if !same(
+            &acceptance.proof,
+            &proof(&self.secret, acceptance.accepter, acceptance.at),
+        ) {
+            return Err(Error::WrongTally);
+        }
+
+        Ok(Peer {
+            public_key: acceptance.accepter,
+            tally: self.id,
+            at: acceptance.at,
+        })
+    }
+}
+
+impl Drop for Tally {
+    fn drop(&mut self) {
+        self.secret.zeroize();
+    }
+}
+
+impl fmt::Debug for Tally {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Tally")
+            .field("id", &self.id)
+            .field("secret", &"伏せ字")
+            .field("issuer", &self.issuer)
+            .field("not_before", &self.not_before)
+            .field("not_after", &self.not_after)
+            .field("used_by", &self.used_by)
+            .finish()
+    }
+}
+
+/// 相手に渡す半分。**これを見られた時点で、その割符は他人が使える。**
+#[derive(Clone)]
+pub struct TallyToken {
+    issuer: PublicKey,
+    secret: [u8; 32],
+    not_before: u64,
+    not_after: u64,
+    signature: Signature,
+}
+
+impl TallyToken {
+    /// 差し出した端末の公開鍵。**署名済みなので、途中で差し替えられない。**
+    #[must_use]
+    pub fn issuer(&self) -> PublicKey {
+        self.issuer
+    }
+
+    /// この割符の番号。
+    #[must_use]
+    pub fn id(&self) -> TallyId {
+        tally_id(&self.secret)
+    }
+
+    /// 開始（Unix 秒）。この時刻**から**有効。
+    ///
+    /// 予定に紐づく会議キーを前もって配れるようにするためにある（**D43**）。
+    /// これが無いと、**渡した瞬間から期限までずっと使える。**
+    #[must_use]
+    pub fn not_before(&self) -> u64 {
+        self.not_before
+    }
+
+    /// 期限（Unix 秒）。この時刻**まで**有効。
+    #[must_use]
+    pub fn not_after(&self) -> u64 {
+        self.not_after
+    }
+
+    /// 渡すためのバイト列。
+    #[must_use]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = self.signed_part();
+        out.extend_from_slice(&self.signature.to_bytes());
+        out
+    }
+
+    fn signed_part(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(TOKEN_LEN);
+        out.extend_from_slice(MAGIC);
+        out.push(KIND_TOKEN);
+        out.extend_from_slice(&self.issuer.to_bytes());
+        out.extend_from_slice(&self.secret);
+        out.extend_from_slice(&self.not_before.to_be_bytes());
+        out.extend_from_slice(&self.not_after.to_be_bytes());
+        out
+    }
+
+    /// バイト列から読む。**署名が合わなければ受け取らない。**
+    ///
+    /// # Errors
+    /// - [`Error::Malformed`] 長さ・目印・種別・鍵の形が合わない
+    /// - [`Error::BadSignature`] 中身が書き換わっている、または差出人が違う
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() != TOKEN_LEN || &bytes[..4] != MAGIC || bytes[4] != KIND_TOKEN {
+            return Err(Error::Malformed);
+        }
+
+        let issuer = PublicKey::from_bytes(take32(bytes, 5))?;
+        let secret = take32(bytes, 37);
+        let not_before =
+            u64::from_be_bytes(bytes[69..77].try_into().map_err(|_| Error::Malformed)?);
+        let not_after = u64::from_be_bytes(bytes[77..85].try_into().map_err(|_| Error::Malformed)?);
+        let signature =
+            Signature::from_bytes(bytes[85..].try_into().map_err(|_| Error::Malformed)?);
+
+        issuer.verify(&bytes[..85], &signature)?;
+
+        Ok(Self {
+            issuer,
+            secret,
+            not_before,
+            not_after,
+            signature,
+        })
+    }
+}
+
+impl fmt::Display for TallyToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{TEXT_PREFIX}{}", base32::encode(&self.to_bytes()))
+    }
+}
+
+impl FromStr for TallyToken {
+    type Err = Error;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let body = text.strip_prefix(TEXT_PREFIX).ok_or(Error::Malformed)?;
+        Self::from_bytes(&base32::decode(body).ok_or(Error::Malformed)?)
+    }
+}
+
+impl Drop for TallyToken {
+    fn drop(&mut self) {
+        self.secret.zeroize();
+    }
+}
+
+impl fmt::Debug for TallyToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TallyToken")
+            .field("issuer", &self.issuer)
+            .field("secret", &"伏せ字")
+            .field("not_before", &self.not_before)
+            .field("not_after", &self.not_after)
+            .finish()
+    }
+}
+
+/// 受け取った側が返す片割れ。
+#[derive(Clone)]
+pub struct Acceptance {
+    tally: TallyId,
+    accepter: PublicKey,
+    at: u64,
+    proof: [u8; 32],
+    signature: Signature,
+}
+
+impl Acceptance {
+    /// どの割符に応じたか。
+    #[must_use]
+    pub fn tally(&self) -> TallyId {
+        self.tally
+    }
+
+    /// 応じた端末の公開鍵。
+    #[must_use]
+    pub fn accepter(&self) -> PublicKey {
+        self.accepter
+    }
+
+    /// 応じた時刻（Unix 秒）。**相手が申告した時刻であって、信用しない。**
+    #[must_use]
+    pub fn at(&self) -> u64 {
+        self.at
+    }
+
+    /// 返すためのバイト列。
+    #[must_use]
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = self.signed_part();
+        out.extend_from_slice(&self.signature.to_bytes());
+        out
+    }
+
+    fn signed_part(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(ACCEPTANCE_LEN);
+        out.extend_from_slice(MAGIC);
+        out.push(KIND_ACCEPTANCE);
+        out.extend_from_slice(&self.tally.to_bytes());
+        out.extend_from_slice(&self.accepter.to_bytes());
+        out.extend_from_slice(&self.at.to_be_bytes());
+        out.extend_from_slice(&self.proof);
+        out
+    }
+
+    /// バイト列から読む。**署名が合わなければ受け取らない。**
+    ///
+    /// # Errors
+    /// - [`Error::Malformed`] 長さ・目印・種別・鍵の形が合わない
+    /// - [`Error::BadSignature`] 中身が書き換わっている
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() != ACCEPTANCE_LEN || &bytes[..4] != MAGIC || bytes[4] != KIND_ACCEPTANCE {
+            return Err(Error::Malformed);
+        }
+
+        let tally = TallyId(take32(bytes, 5));
+        let accepter = PublicKey::from_bytes(take32(bytes, 37))?;
+        let at = u64::from_be_bytes(bytes[69..77].try_into().map_err(|_| Error::Malformed)?);
+        let proof = take32(bytes, 77);
+        let signature =
+            Signature::from_bytes(bytes[109..].try_into().map_err(|_| Error::Malformed)?);
+
+        accepter.verify(&bytes[..109], &signature)?;
+
+        Ok(Self {
+            tally,
+            accepter,
+            at,
+            proof,
+            signature,
+        })
+    }
+}
+
+impl fmt::Display for Acceptance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{TEXT_PREFIX}{}", base32::encode(&self.to_bytes()))
+    }
+}
+
+impl FromStr for Acceptance {
+    type Err = Error;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let body = text.strip_prefix(TEXT_PREFIX).ok_or(Error::Malformed)?;
+        Self::from_bytes(&base32::decode(body).ok_or(Error::Malformed)?)
+    }
+}
+
+impl fmt::Debug for Acceptance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Acceptance")
+            .field("tally", &self.tally)
+            .field("accepter", &self.accepter)
+            .field("at", &self.at)
+            .finish()
+    }
+}
+
+/// 片割れが合った相手。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Peer {
+    public_key: PublicKey,
+    tally: TallyId,
+    at: u64,
+}
+
+impl Peer {
+    /// 相手の端末の公開鍵。
+    #[must_use]
+    pub fn public_key(&self) -> PublicKey {
+        self.public_key
+    }
+
+    /// どの割符で結び付いたか。**あとで「誰に配った札か」を辿るために残す。**
+    #[must_use]
+    pub fn tally(&self) -> TallyId {
+        self.tally
+    }
+
+    /// 相手が応じたと申告した時刻（Unix 秒）。
+    #[must_use]
+    pub fn accepted_at(&self) -> u64 {
+        self.at
+    }
+}
+
+fn take32(bytes: &[u8], from: usize) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&bytes[from..from + 32]);
+    out
+}
+
+impl Device {
+    /// 割符を作る。**いまから `ttl` 秒**。
+    ///
+    /// # Errors
+    /// OS の乱数が取れないとき [`Error::Rng`]。
+    pub fn issue_tally(&self, now: u64, ttl: u64) -> Result<(Tally, TallyToken), Error> {
+        self.issue_tally_between(now, now.saturating_add(ttl))
+    }
+
+    /// **始まりと終わりを決めて**割符を作る。
+    ///
+    /// 予定に紐づく会議キー（**D43**）のための口。
+    /// 「10 時から 11 時」の鍵を前もって配っても、**9 時には使えない。**
+    ///
+    /// # Errors
+    /// - [`Error::BadWindow`] 終わりが始まりより前
+    /// - [`Error::Rng`] OS の乱数が取れない
+    pub fn issue_tally_between(
+        &self,
+        not_before: u64,
+        not_after: u64,
+    ) -> Result<(Tally, TallyToken), Error> {
+        if not_after < not_before {
+            return Err(Error::BadWindow);
+        }
+
+        let mut secret = [0u8; 32];
+        getrandom::fill(&mut secret).map_err(|_| Error::Rng)?;
+
+        let issuer = self.public_key();
+
+        let token = {
+            let unsigned = TallyToken {
+                issuer,
+                secret,
+                not_before,
+                not_after,
+                signature: Signature::from_bytes([0u8; 64]),
+            };
+            let signature = self.sign(&unsigned.signed_part());
+            TallyToken {
+                issuer,
+                secret,
+                not_before,
+                not_after,
+                signature,
+            }
+        };
+
+        let tally = Tally {
+            id: tally_id(&secret),
+            secret,
+            issuer,
+            not_before,
+            not_after,
+            used_by: None,
+        };
+
+        secret.zeroize();
+        Ok((tally, token))
+    }
+
+    /// 受け取った割符に応じる。**時間の窓と差出人の署名を見てから作る。**
+    ///
+    /// 署名の検証は [`TallyToken::from_bytes`] で済んでいるので、ここでは窓だけを見る。
+    ///
+    /// # Errors
+    /// - [`Error::TooEarly`] まだ始まっていない
+    /// - [`Error::Expired`] 期限が切れている
+    pub fn accept(&self, token: &TallyToken, now: u64) -> Result<Acceptance, Error> {
+        if now < token.not_before {
+            return Err(Error::TooEarly);
+        }
+        if now > token.not_after {
+            return Err(Error::Expired);
+        }
+
+        let accepter = self.public_key();
+        let unsigned = Acceptance {
+            tally: token.id(),
+            accepter,
+            at: now,
+            proof: proof(&token.secret, accepter, now),
+            signature: Signature::from_bytes([0u8; 64]),
+        };
+        let signature = self.sign(&unsigned.signed_part());
+
+        Ok(Acceptance {
+            signature,
+            ..unsigned
+        })
+    }
+}

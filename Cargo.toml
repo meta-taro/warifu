@@ -1,0 +1,91 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/warifu-core",
+    "crates/warifu-net",
+    "crates/warifu-intent",
+    "crates/warifu-meeting",
+    "crates/warifu-read",
+    "crates/warifu-imap",
+    "crates/warifu-capability",
+    "crates/warifu-mcp",
+    "crates/warifu-calendar",
+    "crates/warifu-link",
+    "crates/warifu-quarantine",
+    "crates/warifu-door",
+    "crates/warifu-vault",
+    "crates/warifu-app",
+    "crates/warifu-desk",
+    "crates/warifu-seal",
+    "crates/warifu-post",
+    "crates/warifu-postbox",
+    "crates/warifu-guard",
+    "crates/warifu-cli",
+    "crates/warifu-turn",
+]
+# GUI は別 workspace に置く。**ここへ入れない。**
+# 入れると `cargo test --workspace`（commit 前のゲートと CI）が毎回 Tauri を建てることになり、
+# 判定のコードを 1 行直すたびに GUI の依存が建て直される。**遅いゲートは飛ばされる。**
+exclude = ["apps/desktop/src-tauri"]
+
+[workspace.package]
+version = "0.1.20"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/meta-taro/warifu"
+
+[workspace.dependencies]
+ed25519-dalek = { version = "2.2", default-features = false, features = ["std", "zeroize"] }
+hkdf = "0.12"
+sha2 = "0.10"
+getrandom = "0.3"
+zeroize = { version = "1.8", features = ["derive"] }
+warifu-core = { path = "crates/warifu-core" }
+warifu-vault = { path = "crates/warifu-vault" }
+warifu-net = { path = "crates/warifu-net" }
+warifu-intent = { path = "crates/warifu-intent" }
+warifu-read = { path = "crates/warifu-read" }
+warifu-capability = { path = "crates/warifu-capability" }
+warifu-calendar = { path = "crates/warifu-calendar" }
+warifu-link = { path = "crates/warifu-link" }
+warifu-app = { path = "crates/warifu-app" }
+warifu-desk = { path = "crates/warifu-desk" }
+warifu-seal = { path = "crates/warifu-seal" }
+warifu-post = { path = "crates/warifu-post" }
+warifu-postbox = { path = "crates/warifu-postbox" }
+warifu-guard = { path = "crates/warifu-guard" }
+warifu-mcp = { path = "crates/warifu-mcp" }
+# MCP は動く仕様なので、自前で追わず公式 SDK に寄せる（D25）
+rmcp = { version = "3", features = ["server", "macros", "schemars", "transport-io"] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# MIME を解く。Adapter の内側だけで使い、warifu-read には入れない（D18）
+mail-parser = { version = "0.11", default-features = false, features = ["full_encoding"] }
+# IMAP。runtime-tokio を選ぶ（D10 で tokio に決めてある）
+async-imap = { version = "0.11", default-features = false, features = ["runtime-tokio"] }
+# TLS は **既に木にあるもの**を使う（iroh 経由で rustls / ring / webpki-roots が入っている）。
+# 既定の aws-lc-rs は cmake で C を建てるので採らない。**新しいビルド系を増やさない**
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+webpki-roots = "1"
+futures = "0.3"
+iroh = "1.0"
+# **機械の中だけの TURN**（D125）。外部の中継ではなく、アプリの中の 127.0.0.1 に置く
+turn = "0.17"
+webrtc-util = { version = "0.17", default-features = false, features = ["conn"] }
+async-trait = "0.1"
+tokio = { version = "1", features = ["rt", "macros", "time", "sync"] }
+
+[profile.dev]
+# 自分たちのコードのデバッグ情報は残す
+debug = true
+
+[profile.dev.package."*"]
+# 依存（iroh だけで 300 crate 超）のデバッグ情報は落とす。
+# 残すと target が数 GB 単位で膨らむ。**追うのは自分たちのコードなので、無くて困らない。**
+debug = false
+
+[profile.release]
+# 鍵を扱うので、リリースでも overflow を黙って回さない
+overflow-checks = true

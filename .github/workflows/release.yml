@@ -1,0 +1,572 @@
+name: release
+
+# **配布物（.dmg）を作る。**タグを打ったときだけ。
+#
+# 署名と公証には秘密情報が要る。**AI は作らない・置かない・貼らない**（baseline §14）。
+# 人が GitHub の Secrets へ入れる。名前だけをここに書く。
+#
+#   APPLE_SIGNING_IDENTITY  … "Developer ID Application: …" の文字列
+#   APPLE_CERTIFICATE       … .p12 を base64 にしたもの
+#   APPLE_CERTIFICATE_PASSWORD … その .p12 のパスワード
+#   APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID … 公証に使う（app 用パスワード）
+#
+# **揃っていなければ、署名せずに作る。**ただし**黙って作らない** — 出来たものが
+# 「配れないもの」だと分かる形で出す。署名なしの .dmg を配ると、
+# 受け取った人の Mac は「壊れている」と言って開かない。
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # **タグが要る**（**D82**）——「版ごとに何が変わったか」を
+          # タグ間の commit から作るので、浅く取ると辿れない
+          fetch-depth: 0
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      # **版ごとに変わったことを作り直す**（**D82**）。
+      #
+      # `warifu mcp` の `changes` はこれを**実行ファイルに埋め込んで**返すので、
+      # **建てる前でないと入らない。**手元で回し忘れても、配る物には新しいものが入る。
+      - name: 版ごとの記録を作り直す
+        shell: bash
+        run: |
+          python3 scripts/agent-changes.py || python scripts/agent-changes.py
+          head -8 docs/agent/changes.md
+
+      - name: フロントを建てる
+        run: pnpm --filter @warifu/desktop build
+
+      # **揃っているかを先に言う。**後で「なぜ署名されていないのか」を探さずに済む
+      # **これを CLI を建てる前に置く。**`steps.creds` を読む段より後ろに置くと、
+      # 条件が空文字と比べられて false になり、**署名の段が黙って飛ぶ**
+      # （2026-09-12 に v0.1.3 で踏んだ。`scripts/check-step-order.py` が見ている）
+      - name: 署名の材料が揃っているか
+        id: creds
+        env:
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -n "$IDENTITY" ] && [ -n "$APPLE_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "署名と公証を行います"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::署名の材料が無いので、**配れない .dmg** ができます（人の Mac では開けません）"
+          fi
+
+      # **Mac にも CLI を届ける。**
+      #
+      # 2026-09-09 に気づいた —— タグの成果物は Mac には `.dmg` しか無く、
+      # **`warifu relay` も `warifu post` も `warifu mcp` も、2 台目の Mac では
+      # 打てない状態だった**（Windows には最初から入れていた）。
+      # 預かり所を通す確認も、エージェントを繋ぐ確認も、CLI が無いと始まらない。
+      - name: CLI を建てる
+        run: cargo build --release -p warifu-cli
+
+      # **CLI も Developer ID で署名する。**
+      #
+      # 2026-09-11 に別マシンで見つかった —— 画面は公証済みなのに、
+      # **CLI は ad-hoc 署名のまま配っていた**（`flags=0x20002(adhoc,linker-signed)`）。
+      # 「macOS は署名・公証済み」と案内していたので、**案内が不正確だった。**
+      #
+      # 材料が無ければ何もしない（adhoc のまま配る。**黙って署名済みと言わない**）。
+      - name: CLI に署名する
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          # **一時の鍵束に入れる。**既定の鍵束を汚さない
+          keychain="$RUNNER_TEMP/warifu-cli.keychain-db"
+          pass="$(uuidgen)"
+          security create-keychain -p "$pass" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$pass" "$keychain"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pass" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          codesign --force --options runtime --timestamp --sign "$IDENTITY" target/release/warifu
+          # **署名されたことを確かめる。**握り潰さない（adhoc なら落とす）
+          codesign -dv target/release/warifu 2>&1 | tee /tmp/cli-sig.txt
+          if grep -q 'adhoc' /tmp/cli-sig.txt; then
+            echo "::error::CLI が adhoc のままです（署名できていません）"
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      # **CLI を公証まで通す**（内部の Issue 018）。
+      #
+      # **署名だけでは足りない。**2026-09-12 に実物で測った ——
+      # 署名済みの CLI に隔離属性を付けて実行すると、**出力なしで固まり、
+      # しかもファイルが消えた**（2 回再現）。落とした人には
+      # 「ダウンロードが失敗した」としか見えない。
+      #
+      # **券は貼れない**（券はアプリの束か `.dmg` に貼る・**D101**）。
+      # zip で出して公証を通すと、Gatekeeper が**その都度オンラインで問い合わせて**通す。
+      #
+      # `.pkg` にすれば券を貼れるが、**Developer ID Installer 証明書が別に要る**
+      # （人の判断と費用・baseline §14 / §29）。**それは `issues/018` に残す。**
+      - name: CLI を公証に出す
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          # **`--keepParent` を付けない。**単体のファイルに付けると
+          # 親フォルダ名（`release/`）まで包みに入る
+          ditto -c -k target/release/warifu "$RUNNER_TEMP/warifu-cli.zip"
+          # **待つ。**出しただけで先へ進むと、通ったかどうか分からないまま配る
+          xcrun notarytool submit "$RUNNER_TEMP/warifu-cli.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m 2>&1 | tee /tmp/cli-notary.txt
+          # **通ったことを確かめる。**握り潰さない
+          if ! grep -q 'status: Accepted' /tmp/cli-notary.txt; then
+            echo "::error::CLI の公証が通りませんでした"
+            exit 1
+          fi
+          echo "CLI の公証が通りました（券は貼れないので、初回は網が要ります）"
+
+      # **画面の Rust の試験を、ここで回す。**
+      #
+      # アプリの crate は root の workspace から外してあるので
+      # （`Cargo.toml` の exclude）、`cargo test --workspace` では走らない ——
+      # 2026-09-11 まで、`desk.rs` などの試験が**どこでも走っていなかった。**
+      #
+      # `desktop.yml` では回さない（Linux で tauri の依存を建てると 10 分単位で伸びる）。
+      # **ここは配る物を建てる場所なので、どうせ同じ依存を建てている。**
+      - name: 画面の Rust の試験
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      # **更新用の鍵があるか。**無ければ更新の成果物を作らない。
+      #
+      # **鍵が無くても建つこと**が要る（**D81**）—— `createUpdaterArtifacts` を
+      # `tauri.conf.json` に直に書くと、**鍵を持たない人の手元ビルドが落ちる**
+      # （2026-09-10 に踏んだ）。だから CI のときだけ設定を重ねる。
+      - name: 更新用の鍵が揃っているか
+        id: updater
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "flag=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_OUTPUT"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "更新用の成果物も作ります"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::更新用の鍵が無いので、自動アップデートの成果物は作りません"
+          fi
+
+      # **署名するときだけ APPLE_* を渡す。**
+      #
+      # 未設定の secret は「空文字で設定済み」になる。Tauri はそれを証明書として
+      # 読み込もうとして落ちる（2026-09-06 の v0.1.0-alpha.1 で実際に落ちた）——
+      #
+      #   security: SecKeychainItemImport: One or more parameters passed to a function were not valid.
+      #   failed codesign application: failed to import keychain certificate
+      #
+      # **渡さなければ adhoc で建つ**（手元で確認済み: Signature=adhoc, linker-signed）。
+      - name: 配布物を作る（署名あり）
+        if: steps.creds.outputs.ready == 'true'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
+
+      - name: 配布物を作る（署名なし）
+        if: steps.creds.outputs.ready != 'true'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
+
+      # **署名されたかを実物で確かめる。**「署名したつもり」で配らない。
+      #
+      # **`.dmg` を開いて、中の `.app` を検める。**
+      # `bundle/macos/warifu.app` を見てはいけない —— **Tauri は .dmg を作り終えると
+      # そこを片付ける**（`Cleaning …/bundle/macos/warifu.app`）。
+      #
+      # 2026-09-09 に踏んだ。しかも**それまで一度も検めていなかった** ——
+      # 署名なしの経路では `codesign -dv "" || true` が握り潰し、
+      # 厳格な検査は `if` で飛ばされていた。**「検めます」と書いてあるのに空振りしていた。**
+      # だから**署名なしのときも必ず何かを主張する**形にする。
+      - name: 署名を検める
+        run: |
+          set -euo pipefail
+          dmg=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' | head -1)
+          test -n "$dmg"
+          echo "── 配布物 ── $dmg"
+
+          hdiutil attach "$dmg" -nobrowse -quiet -mountpoint /tmp/verify
+          app=$(find /tmp/verify -maxdepth 1 -name '*.app' | head -1)
+          test -n "$app"
+
+          echo "── 中の .app ──"
+          codesign -dv "$app" 2>&1 | grep -E 'Identifier|Signature|TeamIdentifier|Authority' || true
+
+          if [ "${{ steps.creds.outputs.ready }}" = "true" ]; then
+            # **adhoc のままなら、署名したつもりで終わっている**
+            if codesign -dv "$app" 2>&1 | grep -q 'Signature=adhoc'; then
+              echo "::error::署名したはずが adhoc のままです"
+              hdiutil detach /tmp/verify -quiet
+              exit 1
+            fi
+            codesign --verify --deep --strict "$app"
+            # 公証が貼られていること。貼られていないと、落とした人の Mac で開けない
+            xcrun stapler validate "$app"
+            # **受け取る人と同じ目で見る。**Gatekeeper が通すかどうか
+            spctl -a -vv -t exec "$app"
+            echo "署名・公証とも通りました"
+          else
+            # **署名していないことを、はっきり主張する。**黙って通さない
+            codesign -dv "$app" 2>&1 | grep -q 'Signature=adhoc' \
+              || { echo "::error::署名なしのはずが adhoc ではありません"; hdiutil detach /tmp/verify -quiet; exit 1; }
+            echo "::warning::署名なしの .dmg です（受け取った人の Mac では開けません）"
+          fi
+
+          hdiutil detach /tmp/verify -quiet
+
+          # **CLI も同じ目で検める。**
+          #
+          # ここは `if` を付けない段である —— 署名の段は条件で飛びうるので、
+          # **飛んだことをここで捕まえる。**2026-09-12（v0.1.3）は、
+          # 署名の段が黙って飛んだまま ad-hoc の CLI が配られた。
+          echo "── CLI ──"
+          codesign -dv target/release/warifu 2>&1 | grep -E 'Identifier|flags|TeamIdentifier' || true
+          if [ "${{ steps.creds.outputs.ready }}" = "true" ]; then
+            if codesign -dv target/release/warifu 2>&1 | grep -q 'adhoc'; then
+              echo "::error::CLI が adhoc のままです（署名の段が飛んでいます）"
+              exit 1
+            fi
+            # **`spctl` は使わない。**あれは**アプリの束**を見る道具で、
+            # 単体の実行ファイルには「アプリに見えない」と rejected を返す
+            # （署名が正しくてもである。2026-09-12・v0.1.4 のビルドで踏んだ）。
+            #
+            #   target/release/warifu: rejected
+            #   （the code is valid but does not seem to be an app）
+            #
+            # 単体の実行ファイルに公証の券は貼れない（券はアプリの束か .dmg に貼る）。
+            # **ここで確かめられるのは署名までである。**そこまでを確かめる
+            codesign --verify --strict target/release/warifu
+            # **`grep && { exit 1; }` と書かない。**`set -e` の下では、
+            # grep が見つけられなかったとき（＝正常な側）に非ゼロが返って**ビルドが落ちる。**
+            # 判定は `if` で書く
+            if codesign -dv target/release/warifu 2>&1 | grep -q 'TeamIdentifier=not set'; then
+              echo "::error::CLI に Team が入っていません（Developer ID で署名できていません）"
+              exit 1
+            fi
+            echo "CLI も Developer ID で署名されています"
+          else
+            echo "::warning::CLI は署名なしです（材料が無いため）"
+          fi
+
+      # **画面と CLI を 1 つにまとめる**（Windows の `warifu-windows` と同じ形）。
+      # 2 つに分かれていると、片方だけ落として「入っていない」と言われる。
+      #
+      # **1 か所へ集めてから上げる。**そのまま並べると、artifact の中が
+      # `target/release/warifu` と `apps/desktop/src-tauri/…/*.dmg` という
+      # **深い木**になる（2026-09-09 に落として実物で見た）。
+      # 受け取った人が探すことになるので、**平らにして渡す。**
+      - name: 配るものを 1 か所へ
+        run: |
+          mkdir -p dist
+          cp apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg dist/
+          cp target/release/warifu dist/
+          # **更新用の成果物**（**D81**）。`.app.tar.gz` と、その署名（`.sig`）。
+          # `.dmg` では更新できない —— 更新は中身を差し替える形なので、包みが違う
+          if [ "${{ steps.updater.outputs.ready }}" = "true" ]; then
+            cp apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz dist/
+            cp apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig dist/
+          fi
+          ls -l dist
+          # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
+          ./dist/warifu --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warifu-macos
+          path: dist/*
+          if-no-files-found: error
+
+  # **Windows 版を建てる。**画面（`.msi` / `.exe`）と CLI の両方。
+  #
+  # 2026-09-03 から「Windows では一度も建てたことがない」状態が続いていた。
+  # 原因は**ロックの慣性**で、`wmi 0.18.4` が
+  # `windows 0.61.3` ＋ `windows-core 0.62.2` という食い違った組を掴んでいた。
+  # `wmi` はどちらも `">=0.59, <0.63"` で要求しているので、
+  # **`cargo update -p wmi` で解決し直したら揃った**（2026-09-06・3 行の差分）。
+  #
+  # **署名していない。**受け取った Windows は「WindowsによってPCが保護されました」を出す。
+  # 手順は `docs/install.md` に書く（macOS の右クリックと同じ位置づけ）。
+  #
+  # **x64 と ARM64 の 2 つを建てる**（2026-09-30）。ARM64 の機械で x64 の版を動かすと、
+  # 変換しながら動くので遅い（背景を隠す処理が入って、その遅さが効く）。
+  windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+          - runner: windows-11-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # タグが要る（**D82**）
+          fetch-depth: 0
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      # **ARM64 の Windows は、依存を建てるのに clang が要る**（`docs/install.md`）
+      - name: clang（ARM64 だけ）
+        if: matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command clang -ErrorAction SilentlyContinue)) { choco install llvm -y --no-progress }
+          'C:\Program Files\LLVM\bin' | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      # **版ごとに変わったことを作り直す**（**D82**）。
+      #
+      # `warifu mcp` の `changes` はこれを**実行ファイルに埋め込んで**返すので、
+      # **建てる前でないと入らない。**手元で回し忘れても、配る物には新しいものが入る。
+      - name: 版ごとの記録を作り直す
+        shell: bash
+        run: |
+          python3 scripts/agent-changes.py || python scripts/agent-changes.py
+          head -8 docs/agent/changes.md
+
+      - name: フロントを建てる
+        run: pnpm --filter @warifu/desktop build
+
+      - name: 更新用の鍵が揃っているか
+        id: updater
+        shell: bash
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "flag=--config src-tauri/tauri.updater.conf.json" >> "$GITHUB_OUTPUT"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::更新用の鍵が無いので、自動アップデートの成果物は作りません"
+          fi
+
+      - name: 画面を建てる
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
+
+      - name: CLI を建てる
+        run: cargo build --release -p warifu-cli
+
+      # **1 か所へ集めてから上げる**（Mac 側と同じ理由 —— 深い木にしない）
+      - name: 配るものを 1 か所へ
+        shell: bash
+        run: |
+          mkdir -p dist
+          find apps/desktop/src-tauri/target/release/bundle -type f \
+            \( -name '*.msi' -o -name '*.exe' \) -exec cp {} dist/ \;
+          # **CLI は名前で分ける。**x64 は今までどおり `warifu.exe`（文書がこの名前を指す）
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            cp target/release/warifu.exe dist/
+          else
+            cp target/release/warifu.exe "dist/warifu-${{ matrix.arch }}.exe"
+          fi
+          # **更新用の署名**（**D81**）。Windows は `-setup.exe` とその `.sig`
+          if [ "${{ steps.updater.outputs.ready }}" = "true" ]; then
+            find apps/desktop/src-tauri/target/release/bundle -type f \
+              -name '*.exe.sig' -exec cp {} dist/ \;
+          fi
+          ls -l dist
+          # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
+          ./target/release/warifu.exe --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warifu-windows-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  # **更新の札（`latest.json`）を作って、Release として出す**（**D81**）。
+  #
+  # 自動アップデートは、アプリが**公開の URL** から札を取りに行く仕組みである。
+  # だから**ここだけは Artifacts では足りない** —— Release に置く。
+  #
+  # **鍵が無ければ何もしない。**その場合は今までどおり Artifacts だけで、
+  # 「更新があります」は出ない（出せないものを出さない）。
+  publish:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    # Release を作るので、ここだけ書き込みが要る
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # **前のタグからの差分で「何が変わったか」を書く。**浅く取ると辿れない
+          fetch-depth: 0
+
+      - name: 更新用の鍵が揃っているか
+        id: updater
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::更新用の鍵が無いので、Release は作りません（Artifacts だけです）"
+          fi
+
+      - uses: actions/download-artifact@v4
+        if: steps.updater.outputs.ready == 'true'
+        with:
+          path: staged
+
+      - name: 更新の札を作る（latest.json）
+        if: steps.updater.outputs.ready == 'true'
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          find staged -type f -exec cp {} out/ \;
+          ls -l out
+
+          # **何が変わったかは、commit の見出しから作る。**
+          # CHANGELOG は版ごとに切っていないので、そこから抜こうとすると空になる。
+          # **前のタグから今のタグまでの見出し**が、いちばん確かな「変わったこと」である。
+          # **シェルの変数名は ASCII だけ。**日本語の変数名は
+          # `前=...: command not found` になる（2026-09-10 に踏んだ・2 度目）。
+          # **コメントは日本語で書けるが、変数名は書けない。**
+          prev=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+          if [ -n "$prev" ]; then
+            notes=$(git log --no-merges --pretty=format:'- %s' "$prev..$TAG")
+          else
+            notes="- 最初の配布物です。"
+          fi
+          echo "── 何が変わったか ──"
+          echo "$notes"
+
+          TAG="$TAG" REPO="$REPO" NOTES="$notes" \
+          PUB_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" python3 - <<'PY'
+          import glob, json, os, sys
+
+          tag = os.environ["TAG"]
+          repo = os.environ["REPO"]
+          版 = tag[1:] if tag[:1] in "vV" else tag
+          base = f"https://github.com/{repo}/releases/download/{tag}"
+
+          def 一つだけ(型):
+              見つけた = glob.glob(型)
+              if len(見つけた) != 1:
+                  sys.exit(f"::error::{型} は 1 つだけのはずですが {見つけた} でした")
+              return 見つけた[0]
+
+          def 署名(場所):
+              with open(場所, encoding="utf-8") as fh:
+                  return fh.read().strip()
+
+          mac = 一つだけ("out/*.app.tar.gz")
+          mac_sig = 一つだけ("out/*.app.tar.gz.sig")
+          win = 一つだけ("out/*_x64-setup.exe")
+          win_sig = 一つだけ("out/*_x64-setup.exe.sig")
+          arm = 一つだけ("out/*_arm64-setup.exe")
+          arm_sig = 一つだけ("out/*_arm64-setup.exe.sig")
+
+          # **Intel の Mac 向けには建てていない。**同じものを指すと、
+          # 落ちてから動かないことになる —— **書かない**
+          札 = {
+              "version": 版,
+              "notes": os.environ["NOTES"].strip() or f"warifu {tag}",
+              "pub_date": os.environ["PUB_DATE"],
+              "platforms": {
+                  "darwin-aarch64": {
+                      "signature": 署名(mac_sig),
+                      "url": f"{base}/{os.path.basename(mac)}",
+                  },
+                  "windows-x86_64": {
+                      "signature": 署名(win_sig),
+                      "url": f"{base}/{os.path.basename(win)}",
+                  },
+                  "windows-aarch64": {
+                      "signature": 署名(arm_sig),
+                      "url": f"{base}/{os.path.basename(arm)}",
+                  },
+              },
+          }
+          with open("out/latest.json", "w", encoding="utf-8") as fh:
+              json.dump(札, fh, ensure_ascii=False, indent=2)
+          PY
+          cat out/latest.json
+
+      # `gh release upload` は Release が無いと 404 になる。**先に作る**（あれば作らない）
+      - name: Release として出す
+        if: steps.updater.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # **先出し版（prerelease）の札を付けない**（2026-09-11 に実物で分かった）。
+          # 付けると `releases/latest` が空になり、**自動更新の宛先
+          # （`releases/latest/download/latest.json`）が 404 になる** ——
+          # つまり更新が誰にも降りていなかった。
+          # **アルファであることは、題と本文とアプリの中で言う**（札には持たせない）。
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "$TAG（アルファ）" --generate-notes
+          gh release upload "$TAG" out/* --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name'

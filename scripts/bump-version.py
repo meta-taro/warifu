@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+"""版を上げる（**D85**）。
+
+    python3 scripts/bump-version.py 0.1.1
+
+**版が上がらないと、自動アップデートは一度も降りない。**
+`latest.json` に書く版はタグから作るが、**アプリが名乗る版はここから来る** ——
+`0.1.0` のままだと「同じか古い」と判定されて、更新が出ない
+（semver では `0.1.0-alpha.19` は `0.1.0` より**古い**）。
+
+書き換える所は 5 つ。**1 か所でも取り残すと、どこかで食い違う。**
+
+    Cargo.toml                       [workspace.package] version
+    apps/desktop/src-tauri/Cargo.toml   package version
+    apps/desktop/src-tauri/tauri.conf.json  version
+    docs/install.md                  **受け取る人が読む「いまの版」**
+    docs/install.ja.md               同上
+
+**2026-09-18、install の手順が v0.1.8 のままだった**（実際は 0.1.11）——
+**落とすファイル名まで古い**ので、**そのまま打つと見つからない。**
+**古い文書は、無い文書より悪い**（baseline §10）。
+
+手順の中の**履歴の版は触らない**（「v0.1.5 から署名済み」は、そのときの事実である）——
+**1 つ前の版の字面だけ**を置き換える。
+
+`Cargo.lock` も一緒に直す（`--locked` の CI で弾かれるため）。
+**画面の crate は workspace の外**なので、**lock は 2 つある**（両方直す）。
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import subprocess
+import sys
+
+for 口 in (sys.stdout, sys.stderr):
+    if hasattr(口, "reconfigure"):
+        口.reconfigure(encoding="utf-8", errors="replace")
+
+
+def 置き換える(場所: str, 型: str, 新しい: str) -> None:
+    p = pathlib.Path(場所)
+    元 = p.read_text(encoding="utf-8")
+    直した, 数 = re.subn(型, 新しい, 元, count=1)
+    if 数 != 1:
+        sys.exit(f"{場所}: 版の行が見つかりません（{型}）")
+    p.write_text(直した, encoding="utf-8")
+    print(f"{場所} を直した")
+
+
+def 手順の版も直す(前の版: str, 新しい版: str) -> None:
+    """受け取る人が読む手順の「いまの版」を直す（2026-09-18）。
+
+    **1 つ前の版の字面だけ**を置き換えるので、**履歴の版は残る。**
+    """
+    if 前の版 == 新しい版:
+        return
+    for 手順 in ("docs/install.md", "docs/install.ja.md"):
+        場所 = pathlib.Path(手順)
+        if not 場所.exists():
+            continue
+        元 = 場所.read_text(encoding="utf-8")
+        直した = 元.replace(前の版, 新しい版)
+        if 直した != 元:
+            場所.write_text(直した, encoding="utf-8")
+            print(f"{手順} を直した（{前の版} → {新しい版}）")
+
+
+def いまの版() -> str:
+    中 = pathlib.Path("apps/desktop/src-tauri/tauri.conf.json").read_text(encoding="utf-8")
+    m = re.search(r'"version": "([^"]+)"', 中)
+    return m.group(1) if m else ""
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        sys.exit("使い方: python3 scripts/bump-version.py <新しい版>（例 0.1.1）")
+    新しい版 = sys.argv[1].lstrip("vV")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", 新しい版):
+        # **前置き（-alpha.1）を受けない。**受けると semver で「古い」判定になり、
+        # 更新が降りない —— まさにこれで踏んだ
+        sys.exit(f"数だけの版にしてください（例 0.1.1）。受けたもの: {新しい版}")
+
+    前の版 = いまの版()
+    置き換える("Cargo.toml", r'(?m)^version = "[^"]+"', f'version = "{新しい版}"')
+    置き換える(
+        "apps/desktop/src-tauri/Cargo.toml",
+        r'(?m)^version = "[^"]+"',
+        f'version = "{新しい版}"',
+    )
+    置き換える(
+        "apps/desktop/src-tauri/tauri.conf.json",
+        r'"version": "[^"]+"',
+        f'"version": "{新しい版}"',
+    )
+
+    手順の版も直す(前の版, 新しい版)
+
+    # **Cargo.lock も直す。**CI は `--locked` なので、置いていくと弾かれる
+    出た = subprocess.run(
+        ["cargo", "update", "-w", "--offline"],
+        capture_output=True,
+        check=False,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if 出た.returncode != 0:
+        print("Cargo.lock を直せませんでした（手元で cargo check を回してください）")
+        print((出た.stderr or "").strip()[:300])
+    else:
+        print("Cargo.lock も直した")
+
+    # **画面の crate は workspace の外にあり、自分の Cargo.lock を持っている**
+    # （`Cargo.toml` の exclude）。2026-09-11 まで、ここを直し忘れていた ——
+    # **root の lock だけ直して「直した」と言っていた。**
+    画面のlock = pathlib.Path("apps/desktop/src-tauri/Cargo.lock")
+    if 画面のlock.exists():
+        出た2 = subprocess.run(
+            ["cargo", "update", "-p", "warifu-desktop", "--offline",
+             "--manifest-path", "apps/desktop/src-tauri/Cargo.toml"],
+            capture_output=True,
+            check=False,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if 出た2.returncode != 0:
+            print("画面の Cargo.lock を直せませんでした")
+            print((出た2.stderr or "").strip()[:300])
+        else:
+            print("画面の Cargo.lock も直した")
+
+    print()
+    print(f"次は: git commit → git tag v{新しい版} → git push origin v{新しい版}")
+
+
+if __name__ == "__main__":
+    main()

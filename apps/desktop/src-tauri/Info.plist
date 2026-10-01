@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS が求める「何に使うか」の記述。**Tauri が生成する Info.plist へ差し込まれる。**
+
+  ここが無いと、macOS は**カメラもマイクもローカルネットワークも渡さない。**
+  しかも「拒否された」ではなく「機器が見つからない」ように見えることがあり、
+  原因を追いにくい（2026-09-04 に、記述が 1 つも無い状態で配っていたのを見つけた）。
+
+  **ローカルネットワークは warifu にとって必須である。**
+  外部の STUN / TURN を使わない設計（DESIGN.md §? / issues/005 満たすこと 4）なので、
+  同じ網の中で直接つながる経路しか無い。**ここを断られると、何も繋がらない。**
+
+  文言は日本語のみ。**これは D35 の穴である** — OS の許可画面を 4 言語にするには
+  `<言語>.lproj/InfoPlist.strings` が要る。画面とメニューと右クリックは訳したが、
+  ここはまだ訳していない。
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSCameraUsageDescription</key>
+    <string>会議で自分の映像を相手へ送るために使います。映像はどのサーバーにも届かず、相手の端末へ直接流れます。</string>
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>会議で自分の声を相手へ送るために使います。音声はどのサーバーにも届かず、相手の端末へ直接流れます。</string>
+
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>同じネットワークにいる相手と直接つながるために使います。warifu は外部の中継サーバーを使わないため、これを許可しないと会議に入れません。</string>
+  </dict>
+</plist>

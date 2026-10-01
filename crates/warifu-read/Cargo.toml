@@ -1,0 +1,16 @@
+[package]
+name = "warifu-read"
+description = "受け取ったものを、AI を呼ばずに読む層。既定では本文を返さない。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# **依存を持たない。**この層は経路を知らない（issues/007「置き場所を間違えない」）。
+# warifu-net にも warifu-intent にも依存しないので、IMAP だけでも動く。
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

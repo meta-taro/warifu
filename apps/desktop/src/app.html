@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      /*
+        **テーマを、描く前に決める。**
+        後から差すと、暗いテーマでも一瞬だけ白く光る。
+
+        `tokens.css` は `:root[data-theme='dark']` だけを持ち、
+        `@media (prefers-color-scheme)` を持たない（二重定義を避けるため）。
+        **その data-theme を立てる所が、2026-09-08 まで無かった** ——
+        ダークの値は書かれていたのに、**一度も出ていなかった。**
+      */
+      (() => {
+        const 暗いか = window.matchMedia('(prefers-color-scheme: dark)');
+        // 人が選んでいれば、それが勝つ（メニューの「表示 → テーマ」）
+        let 選び = 'auto';
+        try {
+          const 覚え = localStorage.getItem('warifu-theme');
+          if (覚え === 'light' || 覚え === 'dark') 選び = 覚え;
+        } catch {
+          // 覚えを読めない置き方でも、OS に従えば画面は出る
+        }
+        const 決める = () => {
+          document.documentElement.dataset.theme =
+            選び === 'auto' ? (暗いか.matches ? 'dark' : 'light') : 選び;
+        };
+        決める();
+        // **OS の切り替えに、その場で従う**（「OS に合わせる」のときだけ）
+        暗いか.addEventListener('change', 決める);
+      })();
+    </script>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

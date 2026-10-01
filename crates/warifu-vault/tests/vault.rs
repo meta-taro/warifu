@@ -1,0 +1,1806 @@
+//! **閉じても同じ人でいられるか**を確かめる。
+//!
+//! ここが成り立たないと「友達登録」は作れない —— 自分の身元が毎回変われば、
+//! 相手は「同じ人」だと分からない（`issues/010`）。
+
+use std::fs;
+use std::path::PathBuf;
+
+use warifu_core::{PublicKey, Seed};
+use warifu_vault::{Contact, Contacts, Error, Vault};
+
+/// 試験ごとに別の場所を使う。**本物の置き場所（$HOME 配下）に触らない。**
+fn 仮の置き場(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "warifu-vault-test-{name}-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let _ = fs::remove_dir_all(&dir);
+    dir
+}
+
+fn 鍵(seed: [u8; 32]) -> PublicKey {
+    Seed::from_bytes(seed)
+        .profile("Personal")
+        .device("PC")
+        .public_key()
+}
+
+// --- シード -----------------------------------------------------------------
+
+#[test]
+fn 二度開いても同じ身元になる() {
+    let dir = 仮の置き場("same-identity");
+    let vault = Vault::at(&dir);
+
+    let 一度目 = vault.open_seed().expect("一度目");
+    let 二度目 = vault.open_seed().expect("二度目");
+
+    assert_eq!(
+        一度目.profile("Personal").device("PC").public_key(),
+        二度目.profile("Personal").device("PC").public_key(),
+        "閉じて開き直したら別人になった"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 置き場所ごとに別の身元になる() {
+    let a = 仮の置き場("dir-a");
+    let b = 仮の置き場("dir-b");
+
+    let ka = Vault::at(&a)
+        .open_seed()
+        .unwrap()
+        .profile("Personal")
+        .device("PC")
+        .public_key();
+    let kb = Vault::at(&b)
+        .open_seed()
+        .unwrap()
+        .profile("Personal")
+        .device("PC")
+        .public_key();
+
+    assert_ne!(ka, kb, "別の置き場所なのに同じ身元が出た");
+    fs::remove_dir_all(&a).ok();
+    fs::remove_dir_all(&b).ok();
+}
+
+#[cfg(unix)]
+#[test]
+fn 置いたシードは自分だけが読める() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let dir = 仮の置き場("perm");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    let mode = fs::metadata(vault.seed_path())
+        .unwrap()
+        .permissions()
+        .mode()
+        & 0o777;
+    assert_eq!(mode, 0o600, "シードの権限が 0600 ではない: {mode:o}");
+
+    let dir_mode = fs::metadata(&dir).unwrap().permissions().mode() & 0o777;
+    assert_eq!(
+        dir_mode, 0o700,
+        "置き場所の権限が 0700 ではない: {dir_mode:o}"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[cfg(unix)]
+#[test]
+fn 他人にも読めるシードは受け取らない() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let dir = 仮の置き場("loose-perm");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::set_permissions(vault.seed_path(), fs::Permissions::from_mode(0o644)).unwrap();
+
+    // **黙って使わない。**他人に読める鍵は、もう鍵ではない
+    let err = vault.open_seed().expect_err("緩い権限のまま開けてしまった");
+    assert!(
+        matches!(err, Error::Exposed { .. }),
+        "権限の話だと分かる形で断っていない: {err:?}"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 壊れたシードを黙って作り直さない() {
+    let dir = 仮の置き場("broken");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.seed_path(), "これはシードではありません\n").unwrap();
+
+    // **作り直すと身元を失う。**読めないことを言って止まる
+    let err = vault
+        .open_seed()
+        .expect_err("壊れたシードを黙って作り直した");
+    assert!(
+        matches!(err, Error::Malformed { .. }),
+        "壊れていると言っていない: {err:?}"
+    );
+    assert!(
+        vault.seed_path().exists(),
+        "読めないファイルを消してしまった"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 復旧フレーズから同じ身元が戻る() {
+    let dir = 仮の置き場("phrase");
+    let vault = Vault::at(&dir);
+    let もとの鍵 = vault
+        .open_seed()
+        .unwrap()
+        .profile("Personal")
+        .device("PC")
+        .public_key();
+
+    let phrase = vault.recovery_phrase().expect("復旧フレーズ");
+    assert_eq!(phrase.len(), 52, "base32 52 文字ではない: {phrase}");
+
+    let 別の場所 = 仮の置き場("phrase-restored");
+    let 復旧 = Vault::at(&別の場所);
+    復旧.restore(&phrase).expect("復旧");
+    let 戻った鍵 = 復旧
+        .open_seed()
+        .unwrap()
+        .profile("Personal")
+        .device("PC")
+        .public_key();
+
+    assert_eq!(もとの鍵, 戻った鍵, "復旧フレーズから別人が出てきた");
+    fs::remove_dir_all(&dir).ok();
+    fs::remove_dir_all(&別の場所).ok();
+}
+
+#[test]
+fn 既に身元があるところへ上書き復旧しない() {
+    let dir = 仮の置き場("no-overwrite");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let 別の場所 = 仮の置き場("other");
+    let 別の身元 = Vault::at(&別の場所).open_seed().unwrap();
+    let phrase = warifu_core::base32::encode(&別の身元.to_bytes());
+
+    // **上書きは、いまの身元を消すこと。**黙ってやらない
+    let err = vault.restore(&phrase).expect_err("黙って身元を上書きした");
+    assert!(
+        matches!(err, Error::AlreadyExists { .. }),
+        "既にあると言っていない: {err:?}"
+    );
+    fs::remove_dir_all(&dir).ok();
+    fs::remove_dir_all(&別の場所).ok();
+}
+
+#[test]
+fn 復旧フレーズが壊れていたら受け取らない() {
+    let dir = 仮の置き場("bad-phrase");
+    let vault = Vault::at(&dir);
+
+    for 壊れた in ["", "みじかい", &"A".repeat(51), &"1".repeat(52)] {
+        let err = vault
+            .restore(壊れた)
+            .expect_err("壊れたフレーズを受け取った");
+        assert!(
+            matches!(err, Error::Malformed { .. }),
+            "{壊れた:?} → {err:?}"
+        );
+    }
+    assert!(!vault.seed_path().exists(), "断ったのにファイルを作った");
+    fs::remove_dir_all(&dir).ok();
+}
+
+// --- 連絡先 -----------------------------------------------------------------
+
+#[test]
+fn 覚えた相手は開き直しても残る() {
+    let dir = 仮の置き場("contacts-persist");
+    let vault = Vault::at(&dir);
+    let 自分 = vault
+        .open_seed()
+        .unwrap()
+        .profile("Personal")
+        .device("PC")
+        .public_key();
+
+    let mut 名簿 = vault.contacts().expect("空の名簿");
+    assert!(名簿.is_empty(), "はじめから誰か入っている");
+    名簿.add(鍵([7u8; 32]), "Mac Air", 1_700_000_000).unwrap();
+    vault.save_contacts(&名簿).unwrap();
+
+    let 読み直し = vault.contacts().unwrap();
+    assert_eq!(読み直し.len(), 1);
+    let c = 読み直し.find_by_label("Mac Air").expect("呼び名で引けない");
+    assert_eq!(c.key(), 鍵([7u8; 32]));
+    assert_eq!(c.added_at(), 1_700_000_000);
+    assert_ne!(c.key(), 自分);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 同じ相手を二度足しても増えない() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([1u8; 32]), "Mac Air", 100).unwrap();
+    名簿.add(鍵([1u8; 32]), "エアの方", 200).unwrap();
+
+    assert_eq!(名簿.len(), 1, "同じ鍵が二重に載った");
+    let c = 名簿.find(鍵([1u8; 32])).unwrap();
+    assert_eq!(c.label(), "エアの方", "呼び名を付け直せていない");
+    assert_eq!(c.added_at(), 100, "覚えた日まで書き換わっている");
+}
+
+#[test]
+fn 呼び名が重なったら断る() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([1u8; 32]), "Mac Air", 100).unwrap();
+
+    // **同じ呼び名が 2 つあると、`warifu chat Mac Air` がどちらか分からない**
+    let err = 名簿
+        .add(鍵([2u8; 32]), "Mac Air", 100)
+        .expect_err("重なった呼び名を通した");
+    assert!(matches!(err, Error::DuplicateLabel { .. }), "{err:?}");
+    assert_eq!(名簿.len(), 1);
+}
+
+#[test]
+fn 区切りを壊す呼び名は断る() {
+    let mut 名簿 = Contacts::new();
+    for 悪い in ["", "  ", "タブ\tあり", "改行\nあり"] {
+        let err = 名簿
+            .add(鍵([1u8; 32]), 悪い, 100)
+            .expect_err("{悪い:?} を通した");
+        assert!(matches!(err, Error::BadLabel { .. }), "{悪い:?} → {err:?}");
+    }
+    assert!(名簿.is_empty());
+}
+
+#[test]
+fn 忘れたい相手を消せる() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([1u8; 32]), "Mac Air", 100).unwrap();
+    名簿.add(鍵([2u8; 32]), "mini", 100).unwrap();
+
+    assert!(名簿.remove(鍵([1u8; 32])), "消したと言わなかった");
+    assert!(!名簿.remove(鍵([1u8; 32])), "居ないのに消したと言った");
+    assert_eq!(名簿.len(), 1);
+    assert!(名簿.find_by_label("mini").is_some());
+}
+
+#[test]
+fn 読めない行があっても_名簿ごと落とさない() {
+    let dir = 仮の置き場("contacts-broken-line");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    let 良い鍵 = 鍵([3u8; 32]);
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v1\nこわれた行\n{良い鍵}\tmini\t100\n"),
+    )
+    .unwrap();
+
+    // 1 行の破損で**覚えた相手を全部失う**のは代償が大きすぎる。読める行は残す
+    let 名簿 = vault.contacts().expect("読めない行で名簿ごと落ちた");
+    assert_eq!(名簿.len(), 1);
+    assert_eq!(名簿.skipped(), 1, "捨てた行の数を言っていない");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルは読まない() {
+    let dir = 仮の置き場("contacts-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.contacts_path(), "なにかの別のファイル\n").unwrap();
+
+    let err = vault
+        .contacts()
+        .expect_err("別のファイルを名簿として読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 連絡先の一覧は呼び名の順で返る() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "mini", 100).unwrap();
+    名簿.add(鍵([1u8; 32]), "Mac Air", 100).unwrap();
+    名簿.add(鍵([2u8; 32]), "あいさん", 100).unwrap();
+
+    let labels: Vec<_> = 名簿.iter().map(Contact::label).collect();
+    assert_eq!(
+        labels,
+        vec!["Mac Air", "mini", "あいさん"],
+        "並びが呼び名の順ではない"
+    );
+}
+
+// --- 戸口の知り合い（**再起動をまたぐ**） -----------------------------------
+
+#[test]
+fn 覚えた知り合いは開き直しても残る() {
+    // **2026-09-07 まで、知り合いはメモリの上にしか無かった。**
+    // 「一度開けた相手は、次から割符なしで開ける」という決めごとが、
+    // アプリを閉じた瞬間に効かなくなっていた（不具合）。
+    let dir = 仮の置き場("known-survives");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    vault.save_known(&[鍵([7u8; 32]), 鍵([8u8; 32])]).unwrap();
+    let 戻り = Vault::at(&dir).known().unwrap();
+
+    assert_eq!(戻り.len(), 2);
+    assert!(戻り.contains(&鍵([7u8; 32])));
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 知り合いのファイルが無ければ_誰も知らないところから始まる() {
+    // **無いことと壊れていることを混ぜない。**初回は「無い」が正しい
+    let dir = 仮の置き場("known-empty");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    assert!(vault.known().unwrap().is_empty());
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 知り合いのファイルは自分だけが読める() {
+    // **誰を通すかの一覧である。**他人に読ませない
+    let dir = 仮の置き場("known-private");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    vault.save_known(&[鍵([9u8; 32])]).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(vault.known_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "0600 であること");
+    }
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルは知り合いとして読まない() {
+    let dir = 仮の置き場("known-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.known_path(), "なにかの別のファイル\n").unwrap();
+
+    let err = vault
+        .known()
+        .expect_err("別のファイルを知り合いとして読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 読めない行があっても_知り合いごと落とさない() {
+    // **1 行壊れただけで全員が入れなくなるのは、代償が大きすぎる**（名簿と同じ構え）
+    let dir = 仮の置き場("known-broken-line");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let 良い行 = 鍵([5u8; 32]).to_string();
+    fs::write(
+        vault.known_path(),
+        format!("warifu-known-v1\nこわれた行\n{良い行}\n"),
+    )
+    .unwrap();
+
+    let 戻り = vault.known().unwrap();
+
+    assert_eq!(戻り, vec![鍵([5u8; 32])]);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 同じ相手を二度書いても増えない() {
+    // **一覧であって履歴ではない**
+    let dir = 仮の置き場("known-dedup");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    vault.save_known(&[鍵([1u8; 32]), 鍵([1u8; 32])]).unwrap();
+
+    assert_eq!(vault.known().unwrap().len(), 1);
+    fs::remove_dir_all(&dir).ok();
+}
+
+// --- 最後に繋がった住所（**1 つだけ持つ。履歴にしない**） ---------------------
+
+/// 試験で使う住所の形（`warifu-net` の `Address` の表記に合わせた見た目）。
+const 住所: &str = "WARIFU1-AAAAAAAABBBBBBBBCCCCCCCC";
+const 別の住所: &str = "WARIFU1-DDDDDDDDEEEEEEEEFFFFFFFF";
+
+#[test]
+fn 旧版の名簿を読める() {
+    // **古いものを黙って壊さない。**手元にある v1 の名簿がそのまま読めること
+    let dir = 仮の置き場("contacts-v1-read");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v1\n{}\tmini\t100\n", 鍵([2u8; 32])),
+    )
+    .unwrap();
+
+    let 名簿 = vault.contacts().unwrap();
+
+    let 相手 = 名簿.find(鍵([2u8; 32])).expect("旧版の行を読めていない");
+    assert_eq!(相手.label(), "mini");
+    assert_eq!(相手.added_at(), 100);
+    assert_eq!(相手.address(), None, "旧版に住所は無い");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 旧版を読んで書き出すと新版になる() {
+    // **移行のための別コマンドを作らない。**次に書いたときに上がる
+    let dir = 仮の置き場("contacts-v1-upgrade");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v1\n{}\tmini\t100\n", 鍵([2u8; 32])),
+    )
+    .unwrap();
+
+    let 名簿 = vault.contacts().unwrap();
+    vault.save_contacts(&名簿).unwrap();
+
+    let 中身 = fs::read_to_string(vault.contacts_path()).unwrap();
+    assert!(中身.starts_with("warifu-contacts-v3\n"), "{中身}");
+    // **覚えた日を動かさない**（版が上がっただけで「今日覚えた人」にしない）
+    assert_eq!(
+        vault
+            .contacts()
+            .unwrap()
+            .find(鍵([2u8; 32]))
+            .unwrap()
+            .added_at(),
+        100
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 住所を覚えたら開き直しても残る() {
+    let dir = 仮の置き場("contacts-address");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    assert!(名簿.note_address(鍵([3u8; 32]), 住所).unwrap());
+    vault.save_contacts(&名簿).unwrap();
+
+    let 戻り = Vault::at(&dir).contacts().unwrap();
+
+    assert_eq!(戻り.find(鍵([3u8; 32])).unwrap().address(), Some(住所));
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 住所は一つだけ持つ() {
+    // **居場所の履歴にしない**（`issues/010` の「止めるべき条件」）
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 住所).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 別の住所).unwrap();
+
+    assert_eq!(名簿.len(), 1);
+    assert_eq!(名簿.find(鍵([3u8; 32])).unwrap().address(), Some(別の住所));
+}
+
+#[test]
+fn 覚えていない相手に住所は書けない() {
+    // **住所だけの行を作らない。**呼び名の無い相手は連絡帳に出せない
+    let mut 名簿 = Contacts::new();
+
+    assert!(!名簿.note_address(鍵([4u8; 32]), 住所).unwrap());
+
+    assert!(名簿.is_empty());
+}
+
+#[test]
+fn 呼び名を付け直しても住所は消えない() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 住所).unwrap();
+    名簿.add(鍵([3u8; 32]), "Mac Air", 200).unwrap();
+
+    assert_eq!(名簿.find(鍵([3u8; 32])).unwrap().label(), "Mac Air");
+    assert_eq!(名簿.find(鍵([3u8; 32])).unwrap().address(), Some(住所));
+}
+
+#[test]
+fn 区切りを壊す住所は断る() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+
+    for 壊す in ["WARIFU1-A\tB", "WARIFU1-A\nB", ""] {
+        assert!(
+            名簿.note_address(鍵([3u8; 32]), 壊す).is_err(),
+            "{壊す:?} を受け取った"
+        );
+    }
+}
+
+#[test]
+fn 長すぎる住所は断る() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    let 長い = format!("WARIFU1-{}", "A".repeat(2000));
+
+    assert!(名簿.note_address(鍵([3u8; 32]), &長い).is_err());
+}
+
+#[test]
+fn 欄の数が違う行は捨てて数える() {
+    let dir = 仮の置き場("contacts-v2-bad-cells");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!(
+            "warifu-contacts-v2\n{k}\tmini\t100\n{k2}\tair\t100\t{住所}\n",
+            k = 鍵([2u8; 32]),
+            k2 = 鍵([3u8; 32])
+        ),
+    )
+    .unwrap();
+
+    let 名簿 = vault.contacts().unwrap();
+
+    assert_eq!(名簿.len(), 1, "3 欄の行は v2 では読まない");
+    assert_eq!(名簿.skipped(), 1);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 忘れた相手の住所も消える() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "air", 100).unwrap();
+    名簿.note_address(鍵([3u8; 32]), 住所).unwrap();
+
+    assert!(名簿.remove(鍵([3u8; 32])));
+
+    assert!(名簿.find(鍵([3u8; 32])).is_none());
+}
+
+// --- 預かり所の宛先（**人が書く。割符が拾ってこない**） ----------------------
+
+#[test]
+fn 預かり所の宛先は開き直しても残る() {
+    let dir = 仮の置き場("postbox-remembered");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    assert_eq!(vault.postbox().unwrap(), None, "はじめは無い");
+
+    vault.save_postbox(Some("WARIFU1-ABCDEF")).unwrap();
+    assert_eq!(
+        Vault::at(&dir).postbox().unwrap().as_deref(),
+        Some("WARIFU1-ABCDEF")
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 預かり所は外せる() {
+    // **やめると決めたら、置いたものが残らない**
+    let dir = 仮の置き場("postbox-cleared");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    vault.save_postbox(Some("WARIFU1-ABCDEF")).unwrap();
+    vault.save_postbox(None).unwrap();
+    assert_eq!(vault.postbox().unwrap(), None);
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 預かり所の宛先は自分だけが読める() {
+    // **どこへ預けに行くかは、その人の居場所の手がかりになる**
+    let dir = 仮の置き場("postbox-private");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    vault.save_postbox(Some("WARIFU1-ABCDEF")).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(vault.postbox_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "0600 であること");
+    }
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルは預かり所として読まない() {
+    let dir = 仮の置き場("postbox-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.postbox_path(), "なにかの別のファイル\n").unwrap();
+
+    let err = vault
+        .postbox()
+        .expect_err("別のファイルを預かり所として読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 宛先に改行は書けない() {
+    // **1 行に 1 つ。**改行が入ると、次の行が別の意味を持ってしまう
+    let dir = 仮の置き場("postbox-newline");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    assert!(vault.save_postbox(Some("WARIFU1-AB\nCDEF")).is_err());
+    fs::remove_dir_all(&dir).ok();
+}
+
+// --- プロフィール（**人も、この端末の AI も**） -----------------------------
+
+#[test]
+fn 人と_この端末の_ai_を分けて覚える() {
+    // **鍵で分けない。**この端末の AI は持ち主の鍵で喋る（D48）ので、
+    // 鍵で分けると人と AI が同じ 1 つになる
+    let dir = 仮の置き場("profiles-me-and-ai");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    let mut 面々 = warifu_vault::Profiles::new();
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "この PC の人").unwrap());
+    面々.put(
+        warifu_vault::Profile::new(
+            warifu_vault::Who::Desk("docs".into()),
+            "資料くん",
+            "資料まわりを見ています",
+        )
+        .unwrap(),
+    );
+    vault.save_profiles(&面々).unwrap();
+
+    let 読み直し = Vault::at(&dir).profiles().unwrap();
+    assert_eq!(読み直し.len(), 2);
+    assert_eq!(
+        読み直し.find(&warifu_vault::Who::Me).unwrap().name(),
+        "たろう"
+    );
+    assert_eq!(
+        読み直し
+            .find(&warifu_vault::Who::Desk("docs".into()))
+            .unwrap()
+            .bio(),
+        "資料まわりを見ています"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn プロフィールは自分だけが読める() {
+    let dir = 仮の置き場("profiles-private");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    let mut 面々 = warifu_vault::Profiles::new();
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "").unwrap());
+    vault.save_profiles(&面々).unwrap();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(vault.profiles_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "0600 であること");
+    }
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 見出しが違うファイルはプロフィールとして読まない() {
+    let dir = 仮の置き場("profiles-bad-header");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(vault.profiles_path(), "なにかの別のファイル\n").unwrap();
+    let err = vault
+        .profiles()
+        .expect_err("別のファイルをプロフィールとして読んだ");
+    assert!(matches!(err, Error::Malformed { .. }), "{err:?}");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 壊れた行があっても_他のプロフィールは残る() {
+    let dir = 仮の置き場("profiles-broken-line");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.profiles_path(),
+        "warifu-profiles-v1\nこわれた行\nme\tたろう\tこの PC の人\t\n",
+    )
+    .unwrap();
+    let 面々 = vault.profiles().unwrap();
+    assert_eq!(面々.len(), 1);
+    assert_eq!(面々.find(&warifu_vault::Who::Me).unwrap().name(), "たろう");
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 顔を差し替えても_既定へ戻せる() {
+    let mut p = warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "").unwrap();
+    assert_eq!(p.avatar(), None, "既定は鍵から描く");
+    p.set_avatar(Some("kao.png")).unwrap();
+    assert_eq!(p.avatar(), Some("kao.png"));
+    p.set_avatar(None).unwrap();
+    assert_eq!(p.avatar(), None);
+}
+
+#[test]
+fn 長すぎる名前と紹介は断る() {
+    // **黙って切り詰めない。**削られたことに、書いた人が気づかない
+    let 長い名 = "あ".repeat(warifu_vault::NAME_MAX + 1);
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, &長い名, "").is_err());
+    let 長い一言 = "い".repeat(warifu_vault::BIO_MAX + 1);
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, "た", &長い一言).is_err());
+}
+
+#[test]
+fn 改行やタブは入れられない() {
+    // 入ると、次の行・次の欄が別の意味を持つ
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, "た\nろう", "").is_err());
+    assert!(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "あ\tい").is_err());
+}
+
+#[test]
+fn 同じ人のプロフィールは一つだけ持つ() {
+    let mut 面々 = warifu_vault::Profiles::new();
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう", "").unwrap());
+    面々.put(warifu_vault::Profile::new(warifu_vault::Who::Me, "たろう 2", "").unwrap());
+    assert_eq!(面々.len(), 1);
+    assert_eq!(
+        面々.find(&warifu_vault::Who::Me).unwrap().name(),
+        "たろう 2"
+    );
+}
+
+// --- 顔（差し替える画像） ---------------------------------------------------
+
+/// 幅と高さだけを持つ、いちばん短い PNG の頭。
+fn pngの頭(幅: u32, 高さ: u32) -> Vec<u8> {
+    let mut v = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    v.extend_from_slice(&13u32.to_be_bytes()); // IHDR の長さ
+    v.extend_from_slice(b"IHDR");
+    v.extend_from_slice(&幅.to_be_bytes());
+    v.extend_from_slice(&高さ.to_be_bytes());
+    v
+}
+
+/// 幅と高さだけを持つ、いちばん短い JPEG の頭（SOI ＋ SOF0）。
+fn jpegの頭(幅: u16, 高さ: u16) -> Vec<u8> {
+    let mut v = vec![0xff, 0xd8]; // SOI
+    v.extend_from_slice(&[0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]); // APP0（中身は空）
+    v.extend_from_slice(&[0xff, 0xc0, 0x00, 0x11, 0x08]); // SOF0・長さ 17・精度 8
+    v.extend_from_slice(&高さ.to_be_bytes());
+    v.extend_from_slice(&幅.to_be_bytes());
+    v.extend_from_slice(&[0x03]); // 成分 3 つ
+    v.extend_from_slice(&[0; 9]);
+    v
+}
+
+#[test]
+fn 顔は_png_だけ受ける() {
+    // **拡張子を信じない。**中身の頭を見る
+    assert_eq!(warifu_vault::顔として読む(&pngの頭(64, 64)), Ok((64, 64)));
+    assert!(warifu_vault::顔として読む(b"").is_err());
+    // **頭だけ JPEG に似ていても、縦横が読めないものは断る**
+    assert!(warifu_vault::顔として読む(&[0xff, 0xd8, 0xff]).is_err());
+}
+
+#[test]
+fn 顔は_jpeg_も受ける() {
+    // **WebP を出せない webview がある**（2026-09-10）。
+    // そこでは切り抜いた顔が「64 KB に収まりませんでした」で保存できなかった。
+    // 画面側が JPEG へ落ちるので、**ここで受け取れなければ置けない**
+    assert_eq!(
+        warifu_vault::顔として読む(&jpegの頭(512, 512)),
+        Ok((512, 512))
+    );
+    assert_eq!(warifu_vault::顔として読む(&jpegの頭(40, 80)), Ok((40, 80)));
+}
+
+#[test]
+fn 縦横が大きすぎる_jpeg_も断る() {
+    let 大きい = jpegの頭(
+        u16::try_from(warifu_vault::AVATAR_MAX_SIDE).unwrap() + 1,
+        10,
+    );
+    assert!(matches!(
+        warifu_vault::顔として読む(&大きい),
+        Err(warifu_vault::BadImage::TooWide(..))
+    ));
+}
+
+#[test]
+fn 縦横の合図が無い_jpeg_は断る() {
+    // SOF が無いまま終わるファイル。**読めないものを 0×0 で通さない**
+    let mut 頭 = vec![0xff, 0xd8];
+    頭.extend_from_slice(&[0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]);
+    assert!(warifu_vault::顔として読む(&頭).is_err());
+}
+
+#[test]
+fn 縦横が大きすぎる顔は断る() {
+    // **小さいファイルでも、桁の大きい画像は描くときに膨らむ**
+    let 大きい = pngの頭(warifu_vault::AVATAR_MAX_SIDE + 1, 10);
+    assert!(matches!(
+        warifu_vault::顔として読む(&大きい),
+        Err(warifu_vault::BadImage::TooWide(..))
+    ));
+}
+
+#[test]
+fn 大きすぎるファイルは断る() {
+    let mut 重い = pngの頭(10, 10);
+    重い.resize(warifu_vault::AVATAR_MAX_BYTES + 1, 0);
+    assert!(matches!(
+        warifu_vault::顔として読む(&重い),
+        Err(warifu_vault::BadImage::TooBig(_))
+    ));
+}
+
+#[test]
+fn 縦横が_0_の画像は絵ではない() {
+    // 描こうとした側で割り算が壊れる
+    assert!(warifu_vault::顔として読む(&pngの頭(0, 10)).is_err());
+    assert!(warifu_vault::顔として読む(&pngの頭(10, 0)).is_err());
+}
+
+#[test]
+fn 顔のファイル名は置き場所の外へ出られない() {
+    // **人が書いた名乗りを、そのままファイル名にしない**
+    let 名 =
+        warifu_vault::顔のファイル名(&warifu_vault::Who::Desk("../../etc/passwd".into()));
+    assert!(!名.contains('/'), "{名}");
+    assert!(!名.contains(".."), "{名}");
+    // **拡張子は中身で変えない**（D87）—— PNG / JPG / WebP のどれを置いても
+    // 名前は 1 つで、置き換えで済ませる。`.png` と `.webp` が並ぶと
+    // **どちらが今の顔か**が分からなくなる
+    assert!(名.ends_with(".img"), "{名}");
+    assert_eq!(
+        warifu_vault::顔のファイル名(&warifu_vault::Who::Me),
+        "me.img"
+    );
+}
+
+// --- 覚え書き（**こちらが書く。相手の名乗りとは別**） -----------------------
+
+#[test]
+fn 相手に覚え書きを残せる() {
+    // 「どの機械の、何をするエージェントか」を人が自分の言葉で残す
+    let dir = 仮の置き場("contacts-note");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([3u8; 32]), "mac air", 100).unwrap();
+    assert!(
+        名簿
+            .set_note(鍵([3u8; 32]), "Air の docs 担当。資料まわり")
+            .unwrap()
+    );
+    vault.save_contacts(&名簿).unwrap();
+
+    let 読み直し = Vault::at(&dir).contacts().unwrap();
+    assert_eq!(
+        読み直し.find(鍵([3u8; 32])).unwrap().note(),
+        "Air の docs 担当。資料まわり"
+    );
+    fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn 覚えていない相手には覚え書きを残せない() {
+    // **行を作らない。**呼び名の無い相手を連絡帳に出さない（住所と同じ構え）
+    let mut 名簿 = Contacts::new();
+    assert!(!名簿.set_note(鍵([4u8; 32]), "だれか").unwrap());
+}
+
+#[test]
+fn 覚え書きは空にできる() {
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([5u8; 32]), "air", 100).unwrap();
+    名簿.set_note(鍵([5u8; 32]), "いちど書く").unwrap();
+    名簿.set_note(鍵([5u8; 32]), "").unwrap();
+    assert_eq!(名簿.find(鍵([5u8; 32])).unwrap().note(), "");
+}
+
+#[test]
+fn 覚え書きに改行やタブは入れられない() {
+    // 入ると、次の行・次の欄が別の意味を持つ
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([6u8; 32]), "air", 100).unwrap();
+    assert!(名簿.set_note(鍵([6u8; 32]), "あ\tい").is_err());
+    assert!(名簿.set_note(鍵([6u8; 32]), "あ\nい").is_err());
+}
+
+#[test]
+fn 長すぎる覚え書きは断る() {
+    // **黙って切り詰めない**
+    let mut 名簿 = Contacts::new();
+    名簿.add(鍵([7u8; 32]), "air", 100).unwrap();
+    let 長い = "あ".repeat(warifu_vault::NOTE_MAX + 1);
+    assert!(名簿.set_note(鍵([7u8; 32]), &長い).is_err());
+}
+
+#[test]
+fn 覚え書きの無い旧版も読める() {
+    // v1 / v2 の行にはそもそも欄が無い
+    let dir = 仮の置き場("contacts-v2-note");
+    let vault = Vault::at(&dir);
+    vault.open_seed().unwrap();
+    fs::write(
+        vault.contacts_path(),
+        format!("warifu-contacts-v2\n{}\tair\t100\t\n", 鍵([8u8; 32])),
+    )
+    .unwrap();
+    let 名簿 = vault.contacts().unwrap();
+    assert_eq!(名簿.find(鍵([8u8; 32])).unwrap().note(), "");
+    fs::remove_dir_all(&dir).ok();
+}
+
+// --- 予定（**割符の中に持つ**・2026-09-07） -------------------------------
+
+#[test]
+fn 予定を書いて読み直せる() {
+    let dir = 仮の置き場("schedule-roundtrip");
+    let vault = Vault::at(&dir);
+    let 予定 = vec![
+        warifu_vault::Appointment::new(1_756_803_600, 1_756_807_200, "打ち合わせ", "図面の確認"),
+        warifu_vault::Appointment::new(1_756_890_000, 1_756_893_600, "朝会", ""),
+    ];
+    vault.save_schedule(&予定).unwrap();
+    let 読んだ = Vault::at(&dir).schedule().unwrap();
+    assert_eq!(読んだ.len(), 2);
+    assert_eq!(読んだ[0].title(), "打ち合わせ");
+    assert_eq!(読んだ[0].start(), 1_756_803_600);
+    assert_eq!(読んだ[0].end(), 1_756_807_200);
+    assert_eq!(読んだ[0].note(), "図面の確認");
+}
+
+#[test]
+fn 予定は始まりの早い順に並ぶ() {
+    // **人は時間順に読む。**入れた順ではない
+    let dir = 仮の置き場("schedule-order");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[
+            warifu_vault::Appointment::new(2_000, 3_000, "あと", ""),
+            warifu_vault::Appointment::new(1_000, 1_500, "さき", ""),
+        ])
+        .unwrap();
+    let 読んだ = vault.schedule().unwrap();
+    assert_eq!(
+        読んだ.iter().map(|a| a.title()).collect::<Vec<_>>(),
+        vec!["さき", "あと"]
+    );
+}
+
+#[test]
+fn 予定が無いときは空を返す() {
+    // **無いことと壊れていることを混ぜない**
+    let dir = 仮の置き場("schedule-empty");
+    assert!(Vault::at(&dir).schedule().unwrap().is_empty());
+}
+
+#[test]
+fn 見出しが違うファイルは予定として読まない() {
+    let dir = 仮の置き場("schedule-header");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        vault.schedule_path(),
+        "別のファイル\n1000\t2000\tなにか\t\n",
+    )
+    .unwrap();
+    assert!(vault.schedule().is_err());
+}
+
+#[test]
+fn 読めない行があっても予定ごと落とさない() {
+    let dir = 仮の置き場("schedule-broken");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[warifu_vault::Appointment::new(1_000, 2_000, "生きてる", "")])
+        .unwrap();
+    let mut 中身 = std::fs::read_to_string(vault.schedule_path()).unwrap();
+    中身.push_str("これは壊れた行\n");
+    中身.push_str("9999\tおわりが数でない\tだめ\t\n");
+    std::fs::write(vault.schedule_path(), 中身).unwrap();
+    let 読んだ = vault.schedule().unwrap();
+    assert_eq!(読んだ.len(), 1);
+    assert_eq!(読んだ[0].title(), "生きてる");
+}
+
+#[test]
+fn 終わりが始まりより前の予定は読まない() {
+    // **描く側で幅が負になる。**画面が壊れる前に落とす
+    let dir = 仮の置き場("schedule-reversed");
+    let vault = Vault::at(&dir);
+    vault.save_schedule(&[]).unwrap();
+    let mut 中身 = std::fs::read_to_string(vault.schedule_path()).unwrap();
+    中身.push_str("2000\t1000\t逆さま\t\n");
+    std::fs::write(vault.schedule_path(), 中身).unwrap();
+    assert!(vault.schedule().unwrap().is_empty());
+}
+
+#[test]
+fn 予定のファイルは自分だけが読める() {
+    let dir = 仮の置き場("schedule-mode");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[warifu_vault::Appointment::new(1_000, 2_000, "秘密", "")])
+        .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.schedule_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600, "予定は自分だけが読める");
+    }
+}
+
+#[test]
+fn 題や覚え書きに区切りや改行を書いても壊れない() {
+    // **人が書く文字を、そのままファイルに流さない**（TSV が崩れる）
+    let dir = 仮の置き場("schedule-escape");
+    let vault = Vault::at(&dir);
+    vault
+        .save_schedule(&[warifu_vault::Appointment::new(
+            1_000,
+            2_000,
+            "打ち合わせ\tと\n続き",
+            "覚え\t書き",
+        )])
+        .unwrap();
+    let 読んだ = vault.schedule().unwrap();
+    assert_eq!(読んだ.len(), 1);
+    assert!(!読んだ[0].title().contains('\t'));
+    assert!(!読んだ[0].title().contains('\n'));
+}
+
+// --- 主催しているルーム（id と名前を持ち越す・2026-09-11） ------------------
+
+#[test]
+fn 主催しているルームを持ち越せる() {
+    // ルーム名を付けても、起動し直すと消えていた。
+    //
+    // 名前が消えていたのは画面の中だけに持っていたからだが、
+    // **それ以前にルーム id が起動ごとに変わっていた**ので、
+    // 保存しても紐付く先が無かった。**id と名前を一緒に持ち越す。**
+    let dir = 仮の置き場("room-roundtrip");
+    let vault = Vault::at(&dir);
+    assert!(vault.my_room().unwrap().is_none(), "はじめは無い");
+
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次")
+        .unwrap();
+    let (id, 名前) = Vault::at(&dir).my_room().unwrap().unwrap();
+    assert_eq!(id, "EB5RQ3AU3PX2HKCCR4AJ35HTBQ");
+    assert_eq!(名前, "週次");
+}
+
+#[test]
+fn ルームの名前は後から付けられる() {
+    // 建てた時点では名前が無い。**あとで付けても id は変わらない**
+    let dir = 仮の置き場("room-name-later");
+    let vault = Vault::at(&dir);
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "")
+        .unwrap();
+    assert_eq!(
+        vault.my_room().unwrap().unwrap(),
+        ("EB5RQ3AU3PX2HKCCR4AJ35HTBQ".to_owned(), String::new())
+    );
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次")
+        .unwrap();
+    assert_eq!(vault.my_room().unwrap().unwrap().1, "週次");
+}
+
+#[test]
+fn 見出しが違うファイルはルームとして読まない() {
+    let dir = 仮の置き場("room-header");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(vault.my_room_path(), "別のファイル\nEB5R\tなにか\n").unwrap();
+    assert!(vault.my_room().is_err());
+}
+
+#[test]
+fn 名前に区切りや改行を書いても壊れない() {
+    let dir = 仮の置き場("room-escape");
+    let vault = Vault::at(&dir);
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次\tの\n会")
+        .unwrap();
+    let (_, 名前) = vault.my_room().unwrap().unwrap();
+    assert!(!名前.contains('\t'));
+    assert!(!名前.contains('\n'));
+}
+
+#[test]
+fn ルームのファイルは自分だけが読める() {
+    let dir = 仮の置き場("room-mode");
+    let vault = Vault::at(&dir);
+    vault
+        .save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "週次")
+        .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.my_room_path())
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+// --- 帰り道（前に入ったルームへ戻る・gh issue 13・2026-09-12） ---------------
+
+#[test]
+fn 前に入ったルームへの帰り道を持ち越せる() {
+    // アプリの更新は再起動を伴う。控えが無いと更新のたびに鍵を貼り直すことになり、
+    // 鍵は 1 本 = 1 人なので、毎回出し直してもらう手間がかかる。
+    let dir = 仮の置き場("rejoin-roundtrip");
+    let vault = Vault::at(&dir);
+    assert_eq!(vault.rejoin().expect("読める"), None);
+
+    vault
+        .save_rejoin(
+            "NBIW3PA2TUQ52DTJNVXSQOL3G4",
+            "warifu://join/WARIFU1-AAA#BBB#CCC",
+        )
+        .expect("書ける");
+    let 開き直した = Vault::at(&dir);
+    assert_eq!(
+        開き直した.rejoin().expect("読める"),
+        Some((
+            "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+            "warifu://join/WARIFU1-AAA#BBB#CCC".to_owned()
+        ))
+    );
+}
+
+#[test]
+fn 帰り道は自分だけが読める() {
+    // **ここにはルームキー（割符の片割れ）が入る。**ほかのファイルと同じ扱いにする
+    let dir = 仮の置き場("rejoin-perm");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM", "KEY").expect("書ける");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.rejoin_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 抜けたら帰り道を忘れる() {
+    // **使わない秘密を持ち続けない**
+    let dir = 仮の置き場("rejoin-forget");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM", "KEY").expect("書ける");
+    vault.forget_rejoin().expect("消せる");
+    assert_eq!(vault.rejoin().expect("読める"), None);
+    // **無いものを消すのは失敗ではない**
+    vault.forget_rejoin().expect("2 度目も通る");
+}
+
+#[test]
+fn 見出しが違うファイルは帰り道として読まない() {
+    // **別のファイルを帰り道として読まない**（`contacts` と同じ構え）
+    let dir = 仮の置き場("rejoin-header");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(vault.rejoin_path(), "warifu-room-v1\nROOM\tKEY\n").expect("書ける");
+    assert!(vault.rejoin().is_err());
+}
+
+#[test]
+fn 半端な帰り道は渡さない() {
+    // 鍵が欠けていたら「戻る」を出せない。**半端なものを渡さない**
+    let dir = 仮の置き場("rejoin-half");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(vault.rejoin_path(), "warifu-rejoin-v1\nROOM\t\n").expect("書ける");
+    assert_eq!(vault.rejoin().expect("読める"), None);
+}
+
+#[test]
+fn 貼られた文字に区切りが混ざっていても崩れない() {
+    let dir = 仮の置き場("rejoin-tab");
+    let vault = Vault::at(&dir);
+    vault
+        .save_rejoin("ROOM\tX", "warifu://join/AAA\nBBB")
+        .expect("書ける");
+    let (id, 鍵) = vault.rejoin().expect("読める").expect("在る");
+    assert!(!id.contains('\t'));
+    assert!(!鍵.contains('\n'));
+    assert_eq!(鍵, "warifu://join/AAABBB");
+}
+
+// ── 置き場所の出どころ（**#22**・2026-09-15） ──────────────────────
+//
+// Windows で `rejoin.tsv` が見つからなかった。**書けてはいて、
+// 人が見ている所とは別**という筋がある（`HOME` を先に見るので、
+// 端末から起動すると `USERPROFILE` とは別の所になる）。
+// **記録に出して、迷わないようにする。**
+
+#[test]
+fn 出どころは_warifu_home_が_いちばん強い() {
+    use std::ffi::OsStr;
+    assert_eq!(
+        warifu_vault::家の出どころ(
+            Some(OsStr::new("/tmp/w")),
+            Some(OsStr::new("/home/a")),
+            Some(OsStr::new("C:/Users/a"))
+        ),
+        "WARIFU_HOME"
+    );
+}
+
+#[test]
+fn 出どころは_home_が_userprofile_より先() {
+    use std::ffi::OsStr;
+    assert_eq!(
+        warifu_vault::家の出どころ(
+            None,
+            Some(OsStr::new("/home/a")),
+            Some(OsStr::new("C:/Users/a"))
+        ),
+        "HOME"
+    );
+}
+
+#[test]
+fn 空の値は_使わない() {
+    use std::ffi::OsStr;
+    // **空文字は「立っていない」と同じに扱う**（シェルが空で立てることがある）
+    assert_eq!(
+        warifu_vault::家の出どころ(
+            Some(OsStr::new("")),
+            Some(OsStr::new("")),
+            Some(OsStr::new("C:/Users/a"))
+        ),
+        "USERPROFILE"
+    );
+}
+
+#[test]
+fn どれも無ければ_無いと言う() {
+    assert_eq!(warifu_vault::家の出どころ(None, None, None), "どれも無い");
+}
+
+// ── 出した割符の控え（**#38**・2026-09-16） ────────────────────────
+//
+// **主催が持つ割符の片割れは、メモリだけにあった。**
+// だからアプリを落とすと**配った鍵が全部死ぬ**。
+// 保存しておけば、試験のたびに出し直さずに使い回せる。
+
+#[test]
+fn 出した割符は_控えて読み戻せる() {
+    let dir = 仮の置き場("issued-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.issued().expect("読める").is_empty());
+
+    vault.save_issued("ROOM1", b"\x01\x02\x03").expect("書ける");
+    vault.save_issued("ROOM1", b"\x04\x05").expect("書ける");
+
+    // **開き直しても残る**（これが目的そのもの）
+    let 一覧 = warifu_vault::Vault::at(dir).issued().expect("読める");
+    assert_eq!(
+        一覧,
+        vec![
+            ("ROOM1".to_owned(), vec![1u8, 2, 3]),
+            ("ROOM1".to_owned(), vec![4u8, 5]),
+        ]
+    );
+}
+
+#[test]
+fn 控えは_0600で置く() {
+    // **割符の片割れが入る。**`rejoin.tsv` と同じ扱い
+    let dir = 仮の置き場("issued-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued("ROOM1", b"\x09").expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.issued_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 書き直せる_使った印や期限切れを落とすため() {
+    let dir = 仮の置き場("issued-replace");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued("A", b"\x01").expect("書ける");
+    vault.save_issued("B", b"\x02").expect("書ける");
+
+    vault
+        .replace_issued(&[("B".to_owned(), vec![2u8, 9])])
+        .expect("書き直せる");
+
+    assert_eq!(
+        vault.issued().expect("読める"),
+        vec![("B".to_owned(), vec![2u8, 9])]
+    );
+}
+
+#[test]
+fn 忘れられる_部屋を閉じたら消す() {
+    let dir = 仮の置き場("issued-forget");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued("A", b"\x01").expect("書ける");
+
+    vault.forget_issued().expect("消せる");
+
+    assert!(vault.issued().expect("読める").is_empty());
+    vault.forget_issued().expect("2 度目も通る");
+}
+
+#[test]
+fn 壊れた行は_その行だけ捨てる() {
+    // **1 行の壊れで、配った鍵が全部死ぬのは目的に反する**
+    let dir = 仮の置き場("issued-broken");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(
+        vault.issued_path(),
+        "warifu-issued-v1\nA\tAEBAG\nこわれ\nB\t!!!!\nC\tAEBAG\n",
+    )
+    .expect("書ける");
+
+    let 一覧 = vault.issued().expect("読める");
+    assert_eq!(一覧.len(), 2);
+    assert_eq!(一覧[0].0, "A");
+    assert_eq!(一覧[1].0, "C");
+}
+
+// ── 待っていた口の控え（**#38 の残り半分**・2026-09-17） ──────────────
+//
+// **割符を控えても、口を控えないと鍵は死ぬ。**
+// 鍵は「出したときの口」を焼き込むので、**立ち上げ直して口が変わると、
+// 相手は誰も居ない所へ来ることになる。**
+//
+// 実測（2026-09-17）では、鍵は `51728` を指し、画面は `57155` で待っていた。
+
+#[test]
+fn 待つ口は_控えて読み戻せる() {
+    let dir = 仮の置き場("port-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert_eq!(vault.port().expect("読める"), None);
+
+    vault.save_port(57155).expect("書ける");
+
+    // **開き直しても残る**（これが目的そのもの）
+    assert_eq!(
+        warifu_vault::Vault::at(dir).port().expect("読める"),
+        Some(57155)
+    );
+}
+
+#[test]
+fn 控えを上書きする_口が変わったら新しいほうを覚える() {
+    // **取れなかったときは、新しい口を覚える。**
+    // 古い口を持ち続けると、**毎回取れない口を取りに行く**ことになる
+    let dir = 仮の置き場("port-overwrite");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(51728).expect("書ける");
+    vault.save_port(57155).expect("書ける");
+
+    assert_eq!(vault.port().expect("読める"), Some(57155));
+}
+
+#[test]
+fn 口の0は_控えが無いのと同じ() {
+    // **`0` は「空きに任せる」の意味。**控えとして読み戻すと、
+    // **「0 番の口を取りに行く」という無い動き**になる
+    let dir = 仮の置き場("port-zero");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(0).expect("書ける");
+
+    assert_eq!(vault.port().expect("読める"), None);
+}
+
+#[test]
+fn 口の控えが壊れていても_立ち上がれる() {
+    // **口は無くても動ける。**壊れた 1 行で立ち上がらなくなるほうが重い
+    // （`issued.tsv` で「1 行の壊れで全部落とさない」と決めたのと同じ筋）
+    let dir = 仮の置き場("port-broken");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(57155).expect("書ける");
+    std::fs::write(vault.port_path(), "warifu-port-v1\nごみ\n").expect("書ける");
+
+    assert_eq!(vault.port().expect("読める"), None);
+}
+
+#[test]
+fn 口の控えは_見出しが違えば断る() {
+    // **別の物を読んで数字に見えた、を起こさない**
+    let dir = 仮の置き場("port-header");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(vault.port_path(), "warifu-issued-v1\n57155\n").expect("書ける");
+
+    assert!(vault.port().is_err());
+}
+
+#[test]
+fn 口の控えも_0600で置く() {
+    // **秘密は入らないが、置き場所の扱いを 1 つにしておく**
+    let dir = 仮の置き場("port-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(57155).expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.port_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 口の控えを_忘れられる() {
+    let dir = 仮の置き場("port-forget");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_port(57155).expect("書ける");
+
+    vault.forget_port().expect("消せる");
+    assert_eq!(vault.port().expect("読める"), None);
+
+    // **無いものを消すのは失敗ではない**
+    vault.forget_port().expect("二度目も通る");
+}
+
+// ── 部屋の合言葉の控え（**D118**・2026-09-17） ───────────────────────
+//
+// **主催が落ちて建て直すと、同じ部屋 id で新しい合言葉を作ってしまう。**
+// すると**前に渡した合言葉で通れなくなる** ——
+// **#38 で踏んだのと同じ形**である（あちらは割符と口だった）。
+
+#[test]
+fn 部屋の合言葉は_控えて読み戻せる() {
+    let dir = 仮の置き場("room-secret-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.room_secrets().expect("読める").is_empty());
+
+    vault
+        .save_room_secrets(&[
+            ("ROOM1".to_owned(), [7u8; 32]),
+            ("ROOM2".to_owned(), [9u8; 32]),
+        ])
+        .expect("書ける");
+
+    // **開き直しても残る**（これが目的そのもの）
+    assert_eq!(
+        warifu_vault::Vault::at(dir).room_secrets().expect("読める"),
+        vec![
+            ("ROOM1".to_owned(), [7u8; 32]),
+            ("ROOM2".to_owned(), [9u8; 32])
+        ]
+    );
+}
+
+#[test]
+fn 部屋の合言葉の控えは_0600で置く() {
+    // **合言葉を持っている人は、その部屋へ誰でも入れられる**
+    let dir = 仮の置き場("room-secret-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_room_secrets(&[("ROOM1".to_owned(), [1u8; 32])])
+        .expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.room_secret_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 長さの違う合言葉は_読み戻さない() {
+    // **短い合言葉を読み戻すと、弱いまま使い続けることになる**
+    let dir = 仮の置き場("room-secret-short");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(
+        vault.room_secret_path(),
+        format!(
+            "warifu-room-secret-v1\nROOM1\t{}\nROOM2\t{}\n",
+            warifu_core::base32::encode(&[1u8; 16]),
+            warifu_core::base32::encode(&[2u8; 32])
+        ),
+    )
+    .expect("書ける");
+
+    // **壊れた行だけ落ちて、まともな行は残る**
+    assert_eq!(
+        vault.room_secrets().expect("読める"),
+        vec![("ROOM2".to_owned(), [2u8; 32])]
+    );
+}
+
+#[test]
+fn 部屋の合言葉の控えは_見出しが違えば断る() {
+    let dir = 仮の置き場("room-secret-header");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(vault.room_secret_path(), "warifu-issued-v1\nROOM1\tAAAA\n").expect("書ける");
+
+    assert!(vault.room_secrets().is_err());
+}
+
+#[test]
+fn 部屋の合言葉の控えを_忘れられる() {
+    let dir = 仮の置き場("room-secret-forget");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_room_secrets(&[("ROOM1".to_owned(), [1u8; 32])])
+        .expect("書ける");
+
+    vault.forget_room_secret().expect("消せる");
+    assert!(vault.room_secrets().expect("読める").is_empty());
+    // **無いものを消すのは失敗ではない**
+    vault.forget_room_secret().expect("二度目も通る");
+}
+
+// ── 人が答えた札の控え（**D119**・2026-09-18） ────────────────────────
+//
+// **`warifu mcp` は別のプロセスである。**画面が覚えていても口からは見えない ——
+// **同じ置き場所のファイルが、2 つの間の橋になる。**
+
+#[test]
+fn 札の答えは_控えて読み戻せる() {
+    let dir = 仮の置き場("pass-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.passes().expect("読める").is_empty());
+
+    vault
+        .save_passes(&[
+            ("chat.send".to_owned(), true),
+            ("inbox.open.2".to_owned(), false),
+        ])
+        .expect("書ける");
+
+    assert_eq!(
+        warifu_vault::Vault::at(dir).passes().expect("読める"),
+        vec![
+            ("chat.send".to_owned(), true),
+            ("inbox.open.2".to_owned(), false)
+        ]
+    );
+}
+
+#[test]
+fn 人が読める並びで置く_取り消せるように() {
+    // **行を消せば取り消せる**（**D58**）。だから人が読める形にしてある
+    let dir = 仮の置き場("pass-readable");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_passes(&[
+            ("chat.send".to_owned(), true),
+            ("chat.read".to_owned(), false),
+        ])
+        .expect("書ける");
+
+    let 中身 = std::fs::read_to_string(vault.pass_path()).expect("読める");
+    assert!(中身.contains("chat.send\t許した"));
+    assert!(中身.contains("chat.read\t断った"));
+}
+
+#[test]
+fn 知らない言葉は_許しに読まない() {
+    // **「許した」以外を許しに読むと、書き換えで札が増える**
+    let dir = 仮の置き場("pass-unknown");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(
+        vault.pass_path(),
+        "warifu-pass-v1\nchat.send\tyes\nchat.read\t許した\nchat.wait\t\n",
+    )
+    .expect("書ける");
+
+    // **壊れた行だけ落ちて、まともな行は残る**
+    assert_eq!(
+        vault.passes().expect("読める"),
+        vec![("chat.read".to_owned(), true)]
+    );
+}
+
+#[test]
+fn 札の控えは_0600で置く() {
+    // **これを書き換えると、エージェントの出来ることが変わる**
+    let dir = 仮の置き場("pass-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_passes(&[("chat.send".to_owned(), true)])
+        .expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.pass_path())
+            .expect("在る")
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn 札の控えは_見出しが違えば断る() {
+    let dir = 仮の置き場("pass-header");
+    let vault = warifu_vault::Vault::at(dir);
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(vault.pass_path(), "warifu-port-v1\nchat.send\t許した\n").expect("書ける");
+
+    assert!(vault.passes().is_err());
+}
+
+/// **中継の設定を控える**（**#5**・2026-09-18）。
+///
+/// **画面から中継を入れる道が、環境変数しか無かった** ——
+/// `WARIFU_RELAY=1` を付けて `.app` を立ち上げるのは人の手順ではなく、
+/// **だから「網を越えた実測がまだ 0 件」のままだった。**
+#[test]
+fn 中継の設定は_控えて読み戻せる() {
+    let vault = Vault::at(仮の置き場("relay"));
+
+    // **初めては「控えが無い」。**`false` ではない —— 既定を決めるのは呼ぶ側
+    assert_eq!(
+        vault.relay().expect("読める"),
+        None,
+        "**初めては控えが無い**"
+    );
+
+    vault.save_relay(true).expect("書ける");
+    assert_eq!(vault.relay().expect("読める"), Some(true));
+
+    vault.save_relay(false).expect("書ける");
+    assert_eq!(vault.relay().expect("読める"), Some(false));
+}
+
+#[test]
+fn 中継の控えは_人にだけ読める() {
+    // **置き場所の中のものは 0600**（ほかの控えと同じ）
+    let vault = Vault::at(仮の置き場("relay-mode"));
+    vault.save_relay(true).expect("書ける");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let 権限 = std::fs::metadata(vault.relay_path())
+            .expect("在る")
+            .permissions();
+        assert_eq!(権限.mode() & 0o777, 0o600, "0600 であること");
+    }
+}
+
+// ── 鍵に焼いた番地の控え（2026-09-24） ──────────────
+//
+// **口だけでは足りなかった。**鍵は「口**と番地**」を焼き込む。
+//
+// **実物で踏んだ** —— この機械の番地が `192.168.24.17` から `.16` へ変わり、
+// **配った鍵が全部死んだ。**そのとき起動の記録は
+// 「口 55698 を取り直しました（**前に配った鍵は、そのまま使えます**）」と言っていた。
+// **口は同じだったので、そう書いていた。**
+
+#[test]
+fn 鍵に焼いた番地は_控えて読み戻せる() {
+    let dir = 仮の置き場("issued-addrs-roundtrip");
+    let vault = warifu_vault::Vault::at(dir.clone());
+    assert!(vault.issued_addrs().expect("読める").is_empty());
+
+    vault
+        .save_issued_addrs(&[
+            "192.168.24.17:55698".to_owned(),
+            "[fe80::1]:55698".to_owned(),
+        ])
+        .expect("書ける");
+
+    assert_eq!(
+        warifu_vault::Vault::at(dir).issued_addrs().expect("読める"),
+        vec![
+            "192.168.24.17:55698".to_owned(),
+            "[fe80::1]:55698".to_owned()
+        ]
+    );
+}
+
+#[test]
+fn 番地の控えは_鍵を出し直したら上書きする() {
+    // **新しい鍵は新しい番地を焼く。**古い番地を持ち続けると、
+    // **直ったあとも「変わりました」と言い続ける**
+    let dir = 仮の置き場("issued-addrs-overwrite");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_issued_addrs(&["192.168.24.17:55698".to_owned()])
+        .expect("書ける");
+    vault
+        .save_issued_addrs(&["192.168.24.16:55698".to_owned()])
+        .expect("書ける");
+
+    assert_eq!(
+        vault.issued_addrs().expect("読める"),
+        vec!["192.168.24.16:55698".to_owned()]
+    );
+}
+
+#[test]
+fn 番地が1つも無いときも_控えられる() {
+    // **番地が出ていない回もある**（CGNAT・中継だけ）。
+    // **そのときは空で控える** —— 書けないと、次の起動で「控えが無い」と読まれる
+    let dir = 仮の置き場("issued-addrs-empty");
+    let vault = warifu_vault::Vault::at(dir);
+    vault.save_issued_addrs(&[]).expect("書ける");
+
+    assert!(vault.issued_addrs().expect("読める").is_empty());
+}
+
+#[test]
+fn 番地の控えは_この機械の人だけが読める() {
+    // **鍵の中身ではないが、置き場所の扱いを 1 つにする**（`issued.tsv` と同じ 0600）
+    let dir = 仮の置き場("issued-addrs-perm");
+    let vault = warifu_vault::Vault::at(dir);
+    vault
+        .save_issued_addrs(&["192.168.1.2:1234".to_owned()])
+        .expect("書ける");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(vault.issued_addrs_path())
+            .expect("在る")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "0600 で置く");
+    }
+}

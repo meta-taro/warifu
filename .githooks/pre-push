@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# **push の前に、送る版の木ぜんたいを見る**（2026-10-01）。
+#
+# 公開リポジトリは、push した時点で履歴に残り、作り直さない限り消せない。
+# commit の前（pre-commit）でも同じ検査が走るが、--no-verify や別の手で commit されたものも
+# ここで止める。**--no-verify で外さない。**
+#
+# git は「ローカルの ref・ローカルの SHA・リモートの ref・リモートの SHA」を 1 行ずつ渡す。
+set -u
+here="$(git rev-parse --show-toplevel)"
+fail=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # 消す push（ローカルが 0 ばかり）は見るものが無い
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+  printf '  %-38s' "公開しない記録と語（${local_ref}）"
+  if bash "$here/scripts/check-public-tree.sh" "$local_sha"; then
+    :
+  else
+    fail=1
+  fi
+done
+exit "$fail"

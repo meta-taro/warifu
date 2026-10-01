@@ -1,0 +1,283 @@
+//! 宛先。**公開鍵と、そこへ届く経路の候補。**
+//!
+//! 割符と同じで、宛先も QR や貼り付けで人の手を渡る。
+//! だから文字列は ASCII だけ・表記は 1 通りに固定する。
+
+use core::fmt;
+use core::str::FromStr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+
+use warifu_core::{PublicKey, base32};
+
+use crate::Error;
+
+/// 割符の文字列と揃えた頭。中身の種別は目印で分ける。
+const PREFIX: &str = "WARIFU1-";
+/// 宛先の目印。割符（`WRF1`）と混ざらないようにする。
+const MAGIC: &[u8; 4] = b"WRFA";
+const KIND_ADDRESS: u8 = 0x03;
+const TAG_V4: u8 = 4;
+const TAG_V6: u8 = 6;
+/// 中継の場所（**D78**）。**`--relay` を付けた人の宛先にだけ入る。**
+const TAG_RELAY: u8 = 9;
+
+/// 中継の場所の長さの上限（バイト）。
+///
+/// **人の手を渡る文字列を、長さで縛る。**上限が無いと、
+/// 宛先ひとつが QR に入らない大きさまで伸ばせる。
+pub const RELAY_MAX: usize = 256;
+
+/// 相手に届くための宛先。
+///
+/// **公開鍵が名前そのもの。**IP は「今つながる場所」でしかなく、変わってよい。
+#[derive(Clone, PartialEq, Eq)]
+pub struct Address {
+    key: PublicKey,
+    ips: Vec<SocketAddr>,
+    /// 中継の場所（**D78**）。**既定では入らない。**
+    ///
+    /// 入っているとき、この宛先は**外の網からも届きうる** ——
+    /// 代わりに、**繋いだことが中継の運用者に見える**（D10）。
+    relay: Option<String>,
+}
+
+impl Address {
+    pub(crate) fn from_parts(key: PublicKey, ips: impl IntoIterator<Item = SocketAddr>) -> Self {
+        Self::新しく(key, ips, None)
+    }
+
+    pub(crate) fn 新しく(
+        key: PublicKey,
+        ips: impl IntoIterator<Item = SocketAddr>,
+        relay: Option<String>,
+    ) -> Self {
+        let mut ips: Vec<SocketAddr> = ips.into_iter().collect();
+        // 並びを 1 通りに決める。同じ宛先が別の文字列になると、突き合わせができない。
+        //
+        // **並べる規則は「届きそうな順」である**（**#34**・`pick::見込み`）。
+        //
+        // **2026-09-24 に踏んだ。**ここが `sort_unstable()`（番地の数値順）だったので、
+        // **`宛先に載せる` が並べた順を、この行が消していた** ——
+        // `172.26.224.1 < 192.168.24.11` なので、**WSL の口が先頭に戻る。**
+        // Windows の機械での実測 ——
+        //
+        // ```text
+        //   候補 2 件
+        //     172.26.224.1:62602   ← **まだ先頭**
+        //     192.168.24.11:62602
+        // ```
+        //
+        // **#34 の並べ替えは、載せる本数を切るときにしか効いていなかった。**
+        ips.sort_unstable_by_key(|a| (crate::pick::見込み(a.ip()), *a));
+        ips.dedup();
+        // **長すぎるものは持たない。**持てば、そのまま人の手を渡ってしまう
+        let relay = relay.filter(|r| !r.is_empty() && r.len() <= RELAY_MAX);
+        Self { key, ips, relay }
+    }
+
+    /// 相手の公開鍵。
+    #[must_use]
+    pub fn public_key(&self) -> PublicKey {
+        self.key
+    }
+
+    /// 経路の候補。
+    pub fn ip_addrs(&self) -> impl Iterator<Item = SocketAddr> + '_ {
+        self.ips.iter().copied()
+    }
+
+    /// 公開鍵と経路の候補から作る。**確かめるために開けてある。**
+    #[must_use]
+    pub fn from_ip_addrs(key: PublicKey, ips: impl IntoIterator<Item = SocketAddr>) -> Self {
+        Self::from_parts(key, ips)
+    }
+
+    /// 中継の場所。**入っていなければ `None`**（既定はこちら）。
+    #[must_use]
+    pub fn relay(&self) -> Option<&str> {
+        self.relay.as_deref()
+    }
+
+    /// 中継の場所を添える。**確かめるために開けてある。**
+    #[must_use]
+    pub fn with_relay(mut self, relay: impl Into<String>) -> Self {
+        let relay: String = relay.into();
+        self.relay = (!relay.is_empty() && relay.len() <= RELAY_MAX).then_some(relay);
+        self
+    }
+
+    /// **外から届きうるか。**
+    ///
+    /// warifu は**外部の中継を使わない**（**D13**）ので、
+    /// **候補が全部その場の網の中なら、同じ網の相手にしか届かない。**
+    ///
+    /// 2026-09-07、Windows で踏んだ —— host は「待っています」と出したまま、
+    /// 外から到達できない状態で待ち続け、2 時間ぶん待たせるところだった。
+    ///
+    /// **待たせる前に言えることは、待たせる前に言う。**
+    /// 「押せるのに効かないボタン」（D49）と同じ形である。
+    ///
+    /// **「届きうる」であって「届く」ではない。**外向きの候補があっても、
+    /// 相手側の網や機器で止まることはある。**無いと分かることだけが確かである。**
+    ///
+    /// **中継が入っていれば、外からも届きうる**（**D78**）——
+    /// 中継は外の網に居るので、内側の番地しか無くても橋になる。
+    #[must_use]
+    pub fn 外から届きうる(&self) -> bool {
+        self.relay.is_some() || self.ips.iter().any(|a| 外向き(&a.ip()))
+    }
+
+    /// **外から届く口の番号**（番地は出さない —— 外側は人が Issue に貼るので）。
+    ///
+    /// 待ち受けが「外から届きます」と言うために使う（2026-09-27）。
+    #[must_use]
+    pub fn 外から届く口たち(&self) -> Vec<u16> {
+        self.ips
+            .iter()
+            .filter(|a| 外向き(&a.ip()))
+            .map(SocketAddr::port)
+            .collect()
+    }
+
+    /// 公開鍵だけ差し替える。**経路の候補はそのまま。**
+    ///
+    /// 差し替えた宛先で繋ぐと必ず落ちる（経路の暗号が相手の鍵に紐付いているため）。
+    /// それを確かめるために開けてある。
+    #[must_use]
+    pub fn with_public_key(mut self, key: PublicKey) -> Self {
+        self.key = key;
+        self
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::with_capacity(5 + 32 + self.ips.len() * 19);
+        out.extend_from_slice(MAGIC);
+        out.push(KIND_ADDRESS);
+        out.extend_from_slice(&self.key.to_bytes());
+        for ip in &self.ips {
+            match ip.ip() {
+                IpAddr::V4(v4) => {
+                    out.push(TAG_V4);
+                    out.extend_from_slice(&v4.octets());
+                }
+                IpAddr::V6(v6) => {
+                    out.push(TAG_V6);
+                    out.extend_from_slice(&v6.octets());
+                }
+            }
+            out.extend_from_slice(&ip.port().to_be_bytes());
+        }
+        // **中継は最後に置く。**先に置くと、これを読めない版が
+        // 番地まで取り落とす（読めない版はどのみち受け取らないが、順を決めておく）
+        if let Some(relay) = &self.relay {
+            out.push(TAG_RELAY);
+            let len = u16::try_from(relay.len()).unwrap_or(u16::MAX);
+            out.extend_from_slice(&len.to_be_bytes());
+            out.extend_from_slice(relay.as_bytes());
+        }
+        out
+    }
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        if bytes.len() < 5 + 32 || &bytes[..4] != MAGIC || bytes[4] != KIND_ADDRESS {
+            return Err(Error::Malformed);
+        }
+        let mut key = [0u8; 32];
+        key.copy_from_slice(&bytes[5..37]);
+        let key = PublicKey::from_bytes(key)?;
+
+        let mut ips = Vec::new();
+        let mut relay = None;
+        let mut at = 37;
+        while at < bytes.len() {
+            // **中継はここで終わり。**長さのぶんだけ読んで、残りは無い
+            if bytes[at] == TAG_RELAY {
+                let len = usize::from(u16::from_be_bytes(take::<2>(bytes, at + 1)?));
+                if len == 0 || len > RELAY_MAX {
+                    return Err(Error::Malformed);
+                }
+                let raw = bytes.get(at + 3..at + 3 + len).ok_or(Error::Malformed)?;
+                relay = Some(
+                    core::str::from_utf8(raw)
+                        .map_err(|_| Error::Malformed)?
+                        .to_owned(),
+                );
+                at += 3 + len;
+                continue;
+            }
+            let (ip, size) = match bytes[at] {
+                TAG_V4 => (IpAddr::V4(Ipv4Addr::from(take::<4>(bytes, at + 1)?)), 4),
+                TAG_V6 => (IpAddr::V6(Ipv6Addr::from(take::<16>(bytes, at + 1)?)), 16),
+                _ => return Err(Error::Malformed),
+            };
+            let port = u16::from_be_bytes(take::<2>(bytes, at + 1 + size)?);
+            ips.push(SocketAddr::new(ip, port));
+            at += 1 + size + 2;
+        }
+
+        Ok(Self::新しく(key, ips, relay))
+    }
+}
+
+/// `bytes[from..]` から N byte を取り出す。足りなければ受け取らない。
+fn take<const N: usize>(bytes: &[u8], from: usize) -> Result<[u8; N], Error> {
+    bytes
+        .get(from..from + N)
+        .ok_or(Error::Malformed)?
+        .try_into()
+        .map_err(|_| Error::Malformed)
+}
+
+/// その番地が、外の網から呼びうるものか。
+///
+/// **グローバルに見えて呼べないものを、外向きに数えない。**
+/// - `100.64.0.0/10`（CGNAT）—— 事業者の内側。**モバイル回線でよくある**
+/// - `169.254.0.0/16` / `fe80::/10`（リンクローカル）—— 同じ線の上だけ
+fn 外向き(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            !(v4.is_private()
+                || v4.is_loopback()
+                || v4.is_link_local()
+                || v4.is_broadcast()
+                || v4.is_documentation()
+                || v4.is_unspecified()
+                // **CGNAT（100.64.0.0/10）。**外から呼べない
+                || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1])))
+        }
+        IpAddr::V6(v6) => {
+            !(v6.is_loopback()
+                || v6.is_unspecified()
+                // リンクローカル fe80::/10
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+                // ユニークローカル fc00::/7
+                || (v6.segments()[0] & 0xfe00) == 0xfc00)
+        }
+    }
+}
+
+impl fmt::Display for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{PREFIX}{}", base32::encode(&self.to_bytes()))
+    }
+}
+
+impl fmt::Debug for Address {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Address")
+            .field("public_key", &self.key)
+            .field("ip_addrs", &self.ips)
+            .field("relay", &self.relay)
+            .finish()
+    }
+}
+
+impl FromStr for Address {
+    type Err = Error;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let body = text.strip_prefix(PREFIX).ok_or(Error::Malformed)?;
+        let bytes = base32::decode(body).ok_or(Error::Malformed)?;
+        Self::from_bytes(&bytes)
+    }
+}

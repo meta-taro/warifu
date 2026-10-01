@@ -1,0 +1,390 @@
+import { describe, expect, it } from 'vitest';
+
+import { 連絡帳を組む, この機械の印, ルームのid, type 素材 } from './list';
+
+const 自分 = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const 相手 = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+const もう一人 = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+
+const 素: 素材 = { 自分, この機械のAIたち: [], 会議の相手: [], 覚えた: [] };
+
+describe('連絡帳の並び', () => {
+  it('いちばん上は「この PC」（自分と、つながっているエージェント）', () => {
+    // `issues/012`「この PC で会議するとき、私とあなたはセットでしょっていう」
+    const [先頭] = 連絡帳を組む({ ...素, この機械のAIたち: ['alpha のエージェント'] });
+    expect(先頭.title).toBe('contacts.this');
+    expect(先頭.行たち.map((r) => r.種類)).toEqual(['自分', 'AI']);
+  });
+
+  it('誰もつながっていなければ、まとめの行を作らない', () => {
+    // **「マイ PC エージェント」という 1 人は居ない**（2026-09-08）——
+    // 行にすると、それが 1 人に見える。案内は画面側で出す
+    const [先頭] = 連絡帳を組む({ ...素, この機械のAIたち: [] });
+    expect(先頭.行たち.some((r) => r.key === この機械の印)).toBe(false);
+    expect(先頭.行たち.map((r) => r.種類)).toEqual(['自分']);
+  });
+
+  it('つながっているエージェントを、1 つずつ行にする', () => {
+    // **まとめて「この PC の AI  2」にすると、どれがつながっているのか分からない**
+    // （2026-09-08）
+    const [先頭] = 連絡帳を組む({ ...素, この機械のAIたち: ['alpha のエージェント', 'beta のエージェント'] });
+    const ai = 先頭.行たち.filter((r) => r.種類 === 'AI');
+    expect(ai.map((r) => r.name)).toEqual(['alpha のエージェント', 'beta のエージェント']);
+    expect(ai.every((r) => r.いま会議に居る)).toBe(true);
+  });
+
+  it('つながっているエージェントが居るときは、まとめの行を出さない', () => {
+    // **同じものを 2 か所に出さない**
+    const [先頭] = 連絡帳を組む({ ...素, この機械のAIたち: ['alpha のエージェント'] });
+    expect(先頭.行たち.some((r) => r.key === この機械の印)).toBe(false);
+  });
+
+  it('行ごとに別の印を持つ（押し分けられる）', () => {
+    const [先頭] = 連絡帳を組む({ ...素, この機械のAIたち: ['a のエージェント', 'b のエージェント'] });
+    const 印 = 先頭.行たち.filter((r) => r.種類 === 'AI').map((r) => r.key);
+    expect(new Set(印).size).toBe(2);
+  });
+
+  it('会議に誰も居なければ、その区画そのものを出さない', () => {
+    // **見出しだけが並ぶ画面にしない**
+    const 区画 = 連絡帳を組む(素);
+    expect(区画.map((s) => s.title)).toEqual(['contacts.this', 'contacts.saved']);
+  });
+
+  it('いま会議に居る人を、覚えている相手の中に二度出さない', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      会議の相手: [相手],
+      覚えた: [{ key: 相手, label: 'air', has_address: true }],
+    });
+    // **段 C（D107 の計画）—— 同じ人を 2 か所に出さない。**
+    // 「いま同じルームの人」の区画をやめ、**連絡先に 1 行だけ**出す
+    const 覚えた = 区画.find((s) => s.title === 'contacts.saved');
+    expect(覚えた?.行たち).toHaveLength(1);
+    expect(覚えた?.行たち[0].いま会議に居る).toBe(true);
+    expect(区画.find((s) => s.title === 'contacts.inmeeting')).toBeUndefined();
+  });
+
+  it('覚えていない相手は鍵の頭で出す（知っているように見せない）', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [相手] });
+    const 行 = 区画.find((s) => s.title === 'contacts.saved')?.行たち[0];
+    expect(行?.name).toBe('BBBBBBBBBBBB…');
+  });
+
+  it('覚えている相手は呼び名の順に並ぶ', () => {
+    // **読み込むたびに並びが変わらない**（毎回探させない）
+    const 区画 = 連絡帳を組む({
+      ...素,
+      覚えた: [
+        { key: もう一人, label: 'zzz', has_address: false },
+        { key: 相手, label: 'aaa', has_address: true },
+      ],
+    });
+    const 覚えた = 区画.find((s) => s.title === 'contacts.saved');
+    expect(覚えた?.行たち.map((r) => r.name)).toEqual(['aaa', 'zzz']);
+  });
+
+  it('住所を覚えているかを、行が持つ', () => {
+    // **これで「呼ぶ」が押せるかが決まる**
+    const 区画 = 連絡帳を組む({
+      ...素,
+      覚えた: [{ key: 相手, label: 'air', has_address: true }],
+    });
+    expect(区画.find((s) => s.title === 'contacts.saved')?.行たち[0].住所を覚えている).toBe(true);
+  });
+
+  it('自分は「この PC」にだけ出て、覚えている相手には出ない', () => {
+    const 区画 = 連絡帳を組む({ ...素, 覚えた: [{ key: 相手, label: 'air', has_address: false }] });
+    const 覚えた = 区画.find((s) => s.title === 'contacts.saved');
+    expect(覚えた?.行たち.some((r) => r.key === 自分)).toBe(false);
+  });
+});
+
+describe('ルームの一覧', () => {
+  it('居るルームを並べる', () => {
+    // **持てても見えなければ切り替えようがない**（2026-09-08）
+    const 区画 = 連絡帳を組む({
+      ...素,
+      ルームたち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms');
+    expect(ルーム?.行たち).toHaveLength(1);
+    expect(ルーム?.行たち[0].種類).toBe('ルーム');
+  });
+
+  it('名前の無いルームは、生の id で呼ばない', () => {
+    // **生の id を人に見せない**（DESIGN §10-A）。
+    // 「HPXQEPXFKFMA…」では、どのルームか分からない
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      ルームたち: [
+        { id: 'ROOM1AAAAAAAAAAAAAAAA', members: 3, host: true },
+        { id: 'ROOM2BBBBBBBBBBBBBBBB', members: 1, host: false },
+      ],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(行たち.map((r) => r.name)).toEqual(['room.nth:1:3', 'room.nth:2:1']);
+  });
+
+  it('名前を付けたルームは、その名前で呼ぶ', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      ルームたち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
+      ルームの名前: { ROOM1AAAAAAAAAAAAAAAA: '週次' },
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(行たち[0].name).toBe('週次');
+  });
+
+  it('ルームが無ければ、その区画そのものを出さない', () => {
+    // **空の見出しを並べない**
+    expect(連絡帳を組む(素).some((s) => s.title === 'contacts.rooms')).toBe(false);
+  });
+
+  it('自分しか居ないルームは、繋がっている扱いにしない', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      ルームたち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 1, host: true }],
+    });
+    expect(区画.find((s) => s.title === 'contacts.rooms')?.行たち[0].いま会議に居る).toBe(false);
+  });
+
+  it('ルームの印から id を取り出せる', () => {
+    expect(ルームのid('room:ROOM1')).toBe('ROOM1');
+    expect(ルームのid('desk:alpha の AI')).toBeNull();
+  });
+});
+
+describe('留守中に届いた相手', () => {
+  it('覚えていない相手でも、開く所を出す', () => {
+    // **受け取っておいて出さないのは、黙って捨てるのと同じに見える**
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      留守中に届いた: ['XYZ'],
+    });
+    const 留守 = 区画.find((s) => s.title === 'contacts.late');
+    expect(留守?.行たち.map((r) => r.key)).toEqual(['XYZ']);
+    // **居場所は知らない。**預かり所ごしに届いただけ
+    expect(留守?.行たち[0].住所を覚えている).toBe(false);
+  });
+
+  it('覚えている相手は、二度出さない', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [{ key: 'ABC', label: '佐藤', has_address: true }],
+      留守中に届いた: ['ABC'],
+    });
+    expect(区画.find((s) => s.title === 'contacts.late')).toBeUndefined();
+  });
+
+  it('届いていなければ、区画そのものを出さない', () => {
+    const 区画 = 連絡帳を組む({ 自分: 'ME', この機械のAIたち: [], 会議の相手: [], 覚えた: [] });
+    expect(区画.find((s) => s.title === 'contacts.late')).toBeUndefined();
+  });
+});
+
+describe('この PC のエージェント', () => {
+  it('それぞれが 1 人として並ぶ', () => {
+    // **まとめて「この PC の AI」1 行にしない**（2026-09-08）
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: ['alpha のエージェント', 'beta のエージェント'],
+      会議の相手: [],
+      覚えた: [],
+    });
+    const この機械 = 区画.find((s) => s.title === 'contacts.this');
+    expect(この機械?.行たち.map((r) => r.name)).toEqual(['contacts.me', 'alpha のエージェント', 'beta のエージェント']);
+  });
+
+  it('立ち上げていないエージェントも、名乗りがあれば残る', () => {
+    // 消えると、その 1 人ぶんの名乗りが編集できなくなる
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: ['alpha のエージェント'],
+      名乗りのあるエージェント: ['alpha のエージェント', 'beta のエージェント'],
+      会議の相手: [],
+      覚えた: [],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'alpha のエージェント', 'beta のエージェント']);
+    // **つながっているかどうかは分ける**
+    expect(行たち.find((r) => r.name === 'alpha のエージェント')?.いま会議に居る).toBe(true);
+    expect(行たち.find((r) => r.name === 'beta のエージェント')?.いま会議に居る).toBe(false);
+  });
+
+  it('同じエージェントを二度出さない', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: ['alpha のエージェント'],
+      名乗りのあるエージェント: ['alpha のエージェント'],
+      会議の相手: [],
+      覚えた: [],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
+    expect(行たち.filter((r) => r.name === 'alpha のエージェント').length).toBe(1);
+  });
+
+  it('誰もつながっていなければ、人の行を出さない', () => {
+    // **「マイ PC エージェント」という 1 人は居ない。**
+    // 行にすると、それが 1 人に見える（2026-09-08）
+    const 区画 = 連絡帳を組む({ 自分: 'ME', この機械のAIたち: [], 会議の相手: [], 覚えた: [] });
+    const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me']);
+  });
+});
+
+describe('ルームの名前', () => {
+  it('付けた名前で呼ぶ', () => {
+    // **名前が無いと、どのルームか見分けられない**（2026-09-08）
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      ルームたち: [{ id: 'ROOM-ABCDEF', members: 2, host: true }],
+      ルームの名前: { 'ROOM-ABCDEF': '朝会' },
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms');
+    expect(ルーム?.行たち[0].name).toBe('朝会');
+  });
+
+  it('付いていなければ、数えて呼ぶ（生の id は出さない）', () => {
+    // **生の id を人に見せない**（DESIGN §10-A）。
+    // それまでは id の頭（`ROOMABCD…`）を出していたが、**どのルームか分からない**
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      ルームたち: [{ id: 'ROOMABCDEFGHIJKL', members: 1, host: true }],
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms');
+    expect(ルーム?.行たち[0].name).toBe('room.nth:1:1');
+    expect(ルーム?.行たち[0].name).not.toContain('ROOM');
+  });
+});
+
+describe('数えて呼ぶ印は、人に見せない（2026-09-11 に実物で出た）', () => {
+  it('印は決まった形だけを持つ', () => {
+    // **画面はこの形を見て文言に組み替える。**
+    // 形が変わると、`room.nth:1:1` が**そのまま人に見える**
+    // （名前の欄に入って、実物で出た）
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [],
+      ルームたち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
+    });
+    const 行 = 区画.find((s) => s.title === 'contacts.rooms')?.行たち[0];
+    expect(行?.name).toMatch(/^room\.nth:\d+:\d+$/);
+  });
+});
+
+describe('自分が建てたルームか', () => {
+  // gh issue 13（2026-09-12）——
+  // 入り直したあと、連絡帳にルームが 2 行並び、どちらが本物か分からなかった。
+  //
+  // **重複ではない。**片方は**起動時に建て直した自分のルーム**、
+  // 片方は**鍵でもらって入ったルーム**である。
+  // **どちらが自分のものかを画面が言っていない**のが問題だった。
+
+  it('主催しているルームには印を付ける', () => {
+    const 出た = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      覚えた: [],
+      会議の相手: [],
+      ルームたち: [
+        { id: 'AAA', members: 1, host: true },
+        { id: 'BBB', members: 2, host: false },
+      ],
+    });
+    const ルーム = 出た.find((区) => 区.title === 'contacts.rooms')?.行たち ?? [];
+    expect(ルーム).toHaveLength(2);
+    expect(ルーム[0].主催か).toBe(true);
+    expect(ルーム[1].主催か).toBe(false);
+  });
+
+  it('ルーム以外の行には印を付けない（人に主催は無い）', () => {
+    const 出た = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      覚えた: [{ key: 'PPP', label: '佐藤', has_address: true }],
+      会議の相手: [],
+      ルームたち: [],
+    });
+    const 人 = 出た.flatMap((区) => 区.行たち).filter((行) => 行.種類 === '人');
+    expect(人.every((行) => 行.主催か === undefined)).toBe(true);
+  });
+});
+
+describe('段 C —— 同じ人を 2 か所に出さない', () => {
+  it('「いま同じルームの人」の区画を作らない', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [相手, もう一人] });
+    expect(区画.map((s) => s.title)).not.toContain('contacts.inmeeting');
+  });
+
+  it('ルームに居る人も、連絡先に 1 行だけ出る（消えない）', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      会議の相手: [相手],
+      覚えた: [{ key: 相手, label: 'air', has_address: true }],
+    });
+    const 行たち = 区画.find((s) => s.title === 'contacts.saved')?.行たち ?? [];
+    expect(行たち.filter((r) => r.key === 相手)).toHaveLength(1);
+    // **呼び名は残る。**ルームに居るかどうかで名前が変わらない
+    expect(行たち[0].name).toBe('air');
+    expect(行たち[0].住所を覚えている).toBe(true);
+  });
+
+  it('覚えていないのにルームに居る人も、連絡先に出る（居るのに見えない、を作らない）', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [もう一人] });
+    const 行たち = 区画.find((s) => s.title === 'contacts.saved')?.行たち ?? [];
+    expect(行たち.map((r) => r.key)).toEqual([もう一人]);
+    expect(行たち[0].いま会議に居る).toBe(true);
+  });
+
+  it('留守中に届いた相手と、ルームに居る相手が重なっても 1 行', () => {
+    const 区画 = 連絡帳を組む({ ...素, 会議の相手: [相手], 留守中に届いた: [相手] });
+    const 全部 = 区画.flatMap((s) => s.行たち).filter((r) => r.key === 相手);
+    expect(全部).toHaveLength(1);
+  });
+});
+
+describe('映像が付いている部屋の札（#36）', () => {
+  it('映像が付いている部屋の行だけ、印を持つ', () => {
+    // **開くまで分からない**のをやめる（2026-09-16）
+    const 区画 = 連絡帳を組む({
+      ...素,
+      ルームたち: [
+        { id: 'R1', members: 2, host: true },
+        { id: 'R2', members: 1, host: true },
+      ],
+      映像がある部屋: 'R1',
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(ルーム.map((r) => r.映像が付いている)).toEqual([true, false]);
+  });
+
+  it('どこにも付いていなければ、どの行にも印を出さない', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      ルームたち: [{ id: 'R1', members: 2, host: true }],
+      映像がある部屋: null,
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(ルーム[0].映像が付いている).toBe(false);
+  });
+});

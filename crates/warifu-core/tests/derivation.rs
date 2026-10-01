@@ -1,0 +1,210 @@
+//! シードから Profile 鍵・Device 鍵を導く部分。
+//!
+//! ここが決定的であることが、`decisions.md` D2（鍵の復旧方式が未決）を
+//! 実装のブロッカーから外している根拠。**同じシードから同じ鍵が出ること**が
+//! 保証される限り、復旧方式が a〜d のどれになっても Identity の形は変わらない。
+
+use warifu_core::Seed;
+
+const SEED_A: [u8; 32] = [1u8; 32];
+const SEED_B: [u8; 32] = [2u8; 32];
+
+#[test]
+fn 同じシードと同じラベルからは同じ鍵が出る() {
+    let a = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+    let b = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+
+    assert_eq!(a.public_key(), b.public_key());
+}
+
+#[test]
+fn シードが違えば鍵も違う() {
+    let a = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+    let b = Seed::from_bytes(SEED_B).profile("Personal").device("PC");
+
+    assert_ne!(a.public_key(), b.public_key());
+}
+
+#[test]
+fn profileが違えばdevice鍵も違う() {
+    let seed = Seed::from_bytes(SEED_A);
+    let personal = seed.profile("Personal").device("PC");
+    let work = seed.profile("Work").device("PC");
+
+    assert_ne!(
+        personal.public_key(),
+        work.public_key(),
+        "Personal と Work が同じ鍵になると、相手から同一人物だと分かってしまう"
+    );
+}
+
+#[test]
+fn deviceが違えば鍵も違う() {
+    let profile = Seed::from_bytes(SEED_A).profile("Personal");
+
+    assert_ne!(
+        profile.device("PC").public_key(),
+        profile.device("スマホ").public_key()
+    );
+}
+
+#[test]
+fn profile鍵とdevice鍵は別物() {
+    let profile = Seed::from_bytes(SEED_A).profile("Personal");
+
+    assert_ne!(
+        profile.public_key(),
+        profile.device("PC").public_key(),
+        "端末を 1 台失っても Profile ごと失わないために、両者は分かれている必要がある"
+    );
+}
+
+#[test]
+fn ラベルの区切りを跨いで衝突しない() {
+    // "a" + "b" と "ab" が同じ鍵に落ちると、ラベルを細工して他人の鍵を作れてしまう
+    let seed = Seed::from_bytes(SEED_A);
+
+    assert_ne!(
+        seed.profile("a").device("b").public_key(),
+        seed.profile("ab").device("").public_key()
+    );
+    assert_ne!(
+        seed.profile("a").device("b").public_key(),
+        seed.profile("").device("ab").public_key()
+    );
+}
+
+#[test]
+fn 生成したシードは毎回違う() {
+    let a = Seed::generate().expect("乱数が取れない");
+    let b = Seed::generate().expect("乱数が取れない");
+
+    assert_ne!(
+        a.profile("P").device("D").public_key(),
+        b.profile("P").device("D").public_key()
+    );
+}
+
+#[test]
+fn 署名した本人の鍵でだけ検証が通る() {
+    let seed = Seed::from_bytes(SEED_A);
+    let mine = seed.profile("Personal").device("PC");
+    let other = seed.profile("Personal").device("スマホ");
+
+    let sig = mine.sign(b"warifu");
+
+    assert!(mine.public_key().verify(b"warifu", &sig).is_ok());
+    assert!(other.public_key().verify(b"warifu", &sig).is_err());
+    assert!(
+        mine.public_key()
+            .verify("warifu ではない".as_bytes(), &sig)
+            .is_err()
+    );
+}
+
+#[test]
+fn 公開鍵は文字列にして戻せる() {
+    let key = Seed::from_bytes(SEED_A)
+        .profile("Personal")
+        .device("PC")
+        .public_key();
+
+    let text = key.to_string();
+    let back = text.parse().expect("自分が出した文字列を読めない");
+
+    assert_eq!(key, back);
+}
+
+#[test]
+fn 壊れた公開鍵の文字列は読めない() {
+    use warifu_core::PublicKey;
+
+    assert!("".parse::<PublicKey>().is_err());
+    assert!("ふつうの文字列".parse::<PublicKey>().is_err());
+    // 長さは合っているが 16 進として不正
+    assert!("zz".repeat(32).parse::<PublicKey>().is_err());
+}
+
+#[test]
+fn 端末の秘密鍵は取り出せて同じ公開鍵に戻る() {
+    // 経路（warifu-net）は、この 32 byte をそのまま QUIC の鍵に使う。
+    // **同じ鍵でなければ、割符で確定した相手と、実際に繋がった相手が別物になる。**
+    let device = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+
+    let mut secret = device.secret_key_bytes();
+    let 戻した = Seed::from_bytes(SEED_A).profile("Personal").device("PC");
+
+    assert_eq!(secret, 戻した.secret_key_bytes(), "同じ導出から同じ秘密鍵");
+    assert_ne!(
+        secret,
+        device.public_key().to_bytes(),
+        "秘密鍵と公開鍵が同じ値になっている"
+    );
+
+    // 取り出した秘密鍵から作り直した署名鍵が、同じ公開鍵を名乗る
+    use ed25519_dalek::{Signer as _, SigningKey};
+    let signing = SigningKey::from_bytes(&secret);
+    assert_eq!(
+        signing.verifying_key().to_bytes(),
+        device.public_key().to_bytes()
+    );
+
+    // 署名も一致する
+    let sig = warifu_core::Signature::from_bytes(signing.sign(b"warifu").to_bytes());
+    assert!(device.public_key().verify(b"warifu", &sig).is_ok());
+
+    use zeroize::Zeroize as _;
+    secret.zeroize();
+}
+
+/// **保存して読み直したシードは、同じ身元を導く。**
+///
+/// これが成り立たないと「閉じても同じ人でいられる」が作れない（`issues/010` の前提）。
+#[test]
+fn シードは_32byte_で出し入れできる() {
+    let seed = Seed::from_bytes(SEED_A);
+    let bytes = seed.to_bytes();
+    assert_eq!(bytes, SEED_A, "出した 32 byte が、入れた 32 byte と違う");
+
+    let 戻した = Seed::from_bytes(bytes);
+    assert_eq!(
+        seed.profile("Personal").device("PC").public_key(),
+        戻した.profile("Personal").device("PC").public_key(),
+        "同じ 32 byte から、違う身元が出てきた"
+    );
+}
+
+#[test]
+fn 一つの機械は_一つの身元にする() {
+    // **2026-09-11 に別マシンで見つかった。**
+    // 呼び名ごとに鍵が導かれるので、本番のコードに呼び名が 3 つあると
+    // **1 台が最大 3 人に見える** ——
+    //
+    //   画面            device("この端末")
+    //   warifu id       device("cli")
+    //   host / join     device("PC")
+    //
+    // `warifu id` が出す鍵で相手が待っているのに、
+    // `warifu join` は別の鍵で入ってくる。**同じ人だと分からない。**
+    //
+    // **呼び名は 1 つに決める**（`warifu_core::端末の呼び名`）。
+    // ここはその決めごとが崩れていないかを見る見張りである。
+    use warifu_core::端末の呼び名;
+
+    let seed = Seed::from_bytes([7; 32]);
+    let 画面 = seed.profile("Personal").device(端末の呼び名).public_key();
+    let cli = seed.profile("Personal").device(端末の呼び名).public_key();
+    assert_eq!(画面, cli, "同じ機械なら、画面でも CLI でも同じ鍵");
+
+    // **呼び名を変えれば別人になる。**だから固定する意味がある
+    let 別 = seed.profile("Personal").device("べつの呼び名").public_key();
+    assert_ne!(画面, 別);
+}
+
+#[test]
+fn 端末の呼び名は_変えてはいけない() {
+    // **変えると、全員の鍵が変わる。**
+    // 連絡先も戸口の知り合いも、渡してあるルームキーも指す先を失う。
+    // **変えるなら決定から**（勝手に変えない）
+    assert_eq!(warifu_core::端末の呼び名, "この端末");
+}

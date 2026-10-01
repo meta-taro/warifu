@@ -1,0 +1,9 @@
+規則	billing@example.com	invoice	High	要判断
+目印	請求書
+抽出	金額	合計	円
+抽出	支払期限	お支払期限	
+規則	noreply@example.com	notice	Low	
+目印	自動送信
+規則	calendar-notification@example.com	schedule	Normal	要判断
+目印	予定
+抽出	開始	開始	

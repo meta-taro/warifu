@@ -1,0 +1,15 @@
+[package]
+name = "warifu-quarantine"
+description = "受け取ったファイルを、そのまま置かない。**名前を信じない。**"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# **依存を持たない。**名前を検めるのに、通信もモデルも要らない。
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

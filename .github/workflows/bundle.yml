@@ -1,0 +1,126 @@
+name: bundle
+
+# **配布物が建つかを確かめる。**Windows / macOS の両方。
+#
+# 毎 push では走らせない（**D37**）。Tauri を建てると 10 分単位で伸び、
+# 判定のコードを 1 行直すたびに GUI の依存が建て直される。**遅いゲートは飛ばされる。**
+#
+# 走らせるのは 2 つのときだけ。
+#   - 人が手で起動したとき（workflow_dispatch）
+#   - タグを打ったとき（配布の直前）
+#
+# **Windows でも画面が建つ**（2026-09-14 に実測。実行 34844034255 の成果物に
+# `warifu-desktop.exe` 25MB が入っていることを確かめた）。
+#
+# 2026-09-03 から 09-06 までは建たなかった。記録として残す ——
+#
+#   tauri 2.11.5 が windows "^0.61" を要求するため、画面側の lock には
+#   windows が 0.61.3 と 0.62.2 の 2 本入る。そこで wmi 0.18.4 が
+#   **windows 0.61.3 ＋ windows-core 0.62.2 という食い違った組**を掴み、
+#   `IWbemObjectSink: windows_core::Interface is not satisfied` で落ちていた。
+#
+# **この注記が古いままだと、「Windows に画面を届ける手段が無い」と読める。**
+# 実際、それを前提に手順を書きかけた（2026-09-14）。**建つなら建つと書く。**
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      # **片方が落ちても、もう片方の結果を見る。**
+      # Windows だけ落ちたのか両方なのかで、原因の見当が変わる
+      fail-fast: false
+      matrix:
+        # **ARM64 の Windows も建てる**（2026-09-30）。x64 の版を ARM64 で動かすと、
+        # Windows が変換しながら動かすので遅い。背景を隠す処理が入って、その遅さが効く
+        os: [windows-latest, windows-11-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+          node --version
+          pnpm --version
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      # **ARM64 の Windows は、依存を建てるのに clang が要る**（`docs/install.md`）。
+      # 入っていなければ入れる（入っていれば何もしない）
+      - name: clang（ARM64 の Windows だけ）
+        if: runner.os == 'Windows' && runner.arch == 'ARM64'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command clang -ErrorAction SilentlyContinue)) { choco install llvm -y --no-progress }
+          'C:\Program Files\LLVM\bin' | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      - name: CLI を建てる
+        run: cargo build --release -p warifu-cli
+
+      # **`cargo build` で建てると、画面の中身が入らない**（2026-09-14 に実測）。
+      #
+      #   成果物の `warifu-desktop.exe` に `localhost:5173` が埋まっていて、
+      #   **起動すると Edge のエラーページが出る**（`ERR_CONNECTION_REFUSED`）。
+      #   Windows の人が入れて踏んだ。**macOS の成果物も同じだった** ——
+      #   つまり「`develop` を試す」道は、**ずっと死んでいた。**
+      #
+      # **Tauri の CLI から建てる。**`beforeBuildCommand`（`pnpm build`）も
+      # こちらが回すので、フロントを別に建てる段は要らない。
+      # `--no-bundle`: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
+      # **macOS は `.app` まで作る。**2026-09-15、Mac の人から ——
+      #
+      #   「手元でビルドできませんでした（この機械の Node は 20、要求は >=22）。
+      #     **同じ機械で別のものを Node 20 で回している**ので、
+      #     そちらを巻き込む変更を確かめずにやりたくありません。」
+      #
+      # **裸の実行ファイルだけでは、Mac の人が試せない。**`.app` は署名なしでも
+      # `xattr` を外せば動く（`.dmg` と違って、署名は要らない）。
+      - name: 画面を建てる（macOS・.app まで）
+        if: runner.os == 'macOS'
+        run: pnpm --filter @warifu/desktop tauri build --bundles app
+
+      # Windows のインストーラ（`.msi` / `-setup.exe`）は署名が要るので、
+      # **タグのときだけ**（`release.yml`）。ここは実行ファイルまで
+      - name: 画面を建てる（Windows・実行ファイルまで）
+        if: runner.os == 'Windows'
+        run: pnpm --filter @warifu/desktop tauri build --no-bundle
+
+      # **建てただけで終わらせない。**
+      #
+      # 2026-09-07 まで、`develop` の CI は成果物を出しておらず、
+      # Windows バイナリが出るのは release（タグ）だけだった。
+      # Windows で試す必要があるのに、`develop` を試す手段が Windows 側に無かった。
+      #
+      # Windows には Rust が入っていないので、
+      # 手元で建てることもできない。**タグを待たせるのは、こちらの都合である。**
+      - name: できたものを上げる
+        uses: actions/upload-artifact@v4
+        with:
+          name: warifu-${{ matrix.os }}-develop
+          path: |
+            target/release/warifu
+            target/release/warifu.exe
+            apps/desktop/src-tauri/target/release/warifu-desktop
+            apps/desktop/src-tauri/target/release/warifu-desktop.exe
+            apps/desktop/src-tauri/target/release/bundle/macos/warifu.app/**
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,492 @@
+import { describe, expect, it } from 'vitest';
+import { 短い鍵 } from './session';
+import {
+  伏せる,
+  同じ網に居るか,
+  候補を読む,
+  候補を言い表す,
+  対を言い表す,
+  数えて言い表す,
+  組の様子,
+  送り受けを言い表す,
+  映像の向き,
+  映像の包み数,
+  動いている向き,
+  向きを言い表す,
+} from './trace';
+
+describe('伏せる', () => {
+  it('IPv4 は、網は残して機械だけ隠す', () => {
+    // **同じ網に居るかどうかが、切り分けでいちばん効く。**
+    // 末尾まで出すと、公開の issue に貼ったときに機械が特定できる
+    expect(伏せる('192.168.24.11')).toBe('192.168.24.x');
+  });
+
+  it('IPv6 は頭の 2 組だけ残す', () => {
+    expect(伏せる('2001:db8:85a3:8d3:1319:8a2e:370:7348')).toBe('2001:db8:…');
+  });
+
+  it('mDNS の名前は、そのまま出す（もともと誰のものか分からない）', () => {
+    expect(伏せる('a1b2c3d4-0000-1111-2222-333344445555.local')).toBe(
+      'a1b2c3d4-0000-1111-2222-333344445555.local',
+    );
+  });
+});
+
+describe('候補を読む', () => {
+  const 生 = 'candidate:842163049 1 udp 1686052607 192.168.24.11 58488 typ host generation 0';
+
+  it('種類・手・網・口を取り出す', () => {
+    expect(候補を読む(生)).toEqual({
+      種類: 'host',
+      手: 'udp',
+      網: '192.168.24.x',
+      口: 58488,
+      名前で来たか: false,
+    });
+  });
+
+  it('mDNS の候補は、名前で来たと分かる', () => {
+    // **これが分かると、mDNS が塞がれている機械を疑える**
+    const m = 'candidate:1 1 udp 2113937151 abcd-0000.local 51234 typ host generation 0';
+    expect(候補を読む(m).名前で来たか).toBe(true);
+  });
+
+  it('読めないものは、読めないと言う（推測しない）', () => {
+    expect(候補を読む('こわれています')).toEqual({
+      種類: '不明',
+      手: '不明',
+      網: '不明',
+      口: null,
+      名前で来たか: false,
+    });
+  });
+});
+
+describe('候補を言い表す', () => {
+  it('送った候補', () => {
+    const 生 = 'candidate:1 1 udp 2113937151 192.168.24.11 58488 typ host generation 0';
+    expect(候補を言い表す('送る', 生)).toBe('候補 送る host udp 192.168.24.x:58488');
+  });
+
+  it('来た候補', () => {
+    const 生 = 'candidate:2 1 udp 1686052607 198.51.100.7 40404 typ srflx generation 0';
+    expect(候補を言い表す('来た', 生)).toBe('候補 来た srflx udp 198.51.100.x:40404');
+  });
+
+  it('mDNS なら、そう書き添える', () => {
+    const 生 = 'candidate:1 1 udp 2113937151 abcd-0000.local 51234 typ host generation 0';
+    expect(候補を言い表す('送る', 生)).toBe(
+      '候補 送る host udp abcd-0000.local:51234（mDNS の名前）',
+    );
+  });
+});
+
+describe('対を言い表す', () => {
+  const 統計 = [
+    { id: 'p1', type: 'candidate-pair', state: 'succeeded', nominated: true, localCandidateId: 'l1', remoteCandidateId: 'r1' },
+    { id: 'l1', type: 'local-candidate', candidateType: 'host', protocol: 'udp', address: '192.168.24.11', port: 58488 },
+    { id: 'r1', type: 'remote-candidate', candidateType: 'host', protocol: 'udp', address: '192.168.24.9', port: 51111 },
+  ];
+
+  it('選ばれた組を、両側とも出す', () => {
+    expect(対を言い表す(統計)).toBe('選ばれた組 host udp 192.168.24.x:58488 ↔ host udp 192.168.24.x:51111');
+  });
+
+  it('組が無いときは何も言わない（黙る）', () => {
+    expect(対を言い表す([])).toBeNull();
+  });
+});
+
+describe('数えて言い表す', () => {
+  it('送った数・来た数・組の様子を数える', () => {
+    const 統計 = [
+      { id: 'l1', type: 'local-candidate' },
+      { id: 'l2', type: 'local-candidate' },
+      { id: 'r1', type: 'remote-candidate' },
+      { id: 'p1', type: 'candidate-pair', state: 'failed' },
+      { id: 'p2', type: 'candidate-pair', state: 'in-progress' },
+    ];
+    expect(数えて言い表す(統計)).toBe('候補 送った 2 / 来た 1 ／ 組 2（成立 0・試し中 1・だめ 1）');
+  });
+
+  it('来た候補が 0 なら、それが分かる', () => {
+    const 統計 = [{ id: 'l1', type: 'local-candidate' }];
+    expect(数えて言い表す(統計)).toBe('候補 送った 1 / 来た 0 ／ 組 0（成立 0・試し中 0・だめ 0）');
+  });
+});
+
+describe('組の様子', () => {
+  it('**組ごとに、様子と、候補が引けたかを出す。**`connected` なのに画面が unknown のとき、ここしか手掛かりが無い', () => {
+    const 統計 = [
+      { id: 'p1', type: 'candidate-pair', state: 'succeeded', nominated: true, localCandidateId: 'l1', remoteCandidateId: 'r9' },
+      { id: 'l1', type: 'local-candidate', candidateType: 'host' },
+    ];
+    // r9 が統計に無い＝**相手の候補が引けない**。これだと経路を決められない
+    expect(組の様子(統計)).toEqual(['組 1 succeeded 選ばれた／こちら host／あちら 引けません']);
+  });
+
+  it('両方引ければ、両方の種別を出す', () => {
+    const 統計 = [
+      { id: 'p1', type: 'candidate-pair', state: 'in-progress', localCandidateId: 'l1', remoteCandidateId: 'r1' },
+      { id: 'l1', type: 'local-candidate', candidateType: 'host' },
+      { id: 'r1', type: 'remote-candidate', candidateType: 'srflx' },
+    ];
+    expect(組の様子(統計)).toEqual(['組 1 in-progress／こちら host／あちら srflx']);
+  });
+
+  it('組が無ければ、空で返す（無いことを言うのは呼ぶ側）', () => {
+    expect(組の様子([])).toEqual([]);
+  });
+});
+
+describe('送り受けを言い表す', () => {
+  it('**送っているのか、受けているのか**を数で出す', () => {
+    // 2026-09-15、Windows の映像が mac に出ない。**経路は direct、文字は通る。**
+    // **送っていないのか、送っているのに映らないのか**が、記録から読めなかった
+    const 統計 = [
+      { id: 'o1', type: 'outbound-rtp', kind: 'video', packetsSent: 0 },
+      { id: 'o2', type: 'outbound-rtp', kind: 'audio', packetsSent: 132 },
+      { id: 'i1', type: 'inbound-rtp', kind: 'video', packetsReceived: 480 },
+      { id: 'i2', type: 'inbound-rtp', kind: 'audio', packetsReceived: 120 },
+    ];
+    // **音の積もりが「不明」と付く**（2026-09-17）——
+    // この統計は `totalAudioEnergy` を持っていないので、**「無音」とは言えない**
+    expect(送り受けを言い表す(統計)).toBe(
+      '送り 映像 0 / 音 132（音の積もり 不明） ／ 受け 映像 480 / 音 120（音の積もり 不明）',
+    );
+  });
+
+  it('枠が無ければ「なし」と言う（0 と混ぜない）', () => {
+    // **「送る枠が無い」と「送っているが 0 個」は別の話。**混ぜると切り分けられない
+    expect(送り受けを言い表す([])).toBe('送り なし ／ 受け なし');
+  });
+
+  it('片側だけ枠があるときは、その側だけ数える', () => {
+    const 統計 = [{ id: 'i1', type: 'inbound-rtp', kind: 'video', packetsReceived: 7 }];
+    expect(送り受けを言い表す(統計)).toBe('送り なし ／ 受け 映像 7 / 音 なし');
+  });
+});
+
+describe('映像の向き（#39）', () => {
+  it('**受けているのに送っていない**を、そのまま返す', () => {
+    // 2026-09-16、入った瞬間に相手へは映っているのに、こちらはボタンを押すまで見えなかった
+    const 統計 = [
+      { id: 'o', type: 'outbound-rtp', kind: 'video', packetsSent: 0 },
+      { id: 'i', type: 'inbound-rtp', kind: 'video', packetsReceived: 89 },
+    ];
+    expect(映像の向き(統計)).toEqual({ 送っている: false, 受けている: true });
+  });
+
+  it('両方流れていれば、両方 true', () => {
+    const 統計 = [
+      { id: 'o', type: 'outbound-rtp', kind: 'video', packetsSent: 355863 },
+      { id: 'i', type: 'inbound-rtp', kind: 'video', packetsReceived: 350072 },
+    ];
+    expect(映像の向き(統計)).toEqual({ 送っている: true, 受けている: true });
+  });
+
+  it('**枠が無いのと 0 個を、同じに扱う**（どちらも「流れていない」）', () => {
+    // 言い分けるのは `送り受けを言い表す` の仕事。**画面へ出す判断はここで丸める**
+    expect(映像の向き([])).toEqual({ 送っている: false, 受けている: false });
+    expect(
+      映像の向き([{ id: 'o', type: 'outbound-rtp', kind: 'video', packetsSent: 0 }]),
+    ).toEqual({ 送っている: false, 受けている: false });
+  });
+
+  it('音は見ない（映像の向きだけ）', () => {
+    const 統計 = [{ id: 'o', type: 'outbound-rtp', kind: 'audio', packetsSent: 900 }];
+    expect(映像の向き(統計)).toEqual({ 送っている: false, 受けている: false });
+  });
+});
+
+describe('同じ網に居るか（ハウリングの手がかり）', () => {
+  const 候補 = (id: string, address: string) => ({
+    id,
+    type: 'local-candidate' as const,
+    address,
+  });
+  const 組 = (l: string, r: string) => ({
+    id: 'p1',
+    type: 'candidate-pair' as const,
+    state: 'succeeded',
+    nominated: true,
+    localCandidateId: l,
+    remoteCandidateId: r,
+  });
+
+  it('同じ網なら、そう言う', () => {
+    // **机の隣に別の端末が在る形。**エコー除去では消せない
+    const 統計 = [
+      組('a', 'b'),
+      候補('a', '192.168.24.11'),
+      { ...候補('b', '192.168.24.16'), type: 'remote-candidate' as const },
+    ];
+    expect(同じ網に居るか(統計 as never)).toBe(true);
+  });
+
+  it('別の網なら、そう言う', () => {
+    const 統計 = [
+      組('a', 'b'),
+      候補('a', '192.168.24.11'),
+      { ...候補('b', '10.0.5.9'), type: 'remote-candidate' as const },
+    ];
+    expect(同じ網に居るか(統計 as never)).toBe(false);
+  });
+
+  it('組が無ければ null —— 「まだ分からない」を「別の網」と言わない', () => {
+    expect(同じ網に居るか([])).toBe(null);
+  });
+
+  it('mDNS の名前で来たら null —— 比べられないものを比べない', () => {
+    const 統計 = [
+      組('a', 'b'),
+      候補('a', 'f1b2ba37-e746-4426-ad1a-f7762754b545.local'),
+      { ...候補('b', '192.168.24.16'), type: 'remote-candidate' as const },
+    ];
+    expect(同じ網に居るか(統計 as never)).toBe(null);
+  });
+
+  it('片方の候補が引けなければ null', () => {
+    expect(同じ網に居るか([組('a', 'b'), 候補('a', '192.168.24.11')] as never)).toBe(null);
+  });
+});
+
+describe('音の積もり（本数では黙っているか分からない）', () => {
+  const 音 = (向き: 'outbound-rtp' | 'inbound-rtp', 本数: number, 積もり?: number) => ({
+    id: `a-${向き}`,
+    type: 向き,
+    kind: 'audio',
+    packetsSent: 本数,
+    packetsReceived: 本数,
+    totalAudioEnergy: 積もり,
+  });
+
+  it('**無音なら、そう言う**（本数が出ていても）', () => {
+    // **2026-09-17 の本題。**`track.enabled = false` でも音は無音として送られ続け、
+    // **本数は減らない。**`送り 音 121` を見て「まだ漏れている」と読みかけた
+    const 出た = 送り受けを言い表す([音('outbound-rtp', 121, 0)] as never);
+    expect(出た).toContain('音 121');
+    expect(出た).toContain('無音');
+  });
+
+  it('声が出ていれば、積もりが出る', () => {
+    const 出た = 送り受けを言い表す([音('outbound-rtp', 121, 0.0034)] as never);
+    expect(出た).toContain('音の積もり');
+    expect(出た).not.toContain('無音');
+  });
+
+  it('音の行が無ければ、積もりも言わない', () => {
+    // **「無い」を「0」と言わない**（`なし` と `0` を分けたのと同じ筋）
+    const 出た = 送り受けを言い表す([
+      { id: 'v', type: 'outbound-rtp', kind: 'video', packetsSent: 5 },
+    ] as never);
+    expect(出た).not.toContain('音の積もり');
+  });
+
+  it('**出していない版には「不明」と言う。「無音」と言わない**', () => {
+    // 古い版は `totalAudioEnergy` を出さない。
+    // **「出していない」を「0」と読むと、喋っているのに「無音」と書くことになる。**
+    // （`なし` と `0` を分けたのと、まったく同じ理由）
+    const 出た = 送り受けを言い表す([音('outbound-rtp', 121, undefined)] as never);
+    expect(出た).toContain('音 121');
+    expect(出た).toContain('不明');
+    expect(出た).not.toContain('無音');
+  });
+});
+
+describe('**本物の getStats() の束**（手で作った束は、在らない項目を自分で足せてしまう）', () => {
+  // **2026-09-18 に置いた。**手で作った束だけだと、在らない項目を自分で足せてしまう。
+  // **本物の束が 1 つ在れば、`totalAudioEnergy` が outbound に無いことが、その場で分かる。**
+  //
+  // **取り方**（マイクの許可は使わない）——
+  // `AudioContext` → `createMediaStreamDestination()` の合成音を
+  // `RTCPeerConnection` 2 本のループバックに載せ、`getStats()` を書き出した。
+  //
+  // **測った engine は Chromium**（画面は WKWebView なので、そこは別に測る必要がある）。
+  // **`id` などその場かぎりの値は落としてある。**
+  const 本物 = [
+    {
+      id: 'OT01A', type: 'outbound-rtp', kind: 'audio', mediaType: 'audio',
+      mediaSourceId: 'SA01',
+      bytesSent: 0, packetsSent: 0, active: true, headerBytesSent: 0,
+      nackCount: 0, packetsSentWithEct1: 0, retransmittedBytesSent: 0,
+      retransmittedPacketsSent: 0, totalPacketSendDelay: 0,
+    },
+    {
+      id: 'SA01', type: 'media-source', kind: 'audio',
+      audioLevel: 0, totalAudioEnergy: 0, totalSamplesDuration: 0,
+    },
+  ];
+
+  it('**送っている行に音量は載っていない**（これが落とし穴 11 の芯）', () => {
+    const 送り = 本物.find((s) => s.type === 'outbound-rtp');
+    expect(送り).toBeDefined();
+    // **`0` ではなく `undefined`。**ここを 0 と読むと「無音」と書いてしまう
+    expect(送り).not.toHaveProperty('totalAudioEnergy');
+  });
+
+  it('**掴んでいる側の音量は `media-source` に載っている**', () => {
+    const 元 = 本物.find((s) => s.type === 'media-source');
+    expect(元).toBeDefined();
+    expect(元?.totalAudioEnergy).toBe(0);
+  });
+
+  it('**紐（mediaSourceId）で引く**（送り手が 2 つある回に、他人の音量を足さない）', () => {
+    // **2026-09-18。**`outbound-rtp` の 18 個の鍵に音量は無く、
+    // **`mediaSourceId` が在った。**——**そこから引くのが筋である。**
+    const 出た = 送り受けを言い表す([
+      ...本物,
+      // **別の送り手の音源**（こちらは喋っている）。紐が違うので足さない
+      { id: 'SA99', type: 'media-source', kind: 'audio', totalAudioEnergy: 0.5 },
+    ] as never);
+    expect(出た).toContain('無音');
+    expect(出た).not.toContain('5.00e-1');
+  });
+
+  it('**本物の束で「無音」と言える**（仕様ではなく実測で）', () => {
+    const 出た = 送り受けを言い表す(本物 as never);
+    expect(出た).toContain('音 0');
+    expect(出た).toContain('無音');
+    expect(出た).not.toContain('不明');
+  });
+});
+
+describe('送り側の積もりは `media-source` から読む（**outbound-rtp には無い**）', () => {
+  // **2026-09-18、macOS での実測から出た。**
+  //
+  //     実測  送り 映像 0 / 音 0（音の積もり **不明**）
+  //
+  // **本数は 0 になったのに、積もりが永久に「不明」だった。**
+  // 仕様（W3C webrtc-stats）を見ると、**`totalAudioEnergy` は `outbound-rtp` に無い** ——
+  // **送っている側の音量は `media-source`（`RTCAudioSourceStats`）に載る。**
+  // 「For audio levels of tracks attached locally, see RTCAudioSourceStats instead」
+  //
+  // **在らないものを探していたので、送り側は常に「不明」だった。**
+  // 試験が通っていたのは、**試験の入力を自分で作って `outbound-rtp` に積もりを載せていた**から。
+  const 送る枠 = { id: 'o', type: 'outbound-rtp', kind: 'audio', packetsSent: 0 };
+
+  it('**media-source が 0 なら「無音」と言える**（これが測れないと シート 38 が永久に保留）', () => {
+    const 出た = 送り受けを言い表す([
+      送る枠,
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0 },
+    ] as never);
+    expect(出た).toContain('音 0');
+    expect(出た).toContain('無音');
+  });
+
+  it('media-source に声が出ていれば、積もりが出る', () => {
+    const 出た = 送り受けを言い表す([
+      送る枠,
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0.0034 },
+    ] as never);
+    expect(出た).toContain('音の積もり 3.40e-3');
+    expect(出た).not.toContain('無音');
+    expect(出た).not.toContain('不明');
+  });
+
+  it('**media-source が無ければ「不明」のまま**（言い過ぎない）', () => {
+    const 出た = 送り受けを言い表す([送る枠] as never);
+    expect(出た).toContain('不明');
+    expect(出た).not.toContain('無音');
+  });
+
+  it('**送る枠が無ければ、media-source があっても言わない**（枠と中身を混ぜない）', () => {
+    // **掴んでいるだけで送っていない**とき、送り側の積もりを言うと
+    // 「送っている」と読めてしまう（`なし` と `0` を分けたのと同じ筋）
+    const 出た = 送り受けを言い表す([
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0 },
+    ] as never);
+    expect(出た).toBe('送り なし ／ 受け なし');
+  });
+
+  it('受け側は `inbound-rtp` のまま（media-source を混ぜない）', () => {
+    const 出た = 送り受けを言い表す([
+      { id: 'i', type: 'inbound-rtp', kind: 'audio', packetsReceived: 9, totalAudioEnergy: 0 },
+      { id: 'ms', type: 'media-source', kind: 'audio', totalAudioEnergy: 0.5 },
+    ] as never);
+    // **受けが無音なら無音。**送り側の声（0.5）に引きずられない
+    expect(出た).toContain('受け 映像 なし / 音 9（音の積もり 0・**無音**）');
+  });
+});
+
+describe('手元の様子（`なし` の意味を言い分ける）', () => {
+  const 音 = { id: 'a', type: 'outbound-rtp', kind: 'audio', packetsSent: 5, totalAudioEnergy: 0.1 };
+
+  it('**掴んでいるのに外してあるなら、そう言う**', () => {
+    // **2026-09-18。**`replaceTrack(null)` は行ごと消すので、
+    // **「枠が無い」と「外してある」が同じ `なし` になる。**
+    // **外から音量計で測っていた** —— 道具が自分で言う
+    const 出た = 送り受けを言い表す([], { 掴んでいる: true, 外してある: true });
+    expect(出た).toContain('送り なし');
+    expect(出た).toContain('外してある');
+  });
+
+  it('掴んでいないなら、そう言う', () => {
+    const 出た = 送り受けを言い表す([], { 掴んでいる: false, 外してある: false });
+    expect(出た).toContain('機器を掴んでいない');
+    expect(出た).not.toContain('外してある');
+  });
+
+  it('掴んでいて付いているなら、そう言う', () => {
+    const 出た = 送り受けを言い表す([音] as never, { 掴んでいる: true, 外してある: false });
+    expect(出た).toContain('送り手に付いている');
+  });
+
+  it('手元を渡さなければ、何も足さない（古い呼び方を壊さない）', () => {
+    const 出た = 送り受けを言い表す([音] as never);
+    expect(出た).not.toContain('【');
+  });
+});
+
+describe('記録に出す鍵の短い形（2026-09-24）', () => {
+  it('長い鍵は 12 文字で切って … を付ける', () => {
+    // **相手が 2 人以上居ると、鍵の無い行は読めない** ——
+    // 2026-09-24、`経路の具合 failed` が出た直後に `room_status` は `direct` を返した
+    // （**落ちたのは、もう居ない相手の通話**だった）
+    expect(短い鍵('PEERBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')).toBe('PEERBAAAAAAA…');
+  });
+
+  it('短い鍵は、そのまま出す', () => {
+    // **切る意味が無いものを切らない**（`…` が付くと、続きが在ると読める）
+    expect(短い鍵('KEY1')).toBe('KEY1');
+  });
+});
+
+describe('いま動いている向き（2026-09-29）', () => {
+  // **合計が 0 より多いか、で決めていた。**一度送れば、やめたあとも「送っています」のまま
+  // （［映像と音をやめる］のあとも題字が「あなたは送っています」だった）。
+  // **前に見たときから増えたか、で決める。**
+  const 行 = (type: string, n: number) => ({
+    id: `${type}-video`,
+    type,
+    kind: 'video',
+    ...(type === 'outbound-rtp' ? { packetsSent: n } : { packetsReceived: n }),
+  });
+
+  it('包みの数を数える', () => {
+    expect(映像の包み数([行('outbound-rtp', 10), 行('inbound-rtp', 4)])).toEqual({ 送った: 10, 受けた: 4 });
+  });
+
+  it('**増えていれば動いている／止まれば動いていない**', () => {
+    expect(動いている向き({ 送った: 10, 受けた: 4 }, { 送った: 20, 受けた: 4 })).toEqual({
+      送っている: true,
+      受けている: false,
+    });
+    // やめたあと：合計は 20 のまま（0 に戻らない）
+    expect(動いている向き({ 送った: 20, 受けた: 4 }, { 送った: 20, 受けた: 4 })).toEqual({
+      送っている: false,
+      受けている: false,
+    });
+  });
+
+  it('最初の 1 回（前が無い）は、合計で見る', () => {
+    expect(動いている向き(null, { 送った: 0, 受けた: 3 })).toEqual({ 送っている: false, 受けている: true });
+  });
+
+  it('**向きが変わったら、記録に書く 1 行**（受けが立ったことも記録に出す）', () => {
+    // 受けが立っても、記録にその行が書かれていなかった
+    expect(向きを言い表す({ 送っている: false, 受けている: true })).toBe('映像の向き: 受けています ／ 送っていません');
+    expect(向きを言い表す({ 送っている: true, 受けている: false })).toBe('映像の向き: 受けていません ／ 送っています');
+  });
+});

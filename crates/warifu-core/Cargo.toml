@@ -1,0 +1,19 @@
+[package]
+name = "warifu-core"
+description = "シード・Profile / Device 鍵・割符（招待）・失効。ネットワークには触れない。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ed25519-dalek.workspace = true
+hkdf.workspace = true
+sha2.workspace = true
+getrandom.workspace = true
+zeroize.workspace = true
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"

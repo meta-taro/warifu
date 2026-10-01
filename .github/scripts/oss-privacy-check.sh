@@ -1,0 +1,301 @@
+#!/usr/bin/env bash
+# OSS 公開リポの個人情報混入チェック（product-baseline §32）
+#
+# 使い方:
+#   .github/scripts/oss-privacy-check.sh <BASE> <HEAD>   # 範囲の commit + 差分を検査
+#   .github/scripts/oss-privacy-check.sh                 # 未 commit の作業ツリー差分のみ検査
+#   .github/scripts/oss-privacy-check.sh --message-file F # これから書く commit message だけを検査
+#
+# 環境変数（すべて任意）:
+#   OSS_ALLOWED_AUTHOR_EMAIL_REGEX  commit author/committer に許可するメールの ERE
+#                                   既定: @users\.noreply\.github\.com$
+#   OSS_ALLOWED_EMAIL_DOMAINS       追加行・commit message で許可するメールドメイン（空白区切り）
+#   OSS_ALLOWED_EMAILS              同上を**アドレス単位**で許可（空白区切り）。
+#                                   bot の noreply を通すためのもので、ドメインごと開けない（D32）
+#   OSS_DENY_WORDS                  禁止語（実名等）を 1 行 1 語。CI では secrets から渡す
+#
+# 設計上の約束:
+#   - 検出しても「見つかった中身」をログへ出さない。CI ログは公開されるため、
+#     そこへ実名やメールをそのまま印字すると検査自体が漏洩経路になる。
+#     出力は「場所（file:line / commit）＋ 規則 ID ＋ マスク済み文字列」に限る。
+set -uo pipefail
+
+ALLOWED_AUTHOR_RE="${OSS_ALLOWED_AUTHOR_EMAIL_REGEX:-@users\.noreply\.github\.com$}"
+ALLOWED_DOMAINS="${OSS_ALLOWED_EMAIL_DOMAINS:-example.com example.org example.net users.noreply.github.com}"
+# アドレス単位の許可。**ドメインごと開けない** — anthropic.com を丸ごと通すと、
+# そこに属する人のアドレスまで通ってしまう。通したいのは bot の noreply だけである（D32）。
+ALLOWED_EMAILS="${OSS_ALLOWED_EMAILS:-noreply@anthropic.com}"
+DENY_WORDS="${OSS_DENY_WORDS:-}"
+
+EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+
+# 外向きの IP（v4）。**外向きの番地は接続先そのもの**なので、公開の場に書かない。
+# **値はログへ出さない。**CI のログは公開されるため、出すと検査が漏洩になる。
+IP_RE='\b(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}\b'
+# 外向きでないもの（通す）：自分・未指定・私用（RFC 1918）・リンクローカル・CGNAT・文書用（RFC 5737）・マルチキャスト
+NOT_PUBLIC_RE='^(127\.|0\.|255\.|10\.|192\.168\.|169\.254\.|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.|2(2[4-9]|3[0-9])\.)'
+# 誰のものでもない、よく知られた公開の番地（試験の例に使う）
+ALLOWED_IPS="${OSS_ALLOWED_IPS:-1.1.1.1 8.8.8.8 9.9.9.9 93.184.216.34}"
+# 検査スクリプト自身は正規表現やドメイン例を含むため除外する
+SELF_RE='^\.github/(scripts/oss-privacy-check\.sh|workflows/oss-privacy-check\.yml)$'
+
+fail=0
+note() { printf '%s\n' "$*" >&2; }
+
+# 外向きの IP か。**中身は返さない。**
+public_ip() {
+  case " $ALLOWED_IPS " in *" $1 "*) return 1 ;; esac
+  printf '%s' "$1" | grep -Eqv "$NOT_PUBLIC_RE"
+}
+
+# メールを y***@***.com 形式へ落とす（公開ログへ原文を出さないため）
+mask_email() {
+  sed -E 's/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+\.([A-Za-z]{2,})/\1***@***.\2/g'
+}
+
+# ドメインの末尾がファイルの拡張子なら、それはメールではない。
+#
+# **Retina 用の `@2x` が必ず当たる** — `128x128@2x.png` は正規表現の上では
+# 「128x128 という宛先の 2x.png ドメイン」に見える。`icon_512x512@2x.png` も同じ。
+# これは命名の標準なので、当たり続ける。**検査を弱めずに、種類で外す。**
+# `.png` の TLD は存在しないので、本物のメールを取り逃がすことはない。
+NOT_A_TLD="png jpg jpeg gif svg webp ico icns css js mjs cjs ts tsx jsx json md yml yaml toml lock rs html htm txt map woff woff2 ttf otf zip tar gz"
+
+looks_like_file() {
+  local tld
+  tld="$(printf '%s' "${1##*.}" | tr 'A-Z' 'a-z')"
+  for x in $NOT_A_TLD; do
+    [ "$tld" = "$x" ] && return 0
+  done
+  return 1
+}
+
+allowed_email() {
+  local e="$1" d lower
+  looks_like_file "$e" && return 0
+  lower="$(printf '%s' "$e" | tr 'A-Z' 'a-z')"
+  for a in $ALLOWED_EMAILS; do
+    [ "$lower" = "$(printf '%s' "$a" | tr 'A-Z' 'a-z')" ] && return 0
+  done
+  d="${e##*@}"
+  for a in $ALLOWED_DOMAINS; do
+    [ "$(printf '%s' "$d" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$a" | tr 'A-Z' 'a-z')" ] && return 0
+  done
+  return 1
+}
+
+# --- commit message だけを検査するモード -----------------------------------
+# pre-commit フックは **これから書かれる message を見られない**（まだ存在しない）。
+# message-email はそこを素通りし、CI で初めて落ちる。commit-msg フックから呼ぶための口。
+if [ "${1:-}" = "--message-file" ]; then
+  msg_file="${2:-}"
+  if [ -z "$msg_file" ] || [ ! -f "$msg_file" ]; then
+    note "NG [message-file] message のファイルを読めません: ${msg_file:-未指定}"
+    exit 1
+  fi
+  # コメント行（`#` 始まり）は message に残らないので見ない
+  msg="$(grep -v '^#' "$msg_file")"
+  while read -r found; do
+    [ -z "${found:-}" ] && continue
+    allowed_email "$found" && continue
+    note "NG [message-email] （これから書く message）: $(printf '%s' "$found" | mask_email)"
+    fail=1
+  done < <(printf '%s' "$msg" | grep -Eo "$EMAIL_RE" | sort -u)
+  while read -r found; do
+    [ -z "${found:-}" ] && continue
+    public_ip "$found" || continue
+    note "NG [message-ip] （これから書く message）: 外向きの IP らしきもの（値は出しません）"
+    fail=1
+  done < <(printf '%s' "$msg" | grep -Eo "$IP_RE" | sort -u)
+
+  if [ -n "$DENY_WORDS" ]; then
+    i=0
+    while IFS= read -r w; do
+      i=$((i + 1))
+      [ -z "$w" ] && continue
+      if printf '%s' "$msg" | grep -qiF -- "$w"; then
+        note "NG [message-denyword] （これから書く message）: 禁止語 #$i に一致"
+        fail=1
+      fi
+    done <<< "$DENY_WORDS"
+  fi
+
+  if [ "$fail" -ne 0 ]; then
+    note ""
+    note "commit message に個人情報の疑いがあります（product-baseline §25）。"
+    note "  **ここで直せば history に焼き付かない。**message を書き直してください。"
+    exit 1
+  fi
+  exit 0
+fi
+
+# --- 範囲の解決 -------------------------------------------------------------
+BASE="${1:-}"
+HEAD_REF="${2:-HEAD}"
+RANGE=""
+resolve_base() {
+  # 指定された base が使えるならそれを使う
+  if [ -n "$BASE" ] && ! printf '%s' "$BASE" | grep -Eq '^0{7,40}$'; then
+    if git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+      printf '%s' "$BASE"
+      return 0
+    fi
+  fi
+  # 新規ブランチの push（base が全ゼロ）等では既定ブランチとの merge-base へフォールバックする。
+  # ここを諦めると「ブランチを新規に切った初回 push」が commit 検査を素通りしてしまう。
+  for r in origin/HEAD origin/main origin/master origin/develop main master develop; do
+    if git rev-parse --verify --quiet "$r^{commit}" >/dev/null; then
+      mb="$(git merge-base "$r" "$HEAD_REF" 2>/dev/null)" || continue
+      [ -n "$mb" ] && { printf '%s' "$mb"; return 0; }
+    fi
+  done
+  return 1
+}
+
+if BASE_RESOLVED="$(resolve_base)"; then
+  if [ "$BASE_RESOLVED" != "${BASE:-}" ]; then
+    note "INFO base '${BASE:-未指定}' を解決できないため ${BASE_RESOLVED:0:8}（既定ブランチとの merge-base）へフォールバックしました"
+  fi
+  BASE="$BASE_RESOLVED"
+  RANGE="$BASE..$HEAD_REF"
+else
+  note "INFO base を解決できないため commit 検査をスキップし、作業ツリー差分のみ検査します"
+fi
+
+if [ -z "$DENY_WORDS" ]; then
+  note "INFO OSS_DENY_WORDS が空のため禁止語検査はスキップします（fork からの PR では GitHub 仕様上 secrets が渡らず常に空になります）"
+fi
+
+# --- 1. commit の author / committer（メール + 表示名） ---------------------
+if [ -n "$RANGE" ]; then
+  while IFS='|' read -r sha ae ce an cn; do
+    [ -z "${sha:-}" ] && continue
+    for e in "$ae" "$ce"; do
+      if ! printf '%s' "$e" | grep -Eq "$ALLOWED_AUTHOR_RE"; then
+        note "NG [author-email] ${sha:0:8} : $(printf '%s' "$e" | mask_email) が許可パターン外"
+        fail=1
+      fi
+    done
+    # 表示名（user.name）は実名がそのまま入りやすく、かつメール検査では拾えない
+    if [ -n "$DENY_WORDS" ]; then
+      for n in "$an" "$cn"; do
+        i=0
+        while IFS= read -r w; do
+          i=$((i + 1))
+          [ -z "$w" ] && continue
+          if printf '%s' "$n" | grep -qiF -- "$w"; then
+            note "NG [author-name] ${sha:0:8} : 表示名が禁止語 #$i に一致"
+            fail=1
+          fi
+        done <<< "$DENY_WORDS"
+      done
+    fi
+  done < <(git log --format='%H|%ae|%ce|%an|%cn' "$RANGE")
+fi
+
+# --- 2. commit message ------------------------------------------------------
+if [ -n "$RANGE" ]; then
+  while read -r sha; do
+    [ -z "${sha:-}" ] && continue
+    msg="$(git log -1 --format='%B' "$sha")"
+    while read -r found; do
+      [ -z "${found:-}" ] && continue
+      allowed_email "$found" && continue
+      note "NG [message-email] ${sha:0:8} : $(printf '%s' "$found" | mask_email)"
+      fail=1
+    done < <(printf '%s' "$msg" | grep -Eo "$EMAIL_RE" | sort -u)
+    while read -r found; do
+      [ -z "${found:-}" ] && continue
+      public_ip "$found" || continue
+      note "NG [message-ip] ${sha:0:8} : 外向きの IP らしきもの（値は出しません）"
+      fail=1
+    done < <(printf '%s' "$msg" | grep -Eo "$IP_RE" | sort -u)
+
+    if [ -n "$DENY_WORDS" ]; then
+      i=0
+      while IFS= read -r w; do
+        i=$((i + 1))
+        [ -z "$w" ] && continue
+        if printf '%s' "$msg" | grep -qiF -- "$w"; then
+          note "NG [message-denyword] ${sha:0:8} : 禁止語 #$i に一致"
+          fail=1
+        fi
+      done <<< "$DENY_WORDS"
+    fi
+  done < <(git log --format='%H' "$RANGE")
+fi
+
+# --- 3. 追加行（差分） ------------------------------------------------------
+# commit 済みの範囲差分と、未 commit（staged + unstaged）の差分を両方見る。
+# CI では後者が空になり、ローカルの commit 前チェックでは前者が空になる。
+diff_out=""
+if [ -n "$RANGE" ]; then
+  diff_out="$(git diff --unified=0 "$BASE" "$HEAD_REF")"
+fi
+diff_out="$diff_out
+$(git diff --unified=0 HEAD)"
+
+added="$(printf '%s\n' "$diff_out" | awk '
+  /^\+\+\+ /   { f = substr($0, 7); next }
+  /^@@ /       { split($0, a, " "); split(substr(a[3], 2), b, ","); ln = b[1]; next }
+  /^\+/        { print f "\t" ln "\t" substr($0, 2); ln++; next }
+')"
+
+# 1 行ごとに grep を起こすと、追加行数ぶんプロセスが増える。
+# 依存の lock ファイルだけで数千行になるため、そのままでは手元で数分〜十数分かかる。
+# **遅い検査は飛ばされる**ので、候補を先に絞ってから 1 行ずつ見る。
+if [ -n "$added" ]; then
+  # メールは '@' を含む行にしか出ない。
+  while IFS=$'\t' read -r f ln content; do
+    [ -z "${f:-}" ] && continue
+    printf '%s' "$f" | grep -Eq "$SELF_RE" && continue
+
+    while read -r found; do
+      [ -z "${found:-}" ] && continue
+      allowed_email "$found" && continue
+      note "NG [added-email] $f:$ln : $(printf '%s' "$found" | mask_email)"
+      fail=1
+    done < <(printf '%s' "$content" | grep -Eo "$EMAIL_RE" | sort -u)
+  done < <(printf '%s\n' "$added" | grep -F '@')
+
+  # 外向きの IP は、番地の形をした行だけ見る
+  while IFS=$'\t' read -r f ln content; do
+    [ -z "${f:-}" ] && continue
+    printf '%s' "$f" | grep -Eq "$SELF_RE" && continue
+    while read -r found; do
+      [ -z "${found:-}" ] && continue
+      public_ip "$found" || continue
+      note "NG [added-ip] $f:$ln : 外向きの IP らしきもの（値は出しません）"
+      fail=1
+    done < <(printf '%s' "$content" | grep -Eo "$IP_RE" | sort -u)
+  done < <(printf '%s\n' "$added" | grep -E "$IP_RE")
+
+  # 禁止語は語ごとに 1 回だけ全体へ当てる（行ごとに当てると 行数 × 語数 になる）。
+  # 当たった行だけ、中身に本当に含まれるかを見直す（ファイル名側での取り違えを避ける）。
+  if [ -n "$DENY_WORDS" ]; then
+    i=0
+    while IFS= read -r w; do
+      i=$((i + 1))
+      [ -z "$w" ] && continue
+      while IFS=$'\t' read -r f ln content; do
+        [ -z "${f:-}" ] && continue
+        printf '%s' "$f" | grep -Eq "$SELF_RE" && continue
+        printf '%s' "$content" | grep -qiF -- "$w" || continue
+        note "NG [added-denyword] $f:$ln : 禁止語 #$i に一致"
+        fail=1
+      done < <(printf '%s\n' "$added" | grep -iF -- "$w")
+    done <<< "$DENY_WORDS"
+  fi
+fi
+
+# --- 結果 -------------------------------------------------------------------
+if [ "$fail" -ne 0 ]; then
+  note ""
+  note "個人情報の混入が疑われます（product-baseline §32）。"
+  note "  - 追加行が原因: 当該行を修正して commit し直す"
+  note "  - commit author/message が原因: history に焼き付くため rebase での書き換えが要る。"
+  note "    公開後に気づいた場合は force push の可否を含めてリポジトリのオーナーへ Issue で確認する"
+  exit 1
+fi
+
+note "OK 個人情報の混入は検出されませんでした"

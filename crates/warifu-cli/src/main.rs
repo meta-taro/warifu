@@ -1,0 +1,1748 @@
+//! warifu を**画面なしで**使う口。
+//!
+//! 画面（Tauri）は人が押すためのもので、**押せない相手**——別の機械で動いている
+//! エージェント、CI、遠隔の端末——からは使えない。
+//! ここは同じ層（`warifu-net` / `warifu-meeting` / `warifu-app`）を、
+//! **標準入出力だけ**で動かす。
+//!
+//! ```text
+//! # 待つ側（会議キーを出す）
+//! warifu host
+//!
+//! # 入る側
+//! warifu join '<会議キー>'
+//! ```
+//!
+//! つないだ後は、**打った行がそのまま相手へ飛び、届いた行がそのまま出る。**
+//! だから `echo` でも `tail -f` でも使える。
+//!
+//! **映像は扱わない。**それは画面（WebView の WebRTC）の担当で、
+//! ここが引き受けるのは**文字だけ**である。
+
+#![forbid(unsafe_code)]
+
+use std::collections::HashMap;
+use std::process::ExitCode;
+use std::sync::Arc;
+
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::{Mutex, mpsc};
+
+use warifu_app::{Conference, format_invite, is_own_invite, parse_invite};
+use warifu_core::{Device, PublicKey, Revocations, 端末の呼び名};
+use warifu_intent::Channel;
+use warifu_meeting::{MeetingId, Notice, Roster};
+use warifu_net::{Address, Node, 中継の使い方};
+use warifu_vault::Vault;
+
+mod agent;
+mod identity;
+mod mcp;
+mod post;
+mod relay;
+mod setup;
+
+/// 会議キーの既定の有効期間（秒）。**24 時間。**画面側と揃えてある。
+///
+/// **もとは 600 秒（10 分）だった。短すぎた。**
+///
+/// 2026-09-07。席を離れたり他の作業をしている間に切れ、そのたびに再発行する手間は
+/// 割に合わない。`docs/trial.md` に「`--ttl` を伸ばすこと。既定は 10 分で、
+/// 相手が建てている間に切れる」と自分で書いていた ——
+/// **既定が悪いと分かっていながら、既定を直さず注意書きで済ませていた。**
+///
+/// # 短くして守れるものは薄い
+///
+/// 会議キーを守っているのは期限ではなく、**割符そのもの**である。
+///
+/// - **1 本 = 1 人**（**D12**）。漏れても入れるのは 1 人だけ
+/// - **一度使われたら、その本人しか戻れない**（**D44** の `used_by` 照合）
+/// - **応じる側は自分の鍵で署名する**。別人がその名前で応じることはできない
+///
+/// **期限が短いことで減らせるのは「漏れた鍵が使われるまでの時間」だけ**であり、
+/// **手間のほうが確実に重い。**
+///
+/// # 短い窓が要るときは、明示する
+///
+/// 予定に紐づく会議（**D43**）は `--from` / `--until` で窓を切る。
+/// **そこが短い期限の居場所**であって、**既定ではない。**
+const KEY_TTL_SECS: u64 = 60 * 60 * 24;
+/// 相手が割符へ応じるのを待つ限度。**黙って繋いだだけの相手に待ち受けを塞がせない。**
+const HANDSHAKE_SECS: u64 = 10;
+
+/// 何も来ない時間がこれを超えたら終わる（`--idle <秒>` で指定したときだけ）。
+///
+/// **既定では終わらない。**会話は黙っている時間のほうが長く、
+/// 黙ったら切られるチャットは使いものにならない。
+/// **一往復だけ確かめたいとき**にだけ使う口である。
+const IDLE_DEFAULT: Option<u64> = None;
+
+fn 使い方() -> ExitCode {
+    eprintln!(
+        "warifu — 画面なしで会議に入る\n\
+         \n\
+         使い方:\n\
+         \x20 warifu host [--keys <本数>] [--ttl <秒>] [--from <時刻>] [--until <時刻>]\n\
+         \x20            [--idle <秒>] [--remember <呼び名>]\n\
+         \x20            待つ。会議キーを標準出力へ出す\n\
+         \x20 warifu join <会議キー> [--idle <秒>] [--remember <呼び名>]\n\
+         \x20            入る\n\
+         \x20 warifu id      自分の公開鍵と、身元の置き場所を出す\n\
+         \x20 warifu doctor  繋がらないときに調べる（経路の候補・外向きの有無・遮る物）\n\
+         \x20 warifu mcp [--allow <動作>]... [--as <名前>] [--desk <場所>]\n\
+         \x20            MCP の口を標準入出力で出す（エージェントがここに繋ぐ）\n\
+         \x20            --allow を書かなければ何も通りません。既定は拒否です\n\
+         \x20            --as はどこで動いているか。既定は起動した場所のフォルダ名\n\
+         \x20 warifu agent [--as <名前>] [--desk <場所>] [--on <命令>...]\n\
+         \x20            この機械につながって待ち、届いたら命令を起こす（常駐）\n\
+         \x20            届いた文字は命令の標準入力へ渡します。引数にはしません\n\
+         \x20 warifu relay --allow-file <場所>\n\
+         \x20            預かり所を立てる（相手が起動していない間、封を預かる）\n\
+         \x20            中身は読めません。使ってよい人の公開鍵を 1 行ずつ書きます\n\
+         \x20 warifu post put  --at <預かり所> --to <相手>\n\
+         \x20 warifu post take --at <預かり所>\n\
+         \x20            預かり所を、画面なしで確かめる（本文は標準入力から）\n\
+         \x20 warifu setup [--yes]\n\
+         \x20            MCP の口を、Claude Code の利用者ごとの設定へ入れる\n\
+         \x20            （どのフォルダでも出るようになる。会話だけを許します）\n\
+         \x20 warifu version 版を出す\n\
+         \x20 warifu help    この使い方を出す\n\
+         \x20 warifu contacts                       覚えた相手を並べる\n\
+         \x20 warifu contacts add <公開鍵> <呼び名>  覚える\n\
+         \x20 warifu contacts forget <呼び名|公開鍵> 忘れる\n\
+         \n\
+         つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
+         \n\
+         --keys     出す会議キーの本数（既定 1）。**1 本につき 1 人**入れます\n\
+         \x20          会議中に /key と打てば、後からもう 1 本出せます\n\
+         --ttl      会議キーの有効期間（既定 24 時間）。短くしたいときだけ指定します\n\
+         --from     会議の開始。この時刻までは誰も入れません（予定に紐づく鍵）\n\
+         --until    会議の終わり。--ttl より優先します\n\
+         \x20          時刻は Unix 秒か +<秒>（いまから）。例: --from +3600 --until +7200\n\
+         --idle     何も来ない時間がその秒数を超えたら終わる。付けなければ終わりません\n\
+         \x20          （会話は黙っている時間のほうが長いため）\n\
+         --remember つながった相手を、その呼び名で覚える\n\
+         --relay    **中継を使う**（別の網の相手へも届きうる・D78）\n\
+         \x20          付けると「誰がいつ誰に繋いだか」が中継の運用者（n0）に見えます\n\
+         \x20          付けなければ今までどおり、中継を使いません\n\
+         \n\
+         身元はこの端末に残ります。閉じても同じ人でいられます（warifu id で確認）。\n\
+         映像は扱いません（それは画面の担当です）。\n\
+         \n\
+         繋がらないときは warifu doctor。既定では外部の中継を使わないので、\n\
+         同じ網に居ないと届かないことがあります（--relay で中継を使えます）。"
+    );
+    ExitCode::from(2)
+}
+
+/// 呼び出しに付いてきた指定。
+#[derive(Debug)]
+struct Options {
+    /// 何も来ない時間がこれを超えたら終わる。**無ければ終わらない。**
+    idle: Option<u64>,
+    /// 会議キーの有効期間（秒）。
+    ttl: u64,
+    /// 会議の開始（Unix 秒）。**無ければ「いま」から。**
+    from: Option<u64>,
+    /// 会議の終わり（Unix 秒）。指定があれば `ttl` より優先する。
+    until: Option<u64>,
+    /// つながった相手を、この呼び名で覚える。
+    remember: Option<String>,
+    /// **出す会議キーの本数**（＝入れる人数）。**1 本につき 1 人**（割符は D12 / D47）。
+    keys: usize,
+    /// **中継を使うか**（**D78**）。**既定は使わない。**
+    ///
+    /// 付けると網を越えて届く代わりに、**繋いだことが中継の運用者（n0）に見える。**
+    relay: bool,
+}
+
+/// 秒数を人が読める形にする。
+///
+/// **unix 秒をそのまま人に見せない。**`1788506979` と出しても、いつなのか分からない
+/// （2026-09-04）。
+///
+/// 日時（`2026-09-11 10:00`）に直さないのは、**時間帯の変換をここでやると
+/// 「1 時間ずれた表示」が黙って出る**ため。相対なら時間帯が要らない。
+fn 間隔を言う(secs: u64) -> String {
+    if secs == 0 {
+        return "いま".to_owned();
+    }
+    let (h, m, s) = (secs / 3600, (secs % 3600) / 60, secs % 60);
+    let mut parts = Vec::new();
+    if h > 0 {
+        parts.push(format!("{h} 時間"));
+    }
+    if m > 0 {
+        parts.push(format!("{m} 分"));
+    }
+    if s > 0 || parts.is_empty() {
+        parts.push(format!("{s} 秒"));
+    }
+    parts.join(" ")
+}
+
+/// 時刻の指定を読む。`+<秒>` は「いまから」、数字だけなら Unix 秒。
+///
+/// 人が打つ日時（`2026-09-11 10:00`）を受けないのは、時間帯の扱いを間違えると
+/// 「1 時間ずれた鍵」が黙って出るためである。予定表の側が秒で渡す形にしてある。
+/// 引数の読み取りで起きること。**黙って捨てない。**
+#[derive(Debug)]
+pub enum OptionError {
+    /// 知らない引数。打ち間違いをここで止める。
+    Unknown(String),
+    /// 値の要る引数に値が付いていない。
+    Missing(&'static str),
+    /// 値が読めない。**既定に落とさない**（指定したつもりと違う鍵が出る）。
+    BadValue {
+        /// どの引数か。
+        arg: &'static str,
+        /// 何が来たか。
+        got: String,
+    },
+    /// 使い方を求められた。
+    WantsHelp,
+}
+
+impl std::fmt::Display for OptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unknown(a) => write!(f, "知らない引数です: {a}"),
+            Self::Missing(a) => write!(f, "{a} に値が付いていません"),
+            Self::BadValue { arg, got } => write!(f, "{arg} の値を読めません: {got}"),
+            Self::WantsHelp => f.write_str("使い方"),
+        }
+    }
+}
+
+impl std::error::Error for OptionError {}
+
+fn 読む_時刻(text: &str, now: u64) -> Option<u64> {
+    let t = text.trim();
+    if let Some(rest) = t.strip_prefix('+') {
+        return rest.parse::<u64>().ok().map(|d| now.saturating_add(d));
+    }
+    t.parse::<u64>().ok()
+}
+
+/// 引数を読む。
+///
+/// **知らない引数を黙って捨てない。**捨てると `--form +60` のような打ち間違いが
+/// そのまま通り、**指定したつもりの窓が付いていない鍵**が出る（2026-09-04）。
+fn 読む_options(args: &mut impl Iterator<Item = String>) -> Result<Options, OptionError> {
+    let now = now_secs();
+    let mut o = Options {
+        idle: IDLE_DEFAULT,
+        ttl: KEY_TTL_SECS,
+        from: None,
+        until: None,
+        remember: None,
+        keys: 1,
+        relay: false,
+    };
+
+    /// 値を 1 つ取り出す。無ければ断る。
+    fn 値(
+        args: &mut impl Iterator<Item = String>,
+        arg: &'static str,
+    ) -> Result<String, OptionError> {
+        args.next().ok_or(OptionError::Missing(arg))
+    }
+
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "--help" | "-h" | "help" => return Err(OptionError::WantsHelp),
+            // **付けたときだけ中継が入る**（**D78**）。既定は今までどおり
+            "--relay" => o.relay = true,
+            "--idle" => {
+                let v = 値(args, "--idle")?;
+                o.idle = Some(v.parse().map_err(|_| OptionError::BadValue {
+                    arg: "--idle",
+                    got: v.clone(),
+                })?);
+            }
+            "--keys" => {
+                let v = 値(args, "--keys")?;
+                let n: usize = v.parse().unwrap_or(0);
+                // **0 本では誰も入れない。**定員より多く出しても入れない
+                if n == 0 || n > warifu_app::DEFAULT_CAPACITY - 1 {
+                    return Err(OptionError::BadValue {
+                        arg: "--keys",
+                        got: v.clone(),
+                    });
+                }
+                o.keys = n;
+            }
+            "--ttl" => {
+                let v = 値(args, "--ttl")?;
+                o.ttl = v.parse().map_err(|_| OptionError::BadValue {
+                    arg: "--ttl",
+                    got: v.clone(),
+                })?;
+            }
+            "--from" => {
+                let v = 値(args, "--from")?;
+                o.from = Some(読む_時刻(&v, now).ok_or(OptionError::BadValue {
+                    arg: "--from",
+                    got: v.clone(),
+                })?);
+            }
+            "--until" => {
+                let v = 値(args, "--until")?;
+                o.until = Some(読む_時刻(&v, now).ok_or(OptionError::BadValue {
+                    arg: "--until",
+                    got: v.clone(),
+                })?);
+            }
+            "--remember" => o.remember = Some(値(args, "--remember")?),
+            other => return Err(OptionError::Unknown(other.to_owned())),
+        }
+    }
+    Ok(o)
+}
+
+/// **終わるときに、標準入力の読み取りを待たない。**
+///
+/// `tokio::io::stdin` は専用のブロッキングスレッドで `read(2)` を呼ぶ。
+/// `#[tokio::main]` はランタイムを畳むときにブロッキング処理の完了を待つため、
+/// 標準入力が端末や**開いたままのパイプ**だと read が返らず、**プロセスが終わらない**。
+///
+/// 実測 2026-09-04: 相手が落ちて `経路で落ちました` を出した `warifu host` が
+/// **55 分そのまま残り**、標準入力へ 1 行流し込むまで終了しなかった。
+/// 人から見ると「落ちたのに終わっていない」——次の待ち受けを建てたつもりが二重になる。
+fn 走らせる<F: std::future::Future<Output = ExitCode>>(仕事: F) -> ExitCode {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio ランタイムを作れませんでした");
+    let code = runtime.block_on(仕事);
+    // **止まったままのブロッキング処理を待たない。**待つと標準入力に縛られる
+    runtime.shutdown_timeout(std::time::Duration::ZERO);
+    code
+}
+
+fn main() -> ExitCode {
+    走らせる(本体())
+}
+
+async fn 本体() -> ExitCode {
+    let mut args = std::env::args().skip(1);
+    let 命令 = args.next();
+    let result = match 命令.as_deref() {
+        Some("host") => match 読む_options(&mut args) {
+            Ok(o) => 待つ(&o).await,
+            Err(OptionError::WantsHelp) => return 使い方(),
+            Err(e) => Err(e.into()),
+        },
+        Some("join") => match args.next() {
+            // **鍵の位置に --help が来たら使い方を出す。**鍵として読もうとしない
+            Some(k) if matches!(k.as_str(), "--help" | "-h" | "help") => return 使い方(),
+            Some(key) => match 読む_options(&mut args) {
+                Ok(o) => 入る(&key, &o).await,
+                Err(OptionError::WantsHelp) => return 使い方(),
+                Err(e) => Err(e.into()),
+            },
+            None => return 使い方(),
+        },
+        Some("doctor") => match 読む_options(&mut args) {
+            Ok(o) => 診る(o.relay).await,
+            Err(OptionError::WantsHelp) => return 使い方(),
+            Err(e) => Err(e.into()),
+        },
+        Some("setup") => match setup::読む(&mut args) {
+            Ok(設) => setup::入れる(&設),
+            Err(e) => Err(e.into()),
+        },
+        Some("post") => match post::読む(&mut args) {
+            Ok(設) => post::走る(&設).await,
+            Err(e) => Err(e.into()),
+        },
+        Some("relay") => match relay::読む(&mut args) {
+            Ok(設) => relay::立てる(&設).await,
+            Err(e) => Err(e.into()),
+        },
+        Some("agent") => match agent::読む(&mut args) {
+            Ok(設) => agent::待つ(&設).await,
+            Err(e) => Err(e.into()),
+        },
+        Some("mcp") => match mcp::読む(&mut args) {
+            Ok(設) => mcp::出す(&設).await,
+            Err(e) => Err(e.into()),
+        },
+        Some("version") | Some("--version") | Some("-V") => {
+            println!("warifu {}", env!("CARGO_PKG_VERSION"));
+            return ExitCode::SUCCESS;
+        }
+        Some("id") => 名乗る(),
+        Some("contacts") => 名簿の口(&mut args),
+        _ => return 使い方(),
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("warifu: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// **閉じても同じ身元でいる。**
+///
+/// 以前は起動のたびに作り直していた（D2 が未決のため）。
+/// だが**平常時の置き場所は、全部失ったときの戻し方とは別の話**である（D42）。
+/// 毎回別人になると、相手は「同じ人」だと分からず、連絡先が成立しない。
+fn 身元() -> Result<(Vault, Device), Box<dyn std::error::Error>> {
+    Ok(identity::開く()?)
+}
+
+/// 自分の公開鍵と、身元の置き場所を出す。**相手に渡すのはこの鍵。**
+fn 名乗る() -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+    // 鍵は標準出力へ（`warifu id | pbcopy` が使えるように）。説明は標準エラーへ
+    eprintln!("warifu: 身元の置き場所 {}", vault.dir().display());
+    画面と突き合わせる(&vault, device.public_key());
+    println!("{}", device.public_key());
+    Ok(())
+}
+
+/// **画面と同じ身元かを、自分で突き合わせて言う。**
+///
+/// 2026-09-12（内部の Issue 017）——
+///
+/// - 52 文字の base32 を目で突き合わせるのは、人が間違える所である。
+///   頭と尻だけ見て「同じ」と判断してしまう
+/// - `WARIFU_HOME` を設定した手順書をなぞった人は、自分が別人になったことに気づけない。
+///   ルームキーは 1 本 = 1 人なので、ここで取り違えると 1 本無駄になる
+///
+/// **突き合わせられないときは黙る**（「違います」と言わない）——
+/// 画面をまだ開いていない機械では、比べる相手が無いだけである。
+fn 画面と突き合わせる(いまの: &Vault, 自分の鍵: PublicKey) {
+    let Ok(画面) = Vault::screen_location() else {
+        return;
+    };
+    // 同じ置き場所なら、突き合わせる意味が無い
+    if 画面.dir() == いまの.dir() {
+        return;
+    }
+    let 画面の鍵 = 画面
+        .open_seed()
+        .ok()
+        .map(|seed| seed.profile("Personal").device(端末の呼び名).public_key());
+    match identity::見立てる(自分の鍵, 画面の鍵) {
+        identity::身元の見立て::画面と同じ => {
+            eprintln!("warifu: 画面と同じ身元です");
+        }
+        identity::身元の見立て::画面の身元がまだ無い => {
+            eprintln!(
+                "warifu: 画面（{}）にはまだ身元がありません",
+                画面.dir().display()
+            );
+        }
+        identity::身元の見立て::画面とは別人 { 画面の鍵 } => {
+            eprintln!("warifu: **この機械には身元が 2 つあります。**");
+            eprintln!(
+                "warifu:   いま名乗る身元  {}  {}",
+                短く(&自分の鍵.to_string()),
+                いまの.dir().display()
+            );
+            eprintln!(
+                "warifu:   画面が使う身元  {}  {}",
+                短く(&画面の鍵.to_string()),
+                画面.dir().display()
+            );
+            eprintln!(
+                "warifu: **画面と別人です。**{} を外すと、画面と同じ身元になります",
+                warifu_vault::HOME_ENV
+            );
+        }
+    }
+}
+
+/// 鍵は長い。**頭だけ出す**（見分けが付く長さに切る）。
+fn 短く(鍵: &str) -> String {
+    format!("{}…", &鍵[..12.min(鍵.len())])
+}
+
+/// 覚えた相手を扱う口。
+fn 名簿の口(args: &mut impl Iterator<Item = String>) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, _) = 身元()?;
+    let mut contacts = vault.contacts()?;
+    if contacts.skipped() > 0 {
+        eprintln!("warifu: 読めない行を {} 行とばしました", contacts.skipped());
+    }
+
+    match args.next().as_deref() {
+        None | Some("list") => {
+            if contacts.is_empty() {
+                eprintln!(
+                    "warifu: まだ誰も覚えていません（`warifu host --remember <呼び名>` で覚えます）"
+                );
+                return Ok(());
+            }
+            for c in contacts.iter() {
+                println!("{}\t{}", c.label(), c.key());
+            }
+            Ok(())
+        }
+        Some("add") => {
+            let (Some(鍵), Some(呼び名)) = (args.next(), args.next()) else {
+                return Err("使い方: warifu contacts add <公開鍵> <呼び名>".into());
+            };
+            let key: PublicKey = 鍵.trim().parse().map_err(|_| "公開鍵として読めません")?;
+            contacts.add(key, &呼び名, now_secs())?;
+            vault.save_contacts(&contacts)?;
+            eprintln!("warifu: 覚えました: {呼び名}");
+            Ok(())
+        }
+        Some("forget") => {
+            let Some(言葉) = args.next() else {
+                return Err("使い方: warifu contacts forget <呼び名|公開鍵>".into());
+            };
+            let Some(key) = identity::相手を引く(&contacts, &言葉) else {
+                return Err(format!("覚えていません: {言葉}").into());
+            };
+            if !contacts.remove(key) {
+                return Err(format!("覚えていません: {言葉}").into());
+            }
+            vault.save_contacts(&contacts)?;
+            eprintln!("warifu: 忘れました: {言葉}");
+            Ok(())
+        }
+        Some(other) => Err(format!("知らない指定です: {other}").into()),
+    }
+}
+
+/// つながった相手を覚える。**呼び名を指定されたときだけ。**
+///
+/// 黙って覚えると、一度きりのつもりだった相手が名簿に残る。
+fn 覚える(vault: &Vault, peer: PublicKey, 呼び名: Option<&String>) {
+    let Some(呼び名) = 呼び名 else { return };
+    let 結果 = vault.contacts().and_then(|mut c| {
+        c.add(peer, 呼び名, now_secs())?;
+        vault.save_contacts(&c)?;
+        Ok(())
+    });
+    match 結果 {
+        Ok(()) => eprintln!("warifu: 覚えました: {呼び名}"),
+        // 覚えられなくても会話は続く。**黙って落とさない**
+        Err(e) => eprintln!("warifu: 覚えられませんでした（会話は続きます）: {e}"),
+    }
+}
+
+/// `--relay` が付いているかを、経路の層の言葉に直す（**D78**）。
+///
+/// **既定は「使わない」。**ここを既定で「使う」にすると、
+/// D13 を黙って覆したことになる（2026-09-09）。
+const fn 中継の選び方(使う: bool) -> 中継の使い方 {
+    if 使う {
+        中継の使い方::使う
+    } else {
+        中継の使い方::使わない
+    }
+}
+
+/// 相手が誰かを言う。覚えていれば呼び名で。
+fn 誰か(vault: &Vault, peer: PublicKey) -> String {
+    match vault.contacts() {
+        Ok(c) => identity::呼び名(&c, peer),
+        Err(_) => peer.to_string(),
+    }
+}
+
+/// **前と同じ口で結び、どう決まったかを人へ言う**（**#38** の案 A ＋ C）。
+///
+/// **黙って空きへ落ちない。**落ちたことを言えなければ、
+/// **人は配った鍵が死んだことを知らないまま待つ**
+/// （2026-09-16 に 6 時間待った）。
+///
+/// **取れなかったときは控えを書き換えない** ——
+/// 取れない理由が「別の warifu が持っている」なら、
+/// **上書きは動いているほうの鍵を殺す。**見分けられないので、消さないほうを選ぶ。
+async fn 結んで口を言う(
+    device: &Device,
+    vault: &warifu_vault::Vault,
+    中継: warifu_net::中継の使い方,
+) -> Result<Node, Box<dyn std::error::Error>> {
+    let 決め方 = vault.port().unwrap_or_default().map_or(
+        warifu_net::口の決め方::まかせる,
+        warifu_net::口の決め方::同じ口,
+    );
+
+    let node = Node::bind_at(device, 中継, 決め方).await?;
+    let 様子 = node.口の様子();
+
+    match 様子 {
+        warifu_net::口の様子::取り直せた(口) => {
+            eprintln!("warifu: {}", 口を取り直した行(口));
+        }
+        warifu_net::口の様子::まかせた(口) => {
+            eprintln!("warifu: 口 {口} で待ちます（初めてなので、この口を控えます）");
+        }
+        warifu_net::口の様子::取れなかった {
+            望んだ, 代わり
+        } => {
+            eprintln!("warifu: 前の口 {望んだ} が取れませんでした。{代わり} で待ちます");
+            eprintln!("warifu: **前に配った鍵は、もう使えません。出し直してください**");
+            // **控えは書き換えない**（上の説明のとおり）
+            return Ok(node);
+        }
+    }
+    if let Err(e) = vault.save_port(様子.口()) {
+        eprintln!("warifu: 口を控えられませんでした: {e}（次の起動で口が変わります）");
+    }
+    Ok(node)
+}
+
+async fn 待つ(o: &Options) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+
+    // **開始と終わりを先に決める。**`--from` を付けたときだけ、いまより後ろから始まる
+    let 開始 = o.from.unwrap_or_else(now_secs);
+    let 終わり = o.until.unwrap_or_else(|| 開始.saturating_add(o.ttl));
+    let ttl = 終わり.saturating_sub(now_secs());
+    // **前と同じ口を取りに行く**（**#38 の残り半分**）。
+    // 鍵は「出したときの口」を焼き込むので、**口が変われば配った鍵は死ぬ**
+    let node = Arc::new(結んで口を言う(&device, &vault, 中継の選び方(o.relay)).await?);
+    let 宛先 = node.address().await?;
+    let address = 宛先.to_string();
+
+    // **中継を使うと何が起きるかを、使う人にその場で言う**（**D10** / **D78**）。
+    // 「網を越えられます」だけ言って代償を伏せると、**知らないうちに預けたことになる**
+    if o.relay {
+        eprintln!("warifu: 中継を使います（別の網の相手へも届きうる）");
+        eprintln!(
+            "warifu: 中身は中継からも読めません。ただし**繋いだこと自体**（誰がいつ誰に）は中継の運用者に見えます"
+        );
+    }
+
+    // **届かないのに「待っています」と言わない。**
+    //
+    // warifu は外部の中継を使わない（**D13**）。候補が全部その場の網の中なら、
+    // **同じ網の相手にしか届かない。**それを黙って待つと、
+    // 相手は 2 時間ぶん待つことになる（2026-09-07 に Windows で実際にそうなった）。
+    //
+    // **待たせる前に言う。**「押せるのに効かないボタン」（D49）と同じ形である。
+    if 宛先.外から届きうる() {
+        // **届くときも言う**（2026-09-27）。黙っていると、立てた人は
+        // 外の相手を待ってよいのか分からない。
+        // **番地は出さない。口の番号だけ**（外側は人が Issue に貼る）
+        let 口たち: Vec<String> = 宛先.外から届く口たち().iter().map(u16::to_string).collect();
+        if !口たち.is_empty() {
+            eprintln!("warifu: 外から届きます（外側の口 {}）", 口たち.join("・"));
+        }
+    } else {
+        eprintln!(
+            "warifu: この会議キーは、同じ網の相手にしか届きません（外向きの経路がありません）"
+        );
+        eprintln!("warifu: 経路の候補: {}", 経路の候補を言う(&宛先));
+        // **次の一手を出す。**「届きません」だけでは、打つ手が分からない。
+        // **n0 の中継は勧めない**（**D124**）
+        eprintln!(
+            "warifu: 外の相手を待つなら、ルーターの UPnP を有効にするか、この口を固定で向けてください"
+        );
+        eprintln!("warifu: 外から届く人が主催するなら、こちらは入る側で足ります");
+        eprintln!("warifu: 詳しくは warifu doctor");
+    }
+
+    let 会議 = Arc::new(Mutex::new(Conference::host(
+        device.public_key(),
+        warifu_app::DEFAULT_CAPACITY,
+    )?));
+    let 会議id = 会議.lock().await.id();
+
+    // **1 本につき 1 人**（割符は「1 つの鍵 = 1 人」・D12 / D47）。
+    // 人数ぶん出す。**前の鍵は死なない。**
+    let mut 割符 = Vec::with_capacity(o.keys);
+    let mut 鍵たち = Vec::with_capacity(o.keys);
+    for _ in 0..o.keys {
+        let (t, token) = device.issue_tally_between(開始, 終わり)?;
+        鍵たち.push(token);
+        割符.push(t);
+    }
+    let 期限 = 割符[0].not_after();
+
+    // **会議キーは標準出力へ。**進行の知らせは標準エラーへ分ける。
+    // こうしておくと `warifu host | pbcopy` のように使える
+    let いま = now_secs();
+    if o.from.is_some() {
+        eprintln!(
+            "warifu: 待っています。開始まで {}（{開始}）／終わりまで {}（{終わり}）",
+            間隔を言う(開始.saturating_sub(いま)),
+            間隔を言う(終わり.saturating_sub(いま))
+        );
+        eprintln!("warifu: 始まるまでは、鍵を渡した相手でも入れません");
+    } else {
+        eprintln!(
+            "warifu: 待っています。{}で会議キーが切れます（{終わり}）",
+            間隔を言う(ttl)
+        );
+    }
+    if o.keys > 1 {
+        eprintln!(
+            "warifu: 会議キーを {} 本出します。1 本につき 1 人です",
+            o.keys
+        );
+    }
+    for token in &鍵たち {
+        println!("{}", format_invite(&address, token, 会議id));
+    }
+
+    let 送り口: 送り口たち = Arc::new(Mutex::new(HashMap::new()));
+    let 割符 = Arc::new(Mutex::new(割符));
+    let (終わり送, mut 終わり受) = mpsc::channel::<(PublicKey, 終わり方)>(16);
+    // **Ctrl-C / SIGTERM で、全員に閉じると知らせてから終わる**（2026-09-28）。
+    // 汲み口は自分の送り口を持ち続けるので、外から閉じるにはこの合図が要る
+    let (閉じろ送, 閉じろ受) = tokio::sync::watch::channel(false);
+
+    // **来るまで待ち続ける。**
+    //
+    // `accept` は下の層の都合で時間切れになることがある（実測: timed out）。
+    // 「待っています」と言った以上、**こちらの都合で勝手に諦めない。**
+    //
+    // **割符が合わない相手が来ても、そこで終わらない**（実測 2026-09-04）。
+    // 落ちてよいのは鍵が切れたときだけ。
+    // **落ちた相手は、鍵が生きている間は戻ってこられる**（**D44**）。
+    {
+        let node = Arc::clone(&node);
+        let 会議 = Arc::clone(&会議);
+        let 送り口 = Arc::clone(&送り口);
+        let 割符 = Arc::clone(&割符);
+        let vault = vault.clone();
+        let 呼び名 = o.remember.clone();
+        let 私 = device.public_key();
+        let 閉じろ受 = 閉じろ受.clone();
+        tokio::spawn(async move {
+            loop {
+                if now_secs() > 期限 {
+                    eprintln!("warifu: 会議キーの期限が切れました。もう誰も入れません");
+                    return;
+                }
+                let Some((session, peer)) = 迎える(&node, &割符, 期限).await else {
+                    return;
+                };
+                eprintln!(
+                    "warifu: 割符が合いました。つながっています（{}）",
+                    誰か(&vault, peer)
+                );
+                覚える(&vault, peer, 呼び名.as_ref());
+
+                let (送, 受) = mpsc::channel::<Notice>(32);
+                // **自分が置いたものを、自分で片付けられるように渡す**（**D83**）。
+                // 送り口は相手の公開鍵で引いているので、入り直すと同じ場所に入る
+                let 私の口 = 送.clone();
+                送り口.lock().await.insert(peer.to_bytes(), 送);
+                汲む(
+                    Channel::new(session),
+                    受,
+                    Arc::clone(&会議),
+                    Arc::clone(&送り口),
+                    peer,
+                    私,
+                    終わり送.clone(),
+                    私の口,
+                    閉じろ受.clone(),
+                );
+            }
+        });
+    }
+
+    // 打った行を、**会議に居る全員へ**。
+    //
+    // **`/key` だけは送らずに、会議キーをもう 1 本出す。**
+    // 建てた後に足せないと、**遅れて来た人を入れられない**
+    // （2026-09-06 に実際に詰まった。画面には「もう 1 本出す」があるのに CLI に無かった）。
+    // `/key` そのものを送りたいときは、頭に空白を 1 つ足す。
+    let 打つ = {
+        let 送り口 = Arc::clone(&送り口);
+        let 割符 = Arc::clone(&割符);
+        let device = device.clone();
+        let address = address.clone();
+        let 私 = device.public_key();
+        tokio::spawn(async move {
+            let mut 入力 = BufReader::new(tokio::io::stdin()).lines();
+            while let Ok(Some(text)) = 入力.next_line().await {
+                if text.trim().is_empty() {
+                    continue;
+                }
+                if text == "/key" {
+                    match device.issue_tally_between(開始, 終わり) {
+                        Ok((t, token)) => {
+                            println!("{}", format_invite(&address, &token, 会議id));
+                            割符.lock().await.push(t);
+                            eprintln!("warifu: 会議キーをもう 1 本出しました。1 本につき 1 人です");
+                        }
+                        // **握り潰さない。**出せなかったなら、そう言う
+                        Err(e) => eprintln!("warifu: 会議キーを作れませんでした（{e}）"),
+                    }
+                    continue;
+                }
+                let 知らせ = Notice::Text {
+                    meeting: 会議id,
+                    from: 私,
+                    話し手: None,
+                    body: text,
+                };
+                配る(&送り口, None, &知らせ).await;
+            }
+            // **入力が尽きても会議は終わらない。**送るのを止めるだけ（2026-09-04 の実測）
+        })
+    };
+
+    let 止め = 止めてと言われた();
+    tokio::pin!(止め);
+
+    // 誰かが抜けるたびに数え直す。**全員が帰ったら終わる。落ちたなら待ち直す。**
+    loop {
+        let 静か = o.idle.map(std::time::Duration::from_secs);
+        let 待つ限度 = 静か.unwrap_or(std::time::Duration::from_secs(60 * 60 * 24));
+        let 来た = tokio::select! {
+            () = &mut 止め => {
+                eprintln!("warifu: 止めるよう言われたので、相手に知らせて終わります");
+                let _ = 閉じろ送.send(true);
+                // **知らせ終わるのを少しだけ待つ**（全員の汲み口が片付くまで・最長 3 秒）
+                let _ = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+                    while !送り口.lock().await.is_empty() {
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                    }
+                })
+                .await;
+                break;
+            }
+            _ = tokio::time::sleep(待つ限度), if 静か.is_some() => None,
+            v = 終わり受.recv() => v,
+        };
+        let Some((peer, 訳)) = 来た else {
+            eprintln!(
+                "warifu: {} 秒なにも来なかったので終わります",
+                待つ限度.as_secs()
+            );
+            break;
+        };
+        // **片付けは経路の側で済んでいる**（**D83**）——
+        // ここで消すと、入り直した新しい経路を消してしまう
+        eprintln!("warifu: {}", 抜けた行(&鍵の頭(peer), &訳));
+
+        let 残り = 送り口.lock().await.len();
+        if 残り > 0 {
+            eprintln!("warifu: あと {残り} 人います");
+            continue;
+        }
+        if matches!(訳, 終わり方::落ちた(_)) && now_secs() <= 期限 {
+            eprintln!(
+                "warifu: 待ち直します。同じ相手だけが、{}のあいだ戻ってこられます",
+                間隔を言う(期限.saturating_sub(now_secs()))
+            );
+            continue;
+        }
+        // ここまで来たのは「誰かが帰って、残りが 0 人」のとき。**会議は終わり**
+        break;
+    }
+    打つ.abort();
+    Ok(())
+}
+
+/// **繋がらないときに、最初に叩くもの。**
+///
+/// 2026-09-07。Windows で手で調べたことは、1 コマンドで出せるべきである。
+/// 試験導入する人が最初に叩くものになる。
+///
+/// **出すのは事実だけ。**直し方は言うが、**勝手に直さない**
+/// （ファイアウォールの規則を AI が作らない・baseline §13）。
+async fn 診る(中継を使う: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+    println!("── 身元 ──");
+    println!("  公開鍵      {}", device.public_key());
+    println!("  置き場所    {}", vault.dir().display());
+    println!(
+        "  覚えた相手  {} 人",
+        vault.contacts().map(|c| c.len()).unwrap_or(0)
+    );
+
+    println!("\n── 経路 ──");
+    // **`doctor` は口を取りに行かない**（**#38**）。
+    // 取りに行くと、**動いている画面からその口を奪う**ことになる。
+    // 代わりに「画面が待っているはずの口」を控えから言う ——
+    // 2026-09-17 に「doctor の口と画面の口が違う」で 1 往復した所である
+    match vault.port() {
+        Ok(Some(口)) => println!("  控えた口    {口}（**画面がこの口で待ちます**）"),
+        Ok(None) => println!("  控えた口    ありません（**立ち上げるたびに変わります**）"),
+        Err(e) => println!("  控えた口    読めません（{e}）"),
+    }
+    println!("  この口      これから開くのは **doctor 自身の口**です（画面とは別物）");
+    let node = Node::bind(&device, 中継の選び方(中継を使う)).await?;
+    let 宛先 = node.address().await?;
+    let 候補: Vec<_> = 宛先.ip_addrs().collect();
+    println!("  候補        {} 件", 候補.len());
+    for a in &候補 {
+        println!("    {a}");
+    }
+    // **ルーターが外への口を開けてくれるか**（2026-09-27）。
+    // **中継を切っていると iroh は頼まない**ので、ここで頼んだ結果を出す。
+    // これが無いと「外向き ありません」が、ルーターのせいか頼んでいないせいか分からない
+    if let Some(調べ) = node.口開けを調べる().await {
+        match 調べ {
+            Ok(出) => println!(
+                "  ルーター    応じる仕組み UPnP {} ／ PCP {} ／ NAT-PMP {}",
+                応じる(出.upnp),
+                応じる(出.pcp),
+                応じる(出.nat_pmp)
+            ),
+            Err(e) => println!("  ルーター    口開けを調べられませんでした（{e}）"),
+        }
+        // **「○」は「口を渡してくれた」ではない**（2026-09-29）。
+        // UPnP ○ なのに、外の IPv4 を 1 本も渡されていない機械があった。
+        // 「開いた」と読み違えやすい —— **渡されたかを別の行で言う**
+        match node.外への口(std::time::Duration::ZERO).await {
+            Some(外) => println!(
+                "              外への口を渡してもらえました（外側の口 {}）",
+                外.port()
+            ),
+            None => println!("              **外への口は渡してもらえていません**"),
+        }
+    }
+    // **中継は番地とは別に出す。**「候補 3 件」に混ぜると、
+    // どれが外に出ているのか読めない
+    match 宛先.relay() {
+        Some(場所) => {
+            println!("  中継        使っています（--relay）");
+            println!("    {場所}");
+            println!("              → **別の網の相手からも届きうる**");
+            println!("              繋いだこと（誰がいつ誰に）は中継の運用者に見えます（D10）");
+        }
+        None if 中継を使う => {
+            // **付けたのに出ていない。**黙って「使えている」ことにしない。
+            //
+            // 2026-09-09 に手元で実測した形がこれである ——
+            // **中継までは出られている**（外の番地が見えるようになった）のに、
+            // **中継そのものは経路に入らない。**
+            // 「回線が無い」と書くと嘘になるので、**分かっていることだけを書く。**
+            println!("  中継        **決まっていません**（--relay を付けましたが出ていません）");
+            println!("              上の候補に外の番地が出ていれば、中継までは届いています");
+            println!("              中継越しの経路そのものは、まだ入っていません");
+        }
+        None => println!("  中継        使っていません（既定・D13）"),
+    }
+    if 宛先.外から届きうる() {
+        println!("  外向き      あり");
+        println!("              → 別の網の相手からも届きうる");
+    } else {
+        println!("  外向き      **ありません**");
+        println!("              → **同じ網の相手にしか届きません**");
+        println!("              考えられるもの: CGNAT / VPN / 仮想の網だけが見えている");
+        // **次の一手を出す。**事実だけ出して手を止めない。
+        // **n0 の中継は勧めない**（**D124** —— 中継は会議の参加者どうしだけ）
+        println!();
+        println!("  → **外の相手とつなぐには、どちらか 1 台が外から届く必要があります**");
+        println!("     ・ルーターの設定で UPnP（または NAT-PMP / PCP）を有効にする");
+        println!("     ・ルーターで、この機械へ UDP の口を 1 つ固定で向ける");
+        println!(
+            "     ・**外から届く人が主催し、届かない側が入る**（入る側は外へ出られれば足りる）"
+        );
+    }
+
+    println!("\n── 遮る物 ──");
+    for 行 in 遮る物を調べる() {
+        println!("  {行}");
+    }
+
+    println!("\n**ここに出るのは事実だけです。**直すのは人が行います。");
+    Ok(())
+}
+
+/// 口開けに応じたかを、人が読む字にする。
+const fn 応じる(使える: bool) -> &'static str {
+    if 使える { "○" } else { "×" }
+}
+
+/// ファイアウォールの状態を、その OS のやり方で調べる。
+///
+/// **調べるだけ。**規則は作らない —— **外から届く口を開けるのは、人が決めること**である
+/// （baseline §13）。
+///
+/// # なぜ CLI と画面を分けて出すのか
+///
+/// **まとめて数えると、塞がっている方が隠れる。**
+/// 2026-09-12 に Windows で実際にそうなった —— `warifu.exe` に規則が 2 本あり、
+/// `warifu-desktop.exe` には 1 本も無い状態で、`*warifu*` を数えると「2 件」になる。
+/// **「規則はある」と読めてしまい、画面が塞がっていることを隠す。**
+///
+/// 判定そのものは `warifu-guard` が持つ。ここは**並べて見せるだけ**である。
+fn 遮る物を調べる() -> Vec<String> {
+    let mut 行 = Vec::new();
+
+    // **自分（コマンド）から見る。**`current_exe` が読めないことはありうる
+    match std::env::current_exe() {
+        Ok(道) => 行.push(format!(
+            "ファイアウォール  コマンド  {}",
+            warifu_guard::調べる(&道).一行()
+        )),
+        Err(e) => 行.push(format!(
+            "ファイアウォール  コマンド  調べられませんでした（{e}）"
+        )),
+    }
+
+    // **画面は別に見る。**入れていなければ触れない —— 直しようのないことを言わない
+    match warifu_guard::画面の在り処() {
+        Some(道) => {
+            let 遮り = warifu_guard::調べる(&道);
+            行.push(format!("                  画面      {}", 遮り.一行()));
+            if matches!(遮り, warifu_guard::遮り::塞がっている) {
+                行.push(
+                    "                            → **文字は届くのに映像だけ乗らない**".to_owned(),
+                );
+                行.push(
+                    "                              形で出ます。管理者の PowerShell で 1 行:"
+                        .to_owned(),
+                );
+                行.push(format!(
+                    "                              New-NetFirewallRule -DisplayName warifu-desktop \\\n                                -Direction Inbound -Program '{}' \\\n                                -Action Allow -Profile Any",
+                    道.display()
+                ));
+            }
+        }
+        None => 行.push("                  画面      入っていません".to_owned()),
+    }
+
+    行
+}
+
+/// 経路の候補を、人が読める形で並べる。**中身は宛先そのもので、秘密ではない。**
+fn 経路の候補を言う(宛先: &Address) -> String {
+    let mut 並び: Vec<String> = 宛先.ip_addrs().map(|a| a.to_string()).collect();
+    if 並び.is_empty() {
+        return "（1 つもありません）".to_owned();
+    }
+    並び.sort();
+    並び.join(" / ")
+}
+
+/// 相手ごとの送り口。**1 本しか持たない形にすると、3 人目が来た時点で前の相手へ届かなくなる。**
+type 送り口たち = Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>;
+
+/// 知らせを配る。`除く` に指定した相手には送らない（**言った本人へ返さない**）。
+async fn 配る(送り口: &送り口たち, 除く: Option<PublicKey>, 知らせ: &Notice) {
+    let 口 = 送り口.lock().await;
+    for (鍵, tx) in 口.iter() {
+        if 除く.is_some_and(|p| p.to_bytes() == *鍵) {
+            continue;
+        }
+        // **届かない相手で止めない。**1 人が落ちていても、ほかへは配る
+        let _ = tx.send(知らせ.clone()).await;
+    }
+}
+
+/// 相手 1 人ぶんの汲み口。**画面（`apps/desktop`）と同じ構え。**
+///
+/// 打った行はここへ流れてきて、届いた行は標準出力へ出る。
+/// **主催なので、聞いた文字はほかの人へ配る**（**D48**）——
+/// 三者会議は星形で、参加者どうしは繋がっていない。
+#[allow(clippy::too_many_arguments)]
+fn 汲む(
+    mut channel: Channel,
+    mut 受: mpsc::Receiver<Notice>,
+    会議: Arc<Mutex<Conference>>,
+    送り口: 送り口たち,
+    peer: PublicKey,
+    私: PublicKey,
+    終わり送: mpsc::Sender<(PublicKey, 終わり方)>,
+    // **自分が置いた送り口。**入れ替わっていたら片付けない（**D83**）
+    私の口: mpsc::Sender<Notice>,
+    // **主催が止められたら、閉じると知らせる合図**
+    mut 閉じろ: tokio::sync::watch::Receiver<bool>,
+) {
+    tokio::spawn(async move {
+        let 訳 = loop {
+            tokio::select! {
+                // 変わるのは「閉じる」になるときだけ
+                _ = 閉じろ.changed() => break 終わり方::止めた,
+                出す = 受.recv() => {
+                    let Some(知らせ) = 出す else { break 終わり方::帰った };
+                    let Ok(intent) = 知らせ.to_intent() else { continue };
+                    if let Err(e) = channel.send(&intent).await {
+                        break 終わり方を見る(&e);
+                    }
+                }
+                届いた = channel.recv() => {
+                    let intent = match 届いた {
+                        Ok(i) => i,
+                        Err(e) => break 終わり方を見る(&e),
+                    };
+                    let Ok(notice) = Notice::from_intent(&intent) else { continue };
+                    if let Notice::Profile {
+                        from, 名前, 紹介, ..
+                    } = &notice
+                    {
+                        名乗りを出す(peer, *from, 名前, 紹介);
+                        continue;
+                    }
+                    if let Notice::Text { from, body, .. } = &notice {
+                        // **名乗った差出人と、繋いできた相手が違うなら通さない**（D48）
+                        if *from != peer {
+                            eprintln!("warifu: 差出人が経路の相手と違います。捨てました");
+                            continue;
+                        }
+                        println!("{}: {body}", 鍵の頭(*from));
+                        // **主催が配る。**参加者どうしは繋がっていない
+                        配る(&送り口, Some(peer), &notice).await;
+                        continue;
+                    }
+                    let mut c = 会議.lock().await;
+                    if let Ok(events) = c.on_notice(peer, &notice) {
+                        for e in events {
+                            eprintln!("warifu: {}", 出来事を言う(&e));
+                        }
+                    }
+                }
+            }
+        };
+        // **落ちた相手には締めに行かない。**そこで出る誤りは落ちた理由を覆い隠す
+        if !matches!(訳, 終わり方::落ちた(_)) {
+            let _ = channel.finish().await;
+        }
+        let _ = 私; // 私 は将来の紹介（D41）で使う
+
+        // **自分が置いたものだけを片付ける**（**D83**）。
+        //
+        // 同じ相手が入り直していれば、そこに居るのは**新しい経路**である。
+        // 消すと、繋がったばかりの相手が落ちる（画面側で実物で踏んだ）。
+        let 私のままだった = {
+            let mut 棚 = 送り口.lock().await;
+            match 棚.get(&peer.to_bytes()) {
+                Some(いま) if いま.same_channel(&私の口) => {
+                    棚.remove(&peer.to_bytes());
+                    true
+                }
+                _ => false,
+            }
+        };
+        if !私のままだった {
+            // **入り直している。古い経路の始末は、誰にも影響させない**（**D83**）——
+            // 主ループへも渡さない（渡すと「抜けました」と出て、数え直しが狂う）
+            return;
+        }
+        // **経路が落ちたら、その人は名簿にも居ない。**
+        // 外していないと、入り直しの `Join` が冪等で潰される
+        {
+            let mut c = 会議.lock().await;
+            let ルーム = c.id();
+            let _ = c.on_notice(peer, &Notice::Leave { meeting: ルーム });
+        }
+        let _ = 終わり送.send((peer, 訳)).await;
+    });
+}
+
+/// 割符の合う相手が来るまで待つ。
+///
+/// **来るまで待ち続ける。**`accept` は下の層の都合で時間切れになることがある
+/// （実測: timed out）。「待っています」と言った以上、**こちらの都合で勝手に諦めない。**
+/// `--idle` は繋がった後の話であって、**繋がる前の待ち時間ではない**。
+///
+/// **割符が合わない相手が来ても、そこで終わらない**（実測 2026-09-04）。
+/// 予定に紐づく鍵では、**始まる前に一度叩かれただけで待ち受けが落ちていた。**
+/// 落ちてよいのは鍵が切れたときだけ。
+async fn 迎える(
+    node: &Node,
+    割符: &Arc<Mutex<Vec<warifu_core::Tally>>>,
+    期限: u64,
+) -> Option<(warifu_net::Session, PublicKey)> {
+    loop {
+        // 会議キーが切れていたら、待っていても意味が無い
+        if now_secs() > 期限 {
+            return None;
+        }
+
+        let mut session = match node.accept(&Revocations::new()).await {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("warifu: 待ち直します（{e}）");
+                continue;
+            }
+        };
+        let peer = session.peer();
+
+        // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31 / D39）
+        let 応答 = tokio::time::timeout(
+            std::time::Duration::from_secs(HANDSHAKE_SECS),
+            session.recv(),
+        )
+        .await;
+
+        let 結果 = match 応答 {
+            Err(_) => Err("相手が割符に応じませんでした".to_owned()),
+            Ok(Err(e)) => Err(e.to_string()),
+            Ok(Ok(bytes)) => match warifu_core::Acceptance::from_bytes(&bytes) {
+                Err(e) => Err(e.to_string()),
+                Ok(a) => 通してよいか(&mut 割符.lock().await, &a, peer),
+            },
+        };
+
+        match 結果 {
+            Ok(()) => {
+                // **どの相手の道かを添える**（相手が複数いると、閉じた行が誰のものか読めない）
+                let 誰 = 鍵の頭(peer);
+                session.通り道を見張る(move |出来事| eprintln!("warifu: {出来事}（{誰}）"));
+                return Some((session, peer));
+            }
+            // **理由は主催の手元にだけ出す。**相手には返さない（戸口の構え・D31）
+            Err(why) => eprintln!("warifu: 通しませんでした（{why}）。待ち直します"),
+        }
+    }
+}
+
+/// 片割れを見て、通してよいかを決める。
+///
+/// **まだ誰も入っていなければ初回**（`match_half`）、
+/// **一度入った相手が戻ってきたなら再入場**（`rematch_half`・**D44**）。
+///
+/// 併せて、**署名した本人と、経路で確定した相手が同じ**であることを見る。
+/// `Acceptance` は本人の鍵で署名されているが、**どこで署名されたかまでは言っていない。**
+/// 突き合わせないと、写し取った片割れを別の経路で出せてしまう。
+fn 通してよいか(
+    割符: &mut [warifu_core::Tally],
+    acceptance: &warifu_core::Acceptance,
+    peer: PublicKey,
+) -> Result<(), String> {
+    if acceptance.accepter() != peer {
+        return Err("署名した相手と、繋いできた相手が違います".to_owned());
+    }
+    // **どの招待に対する片割れかは、相手が名乗っている。**総当たりで試さない ——
+    // 試すと、別の招待の窓（`not_before` / `not_after`）で通ってしまう（D47）
+    let Some(t) = 割符.iter_mut().find(|t| t.id() == acceptance.tally()) else {
+        return Err("別の会議キーに対する片割れです".to_owned());
+    };
+    let 初回 = t.used_by().is_none();
+    let 結果 = if 初回 {
+        t.match_half(acceptance, now_secs(), &Revocations::new())
+    } else {
+        t.rematch_half(acceptance, now_secs(), &Revocations::new())
+    };
+    結果.map(|_| ()).map_err(|e| e.to_string())
+}
+
+async fn 入る(key: &str, o: &Options) -> Result<(), Box<dyn std::error::Error>> {
+    let (vault, device) = 身元()?;
+    let (address, token, meeting) = parse_invite(key)?;
+    if is_own_invite(device.public_key(), &token) {
+        return Err("自分の会議キーです。相手に渡してください".into());
+    }
+
+    // **呼ぶ前に窓を見る。**始まっていない・切れている鍵で相手を叩かない
+    // （叩かれた側は「割符に応じない相手」として待ち直すことになる）
+    let acceptance = device.accept(&token, now_secs())?;
+
+    let node = Node::bind(&device, 中継の選び方(o.relay)).await?;
+    let to: Address = address.parse()?;
+    let mut session = node.connect(&to, &Revocations::new()).await?;
+    let peer = session.peer();
+
+    session.send(&acceptance.to_bytes()).await?;
+    eprintln!("warifu: つながりました（{}）", 誰か(&vault, peer));
+    // **文字の通り道を出す**（2026-09-25・網を越えたとき、直接か中継かを言えなかった）
+    let 誰 = 鍵の頭(peer);
+    session.通り道を見張る(move |出来事| eprintln!("warifu: {出来事}（{誰}）"));
+    覚える(&vault, peer, o.remember.as_ref());
+
+    let mut channel = Channel::new(session);
+    channel.send(&Notice::Join { meeting }.to_intent()?).await?;
+    // **名乗りも渡す**（**D75**）。画面の側と同じ扱いで、相手の画面に名前が出る。
+    // **本人確認ではない** —— 相手が呼び名を付けていれば、そちらが勝つ（D46）
+    名乗りを渡す(&vault, &mut channel, meeting, device.public_key()).await;
+
+    // **会議キーに書かれた会議へ入る。**自分で id を作らない
+    let mut roster = Roster::with_capacity(device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
+    roster.add(peer)?;
+    let mut conference = Conference::joined(device.public_key(), meeting, roster);
+
+    let 訳 = やり取り(channel, &mut conference, peer, o.idle).await?;
+    知らせる(&訳);
+
+    // **同じ会議キーで入り直せる**（**D44**）。戻れるのは一度入ったこの端末だけで、
+    // 鍵が別人に渡っても意味は無い。**これを黙っていると、人は鍵を作り直させに行く**
+    if matches!(訳, 終わり方::落ちた(_)) {
+        let 残り = token.not_after().saturating_sub(now_secs());
+        if 残り > 0 {
+            eprintln!(
+                "warifu: 同じ会議キーで入り直せます（あと {}）",
+                間隔を言う(残り)
+            );
+        } else {
+            eprintln!("warifu: 会議キーが切れています。新しい鍵をもらってください");
+        }
+    }
+    Ok(())
+}
+
+/// 会議が終わった訳。**「帰った」と「落ちた」を混ぜない。**
+///
+/// 混ぜると、人は待てばよいのか鍵を作り直すべきかが分からない。
+/// 実測 2026-09-04: 相手を `kill -9` した主催の手元に出たのは
+/// `経路で落ちました: 送り終わる途中で落ちました: connection lost` で、
+/// これは**挨拶して帰った相手にも同じ文言が出る**作りだった。
+#[derive(Debug, PartialEq, Eq)]
+enum 終わり方 {
+    /// 相手が挨拶して閉じた。**こちらから言うことは無い**
+    帰った,
+    /// `--idle` の静かな時間が過ぎた
+    静かだった,
+    /// 相手が落ちた。**理由は主催の手元に出す**
+    落ちた(String),
+    /// こちらが Ctrl-C / SIGTERM で止めた。**閉じると知らせてから終わる**
+    止めた,
+}
+
+/// **Ctrl-C か SIGTERM が来たら返る**（`docker stop` や `timeout` は SIGTERM を送る）。
+///
+/// 受け口が作れなければ、Ctrl-C だけを待つ（**黙って待たない口を作らない**）。
+async fn 止めてと言われた() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        if let Ok(mut 止まれ) = signal(SignalKind::terminate()) {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = 止まれ.recv() => {}
+            }
+            return;
+        }
+    }
+    let _ = tokio::signal::ctrl_c().await;
+}
+
+/// **主催から見た、抜けた相手の 1 行**（2026-09-28）。
+///
+/// 前は「抜けました」と「相手が落ちました（…）」を別の行で出し、**二重に見えた。**
+/// 相手が挨拶せずに消えた（期限切れ・プロセスの終了）ときは、主催からは本当に
+/// 「経路が切れた」ので、**それを括弧に入れて 1 行にする。**
+fn 抜けた行(誰: &str, 訳: &終わり方) -> String {
+    match 訳 {
+        終わり方::帰った => format!("{誰} が帰りました"),
+        終わり方::静かだった => format!("{誰} が抜けました（しばらく何も来ませんでした）"),
+        // **主催の側では来ない**（止めたのはこちら）。来ても嘘を言わない
+        終わり方::止めた => format!("{誰} が抜けました（こちらで止めました）"),
+        終わり方::落ちた(why) => format!("{誰} が抜けました（経路が切れました: {why}）"),
+    }
+}
+
+/// **前と同じ口を取り直せたときの 1 行**（2026-09-28）。
+///
+/// 前は「前に配った鍵は、そのまま使えます」と言っていた。**host は起動ごとに部屋を
+/// 建て直す**ので、口が同じでも前の鍵では入れない。
+fn 口を取り直した行(口: u16) -> String {
+    format!(
+        "口 {口} を取り直しました（口は前と同じですが、部屋は新しくなるので、鍵は出し直しになります）"
+    )
+}
+
+/// 受け取りの誤りを、終わり方に読み替える。
+fn 終わり方を見る(e: &warifu_intent::Error) -> 終わり方 {
+    match e {
+        warifu_intent::Error::Closed => 終わり方::帰った,
+        other => 終わり方::落ちた(other.to_string()),
+    }
+}
+
+/// 終わり方を人へ伝える。
+///
+/// **次に何ができるかは、ここでは言わない。**主催と入る側で違うためである
+/// （主催は待ち直し、入る側は同じ鍵で入り直す）。それぞれの呼ぶ側が続けて出す。
+fn 知らせる(訳: &終わり方) {
+    match 訳 {
+        終わり方::帰った => eprintln!("warifu: 相手が帰りました"),
+        // 静かだった の文言は やり取り の中で出している（秒数を持っているのがそちら）
+        終わり方::静かだった | 終わり方::止めた => {}
+        終わり方::落ちた(why) => eprintln!("warifu: 相手が落ちました（{why}）"),
+    }
+}
+
+/// 会議の出来事を、人が読める 1 行にする。
+///
+/// **下ごしらえ（SDP / ICE）の中身は出さない。**出すのは段と相手と長さだけ。
+/// `{:?}` をそのまま出していた頃は、画面と繋いだ手元へ
+/// **SDP が 10 進のバイト列で数千文字**流れていた（2026-09-04 に実測）。
+/// 読めないうえに、**会議の下ごしらえが端末とログに残る。**
+fn 出来事を言う(e: &warifu_app::Event) -> String {
+    use warifu_app::Event;
+    match e {
+        Event::Joined(who) => format!("{} が入りました", 鍵の頭(*who)),
+        Event::Left(who) => format!("{} が抜けました", 鍵の頭(*who)),
+        Event::Signal { from, step, blob } => format!(
+            "下ごしらえ {} が {} から（{} バイト）",
+            段の名(*step),
+            鍵の頭(*from),
+            blob.len()
+        ),
+    }
+}
+
+/// 鍵の頭だけ。**全部並べても人には読めない。**
+fn 鍵の頭(key: PublicKey) -> String {
+    let text = key.to_string();
+    format!("{}…", &text[..12.min(text.len())])
+}
+
+/// 下ごしらえの段。**画面（`SignalPayload`）と同じ綴りにする。**
+fn 段の名(step: warifu_meeting::Step) -> &'static str {
+    use warifu_meeting::Step;
+    match step {
+        Step::Offer => "offer",
+        Step::Answer => "answer",
+        Step::Candidate => "candidate",
+        Step::End => "end",
+    }
+}
+
+/// 打った行を相手へ、届いた行を標準出力へ。
+///
+/// **どちらかが閉じたら終わる。**片方だけ生かしておくと、
+/// 「入力を待っているのか、相手を待っているのか」が分からなくなる。
+async fn やり取り(
+    mut channel: Channel,
+    conference: &mut Conference,
+    peer: warifu_core::PublicKey,
+    idle: Option<u64>,
+) -> Result<終わり方, Box<dyn std::error::Error>> {
+    let meeting = conference.id();
+    let 自分 = conference.me();
+    let mut 入力 = BufReader::new(tokio::io::stdin()).lines();
+    // **入力が尽きても会議は終わらない。**
+    //
+    // `echo … | warifu join` のように使うと、送り終えた時点で標準入力は閉じる。
+    // それを「終わり」にすると、**相手の返事を受け取る前に切れる**
+    // （背景で動かした側は最初から EOF なので、繋がった瞬間に閉じてしまう。
+    // 2026-09-04 に実測）。**送るのを止めるだけで、受け取りは続ける。**
+    let mut 送信終わり = false;
+
+    // **既定では待ち続ける。**`--idle` を付けたときだけ、静かな時間で切り上げる
+    let 限度 = idle.map(std::time::Duration::from_secs);
+
+    // **Ctrl-C / SIGTERM でも、相手に閉じると知らせてから終わる**（2026-09-28）。
+    // 前は受けていなかったので、プロセスごと消え、相手には「経路が切れました」と出た
+    // （普通に使う人は Ctrl-C で抜ける）
+    let 止め = 止めてと言われた();
+    tokio::pin!(止め);
+
+    let 訳 = loop {
+        let 待つ限度 = 限度.unwrap_or(std::time::Duration::from_secs(60 * 60 * 24));
+        tokio::select! {
+            () = &mut 止め => {
+                eprintln!("warifu: 止めるよう言われたので、相手に知らせて終わります");
+                break 終わり方::止めた;
+            }
+            _ = tokio::time::sleep(待つ限度), if 限度.is_some() => {
+                eprintln!("warifu: {} 秒なにも来なかったので終わります", 待つ限度.as_secs());
+                break 終わり方::静かだった;
+            }
+            行 = 入力.next_line(), if !送信終わり => {
+                match 行? {
+                    None => {
+                        送信終わり = true;
+                        continue;
+                    }
+                    Some(text) if text.is_empty() => continue,
+                    Some(text) => {
+                        // **送れないのは経路が落ちたということ。**打ち込みの失敗ではない
+                        if let Err(e) = channel
+                            .send(
+                                &Notice::Text {
+                                    meeting,
+                                    from: 自分,
+                                    話し手: None,
+                                    body: text,
+                                }
+                                .to_intent()?,
+                            )
+                            .await
+                        {
+                            break 終わり方を見る(&e);
+                        }
+                    }
+                }
+            }
+            届いた = channel.recv() => {
+                // **相手が閉じたのは失敗ではない。**終わりとして扱う。
+                // ただし**落ちたのとは分けて持ち帰る**
+                let intent = match 届いた {
+                    Ok(i) => i,
+                    Err(e) => break 終わり方を見る(&e),
+                };
+                let Ok(notice) = Notice::from_intent(&intent) else {
+                    // 会議のものでない口は、経路としては通る。**会議は受け取らない**
+                    continue;
+                };
+                match notice {
+                    // **相手の名乗り**（**D75**）。**本人確認ではない** ——
+                    // 名乗った名前は誰でも真似できるので、そう分かる形で出す
+                    Notice::Profile {
+                        from, 名前, 紹介, ..
+                    } => 名乗りを出す(peer, from, &名前, &紹介),
+                    // **誰が言ったかを出す**（D48）。主催が配った文字は、
+                    // 経路の相手（主催）と差出人が違う —— 三者会議ではそれが普通である
+                    Notice::Text { from, body, .. } => {
+                        if from == peer {
+                            println!("{body}");
+                        } else {
+                            println!("{}: {body}", 鍵の頭(from));
+                        }
+                    }
+                    other => {
+                        // 名簿は動かす。**中身は出さない**（文字だけを標準出力へ）
+                        if let Ok(events) = conference.on_notice(peer, &other) {
+                            for e in events {
+                                eprintln!("warifu: {}", 出来事を言う(&e));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    // **締めてから終わる。**送ったものが相手へ流れきるのを待つ。
+    // **落ちた相手には締めに行かない。**そこで出る誤りは落ちた理由を覆い隠すだけである
+    if matches!(訳, 終わり方::落ちた(_)) {
+        return Ok(訳);
+    }
+    channel.finish().await?;
+    Ok(訳)
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// `MeetingId` を使う所が上にしか無いので、型を持っておく足場。
+#[allow(dead_code)]
+fn _keep(_: MeetingId) {}
+
+/// **自分の名乗りを相手へ渡す**（**D75**）。
+///
+/// 画面（`warifu.app`）と**同じ置き場所**を読む。CLI しか使わない人にも名前を持たせる。
+/// **書いていなければ何も送らない** —— 空の名乗りを配ると、相手の画面の名前が消える。
+async fn 名乗りを渡す(
+    vault: &warifu_vault::Vault,
+    channel: &mut Channel,
+    meeting: warifu_meeting::MeetingId,
+    me: PublicKey,
+) {
+    let Ok(面々) = vault.profiles() else { return };
+    let Some(p) = 面々.find(&warifu_vault::Who::Me) else {
+        return;
+    };
+    if p.name().is_empty() && p.bio().is_empty() {
+        return;
+    }
+    let 知らせ = Notice::Profile {
+        meeting,
+        from: me,
+        名前: p.name().to_owned(),
+        紹介: p.bio().to_owned(),
+    };
+    if let Ok(intent) = 知らせ.to_intent() {
+        // 届かなくても会議は続く。**送る側を待たせない**
+        let _ = channel.send(&intent).await;
+    }
+}
+
+/// 相手の名乗りを、手元へ出す（**D75**）。
+///
+/// **本人確認ではない。**名乗った名前は誰でも真似できるので、
+/// **「名乗っています」と書く** —— 名前だけを出すと、確かめた名前に見える。
+///
+/// **経路の相手と差出人が違うものは捨てる**（`Notice::Text` と同じ扱い・**D48**）。
+fn 名乗りを出す(peer: PublicKey, from: PublicKey, 名前: &str, 紹介: &str) {
+    if from != peer {
+        eprintln!("warifu: 名乗りが経路の相手と違います。捨てました");
+        return;
+    }
+    // **消したことも伝える。**黙って前の名前を残さない
+    if 名前.trim().is_empty() && 紹介.trim().is_empty() {
+        eprintln!("warifu: {} は名乗りを取り消しました", 鍵の頭(from));
+        return;
+    }
+    if !名前.trim().is_empty() {
+        eprintln!("warifu: {} は「{名前}」と名乗っています", 鍵の頭(from));
+    }
+    if !紹介.trim().is_empty() {
+        eprintln!("warifu: {紹介}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn 抜けた相手は_1_行で言う() {
+        // **2026-09-27/28、「抜けました」のあとに「相手が落ちました」が続き、二重に見えた**
+        // 抜け方は括弧に入れて、1 行にする
+        let 誰 = "PEERDAAAAAAA…";
+        assert_eq!(
+            抜けた行(誰, &終わり方::帰った),
+            "PEERDAAAAAAA… が帰りました"
+        );
+        let 落 = 抜けた行(誰, &終わり方::落ちた("connection lost".to_owned()));
+        assert_eq!(
+            落,
+            "PEERDAAAAAAA… が抜けました（経路が切れました: connection lost）"
+        );
+        assert!(!落.contains("相手が落ちました"));
+    }
+
+    #[test]
+    fn 口を取り直しても_部屋は新しいと言う() {
+        // **2026-09-28、「前に配った鍵は、そのまま使えます」と言いながら、部屋は変わっていた**
+        // （host は起動ごとに部屋を建て直す）。鍵は使えないので、そう言う
+        let 字 = 口を取り直した行(58315);
+        assert!(字.contains("58315"));
+        assert!(!字.contains("そのまま使えます"), "嘘になる: {字}");
+        assert!(字.contains("鍵は出し直し"));
+    }
+
+    use super::*;
+
+    fn 読ませる(引数: &[&str]) -> Result<Options, OptionError> {
+        読む_options(&mut 引数.iter().map(|s| (*s).to_owned()))
+    }
+
+    /// **付けなければ今までどおり**（**D78**）。
+    ///
+    /// ここが落ちたら、いま同じ網で動いている試験が全部止まる。
+    #[test]
+    fn 既定では中継を使わない() {
+        assert!(!読ませる(&[]).unwrap().relay);
+        assert!(!読ませる(&["--keys", "2"]).unwrap().relay);
+    }
+
+    #[test]
+    fn 中継を付けたときだけ使う() {
+        assert!(読ませる(&["--relay"]).unwrap().relay);
+        assert!(読ませる(&["--keys", "2", "--relay"]).unwrap().relay);
+    }
+
+    #[test]
+    fn 中継の選び方は既定で使わない() {
+        assert_eq!(中継の選び方(false), 中継の使い方::使わない);
+        assert_eq!(中継の選び方(true), 中継の使い方::使う);
+    }
+
+    /// **打ち間違いを黙って通さない。**`--relayy` が `--relay` になってはいけない
+    #[test]
+    fn 似た綴りは知らない引数として断る() {
+        assert!(matches!(
+            読ませる(&["--relayy"]),
+            Err(OptionError::Unknown(_))
+        ));
+    }
+
+    /// **相手が落ちたら終わる。**標準入力の read が返らなくても、である。
+    ///
+    /// `warifu host` は標準入力を開いたまま背景で動かす使い方をする
+    /// （`warifu host < パイプ`）。ここが縛られると、経路が落ちて
+    /// 誤りを出したあとも**プロセスが残り続ける**。
+    #[test]
+    fn 標準入力の読み取りが止まっていても終われる() {
+        let (合図, 受け) = std::sync::mpsc::channel::<()>();
+        let 始まり = std::time::Instant::now();
+
+        走らせる(async move {
+            // **返らない read(2) の代わり。**合図が来るまで戻らない
+            tokio::task::spawn_blocking(move || {
+                let _ = 受け.recv_timeout(std::time::Duration::from_secs(10));
+            });
+            tokio::task::yield_now().await;
+            ExitCode::SUCCESS
+        });
+
+        let 掛かった = 始まり.elapsed();
+        drop(合図);
+        assert!(
+            掛かった < std::time::Duration::from_secs(3),
+            "標準入力を待って {掛かった:?} 掛かった。落ちても終わらない"
+        );
+    }
+
+    /// **挨拶して帰った相手を「落ちた」と言わない。**
+    ///
+    /// 人はこの 2 つで次の手が変わる。帰ったなら会議は終わり、
+    /// 落ちたなら**鍵を作り直して渡し直す**必要がある（割符は一度きり・D12）。
+    #[test]
+    fn 帰ったのと落ちたのを見分ける() {
+        assert_eq!(
+            終わり方を見る(&warifu_intent::Error::Closed),
+            終わり方::帰った
+        );
+
+        let 落ちた =
+            終わり方を見る(&warifu_intent::Error::Route(warifu_net::Error::Malformed));
+        let 終わり方::落ちた(理由) = 落ちた else {
+            panic!("経路の失敗を「帰った」と読んでいる: {落ちた:?}");
+        };
+        assert!(
+            理由.contains("経路で落ちました"),
+            "理由が主催の手元に残っていない: {理由}"
+        );
+    }
+
+    /// 形が壊れているのも「帰った」ではない。**黙って終わらせない**
+    #[test]
+    fn 壊れた口が来ても帰ったとは言わない() {
+        assert!(matches!(
+            終わり方を見る(&warifu_intent::Error::Malformed),
+            終わり方::落ちた(_)
+        ));
+    }
+
+    /// **下ごしらえ（SDP / ICE）の中身を出さない。**
+    ///
+    /// 2026-09-04 に実物で踏んだ。`{e:?}` をそのまま出していたため、
+    /// 画面と繋いだ CLI の手元へ **SDP が 10 進のバイト列で数千文字**流れた。
+    /// 読めないだけでなく、**会議の下ごしらえが端末とログに残る**。
+    /// 画面側は同じ理由で「長さと相手だけ」に留めている（`announce.ts` の `話の記録`）。
+    #[test]
+    fn 下ごしらえの中身を出さない() {
+        use warifu_app::Event;
+        use warifu_meeting::Step;
+
+        let 相手 = warifu_core::Seed::from_bytes([7u8; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key();
+        let 中身 = b"v=0\r\no=- 123 2 IN IP4 127.0.0.1\r\n".to_vec();
+        let 言い方 = 出来事を言う(&Event::Signal {
+            from: 相手,
+            step: Step::Offer,
+            blob: 中身.clone(),
+        });
+
+        assert!(
+            !言い方.contains("v=0") && !言い方.contains("127.0.0.1"),
+            "SDP の中身が出ている: {言い方}"
+        );
+        assert!(!言い方.contains("118"), "バイト列が出ている: {言い方}");
+        assert!(
+            言い方.contains(&中身.len().to_string()),
+            "長さが出ていない: {言い方}"
+        );
+        assert!(言い方.contains("offer"), "どの段かが出ていない: {言い方}");
+    }
+
+    /// 出入りは、そのまま読める 1 行にする。
+    #[test]
+    fn 出入りは人が読める行になる() {
+        use warifu_app::Event;
+
+        let 相手 = warifu_core::Seed::from_bytes([8u8; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key();
+        let 入った = 出来事を言う(&Event::Joined(相手));
+        let 抜けた = 出来事を言う(&Event::Left(相手));
+
+        assert!(
+            !入った.contains("Joined("),
+            "Debug のまま出ている: {入った}"
+        );
+        assert!(!抜けた.contains("Left("), "Debug のまま出ている: {抜けた}");
+        assert_ne!(入った, 抜けた);
+    }
+}
