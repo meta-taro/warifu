@@ -6,4 +6,10 @@
 set -u
 here="$(git rev-parse --show-toplevel)"
 printf '  %-38s' "置き場所"
-bash "$here/.github/scripts/oss-placement-check.sh"
+bash "$here/.github/scripts/oss-placement-check.sh" || exit 1
+# 共通の検査と重ならない分（語と、.claude/ の外の記録の置き場所）。送る版の木を見る
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+  printf '  %-38s' "公開しない語（${local_ref}）"
+  bash "$here/scripts/check-public-words.sh" "$local_sha" || exit 1
+done

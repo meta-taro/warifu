@@ -35,6 +35,11 @@ jobs:
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: bash .github/scripts/oss-privacy-check.sh "$BASE_SHA" "$HEAD_SHA"
 
+      # **公開しない語**（2026-10-01）。共通の置き場所検査と重ならない分：
+      # 人や席・社内の呼び名・網の詳細の語と、.claude/ の外の記録の置き場所を、木ぜんたいで見る
+      - name: 公開しない語
+        run: bash scripts/check-public-words.sh "${{ github.sha }}"
+
       # **workflow 自身を検める。**
       #
       # `actionlint` は入れていない。見るのは 1 つだけ ——

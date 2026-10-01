@@ -34,6 +34,7 @@ echo "commit 前のゲート:"
 # 1. 個人情報（public リポ・baseline §25）。**cargo が無くても必ず走る**
 走る "個人情報の混入" bash .github/scripts/oss-privacy-check.sh
 走る "置き場所" bash .github/scripts/oss-placement-check.sh
+走る "公開しない語" bash scripts/check-public-words.sh
 
 # 2. workflow の段の順番（**まだ無い値を見る `if:` は黙って飛ぶ**）。
 # python3 は macOS にも Windows の CI にも入っている
