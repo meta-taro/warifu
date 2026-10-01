@@ -24,7 +24,7 @@
 
 | 仕組み | 何を | どこで |
 |---|---|---|
-| `scripts/check-public-tree.sh` | 内部の記録の置き場所（`.claude/decisions.md` ほか・`docs/原案/`・`docs/test-specs/`）と、人や席・社内の呼び名・網の詳細の語を、**木ぜんたい**で見る | commit の前（`.githooks/pre-commit`）・push の前（`.githooks/pre-push`）・CI（`.github/workflows/oss-privacy-check.yml`） |
+| `.github/scripts/oss-placement-check.sh`（全 OSS で同じ形） | 作業の記録が git に入っていないか（`.claude/` は設定と配布物の場所だけ・`.gitignore` の `/.claude/*`） | commit の前（`.githooks/pre-commit`）・push の前（`.githooks/pre-push`）・CI（`.github/workflows/oss-placement-check.yml`） |
 | `.github/scripts/oss-privacy-check.sh` | 追加した行と commit message の個人メール・外向きの IP | commit の前・CI |
 
 止まったら、**`--no-verify` で外さない。**誤検知なら規則を直す commit を先に出す。

@@ -1,0 +1,19 @@
+name: oss-placement-check
+
+# 公開リポの「置き場所」検査（全 OSS で同じ形）。作業の記録が git に入っていないかを見る。
+# 手元の commit 前（.githooks/pre-commit）と push 前（.githooks/pre-push）でも同じスクリプトが走る。
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 置き場所の検査
+        run: bash .github/scripts/oss-placement-check.sh

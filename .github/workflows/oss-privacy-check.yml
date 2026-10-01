@@ -35,12 +35,6 @@ jobs:
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: bash .github/scripts/oss-privacy-check.sh "$BASE_SHA" "$HEAD_SHA"
 
-      # **公開しない記録と語**（2026-10-01）。内部の記録（会話・決定や進捗のメモ・実測）の
-      # 置き場所と、人や席・社内の呼び名・網の詳細の語を、**木ぜんたい**で見る。
-      # 手元の commit と push の前でも同じものが走る（.githooks/pre-commit・pre-push）
-      - name: 公開しない記録と語
-        run: bash scripts/check-public-tree.sh "${{ github.sha }}"
-
       # **workflow 自身を検める。**
       #
       # `actionlint` は入れていない。見るのは 1 つだけ ——
