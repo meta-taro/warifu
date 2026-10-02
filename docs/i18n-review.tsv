@@ -300,6 +300,7 @@ setup.bg.failed	Your background could not be hidden, so your camera video is not
 setup.bg.image	Replace with an image	別の画像にする	换成其他图片	다른 이미지로 바꾸기				
 setup.bg.image.bad	This image could not be read. Please choose another.	この画像は読めませんでした。別の画像を選んでください。	无法读取此图片。请选择其他图片。	이 이미지를 읽을 수 없습니다. 다른 이미지를 선택하세요.				
 setup.bg.image.current	Image currently used as background	いま背景に使っている画像	当前用作背景的图片	현재 배경으로 쓰는 이미지				
+setup.bg.image.loading	Loading the image…	画像を読み込んでいます…	正在读取图片…	이미지를 불러오는 중입니다…				
 setup.bg.image.none	No image chosen yet. Until you choose one, the background is blurred.	画像をまだ選んでいません。選ぶまでは、ぼかして送ります。	尚未选择图片。选择之前，背景会被虚化。	아직 이미지를 선택하지 않았습니다. 선택하기 전까지는 흐리게 해서 보냅니다.				
 setup.bg.image.unsaved	The image could not be saved on this computer. It will be used this time only.	画像をこの機械に保存できませんでした。今回だけ使います。	无法将图片保存到这台电脑。仅本次使用。	이미지를 이 컴퓨터에 저장하지 못했습니다. 이번에만 사용합니다.				
 setup.bg.loading	Preparing to hide your background…	背景を隠す準備をしています…	正在准备隐藏背景…	배경을 숨길 준비를 하고 있습니다…				
@@ -311,10 +312,12 @@ setup.bg.strength.strong	Strong	強い	强	강하게
 setup.bg.strength.weak	Weak	弱い	弱	약하게				
 setup.camera	Come in with the camera on	カメラを入にして入る	开着摄像头进来	카메라를 켜고 들어가기				
 setup.camera.none	No camera found	カメラが見つかりません	未找到摄像头	카메라를 찾을 수 없습니다				
+setup.camera.nth	Camera	カメラ	摄像头	카메라				
 setup.headphones	Two devices in one room will echo no matter what. Use headphones.	同じ室内で 2 台を鳴らすと、エコー除去では消せません。ヘッドフォンを使ってください。	同一房间里的两台设备一定会啸叫，回声消除也无法解决。请使用耳机。	같은 방에서 두 대를 켜면 에코 제거로도 막을 수 없습니다. 헤드폰을 사용하세요.				
 setup.hint	Check what you look and sound like before entering.	いま自分が何で映って、何で喋るかを、入る前に確かめられます。	进入之前，先确认自己的画面和声音。	들어가기 전에 자신의 화면과 소리를 확인할 수 있습니다.				
 setup.mic	Come in with the microphone on	マイクを入にして入る	开着麦克风进来	마이크를 켜고 들어가기				
 setup.mic.none	No microphone found	マイクが見つかりません	未找到麦克风	마이크를 찾을 수 없습니다				
+setup.mic.nth	Microphone	マイク	麦克风	마이크				
 setup.mode.audio	No camera, so sending audio only	カメラが無いので、音声だけ送ります	没有摄像头，只发送音频	카메라가 없어 음성만 보냅니다				
 setup.mode.both	Sending video and audio	映像と音声を送ります	将发送视频和音频	영상과 음성을 보냅니다				
 setup.mode.none	No camera or microphone, so joining to receive only	カメラもマイクも無いので、受け取るだけで入ります	没有摄像头和麦克风，仅接收方式加入	카메라도 마이크도 없어 받기만 하며 참여합니다				

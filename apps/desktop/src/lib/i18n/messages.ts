@@ -320,6 +320,9 @@ export type MessageKey =
   | 'setup.bg.image.unsaved'
   | 'setup.bg.loading'
   | 'setup.solo.title'
+  | 'setup.bg.image.loading'
+  | 'setup.camera.nth'
+  | 'setup.mic.nth'
   | 'setup.solo.hint'
   | 'setup.solo.start'
   | 'setup.solo.stop'
@@ -720,6 +723,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.unsaved': '画像をこの機械に保存できませんでした。今回だけ使います。',
     'setup.bg.loading': '背景を隠す準備をしています…',
     'setup.solo.title': 'カメラと背景を確かめる',
+    'setup.bg.image.loading': '画像を読み込んでいます…',
+    'setup.camera.nth': 'カメラ',
+    'setup.mic.nth': 'マイク',
     'setup.solo.hint': '入る前に、自分の映り方と背景の隠し方を確かめます。誰にも送りません。',
     'setup.solo.start': '確かめる',
     'setup.solo.stop': '確かめ終わる（カメラを放す）',
@@ -1081,6 +1087,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.unsaved': 'The image could not be saved on this computer. It will be used this time only.',
     'setup.bg.loading': 'Preparing to hide your background…',
     'setup.solo.title': 'Check your camera and background',
+    'setup.bg.image.loading': 'Loading the image…',
+    'setup.camera.nth': 'Camera',
+    'setup.mic.nth': 'Microphone',
     'setup.solo.hint': 'Before joining, check how you look and how your background is hidden. Nothing is sent to anyone.',
     'setup.solo.start': 'Check',
     'setup.solo.stop': 'Done (release the camera)',
@@ -1440,6 +1449,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.unsaved': '无法将图片保存到这台电脑。仅本次使用。',
     'setup.bg.loading': '正在准备隐藏背景…',
     'setup.solo.title': '检查摄像头和背景',
+    'setup.bg.image.loading': '正在读取图片…',
+    'setup.camera.nth': '摄像头',
+    'setup.mic.nth': '麦克风',
     'setup.solo.hint': '加入之前，先确认自己的画面和背景的隐藏方式。不会发送给任何人。',
     'setup.solo.start': '检查',
     'setup.solo.stop': '检查完毕（释放摄像头）',
@@ -1803,6 +1815,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.unsaved': '이미지를 이 컴퓨터에 저장하지 못했습니다. 이번에만 사용합니다.',
     'setup.bg.loading': '배경을 숨길 준비를 하고 있습니다…',
     'setup.solo.title': '카메라와 배경 확인',
+    'setup.bg.image.loading': '이미지를 불러오는 중입니다…',
+    'setup.camera.nth': '카메라',
+    'setup.mic.nth': '마이크',
     'setup.solo.hint': '들어가기 전에 내 모습과 배경을 가리는 방식을 확인합니다. 아무에게도 보내지 않습니다.',
     'setup.solo.start': '확인',
     'setup.solo.stop': '확인 끝내기（카메라 해제）',

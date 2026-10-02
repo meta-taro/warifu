@@ -281,6 +281,8 @@
   let localStream: MediaStream | null = $state(null);
   /** 背景に敷く画像（data URL）。**この機械の中にだけ置く**（D126）。 */
   let 背景の画像 = $state<string | null>(null);
+  /** 選んだ画像を整えている間（読み込みに時間がかかっても「選んでいません」と言わない）。 */
+  let 背景の画像を整えている = $state(false);
   /** 背景を隠す模型を読んでいる間（その間は自分の枠が空なので、そう言う）。 */
   let 背景を準備している = $state(false);
   /** **背景を隠せなかったので、カメラを送っていない**（素のカメラへ落とさない・D126）。 */
@@ -1308,12 +1310,20 @@
   /** 手元の画像を選んだ。**画像は外へ出さない**（縮めて、この機械の保存場所に置く）。 */
   async function 背景の画像を選ぶ(file: File | undefined) {
     if (!file) return;
+    // **受け取った時刻と、整え終わった時刻を残す**（2026-10-02）。
+    // 選んでから効くまで 33 秒かかった回があり、どこで待っていたのかが分からなかった
+    const 始め = performance.now();
+    log(`背景: 画像を受け取りました（${Math.round(file.size / 1024)} KB）`);
+    背景の画像を整えている = true;
     try {
       背景の画像 = await prepareBackgroundImage(file);
+      log(`背景: 画像を整えました（${Math.round(performance.now() - 始め)} ミリ秒）`);
     } catch (e) {
       notice = t('setup.bg.image.bad');
       log(`背景: 画像を読めませんでした（${e instanceof Error ? e.message : String(e)}）`);
       return;
+    } finally {
+      背景の画像を整えている = false;
     }
     // 置けなくても、この起動の間は使う。**置けなかったことは言う**
     if (!writeBackgroundImage(背景の画像)) notice = t('setup.bg.image.unsaved');
@@ -3050,12 +3060,12 @@
 
       {#if devices.cameras.length}
         <select bind:value={prefs.cameraId} onchange={支度する}>
-          {#each devices.cameras as c (c.id)}<option value={c.id}>{c.label}</option>{/each}
+          {#each devices.cameras as c, i (c.id)}<option value={c.id}>{c.label || `${t('setup.camera.nth')} ${i + 1}`}</option>{/each}
         </select>
       {/if}
       {#if devices.microphones.length}
         <select bind:value={prefs.micId} onchange={支度する}>
-          {#each devices.microphones as m (m.id)}<option value={m.id}>{m.label}</option>{/each}
+          {#each devices.microphones as m, i (m.id)}<option value={m.id}>{m.label || `${t('setup.mic.nth')} ${i + 1}`}</option>{/each}
         </select>
       {/if}
 
@@ -3144,7 +3154,9 @@
           </label>
         {:else if prefs.background === 'image'}
           <div class="bg-sub">
-            {#if 背景の画像}
+            {#if 背景の画像を整えている}
+              <p class="hint">{t('setup.bg.image.loading')}</p>
+            {:else if 背景の画像}
               <img class="bg-thumb" src={背景の画像} alt={t('setup.bg.image.current')} />
             {:else}
               <p class="hint">{t('setup.bg.image.none')}</p>
