@@ -318,6 +318,10 @@ setup.mic.none	No microphone found	マイクが見つかりません	未找到�
 setup.mode.audio	No camera, so sending audio only	カメラが無いので、音声だけ送ります	没有摄像头，只发送音频	카메라가 없어 음성만 보냅니다				
 setup.mode.both	Sending video and audio	映像と音声を送ります	将发送视频和音频	영상과 음성을 보냅니다				
 setup.mode.none	No camera or microphone, so joining to receive only	カメラもマイクも無いので、受け取るだけで入ります	没有摄像头和麦克风，仅接收方式加入	카메라도 마이크도 없어 받기만 하며 참여합니다				
+setup.solo.hint	Before joining, check how you look and how your background is hidden. Nothing is sent to anyone.	入る前に、自分の映り方と背景の隠し方を確かめます。誰にも送りません。	加入之前，先确认自己的画面和背景的隐藏方式。不会发送给任何人。	들어가기 전에 내 모습과 배경을 가리는 방식을 확인합니다. 아무에게도 보내지 않습니다.				
+setup.solo.start	Check	確かめる	检查	확인				
+setup.solo.stop	Done (release the camera)	確かめ終わる（カメラを放す）	检查完毕（释放摄像头）	확인 끝내기（카메라 해제）				
+setup.solo.title	Check your camera and background	カメラと背景を確かめる	检查摄像头和背景	카메라와 배경 확인				
 setup.title	Before you come in	入る前のしたく	进来之前的准备	들어가기 전 준비				
 tile.me	You	自分	自己	나				
 tile.me.cameraOff	Your camera is off. Turn on [Camera] below to see yourself	カメラは切ってあります。下の［カメラ］で映ります	摄像头已关闭。点下方的［摄像头］即可看到自己	카메라가 꺼져 있습니다. 아래 [카메라]를 누르면 보입니다				

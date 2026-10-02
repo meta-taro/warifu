@@ -836,6 +836,25 @@
   const 映像を出す = $derived(
     映像を出すか({ 映像を使う, 支度した, 相手が居る: remotes.length > 0 }),
   );
+  /**
+   * **1 人でカメラと背景を確かめている**（2026-10-02）。
+   *
+   * 背景の設定は支度の札の中にあり、支度の札は「会議前 かつ 映像を使う」でしか出なかった。
+   * 映像を使うのは相手が居るときなので、**背景の設定に辿り着く状態が無かった。**
+   * 入る前に、自分だけで映り方を確かめられるようにする。**誰にも送らない**（映像を使うは入れない）。
+   */
+  let 一人で確かめる = $state(false);
+  const 映像の場を出す = $derived(映像を出す || (一人で確かめる && 支度した));
+
+  /** 1 人で確かめるのをやめる。**掴んだ機器を放す**（会議で使っていなければ）。 */
+  function 一人で確かめるのをやめる() {
+    一人で確かめる = false;
+    if (映像を使う) return;
+    localStream?.getTracks().forEach((tr) => tr.stop());
+    localStream = null;
+    if (previewVideo) previewVideo.srcObject = null;
+    支度した = false;
+  }
 
   /**
    * いま居るルームを読み直す。
@@ -2756,7 +2775,7 @@
   <!-- **文字だけのときは、列を 1 本にする**（映像の枠のぶんを空けておかない） -->
   <div
     class="pane meeting"
-    class:文字だけ={!映像を出す}
+    class:文字だけ={!映像の場を出す}
     hidden={面 !== '会議'}
     role="tabpanel"
   >
@@ -2765,7 +2784,7 @@
     **外さずに隠す** —— 相手の音は `<video>` から出ているので、
     `{#if}` で外すと**声まで消える**（会議の面と同じ理由）
   -->
-  <section class="stage" hidden={!映像を出す}>
+  <section class="stage" hidden={!映像の場を出す}>
     <!--
       **知らせは映像の上。**下に置くと目に入らない —— 会議中の目線は
       帯の直下か映像の中にある（2026-09-06 の実測でここへ上げた）。
@@ -2934,6 +2953,8 @@
         </div>
       {:else if 映像を使う}
         <p class="hint">{t('video.hint')}</p>
+        <!-- **会議中でも背景の設定を変えられる**（支度の札は会議中に出ないため） -->
+        {@render 背景の札()}
         <!--
           **危なくなった時に言う**（2026-09-17）。
 
@@ -2991,7 +3012,7 @@
       </details>
     {/if}
 
-    {#if 支度の口を出す}
+    {#if 支度の口を出す || 一人で確かめる}
     <div class="card">
       <h2><Icon name="camera" size={18} />{t('setup.title')}</h2>
       <p class="hint">{t('setup.hint')}</p>
@@ -3038,6 +3059,59 @@
         </select>
       {/if}
 
+      {@render 背景の札()}
+
+      {#if 支度した}
+        <p class="hint">
+          {#if 背景を隠せない}
+            <Icon name="camera-off" />{t('setup.bg.failed')}
+          {:else}
+            <Icon name={sendMode === 'both' ? 'camera' : sendMode === 'audio' ? 'mic' : 'camera-off'} />
+            {t(`setup.mode.${sendMode}`)}
+          {/if}
+        </p>
+      {/if}
+      <p class="hint"><Icon name="headphones" />{t('setup.headphones')}</p>
+    </div>
+    {/if}
+
+    <!--
+      **鍵の口は、映像を使うかと関係ない**（2026-09-12 に実物で踏んだ）。
+      ここを `映像を使う` で包んでいたため、**既定（文字だけ・D90）のままでは
+      「もらったルームキーでルームに入る」が画面に無かった。**
+      入れたばかりの人が**ルームに入れない**状態である。
+    -->
+    <!--
+      **前のルームへ戻る口**（`gh issue 13`）。
+      更新は再起動を伴うので、**鍵をもらい直さずに戻れる**ようにする
+      （再入場は **D44** で通る。同じ人が同じ割符で戻るのは `rematch`）。
+      **鍵の文字は出さない** —— 入っているのは割符の片割れである
+    -->
+    {#if 戻れる}
+    <div class="card">
+      <h2><Icon name="enter" size={18} />{t('room.back')}</h2>
+      <p class="hint">{t('room.back.hint')}</p>
+      <button type="button" disabled={戻っている} onclick={() => void 前のルームに戻る()}>
+        <Icon name="enter" />{t('room.back')}
+      </button>
+    </div>
+    {/if}
+
+    <!--
+      **入る／つくるは、1 つずつ出す**（2026-09-24 に作り直した）。
+
+      **1 度目の直しは並べ替えだった。**入る口をつくる口の上へ置いた。
+      縦一列のままなので、使い勝手は変わらなかった。
+      要るのは「上へ移す」ではなく「**分ける**」ことだった。
+
+      本体は並びの重さにあった ——
+      **中継と留守番は、ほとんどの人が一度も触らない設定**なのに、
+      同じ大きさの札で同じ列に並び、**いちばん使う文字の欄が 2 番目**にあった。
+
+      **「縦一列に、重さの違うものが同じ大きさで並んでいる」**——そこを直す。
+      **札は 1 枚。**中で「入る」と「つくる」を切り替える（両方を積まない）。
+    -->
+    {#snippet 背景の札()}
       <!--
         **背景は既定で隠す**（D126・DESIGN.md §10-C）。見せたい人だけが「隠さない」を選ぶ。
         隠し方を変えても掴み直さない（隠す⇔隠さないだけ、支度をやり直す）。
@@ -3095,57 +3169,8 @@
           <p class="hint">{t('setup.bg.loading')}</p>
         {/if}
       </fieldset>
+    {/snippet}
 
-      {#if 支度した}
-        <p class="hint">
-          {#if 背景を隠せない}
-            <Icon name="camera-off" />{t('setup.bg.failed')}
-          {:else}
-            <Icon name={sendMode === 'both' ? 'camera' : sendMode === 'audio' ? 'mic' : 'camera-off'} />
-            {t(`setup.mode.${sendMode}`)}
-          {/if}
-        </p>
-      {/if}
-      <p class="hint"><Icon name="headphones" />{t('setup.headphones')}</p>
-    </div>
-    {/if}
-
-    <!--
-      **鍵の口は、映像を使うかと関係ない**（2026-09-12 に実物で踏んだ）。
-      ここを `映像を使う` で包んでいたため、**既定（文字だけ・D90）のままでは
-      「もらったルームキーでルームに入る」が画面に無かった。**
-      入れたばかりの人が**ルームに入れない**状態である。
-    -->
-    <!--
-      **前のルームへ戻る口**（`gh issue 13`）。
-      更新は再起動を伴うので、**鍵をもらい直さずに戻れる**ようにする
-      （再入場は **D44** で通る。同じ人が同じ割符で戻るのは `rematch`）。
-      **鍵の文字は出さない** —— 入っているのは割符の片割れである
-    -->
-    {#if 戻れる}
-    <div class="card">
-      <h2><Icon name="enter" size={18} />{t('room.back')}</h2>
-      <p class="hint">{t('room.back.hint')}</p>
-      <button type="button" disabled={戻っている} onclick={() => void 前のルームに戻る()}>
-        <Icon name="enter" />{t('room.back')}
-      </button>
-    </div>
-    {/if}
-
-    <!--
-      **入る／つくるは、1 つずつ出す**（2026-09-24 に作り直した）。
-
-      **1 度目の直しは並べ替えだった。**入る口をつくる口の上へ置いた。
-      縦一列のままなので、使い勝手は変わらなかった。
-      要るのは「上へ移す」ではなく「**分ける**」ことだった。
-
-      本体は並びの重さにあった ——
-      **中継と留守番は、ほとんどの人が一度も触らない設定**なのに、
-      同じ大きさの札で同じ列に並び、**いちばん使う文字の欄が 2 番目**にあった。
-
-      **「縦一列に、重さの違うものが同じ大きさで並んでいる」**——そこを直す。
-      **札は 1 枚。**中で「入る」と「つくる」を切り替える（両方を積まない）。
-    -->
     {#snippet 入退の札()}
     {#if 鍵の口を出す}
     <div class="card">
@@ -3231,6 +3256,19 @@
       <!-- **絵は付けない。**この束に歯車が無いので、文字だけで言う -->
       <summary>{t('settings.title')}</summary>
       <p class="hint">{t('settings.hint')}</p>
+      <div class="card">
+        <h2><Icon name="camera" size={18} />{t('setup.solo.title')}</h2>
+        <p class="hint">{t('setup.solo.hint')}</p>
+        {#if 一人で確かめる}
+          <button type="button" class="quiet" onclick={一人で確かめるのをやめる}>
+            <Icon name="camera-off" />{t('setup.solo.stop')}
+          </button>
+        {:else}
+          <button type="button" onclick={() => { 一人で確かめる = true; 面 = '会議'; }}>
+            <Icon name="camera" />{t('setup.solo.start')}
+          </button>
+        {/if}
+      </div>
       <div class="card">
         <h2><Icon name="link" size={18} />{t('relay.title')}</h2>
         <p class="hint">{t('relay.what')}</p>

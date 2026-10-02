@@ -319,6 +319,10 @@ export type MessageKey =
   | 'setup.bg.image.bad'
   | 'setup.bg.image.unsaved'
   | 'setup.bg.loading'
+  | 'setup.solo.title'
+  | 'setup.solo.hint'
+  | 'setup.solo.start'
+  | 'setup.solo.stop'
   | 'setup.bg.failed'
   | 'setup.headphones'
   | 'meeting.howling'
@@ -715,6 +719,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.bad': 'この画像は読めませんでした。別の画像を選んでください。',
     'setup.bg.image.unsaved': '画像をこの機械に保存できませんでした。今回だけ使います。',
     'setup.bg.loading': '背景を隠す準備をしています…',
+    'setup.solo.title': 'カメラと背景を確かめる',
+    'setup.solo.hint': '入る前に、自分の映り方と背景の隠し方を確かめます。誰にも送りません。',
+    'setup.solo.start': '確かめる',
+    'setup.solo.stop': '確かめ終わる（カメラを放す）',
     'setup.bg.failed': '背景を隠せなかったので、カメラの映像は送っていません。そのまま映してよければ「隠さない」を選んでください。',
     'setup.headphones': '同じ室内で 2 台を鳴らすと、エコー除去では消せません。ヘッドフォンを使ってください。',
     'meeting.howling': '同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。',
@@ -1072,6 +1080,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.bad': 'This image could not be read. Please choose another.',
     'setup.bg.image.unsaved': 'The image could not be saved on this computer. It will be used this time only.',
     'setup.bg.loading': 'Preparing to hide your background…',
+    'setup.solo.title': 'Check your camera and background',
+    'setup.solo.hint': 'Before joining, check how you look and how your background is hidden. Nothing is sent to anyone.',
+    'setup.solo.start': 'Check',
+    'setup.solo.stop': 'Done (release the camera)',
     'setup.bg.failed': 'Your background could not be hidden, so your camera video is not being sent. If showing it as is is fine, choose "Do not hide".',
     'setup.headphones': 'Two devices in one room will echo no matter what. Use headphones.',
     'meeting.howling': 'Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.',
@@ -1427,6 +1439,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.bad': '无法读取此图片。请选择其他图片。',
     'setup.bg.image.unsaved': '无法将图片保存到这台电脑。仅本次使用。',
     'setup.bg.loading': '正在准备隐藏背景…',
+    'setup.solo.title': '检查摄像头和背景',
+    'setup.solo.hint': '加入之前，先确认自己的画面和背景的隐藏方式。不会发送给任何人。',
+    'setup.solo.start': '检查',
+    'setup.solo.stop': '检查完毕（释放摄像头）',
     'setup.bg.failed': '无法隐藏背景，因此没有发送摄像头画面。如果可以照原样显示，请选择“不隐藏”。',
     'setup.headphones': '同一房间里的两台设备一定会啸叫，回声消除也无法解决。请使用耳机。',
     'meeting.howling': '正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。',
@@ -1786,6 +1802,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.bg.image.bad': '이 이미지를 읽을 수 없습니다. 다른 이미지를 선택하세요.',
     'setup.bg.image.unsaved': '이미지를 이 컴퓨터에 저장하지 못했습니다. 이번에만 사용합니다.',
     'setup.bg.loading': '배경을 숨길 준비를 하고 있습니다…',
+    'setup.solo.title': '카메라와 배경 확인',
+    'setup.solo.hint': '들어가기 전에 내 모습과 배경을 가리는 방식을 확인합니다. 아무에게도 보내지 않습니다.',
+    'setup.solo.start': '확인',
+    'setup.solo.stop': '확인 끝내기（카메라 해제）',
     'setup.bg.failed': '배경을 숨길 수 없어서 카메라 영상을 보내지 않고 있습니다. 그대로 보여도 괜찮다면 "숨기지 않기"를 선택하세요.',
     'setup.headphones': '같은 방에서 두 대를 켜면 에코 제거로도 막을 수 없습니다. 헤드폰을 사용하세요.',
     'meeting.howling': '같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.',
