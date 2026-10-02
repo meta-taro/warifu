@@ -14,7 +14,7 @@
 # 見つけたら 1 で終わる。**見つけた語の中身は出さない**（CI の記録は公開される）。
 # 何に当たったかは、規則の番号とファイルの場所で言う。
 #
-# 内部の記録の置き場所は、公開しない別のリポジトリ warifu-notes である（CLAUDE.md）。
+# 内部の記録の置き場所は、公開しない記録用のリポジトリである（CLAUDE.md）。
 
 set -u
 
@@ -69,7 +69,7 @@ for pat in "${DENY_PATHS[@]}"; do
   hits="$(printf '%s\n' "$files" | grep -E -- "$pat" || true)"
   if [ -n "$hits" ]; then
     while IFS= read -r f; do
-      note "NG [path #$i] $f : 内部の記録の置き場所です（warifu-notes へ）"
+      note "NG [path #$i] $f : 内部の記録の置き場所です（非公開の記録用のリポジトリ へ）"
     done <<< "$hits"
     fail=1
   fi
@@ -96,7 +96,7 @@ done
 if [ "$fail" -ne 0 ]; then
   note ""
   note "公開してはいけないものが見つかりました。"
-  note "  - 会話・決定や進捗のメモ・実測の記録は warifu-notes に置く"
+  note "  - 会話・決定や進捗のメモ・実測の記録は 非公開の記録用のリポジトリ に置く"
   note "  - 人や席の呼び名・社内の呼び名・網の詳細は、書かずに事実と理由だけを書く"
   note "  - **--no-verify で外さない。**誤検知なら、規則（この script）を直す commit を先に出す"
   exit 1

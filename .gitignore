@@ -17,7 +17,7 @@ SECRETS.local.md
 apps/desktop/src-tauri/gen/
 
 # --- .claude/（全 OSS で同じ形）---
-# .claude/ は丸ごと無視し、設定と配布物の場所だけを許す。作業の記録は非公開の warifu-notes に置く
+# .claude/ は丸ごと無視し、設定と配布物の場所だけを許す。作業の記録は非公開の記録用のリポジトリに置く
 /.claude/*
 !/.claude/tools/
 !/.claude/rules/

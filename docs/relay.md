@@ -2,7 +2,7 @@
 
 > 日本語版: [relay.ja.md](relay.ja.md)
 
-> **This is not a central service warifu provides.** Whoever deploys warifu runs it (決定の記録（公開しない warifu-notes に置く） **D68** / **D71**).
+> **This is not a central service warifu provides.** Whoever deploys warifu runs it (非公開の決定の記録 **D68** / **D71**).
 > warifu works without one — messages then only arrive **while the other side is running**.
 
 ---
