@@ -322,6 +322,8 @@ export type MessageKey =
   | 'setup.solo.title'
   | 'setup.bg.image.loading'
   | 'setup.camera.nth'
+  | 'setup.camera.default'
+  | 'setup.mic.default'
   | 'setup.mic.nth'
   | 'setup.solo.hint'
   | 'setup.solo.start'
@@ -725,6 +727,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.solo.title': 'カメラと背景を確かめる',
     'setup.bg.image.loading': '画像を読み込んでいます…',
     'setup.camera.nth': 'カメラ',
+    'setup.camera.default': 'いつものカメラ（この機械の既定）',
+    'setup.mic.default': 'いつものマイク（この機械の既定）',
     'setup.mic.nth': 'マイク',
     'setup.solo.hint': '入る前に、自分の映り方と背景の隠し方を確かめます。誰にも送りません。',
     'setup.solo.start': '確かめる',
@@ -1089,6 +1093,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.solo.title': 'Check your camera and background',
     'setup.bg.image.loading': 'Loading the image…',
     'setup.camera.nth': 'Camera',
+    'setup.camera.default': 'Default camera (this machine)',
+    'setup.mic.default': 'Default microphone (this machine)',
     'setup.mic.nth': 'Microphone',
     'setup.solo.hint': 'Before joining, check how you look and how your background is hidden. Nothing is sent to anyone.',
     'setup.solo.start': 'Check',
@@ -1451,6 +1457,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.solo.title': '检查摄像头和背景',
     'setup.bg.image.loading': '正在读取图片…',
     'setup.camera.nth': '摄像头',
+    'setup.camera.default': '默认摄像头（本机）',
+    'setup.mic.default': '默认麦克风（本机）',
     'setup.mic.nth': '麦克风',
     'setup.solo.hint': '加入之前，先确认自己的画面和背景的隐藏方式。不会发送给任何人。',
     'setup.solo.start': '检查',
@@ -1817,6 +1825,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'setup.solo.title': '카메라와 배경 확인',
     'setup.bg.image.loading': '이미지를 불러오는 중입니다…',
     'setup.camera.nth': '카메라',
+    'setup.camera.default': '기본 카메라（이 기기）',
+    'setup.mic.default': '기본 마이크（이 기기）',
     'setup.mic.nth': '마이크',
     'setup.solo.hint': '들어가기 전에 내 모습과 배경을 가리는 방식을 확인합니다. 아무에게도 보내지 않습니다.',
     'setup.solo.start': '확인',

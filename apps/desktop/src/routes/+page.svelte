@@ -3059,12 +3059,18 @@
       </label>
 
       {#if devices.cameras.length}
+        <!--
+          **何も選んでいない（既定のまま）とき、選ぶ所が空欄に見えていた**（2026-10-02）。
+          好みの既定は null で、どの項目とも合わないので、選ぶ所は何も出さない。既定の項目を先頭に置く
+        -->
         <select bind:value={prefs.cameraId} onchange={支度する}>
+          <option value={null}>{t('setup.camera.default')}</option>
           {#each devices.cameras as c, i (c.id)}<option value={c.id}>{c.label || `${t('setup.camera.nth')} ${i + 1}`}</option>{/each}
         </select>
       {/if}
       {#if devices.microphones.length}
         <select bind:value={prefs.micId} onchange={支度する}>
+          <option value={null}>{t('setup.mic.default')}</option>
           {#each devices.microphones as m, i (m.id)}<option value={m.id}>{m.label || `${t('setup.mic.nth')} ${i + 1}`}</option>{/each}
         </select>
       {/if}
