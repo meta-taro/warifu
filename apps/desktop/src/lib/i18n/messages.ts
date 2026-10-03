@@ -38,6 +38,7 @@ export type MessageKey =
   | 'roster.title'
   | 'tile.me'
   | 'tile.me.cameraOff'
+  | 'tile.me.agentVoice'
   | 'tile.peer'
   | 'meeting.start.title'
   | 'meeting.key.hint'
@@ -284,6 +285,8 @@ export type MessageKey =
   | 'meeting.key.own'
   | 'video.start'
   | 'video.stop'
+  | 'video.agentVoice'
+  | 'video.agentVoice.hint'
   | 'video.title'
   | 'room.hasvideo'
   | 'relay.title'
@@ -399,6 +402,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.title': 'このルームに居る人',
     'tile.me': '自分',
     'tile.me.cameraOff': 'カメラは切ってあります。下の［カメラ］で映ります',
+    'tile.me.agentVoice': 'エージェントの声',
     'tile.peer': '相手',
     'meeting.start.title': 'ルームをつくる',
     'meeting.key.label': 'ルームキー',
@@ -689,6 +693,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': '通話の入切。支度の確認とは別で、いま送っているものを止めます。',
     'video.start': '映像と音を足す',
     'video.stop': '映像と音をやめる（ルームは抜けません）',
+    'video.agentVoice': 'この機械のエージェントの声を流す',
+    'video.agentVoice.hint':
+      '入れている間だけ、この PC のエージェントが読み上げの声でこのルームに話せます。声は会話にも「（エージェントの声）」として出ます。ルームを抜けると切に戻ります。',
     'video.title': 'このルームに映像を足す',
     'room.hasvideo': '● このルームに映像と音が付いています',
     'relay.title': '網を越えてつなぐ（中継）',
@@ -765,6 +772,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.title': 'People in this room',
     'tile.me': 'You',
     'tile.me.cameraOff': 'Your camera is off. Turn on [Camera] below to see yourself',
+    'tile.me.agentVoice': 'Agent voice',
     'tile.peer': 'Them',
     'meeting.start.title': 'Make a room',
     'meeting.key.label': 'Room key',
@@ -1055,6 +1063,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': 'Turn the call on and off. Separate from checking your gear — this stops what you are sending now.',
     'video.start': 'Add video and sound',
     'video.stop': 'Stop video and sound (you stay in the room)',
+    'video.agentVoice': 'Let this machine\'s agent speak',
+    'video.agentVoice.hint':
+      'Only while this is on can an agent on this PC speak in this room with a synthesized voice. What it says also appears in the chat, marked as the agent\'s voice. It turns off when you leave the room.',
     'video.title': 'Add video to this room',
     'room.hasvideo': '● Video and sound are on this room',
     'relay.title': 'Connect across networks (relay)',
@@ -1131,6 +1142,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.title': '这个房间里的人',
     'tile.me': '自己',
     'tile.me.cameraOff': '摄像头已关闭。点下方的［摄像头］即可看到自己',
+    'tile.me.agentVoice': '智能体的声音',
     'tile.peer': '对方',
     'meeting.start.title': '建一个房间',
     'meeting.key.label': '房间密钥',
@@ -1419,6 +1431,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': '通话的开关。与设备确认不同，这会停止你现在正在发送的内容。',
     'video.start': '加上影像和声音',
     'video.stop': '停止影像和声音（不退出房间）',
+    'video.agentVoice': '让这台电脑的智能体发声',
+    'video.agentVoice.hint':
+      '只有打开时，这台电脑上的智能体才能用合成的声音在这个房间说话。说的内容也会作为智能体的声音出现在聊天里。退出房间后会自动关闭。',
     'video.title': '为这个房间加上影像',
     'room.hasvideo': '● 影像和声音加在这个房间',
     'relay.title': '跨网络连接（中继）',
@@ -1495,6 +1510,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.title': '이 방에 있는 사람',
     'tile.me': '나',
     'tile.me.cameraOff': '카메라가 꺼져 있습니다. 아래 [카메라]를 누르면 보입니다',
+    'tile.me.agentVoice': '에이전트 목소리',
     'tile.peer': '상대',
     'meeting.start.title': '방 만들기',
     'meeting.key.label': '방 열쇠',
@@ -1787,6 +1803,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': '통화 켜고 끄기. 기기 확인과는 다르며, 지금 보내고 있는 것을 멈춥니다.',
     'video.start': '영상과 소리를 더하기',
     'video.stop': '영상과 소리를 멈추기（룸에서 나가지 않습니다）',
+    'video.agentVoice': '이 기기의 에이전트 목소리 내보내기',
+    'video.agentVoice.hint':
+      '켜 둔 동안에만 이 PC의 에이전트가 합성 음성으로 이 룸에서 말할 수 있습니다. 말한 내용은 대화에도 에이전트 목소리로 표시됩니다. 룸에서 나가면 꺼집니다.',
     'video.title': '이 룸에 영상을 더하기',
     'room.hasvideo': '● 이 룸에 영상과 소리가 붙어 있습니다',
     'relay.title': '망을 넘어 연결하기（중계）',

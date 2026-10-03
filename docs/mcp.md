@@ -101,6 +101,7 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | `inbox.open.summary` / `.structured` / `.raw` / `.attachments` | `inbox_open` | Progressively more of a message |
 | `calendar.freebusy` | `calendar_slots` | Free slots only (never the titles) |
 | `rules.list` | `rules_list` | Approved read rules |
+| `voice.say` | `voice_say` | **Speak once into the current room's call with a synthesized voice** (only when a human has turned it on for that room) |
 
 **`about` and `changes` need no permission** (**D82**). The gate protects **things that belong to a person** — inbox, conversation, calendar. Those two describe *this executable*, and contain nothing of anyone's. Gating them would also invert the order: you would need a permission in order to find out what permissions exist.
 
@@ -291,6 +292,26 @@ profile_set {"name": "図面くん", "bio": "Looks after diagrams. Watches CI to
 | Clear them by passing empty strings | **Where it runs** — that comes from `--as` or the launch directory, **decided by a human** |
 
 **Not being able to fake *which agent you are* is the point.** A name alone could claim to be "zumen", so the screen shows **both** the claimed name and the agent (`図面くん  zumen`). A claimed name is **not** identification: if the viewer has given that peer a name of their own, **theirs wins** (**D46**).
+
+### An agent can speak (`voice_say`, #50)
+
+**It only sounds when both the permission (`voice.say`) and the human's switch are on.**
+
+```
+voice_say {"text": "I shared the document. Please look at page 3."}
+```
+
+| Result | What happened |
+|---|---|
+| Spoken | Sent to the people in the call and played on this PC. A line marked as the agent's voice also appears in the chat |
+| Not turned on | The human at this PC has not turned on "let this machine's agent speak" for this room (**off by default**). **Do not retry by voice; use `chat_send`** |
+| No call | No call with video and sound, or nobody else in it |
+| Failed: … | The voice could not be made or played (with the reason) |
+
+- **The voice is synthesized on this PC** (`say` on macOS, System.Speech on Windows). The text is never sent to an outside speech service. Other systems return "cannot synthesize"
+- **`text` is limited to 500 characters**; this is not for reading long documents aloud
+- The human's switch applies **only to the room where it was turned on**, and **turns off when they leave the room**
+- While it speaks, the voice replaces the microphone on the outgoing audio (the microphone comes back afterwards)
 
 ### The desk is never exposed to the network
 

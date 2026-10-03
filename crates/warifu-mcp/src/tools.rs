@@ -94,6 +94,16 @@ pub struct SayArgs {
     pub body: String,
 }
 
+/// [`crate::Warifu::voice_say`] の引数（#50）。
+///
+/// **声の種類・音量・どのルームかを書く場所が無いのは意図。**
+/// 流すかどうかと、どこへ流すかは、この PC の人が画面で決める。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct VoiceArgs {
+    /// 読み上げる文。空は受けない。500 文字まで。
+    pub text: String,
+}
+
 /// [`crate::Warifu::profile_set`] の引数。
 ///
 /// **「誰の」を書く場所が無いのは意図。**どのエージェントかは繋いできた口で決まる ——

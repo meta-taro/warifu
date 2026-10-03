@@ -338,6 +338,23 @@ export const knownKeys = () => invoke<string[]>('known_keys');
 export const stopAgent = (name: string) => invoke<boolean>('stop_agent', { name });
 
 /**
+ * **この機械のエージェントの声を鳴らしてほしい**（#50）。`[番号, 文]` で届く。
+ *
+ * 画面は番号で音を取りに来て（{@link takeAgentVoice}）、鳴らし終えたら返す（{@link reportAgentVoice}）。
+ */
+export const EVENT_AGENT_VOICE = 'warifu://agent-voice';
+
+/** **人がこのルームで声を入れた／切った**（ルームを移ったら切を置く）。 */
+export const setAgentVoice = (on: boolean) => invoke<void>('agent_voice_set', { on });
+
+/** 声の音（WAV）を取りに行く。**1 度だけ渡る。** */
+export const takeAgentVoice = (id: number) => invoke<ArrayBuffer>('agent_voice_take', { id });
+
+/** 声の段を机へ返す。`started` / `spoken` / `not_allowed` / `no_meeting` / `failed`。 */
+export const reportAgentVoice = (id: number, stage: string, why?: string) =>
+  invoke<void>('agent_voice_report', { id, stage, why: why ?? null });
+
+/**
  * **いま見ているルームの id。**
  *
  * ルームを複数持つので、**どのルームの会話を出すか**を画面が知っている必要がある。

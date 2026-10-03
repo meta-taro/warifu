@@ -30,8 +30,8 @@ use rmcp::handler::server::wrapper::Parameters;
 use warifu_capability::{Action, Gate, Grant};
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 use warifu_mcp::{
-    AskArgs, ChangesArgs, InviteArgs, ProfileArgs, SayArgs, StatusArgs, WaitArgs, WaitPassArgs,
-    Warifu, subject,
+    AskArgs, ChangesArgs, InviteArgs, ProfileArgs, SayArgs, StatusArgs, VoiceArgs, WaitArgs,
+    WaitPassArgs, Warifu, subject,
 };
 use warifu_read::{Body, Received, RuleStore, SenderId, Source};
 
@@ -62,6 +62,7 @@ fn 全部許す() -> Gate {
         "profile.write",
         "calendar.slots",
         "room.invite",
+        "voice.say",
     ] {
         関所.issue(Grant::new(
             subject(),
@@ -134,6 +135,9 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::招く { .. } => Some(FromDesk::招いた {
                     鍵たち: vec!["WARIFU1-AAA#BBB#CCC".to_owned()],
                     いつまで: "09-25 00:00 UTC".to_owned(),
+                }),
+                ToDesk::声 { .. } => Some(FromDesk::声の返り {
+                    結果: warifu_desk::声の結果::流した,
                 }),
             };
             if let Some(返し) = 返し {
@@ -251,6 +255,17 @@ async fn 口を全部_1回ずつ呼ぶ() {
         ),
     ));
 
+    結果.push((
+        "voice_say",
+        format!(
+            "{:?}",
+            口.voice_say(Parameters(VoiceArgs {
+                text: "煙の確かめ".to_owned()
+            }))
+            .await
+        ),
+    ));
+
     for (名, 返り) in &結果 {
         時間切れでないこと(名, 返り);
     }
@@ -285,6 +300,10 @@ async fn 口を全部_1回ずつ呼ぶ() {
     assert!(
         机が受けた.iter().any(|x| x.contains("招く")),
         "机まで届いていない: {机が受けた:?}"
+    );
+    assert!(
+        机が受けた.iter().any(|x| x.contains("声")),
+        "声の頼みが机まで届いていない: {机が受けた:?}"
     );
     let _ = std::fs::remove_dir_all(&控え);
 }

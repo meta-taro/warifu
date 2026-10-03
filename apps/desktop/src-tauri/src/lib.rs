@@ -99,6 +99,7 @@ mod notify;
 mod postbox;
 mod profile;
 mod schedule;
+mod voice;
 mod window_place;
 
 /// **決まった場所へ書き置く。**
@@ -3167,6 +3168,9 @@ pub fn run() {
             profile::clear_avatar,
             profile::avatar_bytes,
             send_to_contact,
+            voice::agent_voice_set,
+            voice::agent_voice_take,
+            voice::agent_voice_report,
         ])
         .run(tauri::generate_context!())
         .expect("warifu の窓を開けませんでした");

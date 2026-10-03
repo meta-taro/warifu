@@ -121,6 +121,15 @@
   } from '$lib/webrtc/backgroundPipeline';
   import { Call } from '$lib/webrtc/session';
   import {
+    初めの同意,
+    同意を置く,
+    いま入っているか,
+    ルームが変わったら,
+    声をどうするか,
+    type 声の同意,
+  } from '$lib/meeting/agentVoice';
+  import { 声の場を作る, 声を鳴らす } from '$lib/webrtc/agentVoicePlayer';
+  import {
     type ClosedReason,
     EVENT_CLOSED,
     EVENT_INTRODUCED,
@@ -133,6 +142,10 @@
     EVENT_THEME,
     EVENT_LINK,
     EVENT_CHECK_UPDATE,
+    EVENT_AGENT_VOICE,
+    setAgentVoice,
+    takeAgentVoice,
+    reportAgentVoice,
     roomLink,
     answerPass,
     linkAnswered,
@@ -325,6 +338,7 @@
    * **片方だけ流れていても人に分からなかった** —— 人は「壊れている」と読んだ。
    */
   let 映像の流れ = $state({ 送っている: false, 受けている: false });
+
 
   /**
    * **いま画面に映っているものを、机へ置く**（**#32**・2026-09-18）。
@@ -763,6 +777,72 @@
 
   /** いま見ているルーム。**同じ PC の AI を選んでいればこの機械のルーム。** */
   const 見ている = $derived(見るルーム(選んだ相手, いまのルーム, 選んだ人はルームに居る));
+  /**
+   * **この機械のエージェントの声を流すか**（#50）。人がルームごとに入れる。**既定は切。**
+   *
+   * ルームを移る・抜けると切に戻る（ほかのルームへ持ち越さない）。
+   */
+  let 声の入切 = $state<声の同意>(初めの同意);
+  /** **いまエージェントの声を鳴らしているか**（自分の枠に印を出す）。 */
+  let 声で話している = $state(false);
+  /** 鳴らす場。**人が入れたとき（押したとき）に作る。** */
+  let 声の場: AudioContext | null = null;
+  const 声が入っている = $derived(いま入っているか(声の入切, 見ている));
+
+  /** 人が声を入切した。**机にも伝える**（机は切なら読み上げを作りもしない）。 */
+  function 声を入切する(入: boolean) {
+    声の入切 = 同意を置く(見ている, 入);
+    if (声の入切.入) 声の場 ??= 声の場を作る();
+    void setAgentVoice(声の入切.入).catch((e: unknown) => {
+      log(`声: 机へ伝えられませんでした（${String(e)}）`);
+    });
+  }
+
+  // **ルームを移ったら切に戻す**（入れたルームの外で鳴らさない）
+  $effect(() => {
+    const 次 = ルームが変わったら(untrack(() => 声の入切), 見ている);
+    if (次 !== untrack(() => 声の入切)) {
+      声の入切 = 次;
+      void setAgentVoice(false).catch(() => {});
+    }
+  });
+
+  /**
+   * **机から声が届いた**（#50）。流すかを決め、流すなら鳴らして、結果を机へ返す。
+   *
+   * 返さないと、エージェントの呼びは時間切れまで戻らない。
+   */
+  async function 声が届いた(id: number) {
+    const 決め = 声をどうするか({
+      同意: 声の入切,
+      見ている,
+      映像を使う,
+      映像がある部屋,
+      相手の数: calls.size,
+    });
+    if (決め !== 'play' || !声の場) {
+      await reportAgentVoice(id, 決め === 'play' ? 'not_allowed' : 決め);
+      return;
+    }
+    try {
+      const wav = await takeAgentVoice(id);
+      if (!wav) throw new Error('音を受け取れませんでした');
+      await 声を鳴らす(声の場, wav, {
+        重ねる: async (声) => {
+          await Promise.all([...calls.values()].map((c) => c.声を重ねる(声)));
+        },
+        始めた: () => {
+          声で話している = true;
+          void reportAgentVoice(id, 'started');
+        },
+      });
+      await reportAgentVoice(id, 'spoken');
+    } catch (e) {
+      await reportAgentVoice(id, 'failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      声で話している = false;
+    }
+  }
   /** 画面に出す会話。**選んだルームのものだけ。** */
   const 会話 = $derived(そのルームの会話(ルームの会話たち, 見ている));
 
@@ -1571,6 +1651,12 @@
         // **教わった住所へ、自分から呼びに行く**（D41）。
         // どちらが呼ぶかは D38 と同じ規則で決まっているので、
         // 両側から呼んで 2 本張られることは無い
+        await onEvent<[number, string]>(EVENT_AGENT_VOICE, ([id]) => {
+          // **文は会話の行で出る**（机が流す）。ここでは音だけ扱う
+          void 声が届いた(id);
+        }),
+      );
+      unsubs.push(
         await onEvent<待っている札[]>('warifu://pass', (待ち) => {
           // **札の頼みが来た**（**D119**）。**部屋の会話には出さない**（**#26**）
           待っている札たち = 待ち;
@@ -2321,6 +2407,9 @@
       人が入った = 畳.人が入った;
       映像を使う = 畳.映像を使う;
       映像がある部屋 = null;
+      // **抜けたら声も切に戻す**（#50）
+      声の入切 = 初めの同意;
+      void setAgentVoice(false).catch(() => {});
       支度した = 畳.支度した;
       sendMode = 畳.送るもの;
       // **会議キーは導出値**（`鍵たち` から出る）。元を空にする ——
@@ -2818,6 +2907,10 @@
         {#if !prefs.cameraOn && ((localStream?.getVideoTracks().length ?? 0) > 0 || 放してある.video)}
           <p class="cap-note">{t('tile.me.cameraOff')}</p>
         {/if}
+        <!-- **エージェントの声を鳴らしている間**（#50）。誰の声が出ているかを、この PC の人に見せる -->
+        {#if 声で話している}
+          <p class="agent-voice-badge" role="status"><Icon name="mic" size={14} />{t('tile.me.agentVoice')}</p>
+        {/if}
       </div>
       {#each remotes as r (r.key)}
         <div class="tile">
@@ -2986,6 +3079,19 @@
         >
           <Icon name="camera-off" />{t('video.stop')}
         </button>
+        <!--
+          **この機械のエージェントの声**（#50）。**既定は切。**入れたルームでだけ効き、抜けると切に戻る。
+          入れていない間は、エージェントが voice_say を呼んでも音は出ない。
+        -->
+        <label class="row">
+          <input
+            type="checkbox"
+            checked={声が入っている}
+            onchange={(e) => 声を入切する(e.currentTarget.checked)}
+          />
+          <Icon name="mic" />{t('video.agentVoice')}
+        </label>
+        <p class="hint">{t('video.agentVoice.hint')}</p>
       {:else}
         <!--
           **機器を掴んでいるかで、言うことを変える**（2026-09-17・#39）。
@@ -4042,6 +4148,19 @@
     margin: 0;
     font-size: var(--text-xs-size);
     color: var(--text-secondary);
+  }
+  /* **エージェントの声を鳴らしている間の印**（#50）。名札の下の 1 行に置く */
+  .agent-voice-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    align-self: flex-start;
+    margin: 0;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs-size);
+    background: var(--info-bg);
+    color: var(--info-fg);
   }
   /* **帯の直下に出す。**面をまたいで同じ場所に出る */
   .notice.top {

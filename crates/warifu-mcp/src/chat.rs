@@ -64,6 +64,36 @@ pub struct Chat {
     印の道: std::path::PathBuf,
 }
 
+/// 声の結果を、エージェントが読める 1 行にする（#50）。
+///
+/// **流れなかったときは、次に何をすればよいかを書く。**
+/// 人が入れていないものを、エージェントが頼み直して押し通す道は作らない。
+fn 声の結果の言い方(
+    本文: &str,
+    結果: warifu_desk::声の結果,
+) -> Result<String, crate::ToolError> {
+    use warifu_desk::声の結果;
+    match 結果 {
+        声の結果::流した => Ok(format!(
+            "声で流しました（{} 文字）。同じ文を「（エージェントの声）」として会話にも流しました。",
+            本文.chars().count()
+        )),
+        声の結果::許されていない => Err(crate::ToolError::Unavailable(
+            "このルームでは、この PC の人がエージェントの声を入れていません\
+             （ビデオ会議の「この機械のエージェントの声を流す」を人が入れたときだけ流れます）。\
+             声で頼み直さず、文字で伝えてください（chat_send）。"
+                .to_owned(),
+        )),
+        声の結果::会議が無い => Err(crate::ToolError::Unavailable(
+            "映像と音を足した会議がありません（または相手が居ません）。誰にも流していません。"
+                .to_owned(),
+        )),
+        声の結果::失敗 { 訳 } => Err(crate::ToolError::Unavailable(format!(
+            "声を流せませんでした: {訳}"
+        ))),
+    }
+}
+
 /// 札の答えを、エージェントが読める 1 行にする（**D119**）。
 ///
 /// **次に何をすればよいかを書く** —— ただし**断りには「どうすれば通るか」を書かない**
@@ -377,6 +407,48 @@ impl Chat {
         }
     }
 
+    /// **エージェントの声で言う**（#50）。流したら、何文字を流したかを返す。
+    ///
+    /// 机は読み上げを作り、画面が鳴らし終えてから返事をする。
+    /// だから待つ長さは [`warifu_desk::声を待てる秒`] に、返事の待ちを足したものにする。
+    ///
+    /// # Errors
+    /// 文が空・長すぎるとき [`crate::ToolError::BadArgs`]。
+    /// 流れなかったとき（人が入れていない・会議が無い・作れない）と、
+    /// この機械が閉じている・返事をしないとき [`crate::ToolError::Unavailable`]。
+    pub async fn 声で言う(&self, 本文: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::声 {
+            本文: 本文.to_owned(),
+        };
+        // **書き手の側でも検める**（長さ・制御文字）。待たせる前に落とす
+        let 行 = ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
+            返す,
+            受ける: 声の返事,
+        });
+
+        self.送り
+            .send(行)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
+
+        let 待てる秒 = warifu_desk::声を待てる秒 + 返事を待つ秒;
+        let 返事 = tokio::time::timeout(std::time::Duration::from_secs(待てる秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
+
+        match 返事 {
+            FromDesk::声の返り { 結果 } => 声の結果の言い方(本文, 結果),
+            // **古い画面は、この口を知らない**（`札を頼む` と同じ形）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **人が札に答えるのを待つ**（2026-09-24）。
     ///
     /// **`chat_wait` と同じ形である** —— この層の説明にこう書いてある ——
@@ -639,6 +711,9 @@ fn 届き方の返事(中身: &FromDesk) -> bool {
 fn 名乗りの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Wrote { .. } | FromDesk::Denied { .. })
 }
+fn 声の返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::声の返り { .. } | FromDesk::Denied { .. })
+}
 
 /// 待っている呼びが**この種類を待っていれば**渡す。渡せたら `None`、渡せなければ中身を返す。
 ///
@@ -713,6 +788,9 @@ fn 仕分ける(
             | FromDesk::Status { .. }
             | FromDesk::様子 { .. }
             | FromDesk::Asked { .. }
+            // **声の返りも返事である**（#50）。無いと溜め箱へ落ち、
+            // 頼んだ側は時間切れになる（`招いた`・`Asked` と同じ穴）
+            | FromDesk::声の返り { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -774,6 +852,8 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             // 頼んだときだけ返るので、ここには並ばない ——
             // **並べると、部屋の発言として人の目に入る**（それは **#26** で塞いだ形である）
             FromDesk::Asked { .. } => String::new(),
+            // **声の返りも会話の行ではない**（#50）。会話へは机が別に流す
+            FromDesk::声の返り { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
@@ -986,6 +1066,92 @@ mod tests {
                 答え: warifu_desk::頼みの返り::許した,
             }
         );
+    }
+
+    #[tokio::test]
+    async fn 声の返りは_頼んだ相手に返る() {
+        // **返事の一覧に無いと、溜め箱へ落ちて頼んだ側は時間切れになる**
+        // （`招いた`・`Asked` で同じ穴が空いていた）
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let (返す, 待つ) = oneshot::channel();
+        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+            返す,
+            受ける: 声の返事,
+        })));
+
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::声の返り {
+                結果: warifu_desk::声の結果::流した,
+            }
+            .書く(),
+        );
+
+        assert!(箱.lock().unwrap().is_empty(), "溜めに入っていない");
+        assert_eq!(
+            待つ.await.unwrap(),
+            FromDesk::声の返り {
+                結果: warifu_desk::声の結果::流した,
+            }
+        );
+    }
+
+    #[test]
+    fn 声の返りを_ほかの口の呼びへ渡さない() {
+        // 時間切れのあとに遅れて来た声の返りを、様子の呼びへ渡さない
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let (返す, mut 待つ) = oneshot::channel();
+        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+            返す,
+            受ける: 様子の返事,
+        })));
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::声の返り {
+                結果: warifu_desk::声の結果::会議が無い,
+            }
+            .書く(),
+        );
+        assert!(待つ.try_recv().is_err(), "様子の呼びに渡さない");
+        assert!(返し先.lock().unwrap().is_some(), "待ちは残す");
+    }
+
+    #[test]
+    fn 声の結果は_流れなかった理由を分けて言う() {
+        use warifu_desk::声の結果;
+        assert!(
+            声の結果の言い方("やあ", 声の結果::流した)
+                .unwrap()
+                .contains("2 文字")
+        );
+        let 許されていない = 声の結果の言い方("やあ", 声の結果::許されていない)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            許されていない.contains("入れていません"),
+            "{許されていない}"
+        );
+        // **札の断りと混ぜない**（札を足しても直らない）
+        assert!(!許されていない.contains("関所"), "{許されていない}");
+        let 会議 = 声の結果の言い方("やあ", 声の結果::会議が無い)
+            .unwrap_err()
+            .to_string();
+        assert!(会議.contains("会議がありません"), "{会議}");
+        let 失敗 = 声の結果の言い方(
+            "やあ",
+            声の結果::失敗 {
+                訳: "読み上げが使えません".to_owned(),
+            },
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(失敗.contains("読み上げが使えません"), "{失敗}");
     }
 
     #[test]

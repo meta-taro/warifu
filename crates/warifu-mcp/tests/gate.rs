@@ -288,6 +288,7 @@ fn 出している口を_数えて名前で押さえる() {
             "room_invite",
             "room_status",
             "rules_list",
+            "voice_say",
         ],
         "口が増えたら、札の種類を決めてからここを直す"
     );
@@ -326,6 +327,45 @@ fn 招く口は_札が無ければ通らない() {
     assert!(文.contains("room.invite"), "{文}");
     // **ほかの口の札を、断りのついでに教えない**
     assert!(!文.contains("chat"), "ほかの札を並べない: {文}");
+}
+
+#[test]
+fn 声の口は_札が無ければ通らない() {
+    // #50。札（voice.say）が無ければ、机へ頼みを運びもしない。
+    // 断り文は、頼む道（pass_ask）と設定に書く道（--allow voice.say）を案内する
+    let 口 = 用意(&[]);
+    let 出た = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime")
+        .block_on(口.voice_say(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::VoiceArgs {
+                text: "こんにちは".to_owned(),
+            },
+        )));
+    let 文 = format!("{:?}", 出た.expect_err("札が無いので通らない"));
+    assert!(文.contains("voice.say"), "{文}");
+    assert!(文.contains("pass_ask"), "{文}");
+    assert!(文.contains("--allow voice.say"), "{文}");
+    // **ほかの口の札を、断りのついでに教えない**
+    assert!(!文.contains("chat"), "ほかの札を並べない: {文}");
+}
+
+#[test]
+fn 声の札があっても_ほかの口は開かない() {
+    // 照合は完全一致。voice.say の札で会話へ流せない
+    let 口 = 用意(&["voice.say"]);
+    let 出た = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime")
+        .block_on(口.chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "やあ".to_owned(),
+            },
+        )));
+    let 文 = format!("{:?}", 出た.expect_err("chat.send の札が無い"));
+    assert!(文.contains("chat.send"), "{文}");
 }
 
 // ── 予定表（企画書 v2 §17 / roadmap Phase 3 の代表 Demo） ──
@@ -915,6 +955,7 @@ fn 外へ出る引数名は_asciiだけ() {
         &schemars::schema_for!(warifu_mcp::InviteArgs),
     );
     名を検める("chat_send", &schemars::schema_for!(warifu_mcp::SayArgs));
+    名を検める("voice_say", &schemars::schema_for!(warifu_mcp::VoiceArgs));
     名を検める("chat_wait", &schemars::schema_for!(warifu_mcp::WaitArgs));
     名を検める(
         "chat_status",

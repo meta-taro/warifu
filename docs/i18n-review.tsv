@@ -329,6 +329,7 @@ setup.solo.stop	Done (release the camera)	確かめ終わる（カメラを放�
 setup.solo.title	Check your camera and background	カメラと背景を確かめる	检查摄像头和背景	카메라와 배경 확인				
 setup.title	Before you come in	入る前のしたく	进来之前的准备	들어가기 전 준비				
 tile.me	You	自分	自己	나				
+tile.me.agentVoice	Agent voice	エージェントの声	智能体的声音	에이전트 목소리				
 tile.me.cameraOff	Your camera is off. Turn on [Camera] below to see yourself	カメラは切ってあります。下の［カメラ］で映ります	摄像头已关闭。点下方的［摄像头］即可看到自己	카메라가 꺼져 있습니다. 아래 [카메라]를 누르면 보입니다				
 tile.peer	Them	相手	对方	상대				
 unread.count	{n} unseen	まだ見ていない {n} 件	{n} 条未看	안 본 {n}건				
@@ -343,6 +344,8 @@ update.later	Later	あとで	稍后	나중에
 update.none	You are on the latest ({version}).	いまが最新です（{version}）。	已是最新（{version}）。	최신입니다({version}).				
 update.notes	What changed	何が変わったか	有哪些变化	무엇이 달라졌는지				
 update.notes.none	Nothing written.	書かれていません。	没有写。	쓰여 있지 않습니다.				
+video.agentVoice	Let this machine\'s agent speak	この機械のエージェントの声を流す	让这台电脑的智能体发声	이 기기의 에이전트 목소리 내보내기				
+video.agentVoice.hint	Only while this is on can an agent on this PC speak in this room with a synthesized voice. What it says also appears in the chat, marked as the agent\'s voice. It turns off when you leave the room.	入れている間だけ、この PC のエージェントが読み上げの声でこのルームに話せます。声は会話にも「（エージェントの声）」として出ます。ルームを抜けると切に戻ります。	只有打开时，这台电脑上的智能体才能用合成的声音在这个房间说话。说的内容也会作为智能体的声音出现在聊天里。退出房间后会自动关闭。	켜 둔 동안에만 이 PC의 에이전트가 합성 음성으로 이 룸에서 말할 수 있습니다. 말한 내용은 대화에도 에이전트 목소리로 표시됩니다. 룸에서 나가면 꺼집니다.				
 video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
 video.move.ask	Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?	いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？	影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？	지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?				
 video.move.no	Leave them there	そのままにする	留在那边	그대로 두기				

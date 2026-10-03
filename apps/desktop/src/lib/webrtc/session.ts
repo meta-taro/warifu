@@ -32,6 +32,7 @@ function 下ごしらえを送る(step: SignalPayload['step'], blob: string, to?
 }
 import type { Prefs } from './devices';
 import { ハウリングの危険, 送ってよいか } from '../meeting/sending';
+import { 音の玉を選ぶ } from '../meeting/agentVoice';
 import { onLocalMediaReady, onRemote, start, type NegotiationState } from './negotiation';
 import {
   候補を読む,
@@ -133,6 +134,14 @@ export class Call {
 
   /** **送り手から外してある種別**（記録で `なし` の意味を言い分けるために持つ）。 */
   private 外してある = new Set<'audio' | 'video'>();
+
+  /**
+   * **この機械のエージェントの声**（#50）。鳴らしている間だけ持つ。
+   *
+   * 持っている間は、音の送り手へマイクの代わりにこれを入れる。
+   * 外したら、いつもの関門どおり（マイクか無し）に戻る。
+   */
+  private 声: MediaStreamTrack | null = null;
 
   /** **送った候補の種類**（host / srflx / relay）。 */
   private 送った候補の種類 = new Set<string>();
@@ -480,6 +489,24 @@ export class Call {
     this.送り直す();
   }
 
+  /**
+   * **エージェントの声を重ねる／外す**（#50）。
+   *
+   * `null` を渡すと元へ戻る（マイクが入っていればマイク、切なら無し）。
+   * 映像と音を足していない部屋では、声も送らない（`音の玉を選ぶ`）。
+   */
+  async 声を重ねる(声: MediaStreamTrack | null): Promise<void> {
+    if (this.closed) return;
+    this.声 = 声;
+    const 送る = 送ってよいか({
+      映像を使う: this.映像を使う,
+      マイク入: this.prefs.micOn,
+      カメラ入: this.prefs.cameraOn,
+      測れた: shouldSendVideo(this.watch.shown),
+    });
+    await this.流す('audio', 送る.音);
+  }
+
   /** 会議中に入と切を変える。**支度で決めた値を上書きする。** */
   setPrefs(prefs: Prefs): void {
     this.prefs = prefs;
@@ -543,7 +570,13 @@ export class Call {
       種 === 'audio'
         ? (this.local?.getAudioTracks()[0] ?? null)
         : (this.local?.getVideoTracks()[0] ?? null);
-    const 次 = 流す ? 持ち玉 : null;
+    // **音は、エージェントの声を鳴らしている間だけ声に替える**（#50）
+    const 次 =
+      種 === 'audio'
+        ? 音の玉を選ぶ({ 声: this.声, マイク: 持ち玉, 音を送る: 流す, 映像を使う: this.映像を使う })
+        : 流す
+          ? 持ち玉
+          : null;
     // **変わらないなら触らない。**毎秒呼ばれるので、無駄な差し替えをしない
     // **外したかどうかを覚える**（記録で `なし` の意味を言い分けるため）
     if (次 === null && 持ち玉 !== null) this.外してある.add(種);
