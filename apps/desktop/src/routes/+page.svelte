@@ -9,7 +9,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
-  import { DEFAULT_CAPACITY } from '$lib/meeting/roster';
+  import { DEFAULT_CAPACITY, 主催の札を付ける } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
   import type { 待っている札 } from '$lib/bridge';
   import {
@@ -677,6 +677,10 @@
   let いまのルーム = $state<string | null>(null);
   /** いま居るルームたち。**持てても見えなければ切り替えようがない。** */
   let ルームたち: RoomRow[] = $state([]);
+  /** **名簿の「主催」の札は、部屋の主催の鍵で付ける**（起動時の決め打ちを使わない）。 */
+  const 名簿の人 = $derived(
+    主催の札を付ける(members, ルームたち.find((r) => r.id === 見ている)?.host_key ?? null),
+  );
 
   /**
    * **前に入ったルームへの帰り道**（`gh issue 13`）。`[ルーム id, ルームキー]`。
@@ -3004,7 +3008,7 @@
 
     <Roster
       {locale}
-      {members}
+      members={名簿の人}
       capacity={DEFAULT_CAPACITY}
       names={画面での名簿}
       onRename={(key, label) => void 名前を付ける(key, label)}

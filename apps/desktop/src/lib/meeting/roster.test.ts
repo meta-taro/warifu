@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { canAdmit, clampCapacity, DEFAULT_CAPACITY, HARD_LIMIT, MIN_CAPACITY } from './roster';
+import { canAdmit, clampCapacity, DEFAULT_CAPACITY, HARD_LIMIT, MIN_CAPACITY, 主催の札を付ける } from './roster';
 
 describe('会議の定員（DESIGN.md §4.3 / D27 / D15）', () => {
   it('既定は 12、外枠は 16、下は 2', () => {
@@ -53,5 +53,27 @@ describe('会議の定員（DESIGN.md §4.3 / D27 / D15）', () => {
   it('定員そのものが外枠を超えていたら、外枠で数える', () => {
     // 招待に書かれた定員をそのまま信じない（D27）
     expect(canAdmit(16, 999)).toBe(false);
+  });
+});
+
+describe('主催の札を付ける', () => {
+  it('ゲストとして入ったら、自分ではなく主催に札が付く', () => {
+    const 名簿 = [
+      { key: 'ME', me: true, host: true },
+      { key: 'HOST' },
+    ];
+    const 付けた = 主催の札を付ける(名簿, 'HOST');
+    expect(付けた.find((m) => m.key === 'ME')?.host).toBe(false);
+    expect(付けた.find((m) => m.key === 'HOST')?.host).toBe(true);
+  });
+
+  it('自分が主催なら、自分にだけ札が付く', () => {
+    const 付けた = 主催の札を付ける<{ key: string; host?: boolean }>([{ key: 'ME' }, { key: 'GUEST' }], 'ME');
+    expect(付けた.map((m) => m.host)).toEqual([true, false]);
+  });
+
+  it('主催の鍵が分からないうちは、手を付けない', () => {
+    const 名簿 = [{ key: 'ME', me: true, host: true }];
+    expect(主催の札を付ける(名簿, null)).toEqual(名簿);
   });
 });

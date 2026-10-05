@@ -369,6 +369,8 @@ export interface RoomRow {
   members: number;
   /** 自分が主催か。 */
   host: boolean;
+  /** 主催の公開鍵（全桁）。名簿の「主催」の札をここで決める。 */
+  host_key: string;
 }
 
 /**

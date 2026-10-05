@@ -2840,6 +2840,11 @@ pub struct RoomRow {
     members: usize,
     /// 自分が主催か。
     host: bool,
+    /// **主催の公開鍵**（全桁）。名簿の「主催」の札をここで決める（2026-10-05）。
+    ///
+    /// 画面は起動したときに「自分が主催」と決め打ちしていたので、
+    /// 鍵で他人の部屋に入ると、ゲストの名簿で自分に「主催」が付いていた。
+    host_key: String,
 }
 
 /// **いま居るルームを並べる。**
@@ -2870,6 +2875,7 @@ async fn rooms(bridge: State<'_, Bridge>) -> Answer<Vec<RoomRow>> {
             // （入るときに必ず覚えるので・`connect` / `call`）。
             // **覚えていない＝誰にも入られていない自分の部屋**
             host: 主催たち.get(&c.id()).is_none_or(|主催| *主催 == me),
+            host_key: key_to_string(主催たち.get(&c.id()).copied().unwrap_or(me)),
         })
         .collect();
     // **並びを固定する。**`HashMap` の順は読むたびに変わる

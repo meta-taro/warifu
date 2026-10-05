@@ -38,3 +38,19 @@ export function clampCapacity(value: number): number {
 export function canAdmit(current: number, capacity: number): boolean {
   return current < clampCapacity(capacity);
 }
+
+/**
+ * **名簿の「主催」の札を、部屋の主催の鍵で付け直す**（2026-10-05）。
+ *
+ * 画面は起動したときに自分を主催として名簿に置いていた。鍵で他人の部屋に入っても
+ * そのままだったので、ゲストの名簿で自分に「主催」が付いていた。
+ * 主催の鍵が分からないとき（まだ部屋の一覧を読んでいない）は、手を付けない。
+ */
+export function 主催の札を付ける<T extends { key: string; host?: boolean }>(
+  members: readonly T[],
+  主催の鍵: string | null,
+): T[] {
+  if (!主催の鍵) return [...members];
+  return members.map((m) => ({ ...m, host: m.key === 主催の鍵 }));
+}
+
