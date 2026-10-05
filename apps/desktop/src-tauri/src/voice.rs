@@ -372,7 +372,7 @@ mod os {
 
     /// **命令は固定の文字列。**文・置き場・言語は環境変数で渡す
     /// （命令へつなげると、文の中の `'` や `;` が命令として読まれうる）。
-    const 命令: &str = "$ErrorActionPreference = 'Stop'; \
+    const 読み上げの命令: &str = "$ErrorActionPreference = 'Stop'; \
         Add-Type -AssemblyName System.Speech; \
         $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; \
         try { \
@@ -389,7 +389,7 @@ mod os {
         let 置き場 = super::一時の置き場();
         let mut 命令 = Command::new("powershell");
         命令
-            .args(["-NoProfile", "-NonInteractive", "-Command", 命令])
+            .args(["-NoProfile", "-NonInteractive", "-Command", 読み上げの命令])
             .env("WARIFU_VOICE_TEXT", 本文)
             .env("WARIFU_VOICE_OUT", &置き場)
             .creation_flags(窓を出さない);

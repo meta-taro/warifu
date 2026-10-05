@@ -1,0 +1,56 @@
+name: desktop-windows
+
+# **Windows でだけ使う画面版の Rust を、push のたびに型だけ検める**（2026-10-05）。
+#
+# `#[cfg(windows)]` の中のコードは、手元（macOS）のゲートも macOS の CI も見ない。
+# 配布物を建てる段（bundle / release）で初めて Windows の組み立てが落ちた
+# （名前の影・型の食い違い）。**配る前に、ここで捕まえる。**
+# 重いので、画面版の Rust を変えたときだけ走らせる。
+
+on:
+  pull_request:
+    paths:
+      - 'apps/desktop/src-tauri/**'
+      - 'crates/**'
+      - 'Cargo.lock'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'apps/desktop/src-tauri/**'
+      - 'crates/**'
+      - 'Cargo.lock'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      # tauri の build script は、画面の建てた物が在ることを求める
+      - name: 画面を建てる
+        run: pnpm --filter @warifu/desktop build
+
+      - name: 画面版の Rust を型だけ検める（Windows）
+        run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --tests
