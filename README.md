@@ -1,12 +1,53 @@
 # warifu
 
-**A building block for people, devices, and AI agents to connect — without creating an account anywhere.**
+**Hand someone a key and they are in the room with you — no account, no server to run. Your AI agent can sit in too.**
 
 > **warifu** (割符) — a tally stick split in two. When the halves match, each side proves the other is who they claim to be.
 
 > 日本語版: [README.ja.md](README.ja.md)
 
+![A room: a guest who joined with a key, you, and the agent on your computer taking notes, in one conversation](docs/images/room-agent.en.png)
+
+*A guest (Sam) joined with a room key. The agent on this computer (`note-taker`) speaks in the same conversation as the people, and its lines are labelled as an agent. Nobody created an account.*
+
 ---
+
+## When you would use it
+
+**You need to talk to someone outside your organisation, and you do not want them to sign up for anything.**
+Send them one room key — by chat, email, a QR code, or read out over the phone. One key lets in one person. There is no invite list to manage and no tenant to add them to. When they leave, the key is spent.
+
+**You want your coding agent in the meeting, not in a separate window.**
+Connect Claude Code (or any MCP client) with one command. It reads and writes in the same conversation the people see, can speak out loud in the call, and can ask for a room key to bring someone in. **It can only do what a person allowed** — and when it needs more, it asks on your screen:
+
+| The agent asks | You pressed *Allow* |
+|---|---|
+| ![The agent asks for permission to issue a room key, with its reason; Allow and Deny buttons](docs/images/agent-asks.en.png) | ![After allowing: the screen says which agent can now issue room keys, and that it can be revoked](docs/images/agent-allowed.en.png) |
+
+**You want to talk between the office and home without running a server.**
+The two machines connect to each other directly (QUIC through [iroh](https://github.com/n0-computer/iroh) — you dial a public key, not an IP address). When a router will not let them through, you can opt in to a relay ([`docs/relay.md`](docs/relay.md)); nothing is relayed unless you turn it on.
+
+## Try it
+
+1. **Download** from the [download page](https://meta-taro.github.io/warifu/) — macOS (Apple Silicon, signed and notarized) and Windows (x64 and ARM64, **not code-signed**). Windows needs one extra step on first launch: [`docs/install.md`](docs/install.md).
+2. **Open it.** You land on your contacts. Go to **Room** → *Invite someone* → issue a key.
+3. **Send the key** to the other person. They paste it into *Join another room*. You are both in the room, text first; press *Add video and sound* when you want it.
+4. *(Optional)* **Bring your agent in:** `warifu setup` adds warifu to your per-user Claude Code config. Start Claude Code in any folder and it can talk in the room. See [`docs/mcp.md`](docs/mcp.md).
+
+Prefer the command line? `warifu host` prints a key and waits; `warifu join <key>` joins from another machine. No GUI needed.
+
+Building from source:
+
+```bash
+git clone https://github.com/meta-taro/warifu.git && cd warifu
+scripts/setup-hooks.sh                        # once per clone
+pnpm install
+pnpm --filter @warifu/desktop tauri dev
+```
+
+For a distributable build: `pnpm --filter @warifu/desktop tauri build`.
+**`cargo run` gives you a blank window** — a debug build looks for the dev server.
+What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Status: alpha. Here is exactly what has been measured
 
@@ -15,23 +56,21 @@
 | Measured (real machines, real network) | When |
 |---|---|
 | **Two people in a video call**, no server, no external signalling, no STUN/TURN | 2026-09-07 |
-| **The camera working inside the app on Windows** (local preview, confirmed by a person) | 2026-09-15 |
 | **Video and audio between Windows and macOS, both directions**, route `direct`, no flapping over 5m33s. Audio verified with the OS per-process meters, not by ear | 2026-09-15 |
 | **Three machines in one room, as the host sees it** (macOS × 2 + Windows), roster `3 / 12` | 2026-09-15 |
-| **Each guest connected to the host at `direct`** — 3.3 s, 3.27 s, 3.3 s, no flapping | 2026-09-15 |
-| **Cross-machine video and audio** (Mac mini ⇄ MacBook Air, route `direct`) | 2026-09-13 |
 | **An agent replying to a remote human with nobody pressing anything** | 2026-09-12 |
-| **Across the internet with no relay** — a machine behind double NAT joined a machine on another network whose router opened a port by UPnP; route `direct`, text arrived, rejoin with the same key worked. CLI only | 2026-09-27 |
-| **A resident agent reconnecting** after the app restarts | 2026-09-11 |
+| **Across the internet with no relay server** — a machine behind double NAT joined a machine on another network whose router opened a port by UPnP; text arrived, rejoin with the same key worked. CLI only | 2026-09-27 |
+| **Video across the internet in the desktop app** — Windows at home to a Mac at the office, carried over the peers' own connection, no relay server | 2026-09-29 |
+| **Background blur and replacement** (Windows), off by default, three blur strengths, a picture of your own | 2026-10 |
+| **An agent speaking in the call** — `voice_say` from an agent on one Windows machine, heard once on the other; the person turns it on per room, off by default | 2026-10-07 |
 
 | Not measured — so we do not claim it | |
 |---|---|
-| **Across networks — video, and the desktop app** | Only text through the CLI has crossed networks (below). **Video across networks: never tried** |
-| **A room shared between guests** | **Measured and it does not work** (2026-09-15). A room is a **star through the host**: each guest's roster says `2 / 12` and a guest's message reaches the host only. **Guests do not see each other** |
+| **A room shared between guests** | **Measured and it does not work** (2026-09-15). A room is a **star through the host**: a guest's message reaches the host only. **Guests do not see each other** |
 | Four or more people in one room | never tried |
 | Agent-to-agent across devices, with no human in the loop | never tried |
 
-Builds are on the [download page](https://meta-taro.github.io/warifu/). macOS is signed and notarized (app **and** CLI, from v0.1.5). **Windows is not code-signed**, and on first run **an administrator has to allow the app through the firewall** — otherwise text arrives but video never starts. The app now says so by name and hands you the exact command.
+**Windows is not code-signed**, and on first run **an administrator has to allow the app through the firewall** — otherwise text arrives but video never starts. The app says so by name and hands you the exact command.
 
 ## What this is, in one paragraph
 
@@ -51,7 +90,7 @@ Most "serverless" chat still needs an account somewhere: a signalling server, a 
 | **Four languages** | en / ja / zh / ko, including the OS menu and context menu. **All drafted by AI** — see [`docs/i18n-review.md`](docs/i18n-review.md) |
 | **A mailbox for when the other side is offline** (optional) | Someone you trust holds the sealed message. **They cannot read it** |
 
-**Not there yet:** **a room that guests share** (it is a star through the host — see the table above), recording, transcription, scheduling negotiation, **persistent chat history** (closing the window clears it), and **relay across networks**.
+**Not there yet:** **a room that guests share** (it is a star through the host — see the table above), recording, transcription, scheduling negotiation, and **persistent chat history** (closing the window clears it).
 
 **Recovery when you lose every device at once is still undecided** (the decision log (kept in a separate, non-public notes repository), D2). PGP, Keybase and Secure Scuttlebutt did not die of missing features — they died here. We treat it as a known cause of death, not a hypothetical risk.
 
@@ -68,20 +107,6 @@ warifu setup          # writes the MCP server into your per-user Claude Code con
 - Agents get `chat_send` / `chat_read` / `chat_wait` / `room_status` / `profile_set` and a few more. `room_status` answers "is a human still being asked something?" — including *which room* it is about.
 
 See [`docs/mcp.md`](docs/mcp.md).
-
-## Try it
-
-```bash
-git clone https://github.com/meta-taro/warifu.git && cd warifu
-scripts/setup-hooks.sh                        # once per clone
-pnpm install
-pnpm --filter @warifu/desktop tauri dev
-```
-
-For a distributable build: `pnpm --filter @warifu/desktop tauri build`.
-**`cargo run` gives you a blank window** — a debug build looks for the dev server.
-
-Not building from source? [`docs/install.md`](docs/install.md) — it ends with **the first three steps** once it is running. What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Two design commitments we will not trade away
 
@@ -125,7 +150,7 @@ We diff against existing standards before implementing.
 | Audio / video | WebRTC (**we write no codecs**) |
 | Desktop | Tauri 2 + TypeScript + SvelteKit + pnpm (~400 tests) |
 
-Relay/SFU is **out of scope for now**: it would mean "a user's device relays someone else's traffic", and we will not start until the legal side is settled (the decision log (kept in a separate, non-public notes repository), D7). The line we draw is *whether traffic is relayed*, not *how many people are in the room*.
+An SFU is **out of scope for now**: it would mean "a user's device relays someone else's traffic", and we will not start until the legal side is settled (the decision log (kept in a separate, non-public notes repository), D7). The line we draw is *whether traffic is relayed*, not *how many people are in the room*. The network relay you can opt in to is different: it passes encrypted packets between the two ends when a router will not let them meet, and you can point it at one you run yourself (`WARIFU_RELAY_URL`, see [`docs/relay.md`](docs/relay.md)). It is off by default.
 
 ## How this repository is developed
 
