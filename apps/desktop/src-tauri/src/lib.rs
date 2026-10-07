@@ -3200,8 +3200,31 @@ pub fn run() {
             voice::agent_voice_take,
             voice::agent_voice_report,
         ])
-        .run(tauri::generate_context!())
-        .expect("warifu の窓を開けませんでした");
+        .build(tauri::generate_context!())
+        .expect("warifu の窓を開けませんでした")
+        .run(|_app, 出来事| 終わり方を書く(&出来事));
+}
+
+/// **どう終わったかを記録に書く**（#43）。
+///
+/// 画面版が黙って消えた回、落ちた記録（panic・OS のイベントログ・Crashpad の報告）が
+/// どれも無く、**正常に終わった形**だった。窓が閉じられたのか、窓が壊れたのか、
+/// 終わりを頼まれたのかを、終わる前に 1 行ずつ残す。
+fn 終わり方を書く(出来事: &tauri::RunEvent) {
+    match 出来事 {
+        tauri::RunEvent::WindowEvent { label, event, .. } => match event {
+            tauri::WindowEvent::CloseRequested { .. } => {
+                記録!("終わり方: 窓 {label} を閉じる操作がありました");
+            }
+            tauri::WindowEvent::Destroyed => 記録!("終わり方: 窓 {label} が無くなりました"),
+            _ => {}
+        },
+        tauri::RunEvent::ExitRequested { code, .. } => {
+            記録!("終わり方: 終わりを頼まれました（code {code:?}）");
+        }
+        tauri::RunEvent::Exit => 記録!("終わり方: 終わります"),
+        _ => {}
+    }
 }
 
 #[cfg(test)]
