@@ -206,6 +206,7 @@ warifu agent --as helper --on ./run.sh
 ### Seeing the current state (`room_status`)
 
 **You can check whether a person answered, without asking them.**
+It needs the **`chat.read`** grant (who you are connected to belongs to the person); `--allow voice.say` alone is not enough.
 
 ```
 room_status →

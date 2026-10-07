@@ -503,7 +503,8 @@ impl Warifu {
         description = "いまの様子を見る。どのルームに居るか、相手の鍵、経路（direct / relayed / \
                        unknown）、この機械につながっているエージェント、\
                        そして『入りますか？』が画面に出たまま答えられていないリンクの数。\
-                       **人に聞かずに、繋がったかどうかを確かめられる。**"
+                       画面の前の人に尋ねなくても、繋がったかどうかを確かめられる。\
+                       **札は `chat.read`**（誰と繋がっているかは人のものなので、読む札の内側に置く）。"
     )]
     pub async fn room_status(&self) -> Result<String, ErrorData> {
         self.通るか("chat.read")?;
