@@ -55,6 +55,9 @@ pub struct Warifu {
     /// **だから、断る前にもう一度読む。**
     /// **読む所は外から渡す** —— この層は置き場所を知らない（`warifu-vault` に依存しない）。
     札を読み直す: Option<Arc<dyn Fn() -> Vec<String> + Send + Sync>>,
+    /// **いま走っている呼びの数**（2026-10-07・#50）。
+    /// 入力が閉じても、これが 0 になるまで口を閉じない（[`crate::閉じを待つ入力`]）。
+    呼び: Arc<crate::呼び中>,
 }
 
 struct Inner {
@@ -95,6 +98,7 @@ impl Warifu {
             名乗り: None,
             chat: Arc::new(tokio::sync::Mutex::new(None)),
             札を読み直す: None,
+            呼び: Arc::default(),
             inner: Arc::new(Mutex::new(Inner {
                 messages,
                 reader: Reader::with_rules(rules),
@@ -103,6 +107,12 @@ impl Warifu {
                 now,
             })),
         }
+    }
+
+    /// **いま走っている呼びの数を見る手。**入力を [`crate::閉じを待つ入力`] で包むときに渡す。
+    #[must_use]
+    pub fn 呼び中(&self) -> Arc<crate::呼び中> {
+        Arc::clone(&self.呼び)
     }
 
     /// この機械につながる。**同じ PC の GUI が開いている口へ繋ぐ。**
@@ -752,6 +762,18 @@ impl Warifu {
 
 #[tool_handler]
 impl ServerHandler for Warifu {
+    /// **呼びを数えてから通す**（2026-10-07・#50）。
+    /// 返事を書き終えるまで数に入れる —— 入力が閉じても、返事を捨てて終わらないように。
+    async fn call_tool(
+        &self,
+        request: rmcp::model::CallToolRequestParams,
+        context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::CallToolResponse, ErrorData> {
+        let _札 = self.呼び.始める();
+        let tcc = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+        Self::tool_router().call(tcc).await
+    }
+
     fn get_info(&self) -> ServerInfo {
         let mut info = ServerInfo::default();
         info.capabilities = ServerCapabilities::builder().enable_tools().build();

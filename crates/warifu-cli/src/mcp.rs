@@ -258,7 +258,15 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         設.この機械.display()
     );
 
-    let 務め = 口.serve(rmcp::transport::stdio()).await?;
+    // **入力が閉じても、走っている呼びの返事を書き終えるまで閉じない**（2026-10-07・#50）。
+    // rmcp は閉じたあと 5 秒しか待たず、読み上げ（6 秒ほど）の返事を捨てていた。
+    // 呼ぶ側は返事が無いので出し直し、**同じ声が相手に何度も流れた**
+    let 入力 = warifu_mcp::閉じを待つ入力::new(
+        tokio::io::stdin(),
+        口.呼び中(),
+        warifu_mcp::待つ上限,
+    );
+    let 務め = 口.serve((入力, tokio::io::stdout())).await?;
     務め.waiting().await?;
     Ok(())
 }

@@ -43,10 +43,12 @@
 
 mod chat;
 mod heard;
+mod inflight;
 mod server;
 mod tools;
 
 pub use chat::Chat;
+pub use inflight::{呼びの札, 呼び中, 待つ上限, 閉じを待つ入力};
 pub use server::{Warifu, subject};
 pub use tools::{
     AskArgs, ChangesArgs, InviteArgs, OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs,
