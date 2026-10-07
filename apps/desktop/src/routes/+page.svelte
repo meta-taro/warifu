@@ -837,6 +837,8 @@
         },
         始めた: () => {
           声で話している = true;
+          // 印を出したことを残す（印が見えないとき、値が立ったかを記録で切り分ける）
+          log('声: 鳴らし始めました（自分の枠に印を出します）');
           void reportAgentVoice(id, 'started');
         },
       });
@@ -2916,7 +2918,7 @@
         {#if !prefs.cameraOn && ((localStream?.getVideoTracks().length ?? 0) > 0 || 放してある.video)}
           <p class="cap-note">{t('tile.me.cameraOff')}</p>
         {/if}
-        <!-- **エージェントの声を鳴らしている間**（#50）。誰の声が出ているかを、この PC の人に見せる -->
+        <!-- **エージェントの声を鳴らしている間**（#50）。誰の声が出ているかを、この PC の人に見せる（映像の上に重ねる） -->
         {#if 声で話している}
           <p class="agent-voice-badge" role="status"><Icon name="mic" size={14} />{t('tile.me.agentVoice')}</p>
         {/if}
@@ -4128,6 +4130,8 @@
     min-height: 0;
     /* **はみ出しは枠で止める。**下の名札を押し出さない */
     overflow: hidden;
+    /* 声の印を映像の上に重ねる基準 */
+    position: relative;
   }
   video {
     width: 100%;
@@ -4158,12 +4162,18 @@
     font-size: var(--text-xs-size);
     color: var(--text-secondary);
   }
-  /* **エージェントの声を鳴らしている間の印**（#50）。名札の下の 1 行に置く */
+  /*
+    **エージェントの声を鳴らしている間の印**（#50）。**映像の上に重ねる。**
+    名札の下の行に置いたら、枠の高さが映像で埋まって切れ、鳴っている間も見えなかった
+    （枠は `overflow: hidden`）。重ねれば、枠の高さに依らず映像の左上に出る
+  */
   .agent-voice-badge {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
     display: inline-flex;
     align-items: center;
     gap: var(--space-1);
-    align-self: flex-start;
     margin: 0;
     padding: var(--space-1) var(--space-2);
     border-radius: var(--radius-sm);
