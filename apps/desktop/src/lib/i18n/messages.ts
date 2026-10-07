@@ -343,6 +343,8 @@ export type MessageKey =
   | 'meeting.key.more'
   | 'meeting.key.more.hint'
   | 'roster.name.action'
+  | 'roster.host'
+  | 'chat.agentOf'
   | 'roster.name.save'
   | 'roster.name.placeholder'
   | 'meeting.status.waiting'
@@ -446,6 +448,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.more': 'ルームキーをもう 1 本出す',
     'meeting.key.more.hint': '1 本のルームキーで入れるのは 1 人だけです。もう 1 人入れるなら、もう 1 本出してその人に渡します。前のルームキーは使えたままです。',
     'roster.name.action': '名前を付ける',
+    'roster.host': '主催',
+    'chat.agentOf': '{name} のエージェント',
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
@@ -816,6 +820,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.more': 'Hand out one more key',
     'meeting.key.more.hint': 'One key lets exactly one person in. To let another person in, hand out one more key. The earlier key keeps working.',
     'roster.name.action': 'Name',
+    'roster.host': 'Host',
+    'chat.agentOf': '{name} (agent)',
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
@@ -896,8 +902,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.now': 'Right now',
     'home.seats': 'Agents on this computer',
     'home.rooms': 'Rooms you are in',
-    'home.people': '{n} people',
-    'home.rooms.n': '{n} rooms ({m} people)',
+    'home.people': '{n}',
+    'home.rooms.n': '{n} (people: {m})',
     'home.contacts': 'Contacts',
     'home.postbox': 'Receiving while away',
     'home.postbox.on': 'Set up',
@@ -962,7 +968,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note': 'Your note',
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
     'room.name': 'Room name',
-    'room.nth': 'Room {n} ({m} people)',
+    'room.nth': 'Room {n} (people: {m})',
     'room.mine': 'you set this up',
     'room.back': 'Back to the last room',
     'room.back.hint': 'Rejoins the room you were in. You do not need a new key — even after the key\'s 24 hours are up, you can return if they still let you in.',
@@ -1186,6 +1192,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.more': '再发一把密钥',
     'meeting.key.more.hint': '一把密钥只能让一个人进来。要再让一个人进来，就再发一把交给他。之前的密钥仍然有效。',
     'roster.name.action': '命名',
+    'roster.host': '主持人',
+    'chat.agentOf': '{name} 的智能体',
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
@@ -1554,6 +1562,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.key.more': '열쇠를 한 개 더 내기',
     'meeting.key.more.hint': '열쇠 하나로 들어올 수 있는 사람은 한 명뿐입니다. 한 명 더 들이려면 한 개 더 내어 그 사람에게 건넵니다. 앞의 열쇠는 그대로 쓸 수 있습니다.',
     'roster.name.action': '이름 붙이기',
+    'roster.host': '호스트',
+    'chat.agentOf': '{name}의 에이전트',
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',

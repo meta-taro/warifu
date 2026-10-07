@@ -129,12 +129,12 @@ home.lead	Pick someone and what you can do with them appears here. Choose from t
 home.next	First step	はじめの一歩	第一步	첫걸음				
 home.next.hint	Nobody here yet. Press your own row under “This computer” on the left to see how to hand over a room key.	まだ誰もつながっていません。左の「この PC」のあなたの行を押すと、ルームキーの渡し方が出ます。	还没有任何人。按左边「这台电脑」里你自己的那一行，就会显示room key的交付方法。	아직 아무도 없습니다. 왼쪽 “이 PC”의 내 행을 누르면 룸 키를 건네는 방법이 나옵니다.				
 home.now	Right now	いまの様子	现在的状况	지금 상황				
-home.people	{n} people	{n} 人	{n} 人	{n}명				
+home.people	{n}	{n} 人	{n} 人	{n}명				
 home.postbox	Receiving while away	留守中の受け取り	不在时的接收	부재 중 수신				
 home.postbox.off	Not set up	未設定	未设置	설정 안 됨				
 home.postbox.on	Set up	設定済み	已设置	설정됨				
 home.rooms	Rooms you are in	ルーム	所在的 room	들어가 있는 룸				
-home.rooms.n	{n} rooms ({m} people)	{n} 室（{m} 人）	{n} 间（{m} 人）	{n}개({m}명)				
+home.rooms.n	{n} (people: {m})	{n} 室（{m} 人）	{n} 间（{m} 人）	{n}개({m}명)				
 home.seats	Agents on this computer	この PC のエージェント	这台电脑的智能体	이 PC의 에이전트				
 home.title	What you can do	できること	可以做的事	할 수 있는 일				
 howto.1	Open "Room" and press [Create a room]	「ルーム」を開いて［ルームをつくる］を押す	打开「房间」，按下［创建房间］	「방」을 열고 ［방 만들기］를 누릅니다				
@@ -267,9 +267,11 @@ room.members.some	People are here.	人が入っています。	有人在。	사�
 room.mine	you set this up	あなたが建てた	你建的	내가 만든 룸				
 room.name	Room name	ルームの名前	房间名	방 이름				
 room.name.hint	The name is kept on this PC (closing the window does not lose it). It is not sent to anyone.	名前はこの PC に残ります（閉じても消えません）。相手には送りません。	名字保存在这台电脑上（关闭窗口也不会消失）。不会发送给别人。	이름은 이 PC에 남습니다 (닫아도 사라지지 않습니다). 상대에게는 보내지 않습니다.				
-room.nth	Room {n} ({m} people)	ルーム {n}（{m} 人）	Room {n}（{m} 人）	룸 {n}({m}명)				
+room.nth	Room {n} (people: {m})	ルーム {n}（{m} 人）	Room {n}（{m} 人）	룸 {n}({m}명)				
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
+roster.host	Host	主催	主持人	호스트		名簿で、ルームを建てた人に付く札。		
+chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{name}의 에이전트		会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。		
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
 roster.name.save	Save	決める	保存	저장				
 roster.title	People in this room	このルームに居る人	这个房间里的人	이 방에 있는 사람				

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { 行の差出人名 } from './name';
+import { エージェントの名を言い換える, 行の差出人名 } from './name';
 import type { 会話行 } from '$lib/meeting/announce';
 
 const 行 = (o: Partial<会話行>): 会話行 => ({ who: '', body: '', mine: false, ...o });
@@ -25,6 +25,25 @@ describe('行の差出人名', () => {
   it('名簿の値が空なら、行のほうを使う（空文字で人を消さない）', () => {
     expect(行の差出人名(行({ who: 'alpha のエージェント', 顔の種: 'desk:alpha' }), { 'desk:alpha': '' })).toBe(
       'alpha のエージェント',
+    );
+  });
+});
+
+describe('エージェントの名を言い換える', () => {
+  const 英 = (名: string) => `${名} (agent)`;
+
+  it('「X のエージェント」は、見ている人の言葉で言い直す', () => {
+    // 名札は机が日本語で組む（相手へもその形で届く・識別に使う）。**出すときだけ**言い直す
+    expect(エージェントの名を言い換える('note-taker のエージェント', 英)).toBe('note-taker (agent)');
+  });
+
+  it('エージェントでない名は、そのまま', () => {
+    expect(エージェントの名を言い換える('Sam', 英)).toBe('Sam');
+  });
+
+  it('名乗りの付いた名札（括弧つき）も言い直す', () => {
+    expect(エージェントの名を言い換える('docs のエージェント（議事メモ）', 英)).toBe(
+      'docs (agent)（議事メモ）',
     );
   });
 });

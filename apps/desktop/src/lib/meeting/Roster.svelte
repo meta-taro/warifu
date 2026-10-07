@@ -109,7 +109,7 @@
                **確かめるのは全桁の鍵**であって、顔は見分けにすぎない -->
           <Avatar 種={m.key} 大きさ={18} 名="" />
           <span class="name">{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
-          {#if m.host}<span class="host">主催</span>{/if}
+          {#if m.host}<span class="host">{t('roster.host')}</span>{/if}
           <LinkBadge {locale} path={m.path} />
           {#if onRename && !m.me}
             <!-- **鍵の頭では、人もエージェントも見分けが付かない。**呼び名を付けられるようにする -->

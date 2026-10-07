@@ -9,7 +9,7 @@
   // `届く先がある` が決める。ここは出すだけ。
 
   import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
-  import { 行の差出人名 } from './name';
+  import { エージェントの名を言い換える, 行の差出人名 } from './name';
   import type { 見出し } from './destination';
   import Avatar from '$lib/contacts/Avatar.svelte';
   import { 新しい行が来たとき, 底に着いた, type 位置 } from './scroll';
@@ -102,6 +102,9 @@
   }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
+  /** エージェントの名札を、この画面の言葉で出す（元の名札は変えない） */
+  const 見せる名 = (名: string) =>
+    エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n }));
   let 下書き = $state('');
 
   /**
@@ -195,7 +198,7 @@
   {#if 届く先.length === 0}
     <p class="hint">{t('chat.reach.none')}</p>
   {:else}
-    <p class="hint reach">{format(t('chat.reach'), { who: 届く先.join(' ／ ') })}</p>
+    <p class="hint reach">{format(t('chat.reach'), { who: 届く先.map(見せる名).join(' ／ ') })}</p>
   {/if}
   <div class="talkwrap">
     <div class="talk" bind:this={欄} onscroll={動かした}>
@@ -211,7 +214,7 @@
             種={差出人の顔(line) ?? ''}
             大きさ={14}
             名=""
-          />{/if}{#if !line.system}<b>{行の差出人名(line, 画面での名簿)}</b
+          />{/if}{#if !line.system}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b
           >{/if}{line.body}{#if line.届き}<span
             class="mark"
             class:none={line.届き.札 === 'mark.none'}

@@ -83,6 +83,7 @@
   } from '$lib/schedule/schedule';
   import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
   import { 呼び名 } from '$lib/meeting/names';
+  import { エージェントの名を言い換える } from '$lib/chat/name';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
@@ -1183,9 +1184,14 @@
    * **ここが札を出す唯一の所である**（**D56** ——「札を出すのは人である」）。
    * **押したあとは帯を畳む** —— 残ると、同じことを二度聞かれたように見える。
    */
+  /** エージェントの名札を、この画面の言葉で出す（元の名札は変えない） */
+  function エージェントの名(名札: string): string {
+    return エージェントの名を言い換える(名札, (n) => format(t('chat.agentOf'), { name: n }));
+  }
+
   async function 札に答える(動作: string, 許す: boolean) {
     // **誰に答えたのかを、消す前に取っておく**（消したあとでは言えない）
-    const 相手 = 待っている札たち.find((待ち) => 待ち.動作 === 動作)?.頼んだ人 ?? '';
+    const 相手 = エージェントの名(待っている札たち.find((待ち) => 待ち.動作 === 動作)?.頼んだ人 ?? '');
     try {
       await answerPass(動作, 許す);
       待っている札たち = 待っている札たち.filter((待ち) => 待ち.動作 !== 動作);
@@ -2823,7 +2829,7 @@
   <div class="invited" role="alertdialog" aria-live="polite">
     <p class="what">{t('pass.asked')}</p>
     <p class="hint">
-      {format(t('pass.who'), { who: 待ち.頼んだ人, what: 待ち.動作 })}
+      {format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 待ち.動作 })}
     </p>
     <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
     <p class="hint">{待ち.訳}</p>
