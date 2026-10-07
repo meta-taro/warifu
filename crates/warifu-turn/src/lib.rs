@@ -211,12 +211,19 @@ impl RelayAddressGenerator for 口の係 {
         _requested_port: u16,
     ) -> TurnResult<(Arc<dyn Conn + Send + Sync>, SocketAddr)> {
         // **0 と、よく使われる低い番号は避ける**（見せかけでも、読んだ人が混乱しない）
-        let 口 = self
-            .次の口
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
-                Some(if n == u16::MAX { 49152 } else { n + 1 })
-            })
-            .unwrap_or(49152);
+        // `fetch_update` は Rust 1.99 で非推奨になり、代わりの `try_update` は rust-version（1.85）に無い。
+        // どちらの版でも警告の出ない比べて入れ替える形で書く
+        let mut 口 = self.次の口.load(Ordering::Relaxed);
+        loop {
+            let 次 = if 口 == u16::MAX { 49152 } else { 口 + 1 };
+            match self
+                .次の口
+                .compare_exchange_weak(口, 次, Ordering::Relaxed, Ordering::Relaxed)
+            {
+                Ok(_) => break,
+                Err(いま) => 口 = いま,
+            }
+        }
         let 番地 = SocketAddr::new(self.番地, 口);
         let (送り, 受け) = mpsc::channel(溜める包み);
         self.交換所.足す(番地, 送り);

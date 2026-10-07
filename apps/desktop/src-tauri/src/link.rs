@@ -165,11 +165,14 @@ pub fn 答えた() {
     if let Ok(mut 棚) = 待っているルーム.lock() {
         古いのを落とす(&mut 棚);
     }
-    let _ = 待っているリンク.fetch_update(
-        std::sync::atomic::Ordering::Relaxed,
-        std::sync::atomic::Ordering::Relaxed,
-        |いま| Some(いま.saturating_sub(1)),
-    );
+    // `fetch_update` は Rust 1.99 で非推奨（`try_update` は rust-version に無い）。比べて入れ替える
+    use std::sync::atomic::Ordering::Relaxed;
+    let mut いま = 待っているリンク.load(Relaxed);
+    while let Err(見た) =
+        待っているリンク.compare_exchange_weak(いま, いま.saturating_sub(1), Relaxed, Relaxed)
+    {
+        いま = 見た;
+    }
 }
 
 pub fn 受ける(app: &AppHandle, urls: &[String]) {
