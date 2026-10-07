@@ -150,6 +150,14 @@ fn 起動からの秒() -> f64 {
         .as_secs_f64()
 }
 
+/// 1 分ごとの「生きています」の 1 行。**分で数える**（秒だと読む人が割り算する）。
+fn 生きている行(経った秒: f64, 部屋: usize) -> String {
+    // 経った秒は負にならない。小数は切り捨てて分にする
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let 分 = (経った秒 / 60.0) as u64;
+    format!("生きています（起動から {分} 分・ルーム {部屋}）")
+}
+
 /// 鍵や住所を、追える範囲で短く。**全桁は出さない。**
 /// **文字の通り道（直接か中継か）を記録に書き、変わったらまた書く。**
 ///
@@ -957,7 +965,7 @@ pub(crate) async fn 鍵を出す(
     };
     // **鍵を出す前に合言葉を用意する**（**D118**）。
     // 鍵で入ってきた人へ、戸口を通った直後に渡す
-    部屋の合言葉を用意する(&bridge, meeting).await;
+    部屋の合言葉を用意する(bridge, meeting).await;
     let 開始 = starts_at.unwrap_or_else(now_secs);
     let (tally, token) = bridge
         .device
@@ -3095,6 +3103,20 @@ pub fn run() {
                 let 鍵 = app.state::<Bridge>().device.public_key().to_bytes();
                 tauri::async_runtime::spawn(media_path::立てる(鍵));
             }
+            // **1 分ごとに、生きていることを書く**（#43）。
+            //
+            // 画面版が黙って消えたとき、記録は 1 人になった直後の行で止まっていて、
+            // そこから消えるまでの 70 分、**いつまで生きていたかが記録から分からなかった。**
+            {
+                let app = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    loop {
+                        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                        let 部屋 = app.state::<Bridge>().conferences.lock().await.len();
+                        記録!("{}", 生きている行(起動からの秒(), 部屋));
+                    }
+                });
+            }
             // **画面が立ったらこの機械も開く。**人が別の操作をしなくても、
             // 同じ PC のエージェントが会話につながれる状態にする
             desk::開く(app.handle().clone());
@@ -3449,5 +3471,16 @@ mod 番地の見比べ {
         // **まだ出ていないだけのことがある**（立ち上げ直した直後・中継だけの回線）。
         // **言うと、直っていないのに「出し直せ」と言うことになる**
         assert!(!番地が変わったか(&束(&["192.168.24.17:55698"]), &[]));
+    }
+}
+
+#[cfg(test)]
+mod 生きている行の試験 {
+    use super::生きている行;
+
+    #[test]
+    fn 分で数えて_ルームの数を添える() {
+        assert_eq!(生きている行(59.9, 0), "生きています（起動から 0 分・ルーム 0）");
+        assert_eq!(生きている行(4261.0, 1), "生きています（起動から 71 分・ルーム 1）");
     }
 }
