@@ -35,6 +35,25 @@ fn 概要はいまの版を名乗る() {
     assert!(出た.contains(env!("CARGO_PKG_VERSION")), "{出た}");
 }
 
+/// **建てた commit まで名乗る** —— 同じ版番号のまま直しを配るので、
+/// 版番号だけでは直す前の版と見分けられない。
+/// git の無い所で建てたときは版番号だけになるので、git が在るときだけ見る
+#[test]
+fn 概要は建てた_commit_まで名乗る() {
+    let Some(印) = std::process::Command::new("git")
+        .args(["rev-parse", "--short=7", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+    else {
+        return;
+    };
+    let 出た = 口().about().expect("返る");
+    let 版 = format!("{}+{}", env!("CARGO_PKG_VERSION"), 印.trim());
+    assert!(出た.contains(&版), "{版} が無い: {出た}");
+}
+
 #[test]
 fn 札が無くても変わったことを返す() {
     let 出た = 口()

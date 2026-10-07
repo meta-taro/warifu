@@ -68,6 +68,9 @@ struct Inner {
     now: u64,
 }
 
+/// **建てた版**（`0.1.20+22104db`）。同じ版番号のまま直しを配るので、commit まで名乗る（`build.rs`）。
+pub const 建てた版: &str = env!("WARIFU_BUILD_VERSION");
+
 /// 何も言わなければ、これだけ待つ（秒）。
 const 既定で待つ秒: u64 = 30;
 
@@ -704,8 +707,7 @@ impl Warifu {
     pub fn about(&self) -> Result<String, ErrorData> {
         Ok(format!(
             "{}\n\n---\n\nいま繋がっている版: {}\n",
-            概要,
-            env!("CARGO_PKG_VERSION")
+            概要, 建てた版
         ))
     }
 
@@ -737,7 +739,7 @@ impl Warifu {
                 "{頼まれた} は見当たりません。\
                  version を渡さずに呼ぶと、載っている版が全部出ます。\n\
                  いま繋がっている版: {}\n",
-                env!("CARGO_PKG_VERSION")
+                建てた版
             )),
         }
     }
@@ -782,7 +784,7 @@ impl ServerHandler for Warifu {
         // ここは名乗り直す
         let mut 名乗り = Implementation::default();
         名乗り.name = "warifu".to_owned();
-        名乗り.version = env!("CARGO_PKG_VERSION").to_owned();
+        名乗り.version = 建てた版.to_owned();
         info.server_info = 名乗り;
         // **版を名乗る**（`issues/4`・2026-09-08）。
         // 「新しい口が足されたのに、繋ぎ直すまで見えない」を、呼ぶ側が判断できるようにする ——
@@ -804,7 +806,7 @@ impl ServerHandler for Warifu {
              2026-09-20、機械を立ち上げ直したあとに\
              「どのエージェントが動いていたか分からない」が起きた。\
              口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。",
-            env!("CARGO_PKG_VERSION")
+            建てた版
         ));
         info
     }
