@@ -61,7 +61,7 @@ What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
 | **An agent replying to a remote human with nobody pressing anything** | 2026-09-12 |
 | **Across the internet with no relay server** — a machine behind double NAT joined a machine on another network whose router opened a port by UPnP; text arrived, rejoin with the same key worked. CLI only | 2026-09-27 |
 | **Video across the internet in the desktop app** — Windows at home to a Mac at the office, carried over the peers' own connection, no relay server | 2026-09-29 |
-| **Background blur and replacement** (Windows), off by default, three blur strengths, a picture of your own | 2026-10 |
+| **Background blur and replacement** (Windows): the background is hidden by default, three blur strengths, a picture of your own, or not hidden | 2026-10 |
 | **An agent speaking in the call** — `voice_say` from an agent on one Windows machine, heard once on the other; the person turns it on per room, off by default | 2026-10-07 |
 
 | Not measured — so we do not claim it | |

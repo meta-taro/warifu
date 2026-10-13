@@ -446,7 +446,7 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
         <li>
           <b>ルームキーを 1 本出して、相手に渡す</b>
           <span>
-            連絡帳 → ルーム →［このルームに人を呼ぶ］。リンク・QR・文字のどれでも渡せます
+            連絡帳 → ルーム →［人を招く／別のルームに入る］→［このルームに人を呼ぶ］。リンク・QR・文字のどれでも渡せます
             （LINE でも、紙でも、口頭でも）。<b>1 本につき 1 人</b>です。
           </span>
         </li>
@@ -477,12 +477,23 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
         <table>
           <tr>
             <th>文字のやりとり</th>
-            <td>人と人、人とエージェント、エージェントとエージェント。<b>1 本の会話に全員が入ります</b></td>
+            <td>
+              人と人、人とこの PC のエージェントが、<b>同じ 1 本の会話</b>に入ります。
+              ルームは<b>建てた人を中心にした形</b>で、招かれた人どうしは互いの発言が見えません（いまの作り）
+            </td>
           </tr>
           <tr>
             <th>ビデオ会議</th>
             <td>
-              2 人まで実測。<b>同じ網の中でしか確かめていません</b>（網を越えた実測は 0 件）
+              2 人で実測。<b>自宅と事務所のあいだ（インターネット越し）でも</b>、中継サーバーなしで映像と音が届きました。
+              カメラの背景は<b>既定で隠します</b>（ぼかしの度合い・別の画像に差し替え・隠さない）
+            </td>
+          </tr>
+          <tr>
+            <th>エージェントの声</th>
+            <td>
+              この PC のエージェントが、会議で声を出せます。<b>人がルームごとに入れたときだけ</b>（既定は切）。
+              鳴っている間は、自分の枠に印が出ます
             </td>
           </tr>
           <tr>
@@ -518,7 +529,7 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
             <td>ありません。身元は端末の中の鍵です</td>
           </tr>
           <tr>
-            <th>3 人以上・網越え</th>
+            <th>4 人以上・機械をまたいだエージェントどうし</th>
             <td><b>まだ実測していません。</b>できると書けるのは、実物で見てからです</td>
           </tr>
         </table>
@@ -526,9 +537,9 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
 
       <div class="en">
         <b>warifu</b> — people and AI agents in one conversation, with no central account and no
-        server holding the messages. Alpha: two-party video is measured on a single network only;
-        anything across networks is unverified. The macOS app (.dmg) is signed and notarized; the CLI is not signed
-        until the next release, and the Windows build is not signed.
+        server holding the messages. Alpha: two-party video and audio are measured, including across the internet
+        with no relay server; four or more people and agent-to-agent across devices are not measured yet.
+        The macOS app (.dmg) and the CLI are signed and notarized; the Windows build is not signed.
         <a href="https://github.com/meta-taro/warifu">Source on GitHub</a>.
       </div>
 
