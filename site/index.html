@@ -385,7 +385,18 @@
           <span class="size" id="size-win"></span>
         </div>
         <div class="file">
-          <span class="os">Windows（.msi・管理者向け）</span>
+          <span class="os">Windows（ARM64）</span>
+          <span class="what">
+            画面つき。Snapdragon などの ARM の Windows 用です。入れ方は x64 と同じ
+            （<b>あなたのユーザーに入る</b>ので、管理者権限は要りません）。
+          </span>
+          <a class="get" id="dl-win-arm" href="https://github.com/meta-taro/warifu/releases">
+            -setup.exe を落とす（ARM64）
+          </a>
+          <span class="size" id="size-win-arm"></span>
+        </div>
+        <div class="file">
+          <span class="os">Windows（x64・.msi・管理者向け）</span>
           <span class="what">
             同じ中身です。<b>機械ぜんぶに入れる形</b>なので、<b>管理者権限が要ります</b>
             （無いと <code>Error 1925</code> や <code>Error 1406</code> で止まり、全部戻されます）。
@@ -567,8 +578,11 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
           当てる('dl-mac', 'size-mac', 探す((x) => x.name.endsWith('.dmg')));
           // **NSIS を先に出す。**`.msi` は機械ぜんぶに入れる形なので、
           // 管理者権限が無いと Error 1925 で止まる（2026-09-12・ASUS で実際に止まった）
-          当てる('dl-win', 'size-win', 探す((x) => x.name.endsWith('-setup.exe')));
-          当てる('dl-msi', 'size-msi', 探す((x) => x.name.endsWith('.msi')));
+          // **x64 と ARM64 を名前で分ける。**`-setup.exe` で探すと、名前順で先の ARM64 を
+          // x64 の欄に当てていた（2026-10-13・v0.1.21 のページで見つけた。x64 の機械には入らない）
+          当てる('dl-win', 'size-win', 探す((x) => x.name.endsWith('_x64-setup.exe')));
+          当てる('dl-win-arm', 'size-win-arm', 探す((x) => x.name.endsWith('_arm64-setup.exe')));
+          当てる('dl-msi', 'size-msi', 探す((x) => /_x64_[^_]+\.msi$/.test(x.name)));
           当てる('dl-cli', 'size-cli', 探す((x) => x.name === 'warifu'));
         } catch (e) {
           // **黙って古い物を配らない。**読めなかったことを出す
