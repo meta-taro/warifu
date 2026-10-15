@@ -73,6 +73,18 @@ describe('文言辞書（DESIGN.md §9 / D35）', () => {
     expect(MESSAGES.ja['link.lost']).toContain('戻ってこられます');
   });
 
+  it('**主催が落ちたとき、ゲストには「待っています」ではなく戻り方を言う**（#48）', () => {
+    // ゲストが待っても主催は戻ってこない。**押すボタンの名前をそのまま書く**
+    // （画面に無い言葉で案内すると、人は探せない）
+    for (const locale of LOCALES) {
+      const 文 = MESSAGES[locale]['link.lost.host'];
+      expect(文, `${locale} が「前のルームに戻る」を指していない`).toContain(
+        MESSAGES[locale]['room.back'],
+      );
+      expect(文, `${locale} がゲストに待たせている`).not.toBe(MESSAGES[locale]['link.lost']);
+    }
+  });
+
   it('注記は辞書にある鍵にしか付けられない', () => {
     const base = keysOf('en');
     for (const key of Object.keys(TRANSLATOR_NOTES)) {

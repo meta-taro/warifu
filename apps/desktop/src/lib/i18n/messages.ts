@@ -364,6 +364,7 @@ export type MessageKey =
   | 'link.closed'
   | 'link.screenless'
   | 'link.lost'
+  | 'link.lost.host'
   | 'link.relay.missing'
   | 'link.blocked'
   | 'link.blocked.copy'
@@ -430,6 +431,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.lost':
       '相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。' +
       '（届かないときは、この機械の番地が変わっています — ルームキーを出し直してください）',
+    'link.lost.host':
+      '主催との経路が切れました。主催が立ち上げ直したら、［前のルームに戻る］で入り直せます（ルームキーはもらい直さなくて構いません）。',
     'link.blocked.copy': '直し方をコピー（管理者の PowerShell に貼ります）',
     'link.blocked.copied': 'コピーしました',
     'link.blocked.notit': '経路が付きません。この PC の通信の許可はあるので、ふさがりが原因ではなさそうです。相手の側か、網の途中かもしれません。',
@@ -802,6 +805,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.lost':
       'The route to them broke. They can come back with the same key — waiting. ' +
       '(If it does not reach, this machine’s address changed — issue a new room key.)',
+    'link.lost.host':
+      'The route to the host broke. Once the host is back up, use [Back to the last room] to rejoin (no new key needed).',
     'link.blocked.copy': 'Copy the fix (paste into an admin PowerShell)',
     'link.blocked.copied': 'Copied',
     'link.blocked.notit': 'No route. This PC is allowed to communicate, so the firewall is probably not the cause — it may be their side or the network in between.',
@@ -1174,6 +1179,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.lost':
       '与对方的连接断了。用同一把密钥可以回来 —— 正在等待。' +
       '（如果连不上，是这台机器的地址变了 —— 请重新发放房间密钥。）',
+    'link.lost.host':
+      '与主持人的连接断了。主持人重新启动后，按［回到上一个房间］就能重新进入（不需要再要 room key）。',
     'link.blocked.copy': '复制修复命令（粘贴到管理员 PowerShell）',
     'link.blocked.copied': '已复制',
     'link.blocked.notit': '连不上。这台电脑已被允许通信，所以大概不是防火墙的问题 —— 可能在对方一侧或中间的网络。',
@@ -1544,6 +1551,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.lost':
       '상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. ' +
       '(닿지 않으면 이 기기의 주소가 바뀐 것입니다 — 룸 키를 다시 발급하세요.)',
+    'link.lost.host':
+      '주최자와의 경로가 끊겼습니다. 주최자가 다시 켜지면 [이전 룸으로 돌아가기]를 눌러 다시 들어갈 수 있습니다(룸 키를 다시 받을 필요는 없습니다).',
     'link.blocked.copy': '해결 방법 복사(관리자 PowerShell 에 붙여넣기)',
     'link.blocked.copied': '복사했습니다',
     'link.blocked.notit': '경로가 생기지 않습니다. 이 PC 의 통신은 허용되어 있으므로 방화벽이 원인은 아닌 듯합니다. 상대 쪽이나 중간 네트워크일 수 있습니다.',

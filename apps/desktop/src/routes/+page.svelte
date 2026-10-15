@@ -22,7 +22,7 @@
   } from '$lib/meeting/announce';
   import {
     支度の口を出す as 支度を出すか,
-    鍵の口を出す as 鍵を出すか,
+    鍵の口の置き方,
     画面の状態を決める,
     映像を出すか,
     届く先がある as 送れるか,
@@ -44,11 +44,11 @@
     経路が付かないと言うか,
     黙っている秒,
   } from '$lib/link/blocked';
-  import { 入る口を先に出すか, 初めの入退の面, type 入退の面 } from '$lib/shell/並び';
+  import { 初めの入退の面, type 入退の面 } from '$lib/shell/並び';
   import { ふさがりの直し方 } from '$lib/link/fix';
   import { ふさがりの言い方 } from '$lib/link/firewall';
   import { 拾うリンク } from '$lib/link/invite';
-  import { 戻ったら消すか, type 切れた知らせ } from '$lib/link/lost';
+  import { 切れた知らせの文, 戻ったら消すか, type 切れた知らせ } from '$lib/link/lost';
   import { 機械の中のTURNを覚える, 機械の中のTURNがあるか } from '$lib/webrtc/media';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
@@ -692,7 +692,7 @@
   const 戻れる = $derived(
     戻る口を出すか({
       帰り道のルーム: 帰り道?.[0] ?? null,
-      持っているルーム: ルームたち.map((r) => r.id),
+      持っているルーム: ルームたち,
     })
   );
   let 戻っている = $state(false);
@@ -899,7 +899,6 @@
   // **鍵の口と支度の口は別もの**（2026-09-12 に実物で踏んだ）。
   // 包んでいた `映像を使う` のせいで、**文字だけの人は入る口を持てなかった**
   const 支度の口を出す = $derived(支度を出すか(状態, 映像を使う));
-  const 鍵の口を出す = $derived(鍵を出すか(状態));
   /**
    * **入る／つくるの、どちらを出しているか**（2026-09-24）。
    *
@@ -917,10 +916,11 @@
   /**
    * **入る口を、会話より先に出すか**（2026-09-24）。
    *
-   * **相手が居ないうちは、入る口が主役**（招かれた側は今日初めて開く人）。
-   * **相手が居たら、会話が主役に変わる**（2026-09-07 の「チャットが 3 枚の札の下」）。
+   * **会議前は、入る口が主役**（招かれた側は今日初めて開く人）。
+   * **人が入ったあとは、会話が主役に変わる**（2026-09-07 の「チャットが 3 枚の札の下」）。
+   * そのときも入る口は消さず、畳んで下へ置く（**#45**）。
    */
-  const 入る口が先 = $derived(入る口を先に出すか({ 相手が居る: 会議中 }));
+  const 入る口が先 = $derived(鍵の口の置き方(状態) === '上');
   /** 映像の枠を出すか（`stage.ts` が決める）。 */
   const 映像を出す = $derived(
     映像を出すか({ 映像を使う, 支度した, 相手が居る: remotes.length > 0 }),
@@ -1862,7 +1862,8 @@
       unsubs.push(
         await onEvent<[string, ClosedReason]>(EVENT_CLOSED, ([key, 訳]) => {
           // **落ちたのを「退出しました」と言わない。**待てば戻ると誤解させる
-          notice = t(訳 === 'lost' ? 'link.lost' : 'link.closed');
+          // **主催が落ちたなら、ゲストには戻り方を言う**（**#48**）
+          notice = t(切れた知らせの文(訳, key, ルームたち));
           // **誰についての知らせかを覚える**（戻ってきたら消すため）
           出した切れた知らせ = { 文: notice, 相手: key };
           片付ける(key, 訳 === 'lost' ? '切断' : '退室');
@@ -3313,7 +3314,6 @@
     {/snippet}
 
     {#snippet 入退の札()}
-    {#if 鍵の口を出す}
     <div class="card">
       <div class="切り替え" role="tablist" aria-label={t('meeting.join.title')}>
         <button
@@ -3365,7 +3365,6 @@
         </div>
       {/if}
     </div>
-    {/if}
     {/snippet}
 
     <!--

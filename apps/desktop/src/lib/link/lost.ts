@@ -5,6 +5,8 @@
 // 切れた知らせを出す所はあったが、**同じ相手が戻ったときに消す所が無かった。**
 // 人から見ると「切れているのか、つながっているのか分からない」。
 
+import type { ClosedReason } from '$lib/bridge';
+
 /** 出した「切れた」知らせと、その相手。 */
 export interface 切れた知らせ {
   文: string;
@@ -22,4 +24,21 @@ export function 戻ったら消すか(
   入った相手: string,
 ): boolean {
   return 切れた !== null && 切れた.相手 === 入った相手 && いまの知らせ === 切れた.文;
+}
+
+/**
+ * **切れたときに、帯へ出す知らせ（の鍵）。**
+ *
+ * **ゲストで入っている部屋の主催が落ちたなら、戻り方を言う**（**#48**）。
+ * 前は誰が落ちても「同じルームキーで戻ってこられます — 待っています」と出していた。
+ * これは主催の側の言い方で、**ゲストが待っても主催は戻ってこない**（戻るのはゲストの役）。
+ */
+export function 切れた知らせの文(
+  訳: ClosedReason,
+  相手: string,
+  ルームたち: readonly { host: boolean; host_key: string }[],
+): 'link.lost' | 'link.lost.host' | 'link.closed' {
+  if (訳 !== 'lost') return 'link.closed';
+  const 主催が落ちた = ルームたち.some((r) => !r.host && r.host_key === 相手);
+  return 主催が落ちた ? 'link.lost.host' : 'link.lost';
 }
