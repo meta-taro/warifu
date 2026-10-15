@@ -97,6 +97,8 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | `chat.read` | `chat_read` / **`chat_wait`** | Lines that arrived. **`chat_wait` blocks until something arrives** |
 | `profile.write` | `profile_set` | Set **your own agent's** display name and one-line bio |
 | (same as `chat.read`) | `chat_status` / **`room_status`** | How far a line of yours got; what the room looks like right now |
+| `room.invite` | `room_invite` | **A room key for the current room** (one key = one person; **never paste it anywhere public**) |
+| **(none needed)** | **`pass_ask`** / **`pass_wait`** | **Ask a human for a missing permission** / wait until they answer (**D119** — forbidding the ask would make asking impossible) |
 | `inbox.list` | `inbox_list` | Inbox metadata only (no bodies) |
 | `inbox.open.summary` / `.structured` / `.raw` / `.attachments` | `inbox_open` | Progressively more of a message |
 | `calendar.freebusy` | `calendar_slots` | Free slots only (never the titles) |

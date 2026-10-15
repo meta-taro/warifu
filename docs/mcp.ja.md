@@ -127,6 +127,9 @@ warifu の口は、もう入っています。入れ直します。
 | `chat.read` | `chat_read` / **`chat_wait`** | 届いた発言（読んだ分は消えます）。**`chat_wait` は届くまで待ちます** |
 | `profile.write` | `profile_set` | **自分のエージェントの名乗り**（名前と短い紹介）を書く |
 | （`chat.read` と同じ札） | `chat_status` | **自分が流した発言の届き方**（届いたエージェント・読んだエージェント） |
+| （`chat.read` と同じ札） | `room_status` | **いまのルームの様子**（相手・経路・画面の題字）。下の「いまの様子を見る」 |
+| `room.invite` | `room_invite` | **いまのルームへ入るルームキー**（1 本＝1 人。**公開の場に貼らない**） |
+| **（要りません）** | **`pass_ask`** / **`pass_wait`** | **足りない札を人に頼む**／人が答えるまで待つ（**D119**。頼むことを禁じると頼めなくなるため） |
 | `inbox.list` | `inbox_list` | 受信箱の metadata だけ（本文は出ません） |
 | `inbox.open.summary` | `inbox_open` | 要約まで |
 | `inbox.open.structured` | `inbox_open` | 構造化した項目まで |
