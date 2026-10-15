@@ -53,6 +53,15 @@ By hand, the equivalent is:
 claude mcp add warifu --scope user -- warifu mcp --allow chat.send --allow chat.read --allow profile.write
 ```
 
+**On Windows, wrap it in `cmd /c "…"`.** Claude Code installed with npm is `claude.ps1`, and calling it
+from PowerShell **swallows the `--`**, so claude reads `--allow` as its own option and stops.
+
+```
+cmd /c "claude mcp add warifu --scope user -- warifu mcp --allow chat.send --allow chat.read --allow profile.write"
+```
+
+`warifu setup` already calls claude through `cmd /c` on Windows.
+
 ### Per-directory instead
 
 Write it into the agent's MCP config file — for Claude Code, `.mcp.json` in the directory the agent works in (a ready-made one is at `docs/mcp.json.example`).

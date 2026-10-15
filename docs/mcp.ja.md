@@ -60,6 +60,15 @@ warifu setup
 claude mcp add warifu --scope user -- warifu mcp --allow chat.send --allow chat.read --allow profile.write
 ```
 
+**Windows では `cmd /c "…"` で包んでください。**npm で入れた Claude Code は `claude.ps1` で、
+PowerShell から呼ぶと **`--` が食われ**、`--allow` を claude が自分の指定として読んで止まります。
+
+```
+cmd /c "claude mcp add warifu --scope user -- warifu mcp --allow chat.send --allow chat.read --allow profile.write"
+```
+
+`warifu setup` は、Windows では自分で `cmd /c` 越しに呼びます。
+
 ### フォルダごとに書く場合
 
 

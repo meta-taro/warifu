@@ -88,10 +88,10 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         // **代わりに何かを入れない。**手で書くものを出して終わる
         eprintln!("`claude` が見つかりません。手で入れる場合はこれを打ってください:");
         eprintln!();
+        let 引数: Vec<&str> = 引数.iter().map(String::as_str).collect();
         eprintln!(
-            "  claude mcp add warifu --scope user -- {} {}",
-            実体.display(),
-            引数.join(" ")
+            "  {}",
+            手で打つ行(cfg!(windows), &実体.display().to_string(), &引数)
         );
         return Ok(());
     }
@@ -101,7 +101,7 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     // （2026-09-08 に踏んだ。札を 1 つ足したのに、
     // 前に入れた人はいつまでも古い札のままになる）
     if いまの札.is_some() {
-        let 消した = Command::new("claude")
+        let 消した = claude()
             .args(["mcp", "remove", "warifu", "--scope", "user"])
             .status()?;
         if !消した.success() {
@@ -109,7 +109,7 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut 命令 = Command::new("claude");
+    let mut 命令 = claude();
     命令.args(["mcp", "add", "warifu", "--scope", "user", "--"]);
     命令.arg(&実体);
     命令.args(&引数);
@@ -126,10 +126,7 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// **入っているかどうかを、当てずっぽうで決めない。**`claude` に聞く。
 fn すでに入っている() -> Option<String> {
-    let 出た = Command::new("claude")
-        .args(["mcp", "get", "warifu"])
-        .output()
-        .ok()?;
+    let 出た = claude().args(["mcp", "get", "warifu"]).output().ok()?;
     if !出た.status.success() {
         return None;
     }
@@ -137,6 +134,50 @@ fn すでに入っている() -> Option<String> {
     // `Args: mcp --allow chat.send …` の行から札だけを拾う
     let 札 = 文.lines().find_map(|l| l.trim().strip_prefix("Args:"))?;
     Some(札.trim().to_owned())
+}
+
+/// `claude` を呼ぶ命令を作る。**`claude` はここでしか起こさない。**
+fn claude() -> Command {
+    let (頭, 前置き) = claude_の呼び方(cfg!(windows));
+    let mut 命令 = Command::new(頭);
+    命令.args(前置き);
+    命令
+}
+
+/// `claude` をどう呼ぶか（頭と、その後ろに付ける前置き）。
+///
+/// **Windows では `cmd /c` 越しに呼ぶ**（2026-10-15）。
+/// npm で入れた Claude Code は `claude.cmd` / `claude.ps1` で、`claude.exe` が無い。
+/// `Command::new("claude")` は `.exe` しか探さないので、**入っているのに見つからなかった。**
+/// `cmd` は `PATHEXT` で `.cmd` も探す（`.exe` の Claude Code もそのまま見つかる）。
+fn claude_の呼び方(windows: bool) -> (&'static str, &'static [&'static str]) {
+    if windows {
+        ("cmd", &["/c", "claude"])
+    } else {
+        ("claude", &[])
+    }
+}
+
+/// `claude` が見つからないときに、**人が手で打つ 1 行。**
+///
+/// **Windows では `cmd /c "…"` で包む**（2026-10-15）。PowerShell 5.1 から
+/// `claude.ps1` を呼ぶと **`--` が食われ**、`--allow` を claude が自分の指定として読んで止まった。
+fn 手で打つ行(windows: bool, 実体: &str, 引数: &[&str]) -> String {
+    if !windows {
+        return format!(
+            "claude mcp add warifu --scope user -- {実体} {}",
+            引数.join(" ")
+        );
+    }
+    let 実体 = if 実体.contains(' ') {
+        format!("\"{実体}\"")
+    } else {
+        実体.to_owned()
+    };
+    format!(
+        "cmd /c \"claude mcp add warifu --scope user -- {実体} {}\"",
+        引数.join(" ")
+    )
 }
 
 /// 人に尋ねる。**押していないものを押したことにしない。**
@@ -150,7 +191,7 @@ fn 尋ねる() -> std::io::Result<bool> {
 }
 
 fn which_claude() -> Option<()> {
-    Command::new("claude")
+    claude()
         .arg("--version")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -158,4 +199,60 @@ fn which_claude() -> Option<()> {
         .ok()
         .filter(std::process::ExitStatus::success)
         .map(|_| ())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // **Windows では `claude` を `cmd /c` 越しに呼ぶ**（2026-10-15）。
+    //
+    // npm で入れた Claude Code は `claude.cmd` / `claude.ps1` で、`claude.exe` が無い。
+    // `Command::new("claude")` は `.exe` しか探さないので、**入っているのに「見つかりません」**になった。
+    // 手で打つ 1 行も、PowerShell 5.1 から `.ps1` を呼ぶと **`--` が食われ**、
+    // `--allow` を claude が自分の指定として読んで止まった。
+    #[test]
+    fn windows_では_cmd_越しに呼ぶ() {
+        let (頭, 前置き) = claude_の呼び方(true);
+        assert_eq!(頭, "cmd");
+        assert_eq!(前置き, ["/c", "claude"]);
+    }
+
+    #[test]
+    fn ほかでは_claude_をそのまま呼ぶ() {
+        let (頭, 前置き) = claude_の呼び方(false);
+        assert_eq!(頭, "claude");
+        assert!(前置き.is_empty());
+    }
+
+    #[test]
+    fn windows_の手で打つ行は_cmd_で包む() {
+        let 行 = 手で打つ行(
+            true,
+            r"C:\tools\warifu.exe",
+            &["mcp", "--allow", "chat.send"],
+        );
+        assert_eq!(
+            行,
+            r#"cmd /c "claude mcp add warifu --scope user -- C:\tools\warifu.exe mcp --allow chat.send""#
+        );
+    }
+
+    #[test]
+    fn windows_で空白のある場所は引用符で囲む() {
+        let 行 = 手で打つ行(true, r"C:\My Tools\warifu.exe", &["mcp"]);
+        assert_eq!(
+            行,
+            r#"cmd /c "claude mcp add warifu --scope user -- "C:\My Tools\warifu.exe" mcp""#
+        );
+    }
+
+    #[test]
+    fn ほかの手で打つ行はこれまでどおり() {
+        let 行 = 手で打つ行(false, "/opt/warifu", &["mcp", "--allow", "chat.send"]);
+        assert_eq!(
+            行,
+            "claude mcp add warifu --scope user -- /opt/warifu mcp --allow chat.send"
+        );
+    }
 }
