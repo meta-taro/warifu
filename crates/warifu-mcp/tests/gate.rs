@@ -276,6 +276,7 @@ fn 出している口を_数えて名前で押さえる() {
             "about",
             "calendar_slots",
             "changes",
+            "chat_export",
             "chat_read",
             "chat_send",
             "chat_status",
@@ -1061,4 +1062,26 @@ fn 連絡先の口は_札が無ければ通らない() {
         .expect_err("呼ぶ札が無い")
     );
     assert!(読む札で呼ぶ.contains("contacts.call"), "{読む札で呼ぶ}");
+}
+
+#[test]
+fn 書き出す口は_札が無ければ通らない() {
+    // **2026-10-16 に chat_export を足した。**人はあとで必ず「どんな話をしたっけ？」と聞く。
+    // **会話をまとめて持ち出せる**ので、読む札（chat.read）とは分ける。
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    let 無し = format!(
+        "{:?}",
+        rt.block_on(用意(&[]).chat_export()).expect_err("札が無い")
+    );
+    assert!(無し.contains("chat.export"), "{無し}");
+    // **読む札では書き出せない**
+    let 読むだけ = format!(
+        "{:?}",
+        rt.block_on(用意(&["chat.read"]).chat_export())
+            .expect_err("書き出す札が無い")
+    );
+    assert!(読むだけ.contains("chat.export"), "{読むだけ}");
 }

@@ -451,6 +451,21 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+        // **いま持っている会話を書き出す**（2026-10-16）。
+        //
+        // 人はあとで必ずエージェントに「どんな話をしたっけ？」と聞く。議事録に使う。
+        // **常には残さない** —— 返すのはこのプロセスが控えている直近の分だけで、閉じれば消える
+        ToDesk::書き出す => {
+            let 自分 = crate::key_to_string(app.state::<Bridge>().device.public_key());
+            let 行たち = 会話を書き出す(&自分);
+            記録!(
+                "書き出し: {} 行を渡しました（頼んだのは {}）",
+                行たち.len(),
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&FromDesk::書き出し { 行たち }.書く()).await;
+            Ok(())
+        }
         // **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。
         //
         // 画面の連絡帳の［ルームに呼ぶ］と同じ道（`call::呼ぶ`）。札（contacts.call）は MCP 側が見る。
@@ -648,15 +663,16 @@ pub(crate) async fn 流す(
     // **通し番号を振る。**あとで「誰が読んだか」を尋ねられるようにする（**D76**）
     let id = 次の発言.fetch_add(1, Ordering::Relaxed);
     // この機械につながっている**他の**エージェントにも同じ行を見せる（言った本人には返さない）
-    let _ = bridge.desk.send((
-        出所,
-        FromDesk::Heard {
-            id,
-            from: 名札.clone(),
-            body: body.to_owned(),
-            at: いま時刻(),
-        },
-    ));
+    let 行 = FromDesk::Heard {
+        id,
+        from: 名札.clone(),
+        body: body.to_owned(),
+        at: いま時刻(),
+    };
+    // **エージェントの発言も控える**（2026-10-16）。控えないと、書き出した議事録から
+    // この PC のエージェントが言ったことだけが抜ける
+    控える(&行);
+    let _ = bridge.desk.send((出所, 行));
 
     // **誰に届いたか。**規則は `届いた先を並べる` に 1 か所だけ置く
     let mut 届いた = 届いた先を並べる(出所);
@@ -692,6 +708,27 @@ pub(crate) async fn 流す(
     }
     届けた(id, 届いた.clone());
     Ok((id, 名札で並べる(&届いた)))
+}
+
+/// **控えている会話を、書き出す形にする**（2026-10-16）。古い順。誰が、には呼び名を添える。
+fn 会話を書き出す(自分: &str) -> Vec<warifu_desk::書き出しの行> {
+    let 帳: Vec<(String, String)> = 連絡先を並べる()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| (r.鍵, r.名前))
+        .collect();
+    let 棚 = 直近の発言.lock().expect("毒されていない");
+    棚.iter()
+        .filter_map(|(_, 行)| match 行 {
+            FromDesk::Heard { id, from, body, at } => Some(warifu_desk::書き出しの行 {
+                番号: *id,
+                誰: crate::contacts::書き出しの名(&帳, 自分, from),
+                時刻: at.clone(),
+                本文: body.clone(),
+            }),
+            _ => None,
+        })
+        .collect()
 }
 
 /// **覚えている相手を、エージェントへ渡す形にする**（2026-10-16）。住所そのものは載せない。

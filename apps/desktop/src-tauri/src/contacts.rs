@@ -45,6 +45,30 @@ pub fn 呼ぶ相手を決める(帳: &[(String, String)], 指定: &str) -> Resul
     }
 }
 
+/// **書き出す会話の「誰が」を、人が読める形にする**（2026-10-16）。
+///
+/// 帳は（鍵, 呼び名）の組。線の向こうの人は鍵の全桁で、線の向こうのエージェントは
+/// 「鍵の頭…（名札）」で来る。覚えている相手なら呼び名を前に出す。
+/// この機械の名札（「◯◯ のエージェント」）や覚えていない相手は、そのまま返す。
+pub fn 書き出しの名(帳: &[(String, String)], 自分: &str, 誰: &str) -> String {
+    // **この PC の人が打った行は、この PC の鍵で来る。**鍵のままでは誰か読めない
+    if 誰 == 自分 {
+        let 頭: String = 自分.chars().take(12).collect();
+        return format!("この PC の人（{頭}…）");
+    }
+    for (鍵, 名) in 帳 {
+        if 誰 == 鍵 {
+            let 頭: String = 鍵.chars().take(12).collect();
+            return format!("{名}（{頭}…）");
+        }
+        let 頭: String = 鍵.chars().take(12).collect();
+        if let Some(札) = 誰.strip_prefix(&format!("{頭}…")) {
+            return format!("{名}{札}");
+        }
+    }
+    誰.to_owned()
+}
+
 /// 置いてある知り合いを連れて、戸口を開ける。
 ///
 /// **読めなくても止めない。**戸口の名簿が壊れていても、
@@ -435,5 +459,42 @@ mod 呼ぶ相手の試験 {
     fn 短すぎる鍵の頭では引かない() {
         // 1〜3 文字の頭は、たまたま当たるだけである
         assert!(呼ぶ相手を決める(&帳(), "6L7").is_err());
+    }
+}
+
+#[cfg(test)]
+mod 書き出しの名の試験 {
+    use super::書き出しの名;
+
+    fn 帳() -> Vec<(String, String)> {
+        vec![("AAAAMMMMKKKK1111".to_owned(), "相手A".to_owned())]
+    }
+
+    #[test]
+    fn 覚えている相手の鍵なら_呼び名を前に出す() {
+        assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "AAAAMMMMKKKK1111"), "相手A（AAAAMMMMKKKK…）");
+    }
+
+    #[test]
+    fn 相手のエージェントの札が付いていても_呼び名を添える() {
+        // 線の向こうのエージェントは「鍵の頭（名札）」で来る
+        assert_eq!(
+            書き出しの名(&帳(), "SELFSELFSELF0000", "AAAAMMMMKKKK…（クロ のエージェント）"),
+            "相手A（クロ のエージェント）"
+        );
+    }
+
+    #[test]
+    fn この機械の人は_そう書く() {
+        assert_eq!(
+            書き出しの名(&帳(), "SELFSELFSELF0000", "SELFSELFSELF0000"),
+            "この PC の人（SELFSELFSELF…）"
+        );
+    }
+
+    #[test]
+    fn 覚えていない相手と_この機械の名札はそのまま() {
+        assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "ZZZZZZZZZZZZ9999"), "ZZZZZZZZZZZZ9999");
+        assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "warifu のエージェント"), "warifu のエージェント");
     }
 }

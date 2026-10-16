@@ -65,6 +65,7 @@ fn 全部許す() -> Gate {
         "voice.say",
         "contacts.read",
         "contacts.call",
+        "chat.export",
     ] {
         関所.issue(Grant::new(
             subject(),
@@ -149,6 +150,14 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     }],
                 }),
                 ToDesk::呼ぶ { 相手 } => Some(FromDesk::呼んだ { 相手 }),
+                ToDesk::書き出す => Some(FromDesk::書き出し {
+                    行たち: vec![warifu_desk::書き出しの行 {
+                        番号: 1,
+                        誰: "試験の相手".to_owned(),
+                        時刻: "09:00".to_owned(),
+                        本文: "煙の確かめ".to_owned(),
+                    }],
+                }),
             };
             if let Some(返し) = 返し {
                 口.送る(&返し.書く()).await.expect("返せること");
@@ -277,6 +286,7 @@ async fn 口を全部_1回ずつ呼ぶ() {
     ));
 
     結果.push(("contacts_list", format!("{:?}", 口.contacts_list().await)));
+    結果.push(("chat_export", format!("{:?}", 口.chat_export().await)));
     結果.push((
         "contact_call",
         format!(
@@ -326,6 +336,10 @@ async fn 口を全部_1回ずつ呼ぶ() {
     assert!(
         机が受けた.iter().any(|x| x.contains("声")),
         "声の頼みが机まで届いていない: {机が受けた:?}"
+    );
+    assert!(
+        机が受けた.iter().any(|x| x.contains("書き出す")),
+        "書き出す頼みが机まで届いていない: {机が受けた:?}"
     );
     assert!(
         机が受けた.iter().any(|x| x.contains("呼ぶ")),

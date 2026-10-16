@@ -1936,15 +1936,14 @@ fn 汲む(
                             Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
                             None => key_to_string(peer),
                         };
-                        let _ = app.emit(EVENT_TEXT, (名, body.clone()));
+                        let _ = app.emit(EVENT_TEXT, (名.clone(), body.clone()));
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **同じエージェントの AI にも、同じ行を見せる。**
                         // 見せないと、人にだけ見えている話に AI が返事をすることになる
-                        desk::配る(
-                            &app.state::<Bridge>(),
-                            desk::聞いた(&key_to_string(peer), body),
-                        );
+                        // **誰が言ったかは、画面と同じ名で渡す**（2026-10-16）。
+                        // 鍵だけだと、相手の人と相手のエージェントが見分けられない
+                        desk::配る(&app.state::<Bridge>(), desk::聞いた(&名, body));
                         // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
                         //
                         // 三者会議は星形である —— 参加者どうしは繋がっていないので、

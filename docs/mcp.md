@@ -113,6 +113,7 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | `calendar.freebusy` | `calendar_slots` | Free slots only (never the titles) |
 | `rules.list` | `rules_list` | Approved read rules |
 | `voice.say` | `voice_say` | **Speak once into the current room's call with a synthesized voice** (only when a human has turned it on for that room) |
+| `chat.export` | `chat_export` | **Export the conversation warifu currently holds** (for minutes; erased when warifu closes, recent lines only; do not publish it without the other side's consent) |
 | `contacts.read` | `contacts_list` | The people this PC remembers (name, key prefix, whether they look callable; **never the address**) |
 | `contacts.call` | `contact_call` | **Call a remembered person into the current room without a room key** (works only if you know their address and their door lets you in; use it when a human asks) |
 

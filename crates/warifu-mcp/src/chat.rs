@@ -441,6 +441,22 @@ impl Chat {
         }
     }
 
+    /// **いま画面アプリが持っている会話を書き出してもらう**（2026-10-16）。古い順。
+    pub async fn 書き出す(
+        &self,
+    ) -> Result<Vec<warifu_desk::書き出しの行>, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::書き出す, 書き出しの返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::書き出し { 行たち } => Ok(行たち),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// 1 行送って、その返事を 1 つ待つ。**形は送る前に検める**（待たせる前に落とす）。
     async fn 頼んで待つ(
         &self,
@@ -763,6 +779,9 @@ fn 招くの返事(中身: &FromDesk) -> bool {
 fn 連絡先の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::連絡先たち { .. } | FromDesk::Denied { .. })
 }
+fn 書き出しの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::書き出し { .. } | FromDesk::Denied { .. })
+}
 fn 呼ぶの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::呼んだ { .. } | FromDesk::Denied { .. })
 }
@@ -856,6 +875,7 @@ fn 仕分ける(
             // 足した日に、煙の試験が「返事をしません」で落として見つけた（同じ穴）
             | FromDesk::連絡先たち { .. }
             | FromDesk::呼んだ { .. }
+            | FromDesk::書き出し { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -920,7 +940,9 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             // **声の返りも会話の行ではない**（#50）。会話へは机が別に流す
             FromDesk::声の返り { .. } => String::new(),
             // **連絡先と呼んだ返りも会話の行ではない**（尋ねたときだけ返る）
-            FromDesk::連絡先たち { .. } | FromDesk::呼んだ { .. } => String::new(),
+            FromDesk::連絡先たち { .. } | FromDesk::呼んだ { .. } | FromDesk::書き出し { .. } => {
+                String::new()
+            }
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
