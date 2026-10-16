@@ -1345,6 +1345,14 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     // **繋がったいま覚える。**この住所はたったいま届いたことが分かっている。
     // 切れた時に覚えると、証明が古くなるうえ、落ちたら書けない
     contacts::書き留める(peer, &address);
+    // **あとで名前を付けたときにも書けるよう、手元にも控える**（2026-10-16）。
+    // 書き留めるのは覚えている相手だけなので、入ってから主催に名前を付けたゲストには
+    // 主催の住所が残らず、連絡先から主催を呼べなかった（「居場所をまだ知りません」）
+    bridge
+        .addresses
+        .lock()
+        .await
+        .insert(peer.to_bytes(), address.clone());
 
     始める(&app, &bridge, channel, peer).await;
     // **送り口ができてから「入った」を画面へ流す**（2026-09-29）。
