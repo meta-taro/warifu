@@ -54,3 +54,19 @@ export function 主催の札を付ける<T extends { key: string; host?: boolean
   return members.map((m) => ({ ...m, host: m.key === 主催の鍵 }));
 }
 
+
+/**
+ * 相手を一覧へ入れる。**同じ鍵を 2 行にしない。**
+ *
+ * 3 人目が入ると、紹介でこちらから呼んだ分と、相手から来た分で
+ * 同じ相手が 2 回「入った」と届く（2 回目は入り直しとして古い通話を閉じる）。
+ * 後ろへ足すだけだと同じ鍵が 2 行になり、`{#each … (r.key)}` で
+ * 画面の描き直しが止まった —— **届いた発言も自分の発言も会話欄に出なくなった。**
+ *
+ * すでに居るなら、**同じ場所で置き換える**（並びを動かさない）。
+ */
+export function 相手を入れる<T extends { key: string }>(一覧: readonly T[], 行: T): T[] {
+  const 番 = 一覧.findIndex((r) => r.key === 行.key);
+  if (番 < 0) return [...一覧, 行];
+  return 一覧.map((r, i) => (i === 番 ? 行 : r));
+}

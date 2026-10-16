@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { canAdmit, clampCapacity, DEFAULT_CAPACITY, HARD_LIMIT, MIN_CAPACITY, 主催の札を付ける } from './roster';
+import { canAdmit, clampCapacity, DEFAULT_CAPACITY, HARD_LIMIT, MIN_CAPACITY, 主催の札を付ける, 相手を入れる } from './roster';
 
 describe('会議の定員（DESIGN.md §4.3 / D27 / D15）', () => {
   it('既定は 12、外枠は 16、下は 2', () => {
@@ -75,5 +75,26 @@ describe('主催の札を付ける', () => {
   it('主催の鍵が分からないうちは、手を付けない', () => {
     const 名簿 = [{ key: 'ME', me: true, host: true }];
     expect(主催の札を付ける(名簿, null)).toEqual(名簿);
+  });
+});
+
+describe('相手を入れる（同じ鍵を 2 行にしない）', () => {
+  it('初めての相手は後ろへ足す', () => {
+    expect(相手を入れる([{ key: 'a' }], { key: 'b' })).toEqual([{ key: 'a' }, { key: 'b' }]);
+  });
+
+  it('**入り直した相手は、同じ場所で置き換える**（3 人目の紹介で 2 回入ってくる）', () => {
+    // 鍵が 2 行あると、`{#each … (r.key)}` で画面の描き直しが止まり、
+    // 届いた発言も自分の発言も会話欄に出なくなった
+    const 前 = [
+      { key: 'host', path: 'direct' },
+      { key: 'b', path: 'direct' },
+    ];
+    const 後 = 相手を入れる(前, { key: 'b', path: 'unknown' });
+    expect(後).toEqual([
+      { key: 'host', path: 'direct' },
+      { key: 'b', path: 'unknown' },
+    ]);
+    expect(new Set(後.map((r) => r.key)).size).toBe(後.length);
   });
 });

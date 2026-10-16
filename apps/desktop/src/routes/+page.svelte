@@ -9,7 +9,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
-  import { DEFAULT_CAPACITY, 主催の札を付ける } from '$lib/meeting/roster';
+  import { DEFAULT_CAPACITY, 主催の札を付ける, 相手を入れる } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
   import type { 待っている札 } from '$lib/bridge';
   import {
@@ -1583,7 +1583,8 @@
           // **入ってきた時に読み直す。**起動時に 1 回だけだと、
           // その後 `warifu contacts add` で付けた名前が反映されない（2026-09-06 に実測）
           void 名簿を読む();
-          members = [...members, { key, path: 'unknown' }];
+          // **入り直しでも 1 行のまま**（同じ鍵が 2 行あると描き直しが止まる・`相手を入れる`）
+          members = 相手を入れる(members, { key, path: 'unknown' });
           // **人が入った印。**ここから先は会議前へ戻さない
           人が入った = true;
           // **見ていない間に誰が来たかを残す。**名簿は動くが、目を離すと分からない。
@@ -1593,7 +1594,7 @@
             at: いま時刻(),
           });
           音を出す(入室の音);
-          remotes = [...remotes, { key, stream: null, path: 'unknown' }];
+          remotes = 相手を入れる(remotes, { key, stream: null, path: 'unknown' });
           await ルームを読み直す();
           const offering = (await shouldOfferTo(key)) ?? false;
           const call = new Call(
