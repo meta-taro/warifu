@@ -176,6 +176,38 @@ pub enum ToDesk {
         /// 読み上げる文。空は受けない。上限は [`声の上限`]（文字）。
         本文: String,
     },
+    /// **覚えている相手を並べてもらう**（2026-10-16）。
+    ///
+    /// 毎日ルームキーを渡し直すのは手間なので、エージェントが連絡先から呼べるようにする。
+    /// 返りは名前・鍵・住所を覚えているかだけで、**住所そのものは渡さない。**
+    /// 札（`contacts.read`）は MCP 側が確かめる。
+    連絡先,
+    /// **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。
+    ///
+    /// 画面の連絡帳の［ルームに呼ぶ］と同じ道を通る。
+    /// 住所を知っていて、相手の戸口がこちらを通すときだけ繋がる。
+    /// 札（`contacts.call`）は MCP 側が確かめる。
+    呼ぶ {
+        /// 誰を。連絡先の名前か、鍵（頭だけでもよい）。上限は [`呼ぶ相手の上限`]（文字）。
+        相手: String,
+    },
+}
+
+/// **呼ぶ相手の指定の上限**（文字）。鍵の全桁（52）が収まる長さにする。
+pub const 呼ぶ相手の上限: usize = 64;
+
+/// 覚えている相手 1 人（[`FromDesk::連絡先たち`] の 1 行）。
+///
+/// **住所そのものは載せない。**エージェントに要るのは「呼べそうか」だけである。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct 連絡先の行 {
+    /// 人が付けた呼び名。
+    pub 名前: String,
+    /// 公開鍵（base32）。
+    pub 鍵: String,
+    /// 住所を覚えているか。覚えていなければ、呼んでも繋ぎに行けない。
+    pub 住所あり: bool,
 }
 
 /// **声で言える長さ**（文字・#50）。
@@ -438,6 +470,16 @@ pub enum FromDesk {
         /// 流したか、なぜ流れなかったか。
         結果: 声の結果,
     },
+    /// **覚えている相手**（[`ToDesk::連絡先`] の返り）。
+    連絡先たち {
+        /// 覚えている相手。並びは置き場所のまま。
+        行たち: Vec<連絡先の行>,
+    },
+    /// **呼びに行った**（[`ToDesk::呼ぶ`] の返り）。繋がらなければ [`FromDesk::Denied`]。
+    呼んだ {
+        /// 誰を呼んだか（連絡先の名前）。
+        相手: String,
+    },
 }
 
 /// 行が読めなかった理由。
@@ -524,6 +566,9 @@ impl ToDesk {
             Self::招く { 何本, .. } => 招く本数を検める(*何本)?,
             // **声の本文も書き手の側で検める**（#50）。長さは文字で数える
             Self::声 { 本文 } => 声を検める(本文)?,
+            // **誰を呼ぶかも書き手の側で検める。**空・制御文字・長すぎるものを運ばない
+            Self::呼ぶ { 相手 } => 呼ぶ相手を検める(相手)?,
+            Self::連絡先 => {}
             // 番号だけの行と、尋ねるだけの行。**中身が無いので検めるものが無い**
             Self::Read { .. } | Self::Status { .. } | Self::Status様子 => {}
         }
@@ -599,6 +644,22 @@ fn 招く本数を検める(何本: u8) -> Result<(), Error> {
     }
     if 何本 > 招ける本数 {
         return Err(Error::TooLong(何本 as usize));
+    }
+    Ok(())
+}
+
+/// **呼ぶ相手として置ける形か**（2026-10-16）。中身が連絡先に在るかは、この機械が見る。
+fn 呼ぶ相手を検める(相手: &str) -> Result<(), Error> {
+    let 相手 = 相手.trim();
+    if 相手.is_empty() {
+        return Err(Error::Empty);
+    }
+    if 相手.chars().any(char::is_control) {
+        return Err(Error::Malformed);
+    }
+    let 数 = 相手.chars().count();
+    if 数 > 呼ぶ相手の上限 {
+        return Err(Error::TooLong(数));
     }
     Ok(())
 }
@@ -1194,5 +1255,61 @@ mod 声の試験 {
     fn 声の頼みに差出人は書けない() {
         let 騙り = r#"{"型":"声","本文":"やあ","from":"持ち主"}"#;
         assert_eq!(ToDesk::読む(騙り), Err(Error::Malformed));
+    }
+}
+
+#[cfg(test)]
+mod 連絡先試験 {
+    use super::*;
+
+    #[test]
+    fn 連絡先を尋ねる行が往復する() {
+        let 元 = ToDesk::連絡先;
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+    }
+
+    #[test]
+    fn 連絡先の返りは_住所の有無まで往復する() {
+        // **住所そのものは載せない。**要るのは「呼べそうか」だけである
+        let 元 = FromDesk::連絡先たち {
+            行たち: vec![連絡先の行 {
+                名前: "相手A".to_owned(),
+                鍵: "AAAAMMMMKKKK".to_owned(),
+                住所あり: true,
+            }],
+        };
+        assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
+    }
+
+    #[test]
+    fn 呼ぶ頼みと返りが往復する() {
+        let 元 = ToDesk::呼ぶ {
+            相手: "相手A".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+        let 返り = FromDesk::呼んだ {
+            相手: "相手A".to_owned(),
+        };
+        assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);
+    }
+
+    #[test]
+    fn 誰を呼ぶかが空なら_この機械まで運ばない() {
+        let 空 = ToDesk::呼ぶ {
+            相手: "  ".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&空.書く()), Err(Error::Empty));
+    }
+
+    #[test]
+    fn 誰を呼ぶかに制御文字や長すぎる名は通さない() {
+        let 改行 = ToDesk::呼ぶ {
+            相手: "相手\nA".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&改行.書く()), Err(Error::Malformed));
+        let 長い = ToDesk::呼ぶ {
+            相手: "a".repeat(呼ぶ相手の上限 + 1),
+        };
+        assert!(matches!(ToDesk::読む(&長い.書く()), Err(Error::TooLong(_))));
     }
 }

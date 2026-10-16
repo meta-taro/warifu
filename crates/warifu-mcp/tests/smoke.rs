@@ -30,8 +30,8 @@ use rmcp::handler::server::wrapper::Parameters;
 use warifu_capability::{Action, Gate, Grant};
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 use warifu_mcp::{
-    AskArgs, ChangesArgs, InviteArgs, ProfileArgs, SayArgs, StatusArgs, VoiceArgs, WaitArgs,
-    WaitPassArgs, Warifu, subject,
+    AskArgs, CallArgs, ChangesArgs, InviteArgs, ProfileArgs, SayArgs, StatusArgs, VoiceArgs,
+    WaitArgs, WaitPassArgs, Warifu, subject,
 };
 use warifu_read::{Body, Received, RuleStore, SenderId, Source};
 
@@ -63,6 +63,8 @@ fn 全部許す() -> Gate {
         "calendar.slots",
         "room.invite",
         "voice.say",
+        "contacts.read",
+        "contacts.call",
     ] {
         関所.issue(Grant::new(
             subject(),
@@ -139,6 +141,14 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::声 { .. } => Some(FromDesk::声の返り {
                     結果: warifu_desk::声の結果::流した,
                 }),
+                ToDesk::連絡先 => Some(FromDesk::連絡先たち {
+                    行たち: vec![warifu_desk::連絡先の行 {
+                        名前: "試験の相手".to_owned(),
+                        鍵: "AAAAAAAAAAAAAAAA".to_owned(),
+                        住所あり: true,
+                    }],
+                }),
+                ToDesk::呼ぶ { 相手 } => Some(FromDesk::呼んだ { 相手 }),
             };
             if let Some(返し) = 返し {
                 口.送る(&返し.書く()).await.expect("返せること");
@@ -266,6 +276,18 @@ async fn 口を全部_1回ずつ呼ぶ() {
         ),
     ));
 
+    結果.push(("contacts_list", format!("{:?}", 口.contacts_list().await)));
+    結果.push((
+        "contact_call",
+        format!(
+            "{:?}",
+            口.contact_call(Parameters(CallArgs {
+                name: "試験の相手".to_owned()
+            }))
+            .await
+        ),
+    ));
+
     for (名, 返り) in &結果 {
         時間切れでないこと(名, 返り);
     }
@@ -304,6 +326,10 @@ async fn 口を全部_1回ずつ呼ぶ() {
     assert!(
         机が受けた.iter().any(|x| x.contains("声")),
         "声の頼みが机まで届いていない: {机が受けた:?}"
+    );
+    assert!(
+        机が受けた.iter().any(|x| x.contains("呼ぶ")),
+        "呼ぶ頼みが机まで届いていない: {机が受けた:?}"
     );
     let _ = std::fs::remove_dir_all(&控え);
 }

@@ -280,6 +280,8 @@ fn 出している口を_数えて名前で押さえる() {
             "chat_send",
             "chat_status",
             "chat_wait",
+            "contact_call",
+            "contacts_list",
             "inbox_list",
             "inbox_open",
             "pass_ask",
@@ -955,6 +957,7 @@ fn 外へ出る引数名は_asciiだけ() {
         &schemars::schema_for!(warifu_mcp::InviteArgs),
     );
     名を検める("chat_send", &schemars::schema_for!(warifu_mcp::SayArgs));
+    名を検める("contact_call", &schemars::schema_for!(warifu_mcp::CallArgs));
     名を検める("voice_say", &schemars::schema_for!(warifu_mcp::VoiceArgs));
     名を検める("chat_wait", &schemars::schema_for!(warifu_mcp::WaitArgs));
     名を検める(
@@ -1016,4 +1019,46 @@ async fn 人が押した札は_立て直さずに効く() {
         口.rules_list().await.is_err(),
         "押していない動作まで通りました"
     );
+}
+
+#[test]
+fn 連絡先の口は_札が無ければ通らない() {
+    // **2026-10-16 に contacts_list / contact_call を足した。**
+    // 毎日ルームキーを渡し直すのは手間なので、連絡先から呼べるようにする。
+    // **呼ぶと相手の画面が動く**ので、読む札（contacts.read）と呼ぶ札（contacts.call）を分ける。
+    // 既定ではどちらも許さない（`warifu setup` の既定にも入れない）。
+    let 口 = 用意(&[]);
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    let 並べた = format!(
+        "{:?}",
+        rt.block_on(口.contacts_list()).expect_err("札が無い")
+    );
+    assert!(並べた.contains("contacts.read"), "{並べた}");
+    let 呼んだ = format!(
+        "{:?}",
+        rt.block_on(口.contact_call(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::CallArgs {
+                name: "だれか".to_owned(),
+            },
+        )))
+        .expect_err("札が無い")
+    );
+    assert!(呼んだ.contains("contacts.call"), "{呼んだ}");
+    // **読む札では呼べない**（読めることと呼べることは別）
+    let 読むだけ = 用意(&["contacts.read"]);
+    let 読む札で呼ぶ = format!(
+        "{:?}",
+        rt.block_on(
+            読むだけ.contact_call(rmcp::handler::server::wrapper::Parameters(
+                warifu_mcp::CallArgs {
+                    name: "だれか".to_owned(),
+                },
+            ))
+        )
+        .expect_err("呼ぶ札が無い")
+    );
+    assert!(読む札で呼ぶ.contains("contacts.call"), "{読む札で呼ぶ}");
 }

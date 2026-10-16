@@ -84,6 +84,13 @@ pub struct InviteArgs {
     pub ttl_secs: Option<u64>,
 }
 
+/// [`crate::Warifu::contact_call`] の引数（2026-10-16）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct CallArgs {
+    /// 誰を呼ぶか。連絡先の名前（`contacts_list` に出るもの）か、鍵（頭だけでもよい）。
+    pub name: String,
+}
+
 /// [`crate::Warifu::chat_send`] の引数。
 ///
 /// **差出人を書く場所が無いのは意図。**誰が言ったかはこの機械が刻む

@@ -10,7 +10,7 @@ use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
 use crate::chat::{Chat, 並べる};
-use crate::tools::InviteArgs;
+use crate::tools::{CallArgs, InviteArgs};
 use crate::{OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError, WaitArgs};
 
 /// この口を叩いている相手の名前。
@@ -460,6 +460,61 @@ impl Warifu {
             いつまで
         );
         Ok(format!("{頭}\n\n{}", 鍵たち.join("\n")))
+    }
+
+    /// **覚えている相手を並べる**（2026-10-16）。
+    #[tool(
+        description = "この PC の割符が覚えている相手（連絡先）を並べる。名前・鍵の頭・\
+                       ルームキーなしで呼べそうか（住所を覚えているか）を返す。\
+                       住所そのものは返さない。呼ぶには contact_call を使う。\
+                       この口には札（contacts.read）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn contacts_list(&self) -> Result<String, ErrorData> {
+        self.通るか("contacts.read")?;
+        let この機械 = self.この機械().await?;
+        let 行たち = この機械.連絡先().await?;
+        if 行たち.is_empty() {
+            return Ok("覚えている相手はいません。ルームで会った相手に、人が画面で名前を付けると残ります。".to_owned());
+        }
+        let 並び: Vec<String> = 行たち
+            .iter()
+            .map(|r| {
+                let 頭: String = r.鍵.chars().take(12).collect();
+                let 呼べるか = if r.住所あり {
+                    "呼べそう"
+                } else {
+                    "住所を知らない（呼べない）"
+                };
+                format!("{}\t{頭}…\t{呼べるか}", r.名前)
+            })
+            .collect();
+        Ok(format!(
+            "覚えている相手 {} 人：\n{}",
+            行たち.len(),
+            並び.join("\n")
+        ))
+    }
+
+    /// **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。
+    #[tool(
+        description = "覚えている相手（連絡先）を、ルームキーなしでいまのルームへ呼ぶ。\
+                       画面の連絡帳の［ルームに呼ぶ］と同じ道を通る。name は連絡先の名前か鍵。\
+                       相手の割符が起動していて、相手の戸口がこちらを通すとき（前にこちらを\
+                       ルームへ入れてくれた相手など）だけ繋がる。contacts_list で「呼べそう」と出ない\
+                       相手（住所を知らない）は呼べない。別の網で住所が届かないときも繋がらない。カメラは点けない。\
+                       **人に頼まれたときに使う。**自分の判断で人を呼び出さない。\
+                       この口には札（contacts.call）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn contact_call(
+        &self,
+        Parameters(args): Parameters<CallArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("contacts.call")?;
+        let この機械 = self.この機械().await?;
+        let 相手 = この機械.呼ぶ(&args.name).await?;
+        Ok(format!(
+            "{相手} を呼びました。入ったかは room_status で確かめられます（人に聞かずに見られます）。"
+        ))
     }
 
     /// **エージェントの声で言う**（#50）。

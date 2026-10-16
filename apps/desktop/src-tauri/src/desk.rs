@@ -442,6 +442,33 @@ async fn 応じる(
                 .await;
             Ok(())
         }
+        // **覚えている相手を並べる**（2026-10-16）。住所そのものは渡さない
+        ToDesk::連絡先 => {
+            let 返事 = match 連絡先を並べる() {
+                Ok(行たち) => FromDesk::連絡先たち { 行たち },
+                Err(why) => FromDesk::Denied { why },
+            };
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。
+        //
+        // 画面の連絡帳の［ルームに呼ぶ］と同じ道（`call::呼ぶ`）。札（contacts.call）は MCP 側が見る。
+        // **誰が呼んだかを記録に残す** —— 相手の画面が動くので、あとで辿れるように
+        ToDesk::呼ぶ { 相手 } => {
+            let 返事 = 連絡先から呼ぶ(app, &相手).await;
+            記録!(
+                "呼ぶ: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::呼んだ { 相手 } => format!("{相手} を呼びました"),
+                    FromDesk::Denied { why } => format!("呼べませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         // **そこまで読んだ**（**D76**）。返事は要らない —— 数えるだけ
         ToDesk::Read { まで } => {
             読んだ(自分, まで);
@@ -665,6 +692,53 @@ pub(crate) async fn 流す(
     }
     届けた(id, 届いた.clone());
     Ok((id, 名札で並べる(&届いた)))
+}
+
+/// **覚えている相手を、エージェントへ渡す形にする**（2026-10-16）。住所そのものは載せない。
+fn 連絡先を並べる() -> Result<Vec<warifu_desk::連絡先の行>, String> {
+    let 帳 = warifu_vault::Vault::default_location()
+        .and_then(|v| v.contacts())
+        .map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
+    Ok(帳
+        .iter()
+        .map(|c| warifu_desk::連絡先の行 {
+            名前: c.label().to_owned(),
+            鍵: c.key().to_string(),
+            住所あり: c.address().is_some(),
+        })
+        .collect())
+}
+
+/// **名前（か鍵の頭）から相手を決めて、画面の［ルームに呼ぶ］と同じ道で呼ぶ**（2026-10-16）。
+async fn 連絡先から呼ぶ(app: &AppHandle, 指定: &str) -> FromDesk {
+    let 行たち = match 連絡先を並べる() {
+        Ok(行たち) => 行たち,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    let 帳: Vec<(String, String)> = 行たち
+        .iter()
+        .map(|r| (r.鍵.clone(), r.名前.clone()))
+        .collect();
+    let 鍵 = match crate::contacts::呼ぶ相手を決める(&帳, 指定) {
+        Ok(鍵) => 鍵,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    let 名前 = 行たち
+        .iter()
+        .find(|r| r.鍵 == 鍵)
+        .map_or_else(|| 鍵.clone(), |r| r.名前.clone());
+    let Ok(相手) = 鍵.parse::<warifu_core::PublicKey>() else {
+        return FromDesk::Denied {
+            why: "連絡先の鍵が読めません".to_owned(),
+        };
+    };
+    let bridge = app.state::<Bridge>();
+    match crate::call::呼ぶ(app, &bridge, 相手).await {
+        Ok(()) => FromDesk::呼んだ { 相手: 名前 },
+        Err(e) => FromDesk::Denied {
+            why: format!("{名前} を呼べませんでした: {}", e.message),
+        },
+    }
 }
 
 /// 棚に置いた**生の名乗り**を、画面と同じ**名札**に直す。

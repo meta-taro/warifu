@@ -35,6 +35,9 @@ const 送り待ちの数: usize = 32;
 /// ただし永遠には待たない —— この機械が黙ったまま止まると、tool が戻らなくなる。
 const 返事を待つ秒: u64 = 5;
 
+/// **呼ぶ返事を待つ秒**（2026-10-16）。呼ぶのは繋ぎに行くので、ほかの頼みより長くかかる。
+const 呼ぶを待つ秒: u64 = 30;
+
 /// この機械につながっている状態。
 #[derive(Clone)]
 pub struct Chat {
@@ -407,6 +410,58 @@ impl Chat {
         }
     }
 
+    /// **覚えている相手を並べてもらう**（2026-10-16）。住所そのものは来ない。
+    pub async fn 連絡先(&self) -> Result<Vec<warifu_desk::連絡先の行>, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::連絡先, 連絡先の返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::連絡先たち { 行たち } => Ok(行たち),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。呼んだ相手の名前を返す。
+    ///
+    /// 繋ぎに行くので、ほかの頼みより長く待つ（[`呼ぶを待つ秒`]）。
+    pub async fn 呼ぶ(&self, 相手: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::呼ぶ {
+            相手: 相手.trim().to_owned(),
+        };
+        match self.頼んで待つ(行, 呼ぶの返事, 呼ぶを待つ秒).await? {
+            FromDesk::呼んだ { 相手 } => Ok(相手),
+            // **繋がらなかった理由は、そのまま渡す**（人が読むので）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// 1 行送って、その返事を 1 つ待つ。**形は送る前に検める**（待たせる前に落とす）。
+    async fn 頼んで待つ(
+        &self,
+        行: ToDesk,
+        受ける: fn(&FromDesk) -> bool,
+        秒: u64,
+    ) -> Result<FromDesk, crate::ToolError> {
+        ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        let (返す, 待つ) = oneshot::channel();
+        *self.返事待ち.lock().expect("毒されていない") =
+            Some(返事の待ち { 返す, 受ける });
+        self.送り
+            .send(行)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じています".to_owned()))?;
+        tokio::time::timeout(std::time::Duration::from_secs(秒), 待つ)
+            .await
+            .map_err(|_| crate::ToolError::Unavailable("この機械が返事をしません".to_owned()))?
+            .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))
+    }
+
     /// **エージェントの声で言う**（#50）。流したら、何文字を流したかを返す。
     ///
     /// 机は読み上げを作り、画面が鳴らし終えてから返事をする。
@@ -705,6 +760,12 @@ fn 様子の返事(中身: &FromDesk) -> bool {
 fn 招くの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::招いた { .. } | FromDesk::Denied { .. })
 }
+fn 連絡先の返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::連絡先たち { .. } | FromDesk::Denied { .. })
+}
+fn 呼ぶの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::呼んだ { .. } | FromDesk::Denied { .. })
+}
 fn 届き方の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Status { .. } | FromDesk::Denied { .. })
 }
@@ -791,6 +852,10 @@ fn 仕分ける(
             // **声の返りも返事である**（#50）。無いと溜め箱へ落ち、
             // 頼んだ側は時間切れになる（`招いた`・`Asked` と同じ穴）
             | FromDesk::声の返り { .. }
+            // **連絡先と呼んだ返りも返事である**（2026-10-16）。
+            // 足した日に、煙の試験が「返事をしません」で落として見つけた（同じ穴）
+            | FromDesk::連絡先たち { .. }
+            | FromDesk::呼んだ { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -854,6 +919,8 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             FromDesk::Asked { .. } => String::new(),
             // **声の返りも会話の行ではない**（#50）。会話へは机が別に流す
             FromDesk::声の返り { .. } => String::new(),
+            // **連絡先と呼んだ返りも会話の行ではない**（尋ねたときだけ返る）
+            FromDesk::連絡先たち { .. } | FromDesk::呼んだ { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),

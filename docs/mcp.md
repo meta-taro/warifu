@@ -113,6 +113,8 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | `calendar.freebusy` | `calendar_slots` | Free slots only (never the titles) |
 | `rules.list` | `rules_list` | Approved read rules |
 | `voice.say` | `voice_say` | **Speak once into the current room's call with a synthesized voice** (only when a human has turned it on for that room) |
+| `contacts.read` | `contacts_list` | The people this PC remembers (name, key prefix, whether they look callable; **never the address**) |
+| `contacts.call` | `contact_call` | **Call a remembered person into the current room without a room key** (works only if you know their address and their door lets you in; use it when a human asks) |
 
 **`about` and `changes` need no permission** (**D82**). The gate protects **things that belong to a person** — inbox, conversation, calendar. Those two describe *this executable*, and contain nothing of anyone's. Gating them would also invert the order: you would need a permission in order to find out what permissions exist.
 

@@ -17,6 +17,34 @@ use warifu_vault::Vault;
 
 use crate::{Failure, key_to_string};
 
+/// 鍵の頭で引くときの、いちばん短い長さ。これより短いと、たまたま当たるだけになる。
+const 鍵の頭の下限: usize = 4;
+
+/// **エージェントが言った「誰を」から、呼ぶ相手の鍵を 1 つに決める**（2026-10-16）。
+///
+/// 帳は（鍵, 呼び名）の組。名前がぴったり合えばそれ、なければ鍵の頭で引く。
+/// **2 人に当たるなら決めない** —— 当て推量で呼ぶと、違う人の画面が動く。
+/// 返す `Err` は人が読む訳。
+pub fn 呼ぶ相手を決める(帳: &[(String, String)], 指定: &str) -> Result<String, String> {
+    let 指定 = 指定.trim();
+    let 名で: Vec<&(String, String)> = 帳.iter().filter(|(_, 名)| 名.trim() == 指定).collect();
+    let 当たり = if 名で.is_empty() && 指定.chars().count() >= 鍵の頭の下限 {
+        帳.iter().filter(|(鍵, _)| 鍵.starts_with(指定)).collect()
+    } else {
+        名で
+    };
+    match 当たり.as_slice() {
+        [(鍵, _)] => Ok(鍵.clone()),
+        [] => Err(format!(
+            "「{指定}」は連絡先にいません（contacts_list で名前を確かめてください）"
+        )),
+        多い => Err(format!(
+            "「{指定}」は {} 人に当たります。名前か鍵をもっと長く書いてください",
+            多い.len()
+        )),
+    }
+}
+
 /// 置いてある知り合いを連れて、戸口を開ける。
 ///
 /// **読めなくても止めない。**戸口の名簿が壊れていても、
@@ -348,5 +376,64 @@ mod 配る試験 {
     fn 主催でなければ_配らない() {
         let 同じ = 鍵([1; 32]);
         assert!(!配ってよいか(false, 同じ, 同じ));
+    }
+}
+
+#[cfg(test)]
+mod 呼ぶ相手の試験 {
+    use super::呼ぶ相手を決める;
+
+    fn 帳() -> Vec<(String, String)> {
+        vec![
+            ("AAAAMMMMKKKK1111".to_owned(), "相手A".to_owned()),
+            ("BBBBQQQQ22223333".to_owned(), "相手B（エージェント）".to_owned()),
+            ("BBBBZZZZ44445555".to_owned(), "別の人".to_owned()),
+        ]
+    }
+
+    #[test]
+    fn 名前で引ける() {
+        assert_eq!(
+            呼ぶ相手を決める(&帳(), "相手A").unwrap(),
+            "AAAAMMMMKKKK1111"
+        );
+    }
+
+    #[test]
+    fn 前後の空白と_鍵の頭でも引ける() {
+        assert_eq!(
+            呼ぶ相手を決める(&帳(), "  相手B（エージェント） ").unwrap(),
+            "BBBBQQQQ22223333"
+        );
+        assert_eq!(
+            呼ぶ相手を決める(&帳(), "AAAAMMMM").unwrap(),
+            "AAAAMMMMKKKK1111"
+        );
+    }
+
+    #[test]
+    fn 鍵の頭が_2_人に当たるなら決めない() {
+        // **当て推量で呼ばない。**違う人の画面が動く
+        let 訳 = 呼ぶ相手を決める(&帳(), "BBBB").unwrap_err();
+        assert!(訳.contains("2 人"), "{訳}");
+    }
+
+    #[test]
+    fn 名前が_2_人に当たるなら決めない() {
+        let mut 帳 = 帳();
+        帳.push(("ZZZZZZZZZZZZ".to_owned(), "相手A".to_owned()));
+        assert!(呼ぶ相手を決める(&帳, "相手A").is_err());
+    }
+
+    #[test]
+    fn 居ない相手は_居ないと言う() {
+        let 訳 = 呼ぶ相手を決める(&帳(), "相手C").unwrap_err();
+        assert!(訳.contains("連絡先に"), "{訳}");
+    }
+
+    #[test]
+    fn 短すぎる鍵の頭では引かない() {
+        // 1〜3 文字の頭は、たまたま当たるだけである
+        assert!(呼ぶ相手を決める(&帳(), "6L7").is_err());
     }
 }
