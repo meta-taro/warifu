@@ -87,6 +87,8 @@ mod tests {
     #[test]
     fn 後ろ置きが付いていても数だけ読む() {
         assert_eq!(版を読む("warifu 0.1.3-alpha.2"), Some([0, 1, 3]));
+        // CLI は建てた commit まで名乗る（`warifu version`）
+        assert_eq!(版を読む("warifu 0.1.21+c1dcaef\n"), Some([0, 1, 21]));
     }
 
     #[test]

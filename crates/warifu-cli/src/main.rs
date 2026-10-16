@@ -369,7 +369,8 @@ async fn 本体() -> ExitCode {
             Err(e) => Err(e.into()),
         },
         Some("version") | Some("--version") | Some("-V") => {
-            println!("warifu {}", env!("CARGO_PKG_VERSION"));
+            // commit まで名乗る（同じ版番号のまま直しを配るので、直す前か後かを見分ける）
+            println!("warifu {}", warifu_mcp::建てた版);
             return ExitCode::SUCCESS;
         }
         Some("id") => 名乗る(),

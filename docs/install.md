@@ -38,7 +38,7 @@ The `.dmg` contains **the app only**. The mailbox (`warifu relay`), agent endpoi
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.21
+./warifu version          # → warifu 0.1.21+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # if ~/bin is on your PATH
 ```
 

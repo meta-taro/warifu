@@ -41,7 +41,7 @@ spctl -a -vv -t exec /Applications/warifu.app
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.21
+./warifu version          # → warifu 0.1.21+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば
 ```
 
