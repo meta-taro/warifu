@@ -61,6 +61,9 @@ export type MessageKey =
   | 'chat.hint'
   | 'chat.placeholder'
   | 'pane.divider'
+  | 'chat.image.attach'
+  | 'chat.image.alt'
+  | 'chat.image.close'
   | 'chat.send'
   | 'chat.empty'
   | 'chat.joined'
@@ -480,6 +483,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': '同じルームに入っている人へ届きます。残りません — 閉じると消えます。',
     'chat.placeholder': '書いて Enter（改行は Shift+Enter）',
     'pane.divider': '仕切り（左右にドラッグで幅を変える・ダブルクリックで元の幅）',
+    'chat.image.attach': '画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）',
+    'chat.image.alt': '{who} が送った画像',
+    'chat.image.close': '閉じる',
     'chat.send': '送る',
     'chat.empty': 'まだ何もありません',
     'chat.joined': '{who} が入りました',
@@ -855,6 +861,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': 'It reaches everyone in the room. Nothing is kept — it goes when you close.',
     'chat.placeholder': 'Type and press Enter (Shift+Enter for a new line)',
     'pane.divider': 'Divider (drag left or right to resize; double-click to reset)',
+    'chat.image.attach': 'Send an image (you can also paste or drag one in; large images are shrunk before sending)',
+    'chat.image.alt': 'Image from {who}',
+    'chat.image.close': 'Close',
     'chat.send': 'Send',
     'chat.empty': 'Nothing yet',
     'chat.joined': '{who} came in',
@@ -1228,6 +1237,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': '会送达房间里的所有人。不会保留 —— 关掉就没了。',
     'chat.placeholder': '输入后按 Enter（换行用 Shift+Enter）',
     'pane.divider': '分隔线（左右拖动调整宽度，双击恢复原宽度）',
+    'chat.image.attach': '发送图片（也可以粘贴或拖进来；大图会先缩小再发送）',
+    'chat.image.alt': '{who} 发来的图片',
+    'chat.image.close': '关闭',
     'chat.send': '发送',
     'chat.empty': '还没有内容',
     'chat.joined': '{who} 进来了',
@@ -1605,6 +1617,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': '같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.',
     'chat.placeholder': '입력 후 Enter (줄바꿈은 Shift+Enter)',
     'pane.divider': '구분선 (좌우로 끌어 너비 조절, 더블클릭하면 원래 너비)',
+    'chat.image.attach': '이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)',
+    'chat.image.alt': '{who}이(가) 보낸 이미지',
+    'chat.image.close': '닫기',
     'chat.send': '보내기',
     'chat.empty': '아직 아무것도 없습니다',
     'chat.joined': '{who} 가 들어왔습니다',

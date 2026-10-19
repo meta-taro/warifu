@@ -21,6 +21,8 @@ const LINK: &str = "meeting.link";
 const INTRODUCE: &str = "meeting.introduce";
 /// 会議の中で文字を送る（チャット）。
 const TEXT: &str = "meeting.text";
+/// 会議の中で画像を送る（チャット）。
+const IMAGE: &str = "meeting.image";
 /// **本人の名乗り**（プロフィール・**D75**）。
 const PROFILE: &str = "meeting.profile";
 
@@ -40,6 +42,17 @@ const ADDRESS_MAX: usize = 1024;
 /// 文字の長さの上限（バイト）。**受け取る側でも数える**（D15）。
 /// 会議の中の一言に 16 KiB は十分で、これを超えるなら別の手段で渡すべきものである。
 const TEXT_MAX: usize = 16 * 1024;
+
+/// 画像の大きさの上限（バイト）。**受け取る側でも数える**（D15）。
+///
+/// 画面で縮めてから送る（長い辺 1600px・JPEG）。読める写真やスクリーンショットは
+/// これに収まる。**原寸を渡す口ではない** —— 原寸が要るなら別の手段で渡す。
+pub const IMAGE_MAX: usize = 512 * 1024;
+
+/// 運べる画像の型。**描く側が安全に描けるものだけ。**
+///
+/// SVG は入れない —— 中に script を持てる。
+const IMAGE_TYPES: [&str; 4] = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 /// 名乗りの名前の長さ（バイト）。**画面の 1 行に収まる長さ**
 /// （`warifu-vault` の 32 文字を、日本語 1 文字 4 バイトで見込む）。
@@ -134,6 +147,23 @@ pub enum Notice {
         /// 中身。
         body: String,
     },
+    /// **会議の中で画像を送る**（チャット）。
+    ///
+    /// 差出人と札の扱いは [`Notice::Text`] と同じ。**絵は読まない** ——
+    /// ただし**頭のバイトが `型` と合うか**だけは見る。受け取った画面は、
+    /// 名乗った型で描くからである。
+    Image {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰が送ったか（[`Notice::Text`] の `from` と同じ）。
+        from: PublicKey,
+        /// そのエージェントの誰が送ったか（人なら `None`）。
+        話し手: Option<String>,
+        /// 型（`image/jpeg` など）。[`IMAGE_TYPES`] のどれか。
+        型: String,
+        /// 中身。空は送れない。[`IMAGE_MAX`] まで。
+        中身: Vec<u8>,
+    },
     /// **本人の名乗り**（**D75**）。名前と短い紹介を相手へ渡す。
     ///
     /// **これは本人確認ではない。**名乗った名前は誰でも真似できるので、
@@ -205,6 +235,7 @@ impl Notice {
             | Self::Link { meeting, .. }
             | Self::Introduce { meeting, .. }
             | Self::Text { meeting, .. }
+            | Self::Image { meeting, .. }
             | Self::Profile { meeting, .. }
             | Self::RoomSecret { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
@@ -249,6 +280,13 @@ impl Notice {
                 荷物.extend_from_slice(body.as_bytes());
                 (TEXT, 荷物)
             }
+            Self::Image {
+                from,
+                話し手,
+                型,
+                中身,
+                ..
+            } => (IMAGE, 画像を詰める(from, 話し手.as_deref(), 型, 中身)?),
             Self::Introduce { who, address, .. } => {
                 if address.len() > ADDRESS_MAX {
                     return Err(Error::Malformed);
@@ -339,6 +377,7 @@ impl Notice {
                     body: String::from_utf8_lossy(&荷物[33 + 札の長さ..]).into_owned(),
                 })
             }
+            IMAGE => 画像を読む(meeting, 荷物),
             PROFILE => {
                 // 差出人 32 byte ＋ 名前の長さ 1 byte ＋ 名前 ＋ 紹介。
                 // **空の名乗りは通す** —— 「取り消した」ことも伝わる必要がある
@@ -404,4 +443,87 @@ impl Notice {
             _ => Err(Error::NotMeeting),
         }
     }
+}
+
+/// 札が行と欄を壊さないか（[`Notice::Text`] と同じ決まり）。
+fn 札を検める(札: Option<&str>) -> Result<(), Error> {
+    let Some(札) = 札 else { return Ok(()) };
+    if 札.len() > SPEAKER_MAX
+        || 札.chars().any(|c| c.is_control() || c == '\t')
+        || 札.trim().is_empty()
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// 頭のバイトが、名乗った型と合うか。**描ける型だけを通す。**
+fn 画像を検める(型: &str, 中身: &[u8]) -> Result<(), Error> {
+    if 中身.is_empty() || 中身.len() > IMAGE_MAX || !IMAGE_TYPES.contains(&型) {
+        return Err(Error::Malformed);
+    }
+    let 合う = match 型 {
+        "image/jpeg" => 中身.starts_with(&[0xFF, 0xD8, 0xFF]),
+        "image/png" => 中身.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "image/gif" => 中身.starts_with(b"GIF87a") || 中身.starts_with(b"GIF89a"),
+        "image/webp" => 中身.len() >= 12 && &中身[..4] == b"RIFF" && &中身[8..12] == b"WEBP",
+        _ => false,
+    };
+    if 合う {
+        Ok(())
+    } else {
+        Err(Error::Malformed)
+    }
+}
+
+/// `[差出人 32][札の長さ 1][札][型の長さ 1][型][中身]`
+fn 画像を詰める(
+    from: &PublicKey,
+    話し手: Option<&str>,
+    型: &str,
+    中身: &[u8],
+) -> Result<Vec<u8>, Error> {
+    札を検める(話し手)?;
+    画像を検める(型, 中身)?;
+    let 札 = 話し手.unwrap_or_default();
+    let mut 荷物 = Vec::with_capacity(32 + 2 + 札.len() + 型.len() + 中身.len());
+    荷物.extend_from_slice(&from.to_bytes());
+    荷物.push(u8::try_from(札.len()).map_err(|_| Error::Malformed)?);
+    荷物.extend_from_slice(札.as_bytes());
+    荷物.push(u8::try_from(型.len()).map_err(|_| Error::Malformed)?);
+    荷物.extend_from_slice(型.as_bytes());
+    荷物.extend_from_slice(中身);
+    Ok(荷物)
+}
+
+/// [`画像を詰める`] の逆。**組み立てる側と同じ検めをする**（相手が守る保証は無い）。
+fn 画像を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    let 頭: [u8; 32] = 荷物
+        .get(..32)
+        .ok_or(Error::Malformed)?
+        .try_into()
+        .map_err(|_| Error::Malformed)?;
+    let from = PublicKey::from_bytes(頭).map_err(|_| Error::Malformed)?;
+    let mut 位置 = 32;
+    let mut 切る = |荷物: &[u8]| -> Result<String, Error> {
+        let 長さ = usize::from(*荷物.get(位置).ok_or(Error::Malformed)?);
+        let 欄 = 荷物
+            .get(位置 + 1..位置 + 1 + 長さ)
+            .ok_or(Error::Malformed)?;
+        位置 += 1 + 長さ;
+        String::from_utf8(欄.to_vec()).map_err(|_| Error::Malformed)
+    };
+    let 札 = 切る(荷物)?;
+    let 型 = 切る(荷物)?;
+    let 話し手 = (!札.is_empty()).then_some(札);
+    札を検める(話し手.as_deref())?;
+    let 中身 = 荷物[位置..].to_vec();
+    画像を検める(&型, &中身)?;
+    Ok(Notice::Image {
+        meeting,
+        from,
+        話し手,
+        型,
+        中身,
+    })
 }

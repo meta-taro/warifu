@@ -53,7 +53,8 @@
   import { 機械の中のTURNを覚える, 機械の中のTURNがあるか } from '$lib/webrtc/media';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
-  import { 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
+  import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める } from '$lib/chat/reach';
+  import { 画像を縮める } from '$lib/chat/image';
   import { エージェントの名札 } from '$lib/contacts/seat';
   import { getVersion } from '@tauri-apps/api/app';
   import { 入れ替える, 確かめる, 立て直す } from '$lib/update/check';
@@ -140,6 +141,7 @@
     EVENT_SIGNAL,
     EVENT_TEXT,
     EVENT_DESK,
+    EVENT_IMAGE,
     EVENT_DESK_SEATS,
     EVENT_THEME,
     EVENT_LINK,
@@ -189,6 +191,7 @@
     onEvent,
     remember,
     sendText,
+    sendImage,
     sendToContact,
     postbox,
     cliState,
@@ -636,6 +639,16 @@
         // **会話に出る名前と揃える。**連絡帳では「かくにん係」、
         // 届く先では「kakunin のエージェント」だと、**2 人に見える**（D77）
         }).map((名) => エージェントの名札(名, エージェントの名前たち[名])),
+  );
+  /** 届く先の顔（`届く先` と同じ順）。**名前だけだと、誰が居るかに気づきにくい** */
+  const 届く先の顔 = $derived(
+    送り方.種類 === '預ける'
+      ? [送り方.key]
+      : 届く先の顔を並べる({
+          会議の相手の鍵: remotes.map((r) => r.key),
+          この機械のAIたち,
+          宛先,
+        }),
   );
 
   /**
@@ -1735,6 +1748,21 @@
         }),
       );
       unsubs.push(
+        // **相手から画像が届いた。**文字と同じ所へ積む（閉じれば消える）
+        await onEvent<[string, string, number[]]>(EVENT_IMAGE, ([key, 型, 中身]) => {
+          log(`受信: 画像（${中身.length} バイト）from ${短く(key)}`);
+          const 画像 = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 型 }));
+          ルームの会話たち = この機械とルームへ足す(ルームの会話たち, いまのルーム, {
+            who: 画面での名(key),
+            顔の種: key,
+            body: '',
+            画像,
+            mine: false,
+            at: いま時刻(),
+          });
+        }),
+      );
+      unsubs.push(
         // **同じエージェントのエージェント が言ったこと。**人の発言と見分けが付く形で出す
         // **どこで動いているエージェントかを、この機械が刻んで渡してくる。**
         // 1 台の PC で複数のエージェントが同じ機械につながるので、
@@ -2167,6 +2195,36 @@
     notice = t('postbox.kept');
   }
 
+  /** **画像はルームの相手にだけ送れる**（預かり所・この機械だけの宛先へは送らない）。 */
+  const 画像を送れる = $derived(送り方.種類 === 'ルーム' && remotes.length > 0);
+
+  /**
+   * **画像を送る。**縮めてから（`chat/image.ts`）ルームの相手へ渡し、自分の行にも出す。
+   */
+  async function 画像を話す(元: Blob) {
+    if (!画像を送れる) {
+      notice = t('send.absent');
+      return;
+    }
+    try {
+      const 縮めた = await 画像を縮める(元);
+      await sendImage(縮めた.中身, 縮めた.型);
+      log(`送信: 画像（${縮めた.中身.length} バイト）を ${remotes.length} 人へ`);
+      const 画像 = URL.createObjectURL(new Blob([縮めた.中身 as BlobPart], { type: 縮めた.型 }));
+      const 札 = 届きを見る(送り方, remotes.length, この機械の人数);
+      ルームの会話たち = この機械とルームへ足す(ルームの会話たち, いまのルーム, {
+        who: t('tile.me'),
+        body: '',
+        画像,
+        mine: true,
+        at: いま時刻(),
+        届き: { 札: 札.札, 訳: 札.訳 },
+      });
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   async function 話す(body: string) {
     if (!body.trim()) return;
     // **相手が居ないなら、預かり所へ。**置いていなければ、そう言って終わる（D71）
@@ -2542,7 +2600,12 @@
         if (e.payload.type !== 'drop') return;
         const 先 = 顔を差し替えられる先;
         const 場所 = e.payload.paths[0];
-        if (!先 || !場所) return;
+        if (!場所) return;
+        // **顔を差し替えられる所でなければ、会話へ画像として送る**（ルームの相手が居るとき）
+        if (!先) {
+          if (画像を送れる) void 落とした画像を送る(場所);
+          return;
+        }
         // **落とした瞬間に置かない**（**D87**）。
         // どこが顔になるかを見せてから、人が決める
         void 切り取りを開く(先, 場所);
@@ -2583,6 +2646,16 @@
       const 生 = await readImage(場所);
       const 塊 = new Blob([new Uint8Array(生 ?? [])]);
       切り取り中 = { 先, 画像: URL.createObjectURL(塊) };
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  /** 落とした画像を、Rust に読ませてから送る（webview から好きな場所を読ませない）。 */
+  async function 落とした画像を送る(場所: string) {
+    try {
+      const 生 = await readImage(場所);
+      await 画像を話す(new Blob([new Uint8Array(生 ?? [])]));
     } catch (e) {
       notice = 読める(e);
     }
@@ -3047,7 +3120,10 @@
       {会議中}
       {この機械の人数}
       送る={(body) => void 話す(body)}
+      画像を送る={画像を送れる ? (f) => void 画像を話す(f) : undefined}
       {届く先}
+      {届く先の顔}
+      顔の画={顔の画たち}
       宛先={会話の宛先}
       下書きが変わった={(ある) => (下書きがある = ある)}
       据え置いている={!!据え置き}
@@ -3622,6 +3698,7 @@
           {会議中}
           {この機械の人数}
           送る={(body) => void 話す(body)}
+          画像を送る={画像を送れる ? (f) => void 画像を話す(f) : undefined}
           相手ごとではない={送り方.種類 === 'ルーム'}
           打てない訳={打てない訳(送り方, {
             エージェントがつながっている: 選んだエージェントがつながっているか,
@@ -3630,6 +3707,8 @@
             エージェントを選んでいる: !!選んだエージェント,
           })}
           {届く先}
+          {届く先の顔}
+          顔の画={顔の画たち}
           宛先={会話の宛先}
           下書きが変わった={(ある) => (下書きがある = ある)}
           据え置いている={!!据え置き}

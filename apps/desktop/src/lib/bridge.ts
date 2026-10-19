@@ -31,6 +31,8 @@ export const EVENT_TEXT = 'warifu://text';
  * 混ぜると、誰が言ったのか画面から読めなくなる。
  */
 export const EVENT_DESK = 'warifu://desk';
+/** 相手から画像が届いた（`[名, 型, 中身]`）。 */
+export const EVENT_IMAGE = 'warifu://image';
 /**
  * **この機械につながっている顔ぶれ**が変わった（呼び方の並びが届く）。
  *
@@ -213,6 +215,13 @@ export const leave = () => invoke<void>('leave');
  */
 export const sendText = (body: string, to?: string | null) =>
   invoke<void>('send_text', { body, to: to ?? null });
+
+/**
+ * **ルームの相手へ画像を送る。**画面で縮めてから渡す（`chat/image.ts`）。
+ * 上限は Rust 側（`warifu_meeting::IMAGE_MAX`）でも数える。
+ */
+export const sendImage = (bytes: Uint8Array, kind: string) =>
+  invoke<void>('send_image', { bytes: Array.from(bytes), kind });
 
 /**
  * いまこの機械に何人つながっているか。

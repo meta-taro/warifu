@@ -38,6 +38,8 @@ const EVENT_CLOSED: &str = "warifu://closed";
 const EVENT_INTRODUCED: &str = "warifu://introduced";
 /// 文字が届いた。`[誰から, 中身]` で渡す。
 const EVENT_TEXT: &str = "warifu://text";
+/// 画像が届いた（`[名, 型, 中身]`）。
+const EVENT_IMAGE: &str = "warifu://image";
 /// **この PC のこの機械から出た発言。**`[公開鍵, 中身, 時刻]` で渡す。
 ///
 /// 相手から届いた文字（[`EVENT_TEXT`]）と分けるのは、
@@ -1960,6 +1962,34 @@ fn 汲む(
                         }
                         continue;
                     }
+                    // **画像も文字と同じ道を通る。**差出人を確かめ、画面へ渡し、主催なら配る
+                    if let Notice::Image {
+                        from, 話し手, 型, 中身, ..
+                    } = &notice
+                    {
+                        if *from != peer {
+                            記録!("受信: 画像の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        let 名 = match 話し手 {
+                            Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
+                            None => key_to_string(peer),
+                        };
+                        記録!("受信: 画像（{} バイト・{型}）", 中身.len());
+                        let _ = app.emit(EVENT_IMAGE, (名.clone(), 型.clone(), 中身.clone()));
+                        notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
+                        // **エージェントには絵を渡さない。**画像が来たことだけを 1 行で見せる
+                        desk::配る(&app.state::<Bridge>(), desk::聞いた(&名, &画像の札(中身.len())));
+                        let 主催 = {
+                            let 棚 = conferences.lock().await;
+                            棚.get(&notice.meeting())
+                                .map(|c| c.members().first() == Some(&me))
+                        };
+                        if 主催 == Some(true) {
+                            他へ配る(&outbound, peer, &notice).await;
+                        }
+                        continue;
+                    }
                     // **紹介は名簿を動かさない**（D41）
                     記録!("受信: {}", 知らせの名(&notice));
                     // **相手が名乗った**（**D75**）。**呼び名は上書きしない**（D46）——
@@ -2710,6 +2740,78 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
     Ok(())
 }
 
+/// 画像が来たことを、エージェントへ 1 行で言う形。**絵そのものは渡さない。**
+fn 画像の札(バイト: usize) -> String {
+    format!("［画像 {} KB］", バイト.div_ceil(1024))
+}
+
+/// **ルームの相手へ、画像を送る**（チャット）。
+///
+/// 画面で縮めてから渡してくる（長い辺 1600px・JPEG）。**ここは数えて運ぶだけ。**
+/// 型と頭が合わないもの・大きすぎるものは、組み立てる所（`Notice::to_intent`）で止まる。
+///
+/// **送り先は、いま見ているルームの相手だけ。**預かり所（相手が起動していないとき）へは
+/// 預けない —— 預かり所は文字のための所である。
+#[tauri::command]
+async fn send_image(bridge: State<'_, Bridge>, bytes: Vec<u8>, kind: String) -> Answer<()> {
+    if bytes.is_empty() || bytes.len() > warifu_meeting::IMAGE_MAX {
+        return Err(Failure {
+            message: format!(
+                "画像が大きすぎます（{} KB / 上限 {} KB）",
+                bytes.len().div_ceil(1024),
+                warifu_meeting::IMAGE_MAX / 1024
+            ),
+            code: Some("image.too_large".into()),
+        });
+    }
+    let Some(meeting) = いま見ているルーム(&bridge.いまのルーム).await else {
+        return Err(Failure {
+            message: "画像はルームの中でだけ送れます".into(),
+            code: Some("image.no_room".into()),
+        });
+    };
+    let 送り先 = そのルームの相手(
+        &bridge.conferences,
+        &bridge.outbound,
+        meeting,
+        bridge.device.public_key(),
+    )
+    .await;
+    if 送り先.is_empty() {
+        return Err(Failure {
+            message: "まだ誰も居ません".into(),
+            code: None,
+        });
+    }
+    let 知らせ = Notice::Image {
+        meeting,
+        from: bridge.device.public_key(),
+        話し手: None,
+        型: kind,
+        中身: bytes,
+    };
+    // **先に組み立てて確かめる。**壊れたものを黙って配らない
+    if 知らせ.to_intent().is_err() {
+        return Err(Failure {
+            message: "この画像は送れない形です（JPEG・PNG・WebP・GIF だけ）".into(),
+            code: Some("image.malformed".into()),
+        });
+    }
+    let Notice::Image { 中身, .. } = &知らせ else {
+        unreachable!("いま組み立てた");
+    };
+    記録!("送信: 画像（{} バイト）を {} 人へ", 中身.len(), 送り先.len());
+    if desk::エージェントの数(&bridge) > 0 {
+        let 話 = desk::聞いた(&key_to_string(bridge.device.public_key()), &画像の札(中身.len()));
+        desk::配る(&bridge, 話);
+    }
+    for tx in &送り先 {
+        // 届かない相手が居ても止めない。**送る側を待たせない**
+        let _ = tx.send(知らせ.clone()).await;
+    }
+    Ok(())
+}
+
 /// **覚えている相手へ、1 対 1 で言う。**
 ///
 /// 同じルームに居るならその場で渡し、**居なければ預かり所へ預ける**（D71）。
@@ -2985,6 +3087,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Link { .. } => "回線の報せ",
         Notice::Introduce { .. } => "紹介",
         Notice::Text { .. } => "文字",
+        Notice::Image { .. } => "画像",
         Notice::Profile { .. } => "名乗り",
         // **中身は出さない。**種別だけ言う —— これは合言葉を運ぶ知らせである（**D118**）
         Notice::RoomSecret { .. } => "部屋の合言葉",
@@ -3163,6 +3266,7 @@ pub fn run() {
             should_offer_to,
             leave,
             send_text,
+            send_image,
             log,
             contacts,
             remember,
@@ -3326,6 +3430,13 @@ mod 知らせの名の試験 {
                 from: 鍵(),
                 話し手: None,
                 body: String::new(),
+            },
+            Notice::Image {
+                meeting: 部屋,
+                from: 鍵(),
+                話し手: None,
+                型: "image/png".to_owned(),
+                中身: Vec::new(),
             },
             Notice::Profile {
                 meeting: 部屋,

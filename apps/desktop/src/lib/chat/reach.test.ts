@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { 届く先を並べる, 宛先を決める } from './reach';
+import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める } from './reach';
 
 const この機械 = 'マイ PC エージェント';
 
@@ -77,5 +77,26 @@ describe('宛先', () => {
       'air',
       ...AIたち,
     ]);
+  });
+});
+
+describe('届く先の顔', () => {
+  it('名前と同じ順で、人は鍵・エージェントは desk: で並ぶ', () => {
+    expect(
+      届く先の顔を並べる({ 会議の相手の鍵: ['KEYA', 'KEYB'], この機械のAIたち: ['alpha'] }),
+    ).toEqual(['KEYA', 'KEYB', 'desk:alpha']);
+  });
+
+  it('宛先が決まっていれば、その 1 つだけ', () => {
+    expect(
+      届く先の顔を並べる({ 会議の相手の鍵: ['KEYA'], 宛先: 'alpha', この機械のAIたち: ['alpha'] }),
+    ).toEqual(['desk:alpha']);
+  });
+
+  it('名前の並びと数が揃う', () => {
+    const 素材 = { 会議の相手: ['a', 'b'], この機械のAIたち: ['x', 'y'] };
+    expect(
+      届く先の顔を並べる({ 会議の相手の鍵: ['KA', 'KB'], この機械のAIたち: 素材.この機械のAIたち }),
+    ).toHaveLength(届く先を並べる(素材).length);
   });
 });

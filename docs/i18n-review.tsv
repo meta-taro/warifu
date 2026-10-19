@@ -37,6 +37,9 @@ chat.agent	My PC agents	マイ PC エージェント	我的电脑代理	내 PC �
 chat.desk	An agent on this computer is connected. You can talk to it even with nobody else in the room.	この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。	这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。	이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
+chat.image.alt	Image from {who}	{who} が送った画像	{who} 发来的图片	{who}이(가) 보낸 이미지				
+chat.image.attach	Send an image (you can also paste or drag one in; large images are shrunk before sending)	画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）	发送图片（也可以粘贴或拖进来；大图会先缩小再发送）	이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)				
+chat.image.close	Close	閉じる	关闭	닫기				
 chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들어왔습니다				
 chat.keep	You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.	打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。	你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。	입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.				
 chat.keep.switch	Switch to the new destination	新しい宛先に切り替える	切换到新的收件对象	새 보낼 곳으로 바꾸기				

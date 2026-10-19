@@ -17,6 +17,7 @@
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
   import { untrack } from 'svelte';
+  import { 画像を拾う } from './image';
 
   interface Props {
     locale: Locale;
@@ -37,6 +38,8 @@
     この機械の人数: number;
     /** 送る。**中身は呼ぶ側が持つ**（下書きもここでは持たない）。 */
     送る: (body: string) => void;
+    /** 画像を送る。**渡されなければ、画像の口を出さない**（預かり所ごしなど、送れない所） */
+    画像を送る?: (画像: File) => void;
     /**
      * 選んだ相手のすぐ隣に並ぶか。
      *
@@ -52,6 +55,10 @@
      * 1 人しか並ばなければ 1 対 1、3 人並べば 1 対 3 である。
      */
     届く先: readonly string[];
+    /** 届く先の顔の種（`届く先` と同じ順）。**渡されれば、名前を顔つきで並べる** */
+    届く先の顔?: readonly string[];
+    /** 差し替えた顔（種 → 画像）。 */
+    顔の画?: Readonly<Record<string, string>>;
     /**
      * **鍵 → いまの呼び名。**行に焼き付けた名前ではなく、**描くときに引き直す**。
      *
@@ -92,8 +99,11 @@
     会議中,
     この機械の人数,
     送る,
+    画像を送る,
     相手ごとではない = false,
     届く先,
+    届く先の顔 = [],
+    顔の画 = {},
     画面での名簿 = {},
     下書きが変わった,
     据え置いている = false,
@@ -106,6 +116,26 @@
   const 見せる名 = (名: string) =>
     エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n }));
   let 下書き = $state('');
+  /** 大きく見ている画像（`blob:` の URL）。 */
+  let 大きく見る = $state<string | null>(null);
+  let 画像の口: HTMLInputElement | undefined = $state();
+
+  function 選んだ画像を送る(e: Event) {
+    const 口 = e.currentTarget as HTMLInputElement;
+    const f = 口.files?.[0];
+    // **同じ画像をもう一度選べるように空ける**（空けないと change が来ない）
+    口.value = '';
+    if (f && 画像を送る) 画像を送る(f);
+  }
+
+  function 貼った(e: ClipboardEvent) {
+    if (!画像を送る) return;
+    const f = 画像を拾う(e.clipboardData?.items);
+    // **文字の貼り付けは邪魔しない。**画像が入っていたときだけ取る
+    if (!f) return;
+    e.preventDefault();
+    画像を送る(f);
+  }
 
   /**
    * **見出し。**宛先を渡されていれば、それを名乗る（**D107**）。
@@ -174,6 +204,14 @@
     if (見え.追う) 下へ送る(増えた > 0);
   });
 
+  /**
+   * **絵は、行が来たあとで高さを持つ。**底を追っていた人のために、開いたらもう一度送る。
+   * 読み返している人（新着がある）は動かさない
+   */
+  function 絵が開いた() {
+    if (新着 === 0) 下へ送る(false);
+  }
+
   function 出す() {
     const body = 下書き.trim();
     if (!body) return;
@@ -198,7 +236,21 @@
   {#if 届く先.length === 0}
     <p class="hint">{t('chat.reach.none')}</p>
   {:else}
-    <p class="hint reach">{format(t('chat.reach'), { who: 届く先.map(見せる名).join(' ／ ') })}</p>
+    <!-- **顔つきで並べる**（2026-10-19）。名前の 1 行だけだと、
+         誰が入ってきたかに気づかない。顔が並べば目に入る -->
+    {#if 届く先の顔.length === 届く先.length}
+      <div class="faces" aria-label={format(t('chat.reach'), { who: 届く先.map(見せる名).join(' ／ ') })}>
+        <span class="faces-label">{format(t('chat.reach'), { who: '' }).trim()}</span>
+        {#each 届く先 as 名, i (i)}
+          <span class="who" title={見せる名(名)}>
+            <Avatar 種={届く先の顔[i]} 大きさ={22} 画像={顔の画[届く先の顔[i]] ?? null} 名={見せる名(名)} />
+            <span class="who-name">{見せる名(名)}</span>
+          </span>
+        {/each}
+      </div>
+    {:else}
+      <p class="hint reach">{format(t('chat.reach'), { who: 届く先.map(見せる名).join(' ／ ') })}</p>
+    {/if}
   {/if}
   <div class="talkwrap">
     <div class="talk" bind:this={欄} onscroll={動かした}>
@@ -215,7 +267,16 @@
             大きさ={14}
             名=""
           />{/if}{#if !line.system}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b
-          >{/if}{line.body}{#if line.届き}<span
+          >{/if}{line.body}{#if line.画像}<button
+            type="button"
+            class="pic"
+            onclick={() => (大きく見る = line.画像 ?? null)}
+            ><img
+              onload={絵が開いた}
+              src={line.画像}
+              alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿)) })}
+            /></button
+          >{/if}{#if line.届き}<span
             class="mark"
             class:none={line.届き.札 === 'mark.none'}
             title={t(line.届き.訳 as MessageKey)}>{t(line.届き.札 as MessageKey)}</span
@@ -285,14 +346,105 @@
           出す();
         }
       }}
+      onpaste={貼った}
     ></textarea>
+    {#if 画像を送る}
+      <!-- **画像の口。**貼り付け・ドラッグでも送れる。大きい画像は縮めてから送る -->
+      <input
+        bind:this={画像の口}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        hidden
+        onchange={選んだ画像を送る}
+      />
+      <button
+        type="button"
+        class="quiet attach"
+        title={t('chat.image.attach')}
+        aria-label={t('chat.image.attach')}
+        disabled={!届く先がある}
+        onclick={() => 画像の口?.click()}
+      >
+        <Icon name="image" size={18} />
+      </button>
+    {/if}
     <button type="button" onclick={出す} disabled={!届く先がある || !下書き.trim()}>
       {t('chat.send')}
     </button>
   </div>
 </div>
 
+{#if 大きく見る}
+  <!-- **押した画像を大きく見る。**Esc か、どこかを押せば閉じる -->
+  <div
+    class="lightbox"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={() => (大きく見る = null)}
+    onkeydown={(e) => e.key === 'Escape' && (大きく見る = null)}
+  >
+    <img src={大きく見る} alt="" />
+    <button type="button" class="quiet close" onclick={() => (大きく見る = null)}>
+      {t('chat.image.close')}
+    </button>
+  </div>
+{/if}
+
 <style>
+  /* 会話の中の画像。**行の幅に収め、縦に長いものは切らずに縮める** */
+  .pic {
+    display: block;
+    margin: var(--space-1) 0 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: none;
+    cursor: zoom-in;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .pic img {
+    display: block;
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+  }
+  /* **送るより目立たせない。**主役は文字の欄と「送る」 */
+  .attach {
+    flex: none;
+    align-self: stretch;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+  }
+  .attach:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+  }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: rgba(0, 0, 0, 0.8);
+    cursor: zoom-out;
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .lightbox .close {
+    position: absolute;
+    top: var(--space-3);
+    right: var(--space-3);
+    color: #fff;
+  }
   .card {
     display: flex;
     flex-direction: column;
@@ -328,6 +480,38 @@
     margin: 0;
     font-size: var(--text-sm-size);
     font-weight: 600;
+  }
+  /* 届く先の顔。**目を引く**ように、字より大きい顔と枠で並べる */
+  .faces {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+  }
+  .faces-label {
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+  }
+  .who {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 2px 10px 2px 2px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-sunken);
+    font-size: var(--text-xs-size);
+    font-weight: 600;
+  }
+  .who :global(.face) {
+    border-radius: 50%;
+    flex: none;
+  }
+  .who-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .hint.reach {
     color: var(--text-secondary);
