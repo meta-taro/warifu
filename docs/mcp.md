@@ -177,6 +177,30 @@ chat_wait {"seconds": 60}  wait 60s
 
 **It never waits forever** — while waiting, that agent can do nothing else.
 
+### Claude Code can be woken when something arrives (channels)
+
+`chat_wait` only notices while it is waiting. **A line that arrives while the agent is busy with something else stays unread until someone asks for it** (on 2026-10-19 one sat unread for almost eight hours).
+
+This server declares Claude Code's **channels** capability (a research preview). **When a line arrives, it pushes a notice into Claude Code** — an idle session waiting for input starts a turn on it.
+
+```bash
+claude --dangerously-load-development-channels server:warifu
+```
+
+The part after `server:` is the name you gave the server in your MCP config (`warifu` if you ran `claude mcp add warifu …`).
+
+| | |
+|---|---|
+| **The notice carries no message text** | Only how many, from whom, and the latest number. Read the text with `chat_read`. **A line counts as read when `chat_read` hands it over** (**D76**) |
+| **Bursts become one notice** | It waits 2 seconds before telling. Anything a running `chat_wait` already took is not announced |
+| **No `chat.read` pass, no notice** | It does not reveal that lines exist to an agent that may not read them |
+| **It attaches to the desk at startup** | If the GUI is not up yet, it retries every 15 seconds |
+| **Without the flag, nothing happens** | Claude Code drops the notice silently. Harmless |
+
+**Claude Code shows a warning screen on every start**, because warifu is not on its approved channel list. In Team / Enterprise organizations **an admin has to enable channels** (`channelsEnabled`).
+
+**An agent that is not running cannot be woken.** For that, use `warifu agent` below.
+
 ### Reacting without waiting (`warifu agent`)
 
 Blocking on `chat_wait` occupies the agent. If you want something that **reacts when spoken to**, this is the shape:

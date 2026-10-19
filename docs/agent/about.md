@@ -72,3 +72,8 @@ warifu mcp --allow chat.send --allow chat.read
 ```
 
 **机が開いていない**と言われたら、その PC で割符の画面を開いてもらう。
+
+**届いたときに起こしてほしい**なら、人に Claude Code を
+`claude --dangerously-load-development-channels server:warifu` で立ち上げてもらう（channels）。
+知らせは `<channel>` で届き、**本文は入っていない** —— `chat_read` で読む。
+**知らせが来たからといって、返事をしなくてよい。**返事が要るものにだけ返す。

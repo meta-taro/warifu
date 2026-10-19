@@ -3,7 +3,11 @@
 use std::sync::{Arc, Mutex};
 
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{ErrorData, Implementation, ServerCapabilities, ServerInfo};
+use rmcp::model::{
+    CustomNotification, ErrorData, Implementation, JsonObject, ServerCapabilities, ServerInfo,
+    ServerNotification,
+};
+use rmcp::service::{NotificationContext, Peer, RoleServer};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
 use warifu_calendar::{Calendar, Span};
 use warifu_capability::{Action, Decision, Gate, Request, Subject};
@@ -85,6 +89,16 @@ const 待てる上限の秒: u64 = 60;
 /// **`warifu-cli` の `札の効き目` と同じ値にしてある** ——
 /// 2 か所で違うと、**同じ札が口によって違う長さで効く。**
 const 札の効き目: u64 = 60 * 60 * 24;
+
+/// **知らせを束ねる間**（`push.rs`）。会話は続けて飛んでくるので、
+/// 1 通ごとに起こさない。`chat_wait` で待っている呼びが先に取れば、知らせは要らなくなる。
+const 束ねる間: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// **鈴が鳴らなくても見直す間**。取りこぼしと、切れたことに気づくため。
+const 見直す間: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// **この機械が開いていないとき、繋ぎに行き直す間**（画面より先にエージェントが起きることがある）。
+const 繋ぎ直す間: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// 一度に返す空き枠の上限。
 ///
@@ -249,6 +263,54 @@ impl Warifu {
             今 + 札の効き目,
         ));
         Ok(())
+    }
+
+    /// 届いたことを、**エージェントへ押し出し続ける**（`push.rs`）。
+    ///
+    /// **口を立てたらすぐ繋ぐ。**これまでは会話の道具を呼ぶまで繋がず、
+    /// **呼ばないエージェントには、届いたことを伝える道が無かった。**
+    /// 受け手が閉じたら終わる。
+    async fn 知らせ続ける(self, 受け手: Peer<RoleServer>) {
+        let mut 知らせた: u64 = 0;
+        let mut いまの繋がり = 0;
+        loop {
+            let Ok(この機械) = self.この機械().await else {
+                tokio::time::sleep(繋ぎ直す間).await;
+                continue;
+            };
+            // **繋ぎ直したら数え直す** —— 机を立て直すと、番号は 1 から振り直される
+            if この機械.繋がりの印() != いまの繋がり {
+                いまの繋がり = この機械.繋がりの印();
+                知らせた = 0;
+            }
+            // **鈴を先に構えてから見る。**見たあとに構えると、その間に届いたものを取りこぼす
+            let 鈴 = この機械.来た鈴();
+            let 鳴った = 鈴.notified();
+            tokio::pin!(鳴った);
+            鳴った.as_mut().enable();
+            // **束ねてから見る。**続けて届いた分を 1 回で知らせる。
+            // `chat_wait` で待っている呼びが先に取れば、知らせは要らなくなる
+            tokio::time::sleep(束ねる間).await;
+
+            if self.通るか("chat.read").is_ok()
+                && let Some(知) = crate::push::知らせを組む(&この機械.覗く(), 知らせた)
+            {
+                知らせた = 知.最新;
+                let 通知 = ServerNotification::CustomNotification(CustomNotification::new(
+                    crate::push::知らせの方法,
+                    Some(crate::push::知らせの中身(&知)),
+                ));
+                if 受け手.send_notification(通知).await.is_err() {
+                    // 受け手が閉じた。**口ごと終わるので、ここも終わる**
+                    return;
+                }
+            }
+            if !この機械.生きているか() {
+                tokio::time::sleep(繋ぎ直す間).await;
+                continue;
+            }
+            let _ = tokio::time::timeout(見直す間, 鳴った).await;
+        }
     }
 
     /// この機械を取り出す。**つながっていなければ、断りではなく「出せない」。**
@@ -860,9 +922,25 @@ impl ServerHandler for Warifu {
         Self::tool_router().call(tcc).await
     }
 
+    /// 繋いだ相手の支度ができたら、**届いたことを押し出し始める**（`push.rs`）。
+    ///
+    /// **机の場所を知らない口（受信箱だけ・試験）では押し出さない。**
+    async fn on_initialized(&self, context: NotificationContext<RoleServer>) {
+        if self.この機械の場所.is_none() {
+            return;
+        }
+        tokio::spawn(self.clone().知らせ続ける(context.peer));
+    }
+
     fn get_info(&self) -> ServerInfo {
         let mut info = ServerInfo::default();
-        info.capabilities = ServerCapabilities::builder().enable_tools().build();
+        // **`claude/channel` を名乗る**（`push.rs`）。名乗らないと、Claude Code は押し出しを受けない
+        let mut 機能 = std::collections::BTreeMap::new();
+        機能.insert(crate::push::名乗る機能.to_owned(), JsonObject::new());
+        info.capabilities = ServerCapabilities::builder()
+            .enable_experimental_with(機能)
+            .enable_tools()
+            .build();
         // 既定は SDK の名前（rmcp）が出る。**何に繋がっているかは繋いだ人が見るところ**なので、
         // ここは名乗り直す
         let mut 名乗り = Implementation::default();
@@ -888,7 +966,10 @@ impl ServerHandler for Warifu {
              名乗らないと、人からは起動した所のフォルダ名でしか見えない。\
              2026-09-20、機械を立ち上げ直したあとに\
              「どのエージェントが動いていたか分からない」が起きた。\
-             口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。",
+             口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。\
+             **会話に発言が届くと、`<channel>` で知らせが来ることがある**\
+             （channels を付けて立ち上げたとき）。知らせに本文は無い —— chat_read で読む。\
+             返事が要るものにだけ返す。",
             建てた版
         ));
         info
