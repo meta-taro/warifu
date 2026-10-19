@@ -7,6 +7,7 @@
   import Roster, { type Member } from '$lib/meeting/Roster.svelte';
   import LinkBadge from '$lib/link/LinkBadge.svelte';
   import Icon from '$lib/ui/Icon.svelte';
+  import Divider from '$lib/ui/Divider.svelte';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY, 主催の札を付ける, 相手を入れる } from '$lib/meeting/roster';
@@ -442,6 +443,10 @@
    * **相手の操作で動かさない**（`面へ移ってよい` / D31）。移すのは人が押したときだけ。
    */
   let 面 = $state<面の型>(既定の面);
+  // 右の列（会話）の幅。**人が仕切りで広げる**（会話の欄が細くて読みにくい）。
+  // null は初めの幅（CSS の既定）
+  let 会議の右の幅 = $state<number | null>(null);
+  let 連絡帳の右の幅 = $state<number | null>(null);
   /** 連絡帳で選んでいる相手（公開鍵か、この機械の印）。 */
   let 選んだ相手 = $state<string | null>(null);
   /** いま呼んでいる相手。**二度押しを止める。** */
@@ -2896,6 +2901,7 @@
     class:文字だけ={!映像の場を出す}
     hidden={面 !== '会議'}
     role="tabpanel"
+    style:--右の幅={会議の右の幅 === null ? null : `${会議の右の幅}px`}
   >
   <!--
     **映像は使うと言ったときだけ出す**（グループチャットと分ける・2026-09-10）。
@@ -2995,6 +3001,10 @@
       </div>
     {/if}
   </section>
+
+  {#if 映像の場を出す}
+    <Divider {locale} bind:幅={会議の右の幅} 覚える鍵="warifu.幅.会議" />
+  {/if}
 
   <aside>
     <!--
@@ -3551,7 +3561,11 @@
 
   <!-- 連絡帳。**起動して最初に出る面** -->
   {#if 面 === '連絡帳'}
-    <div class="pane contacts" role="tabpanel">
+    <div
+      class="pane contacts"
+      role="tabpanel"
+      style:--右の幅={連絡帳の右の幅 === null ? null : `${連絡帳の右の幅}px`}
+    >
       <ContactsPane
         {locale}
         素材={連絡帳の素材}
@@ -3600,6 +3614,7 @@
         「これは誰に届くのか」で終わる。全員あては「ルーム」の面にある。
       -->
       {#if 選んだ相手 && 選んだ相手 !== 自分の鍵}
+        <Divider {locale} bind:幅={連絡帳の右の幅} 覚える鍵="warifu.幅.連絡帳" 残す={640} />
         <ChatPanel {画面での名簿}
           {locale}
           {会話}
@@ -4047,15 +4062,23 @@
   }
   /* 連絡帳は「一覧 ＋ 相手」と「会話」の 2 つ */
   .pane.contacts > :global(.card) {
-    width: 300px;
+    /* 幅は人が仕切りで変える。**左を潰すほどは広げない**（窓を縮めたときも） */
+    width: var(--右の幅, 300px);
+    /* 左は一覧と相手の欄の 2 列。仕切りの `残す` と同じ数 */
+    max-width: max(260px, calc(100% - 640px));
     flex: none;
+  }
+  /* 列の間は仕切りが埋める（仕切りの幅が隙間になる） */
+  .pane.contacts {
+    gap: 0;
   }
   .pane.schedule {
     align-items: flex-start;
   }
   .pane.meeting {
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: minmax(0, 1fr) auto min(var(--右の幅, 340px), max(260px, calc(100% - 420px)));
+    column-gap: 0;
     /* **窓ごと動かさない。**動いてよいのは右の列の中だけである。
        ここを `overflow-y: auto` にしていたため、右の列が 1101px まで伸びて
        **チャットと名簿が窓の下端から 442px はみ出していた**（2026-09-06 の実測）。
