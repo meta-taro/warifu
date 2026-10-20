@@ -40,6 +40,7 @@ chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you 
 chat.image.alt	Image from {who}	{who} が送った画像	{who} 发来的图片	{who}이(가) 보낸 이미지				
 chat.image.attach	Send an image (you can also paste or drag one in; large images are shrunk before sending)	画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）	发送图片（也可以粘贴或拖进来；大图会先缩小再发送）	이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)				
 chat.image.close	Close	閉じる	关闭	닫기				
+chat.image.nobody	Images go to the people in the room. Nobody from another machine is here right now (agents on this PC do not receive images).	画像はルームの相手に届きます。いまはほかの機械の人がいません（この PC のエージェントには画像は届きません）。	图片会送到房间里的人。现在没有其他机器的人在（这台电脑的代理收不到图片）。	이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다(이 PC의 에이전트에는 이미지가 가지 않습니다).		「いまは」を落とさないこと —— 相手が入れば送れる。エージェントに届かないのは決めごと（絵を渡さない）であって、故障ではない。		
 chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들어왔습니다				
 chat.keep	You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.	打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。	你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。	입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.				
 chat.keep.switch	Switch to the new destination	新しい宛先に切り替える	切换到新的收件对象	새 보낼 곳으로 바꾸기				

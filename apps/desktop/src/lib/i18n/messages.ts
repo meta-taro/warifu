@@ -64,6 +64,7 @@ export type MessageKey =
   | 'chat.image.attach'
   | 'chat.image.alt'
   | 'chat.image.close'
+  | 'chat.image.nobody'
   | 'chat.send'
   | 'chat.empty'
   | 'chat.joined'
@@ -494,6 +495,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': '画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）',
     'chat.image.alt': '{who} が送った画像',
     'chat.image.close': '閉じる',
+    'chat.image.nobody': '画像はルームの相手に届きます。いまはほかの機械の人がいません（この PC のエージェントには画像は届きません）。',
     'chat.send': '送る',
     'chat.empty': 'まだ何もありません',
     'chat.joined': '{who} が入りました',
@@ -880,6 +882,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': 'Send an image (you can also paste or drag one in; large images are shrunk before sending)',
     'chat.image.alt': 'Image from {who}',
     'chat.image.close': 'Close',
+    'chat.image.nobody': 'Images go to the people in the room. Nobody from another machine is here right now (agents on this PC do not receive images).',
     'chat.send': 'Send',
     'chat.empty': 'Nothing yet',
     'chat.joined': '{who} came in',
@@ -1264,6 +1267,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': '发送图片（也可以粘贴或拖进来；大图会先缩小再发送）',
     'chat.image.alt': '{who} 发来的图片',
     'chat.image.close': '关闭',
+    'chat.image.nobody': '图片会送到房间里的人。现在没有其他机器的人在（这台电脑的代理收不到图片）。',
     'chat.send': '发送',
     'chat.empty': '还没有内容',
     'chat.joined': '{who} 进来了',
@@ -1652,6 +1656,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': '이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)',
     'chat.image.alt': '{who}이(가) 보낸 이미지',
     'chat.image.close': '닫기',
+    'chat.image.nobody': '이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다(이 PC의 에이전트에는 이미지가 가지 않습니다).',
     'chat.send': '보내기',
     'chat.empty': '아직 아무것도 없습니다',
     'chat.joined': '{who} 가 들어왔습니다',

@@ -41,6 +41,13 @@
     /** 画像を送る。**渡されなければ、画像の口を出さない**（預かり所ごしなど、送れない所） */
     画像を送る?: (画像: File) => void;
     /**
+     * **画像が届く相手がいまいるか**（ルームにほかの機械の人がいるか）。
+     *
+     * 居なくても**画像の口は消さない**（2026-10-20）。消すと、人には「送れない」としか見えなかった。
+     * 薄く出して、なぜ押せないかを添える。
+     */
+    画像の届く先がある?: boolean;
+    /**
      * 選んだ相手のすぐ隣に並ぶか。
      *
      * **並ぶなら「その人との会話ではない」と先に言う。**
@@ -100,6 +107,7 @@
     この機械の人数,
     送る,
     画像を送る,
+    画像の届く先がある = true,
     相手ごとではない = false,
     届く先,
     届く先の顔 = [],
@@ -360,9 +368,9 @@
       <button
         type="button"
         class="quiet attach"
-        title={t('chat.image.attach')}
-        aria-label={t('chat.image.attach')}
-        disabled={!届く先がある}
+        title={画像の届く先がある ? t('chat.image.attach') : t('chat.image.nobody')}
+        aria-label={画像の届く先がある ? t('chat.image.attach') : t('chat.image.nobody')}
+        disabled={!画像の届く先がある}
         onclick={() => 画像の口?.click()}
       >
         <Icon name="image" size={18} />
