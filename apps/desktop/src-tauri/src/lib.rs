@@ -93,6 +93,7 @@ macro_rules! 記録 {
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
 mod call;
 mod cli;
+mod come_back;
 mod contacts;
 mod desk;
 mod key_give;
@@ -1416,8 +1417,15 @@ fn invite_window(invite: String) -> Answer<String> {
 ///
 /// **通すかどうかは、相手の戸口が決める。**こちらでは決めない ——
 /// 断られたら、そのとき初めて「鍵をもらってください」と言う。
+///
+/// **見張り（[`come_back`]）も、ここを通る**（0.1.28）。人が押さなくても戻る。
 #[tauri::command]
-async fn rejoin_room(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
+async fn rejoin_room(app: AppHandle) -> Answer<()> {
+    come_back::戻る(app).await
+}
+
+/// 帰り道から戻る中身。**直に呼ばない** —— [`come_back::戻る`] が重ねて叩かないよう見張っている。
+pub(crate) async fn 前のルームへ戻る(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let vault = warifu_vault::Vault::default_location()?;
     let Some((_部屋, 鍵)) = vault.rejoin()? else {
         return Err(Failure {
@@ -2971,16 +2979,16 @@ fn desk_seats() -> Vec<String> {
 #[derive(Debug, serde::Serialize)]
 pub struct RoomRow {
     /// ルームの id（全桁）。**押したときに使う。**
-    id: String,
+    pub(crate) id: String,
     /// いま居る人数（自分を含む）。
-    members: usize,
+    pub(crate) members: usize,
     /// 自分が主催か。
-    host: bool,
+    pub(crate) host: bool,
     /// **主催の公開鍵**（全桁）。名簿の「主催」の札をここで決める（2026-10-05）。
     ///
     /// 画面は起動したときに「自分が主催」と決め打ちしていたので、
     /// 鍵で他人の部屋に入ると、ゲストの名簿で自分に「主催」が付いていた。
-    host_key: String,
+    pub(crate) host_key: String,
 }
 
 /// **いま居るルームを並べる。**
@@ -2989,6 +2997,11 @@ pub struct RoomRow {
 /// **一覧が無ければ切り替えようがない。**持てても見えなければ意味がない。
 #[tauri::command]
 async fn rooms(bridge: State<'_, Bridge>) -> Answer<Vec<RoomRow>> {
+    Ok(ルームの並び(&bridge).await)
+}
+
+/// いま居るルームの並び。**画面の一覧と、見張り（[`come_back`]）が使う。**
+pub(crate) async fn ルームの並び(bridge: &Bridge) -> Vec<RoomRow> {
     let me = bridge.device.public_key();
     // **主催は覚えてある**（**#37** / **D111**）。
     //
@@ -3016,7 +3029,7 @@ async fn rooms(bridge: State<'_, Bridge>) -> Answer<Vec<RoomRow>> {
         .collect();
     // **並びを固定する。**`HashMap` の順は読むたびに変わる
     並び.sort_by(|a, b| a.id.cmp(&b.id));
-    Ok(並び)
+    並び
 }
 
 /// **見るルームを選ぶ。**
@@ -3265,6 +3278,8 @@ pub fn run() {
             // **画面が立ったらこの機械も開く。**人が別の操作をしなくても、
             // 同じ PC のエージェントが会話につながれる状態にする
             desk::開く(app.handle().clone());
+            // **主催と切れたら、自分から戻る**（0.1.28）。押す人が画面の前に居るとは限らない
+            tauri::async_runtime::spawn(come_back::見張る(app.handle().clone()));
 
             // **窓が開いている間に来たリンク**を受ける
             {
