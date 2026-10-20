@@ -6484,7 +6484,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-app"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "warifu-core",
  "warifu-intent",
@@ -6493,11 +6493,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-capability"
-version = "0.1.25"
+version = "0.1.26"
 
 [[package]]
 name = "warifu-core"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "ed25519-dalek 2.2.0",
  "getrandom 0.3.4",
@@ -6508,7 +6508,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-desk"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "serde",
  "serde_json",
@@ -6517,7 +6517,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-desktop"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "chrono",
  "fast_qr",
@@ -6546,15 +6546,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-door"
-version = "0.1.25"
+version = "0.1.26"
 
 [[package]]
 name = "warifu-guard"
-version = "0.1.25"
+version = "0.1.26"
 
 [[package]]
 name = "warifu-intent"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "getrandom 0.3.4",
  "warifu-core",
@@ -6563,11 +6563,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-link"
-version = "0.1.25"
+version = "0.1.26"
 
 [[package]]
 name = "warifu-meeting"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "warifu-core",
  "warifu-intent",
@@ -6576,7 +6576,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-net"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "bytes",
  "futures",
@@ -6591,14 +6591,14 @@ dependencies = [
 
 [[package]]
 name = "warifu-post"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "warifu-core",
 ]
 
 [[package]]
 name = "warifu-postbox"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "warifu-core",
  "warifu-net",
@@ -6608,7 +6608,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-seal"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "chacha20poly1305",
  "ed25519-dalek 2.2.0",
@@ -6622,7 +6622,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-turn"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "async-trait",
  "getrandom 0.3.4",
@@ -6633,7 +6633,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-vault"
-version = "0.1.25"
+version = "0.1.26"
 dependencies = [
  "warifu-core",
  "zeroize",
