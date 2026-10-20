@@ -140,6 +140,10 @@ const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
 const MY_ROOM_HEADER: &str = "warifu-room-v1";
 /// **帰り道**の見出し。**中身は 2 欄**（ルーム id・入るのに使ったルームキー）。
 const REJOIN_HEADER: &str = "warifu-rejoin-v1";
+/// **ルームの名前**の見出し（0.1.28）。中身は 2 欄（ルーム id・名前）。
+const ROOM_NAMES_HEADER: &str = "warifu-room-names-v1";
+/// **名前を持つルームの上限。**古いものから落とす（使い終わった名前を溜めない）。
+pub const ROOM_NAMES_MAX: usize = 64;
 /// **帰り道を持つ上限。**鍵は秘密なので、際限なく溜めない（古いものから落とす）。
 ///
 /// 1 つの機械が入るルームの数としては十分に大きい。
@@ -422,6 +426,78 @@ impl Vault {
             .collect();
         let out = format!("{MY_ROOM_HEADER}\n{}\t{}\n", id.trim(), 安全.trim());
         self.write_private(&self.my_room_path(), &out, "ルームを書く")
+    }
+
+    /// ルームの名前のファイル（0.1.28）。
+    #[must_use]
+    pub fn room_names_path(&self) -> PathBuf {
+        self.dir.join("room-names.tsv")
+    }
+
+    /// **ルームの名前**（id と名前）。古いものから並ぶ。
+    ///
+    /// **`room.tsv` とは別に持つ。**あちらは主催しているルームのためのもので、
+    /// 他人のルームの id を書くと、次の起動で他人の id で建てることになる。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn room_names(&self) -> Result<Vec<(String, String)>, Error> {
+        let path = self.room_names_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "ルームの名前を読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != ROOM_NAMES_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{ROOM_NAMES_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(lines
+            .filter_map(|行| {
+                let mut 欄 = 行.split('\t');
+                let id = 欄.next().unwrap_or_default().trim().to_owned();
+                let 名前 = 欄.next().unwrap_or_default().trim().to_owned();
+                (!id.is_empty() && !名前.is_empty()).then_some((id, 名前))
+            })
+            .collect())
+    }
+
+    /// ルームの名前を書く。**同じルームは差し替えて後ろへ回す。空なら行を消す。**
+    ///
+    /// # Errors
+    /// 読めない・書けないとき。
+    pub fn save_room_name(&self, id: &str, 名前: &str) -> Result<(), Error> {
+        // **人が書いた名前を、そのままファイルへ流さない**（TSV が崩れる）
+        let 整える = |文: &str| -> String {
+            文.chars()
+                .map(|c| {
+                    if c == '\t' || c == '\n' || c == '\r' {
+                        ' '
+                    } else {
+                        c
+                    }
+                })
+                .collect::<String>()
+                .trim()
+                .to_owned()
+        };
+        let id = 整える(id);
+        let 名前 = 整える(名前);
+        let mut 並び = self.room_names()?;
+        並び.retain(|(部屋, _)| *部屋 != id);
+        if !名前.is_empty() {
+            並び.push((id, 名前));
+        }
+        let 余り = 並び.len().saturating_sub(ROOM_NAMES_MAX);
+        並び.drain(..余り);
+        let mut out = format!("{ROOM_NAMES_HEADER}\n");
+        for (id, 名前) in &並び {
+            out.push_str(&format!("{id}\t{名前}\n"));
+        }
+        self.write_private(&self.room_names_path(), &out, "ルームの名前を書く")
     }
 
     /// 帰り道のファイル。

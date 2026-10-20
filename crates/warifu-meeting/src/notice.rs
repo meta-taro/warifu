@@ -42,6 +42,10 @@ const KEY_PREFIX: &str = "WARIFU1-";
 /// **口の名前に `-` は入れられない**（`warifu-intent` の `Kind` が
 /// 小文字と数字だけを通す）。2026-09-17 に `meeting.room-secret` で落ちた。
 const ROOM_SECRET: &str = "meeting.roomsecret";
+/// **ルームの名前**（0.1.28）。居る人みんなで同じ名前を持つ。
+const ROOM_NAME: &str = "meeting.roomname";
+/// ルームの名前の長さ（バイト）。**画面の 1 行に収まる長さ**（名乗りの名前と同じ）。
+pub const ROOM_NAME_MAX: usize = 128;
 
 /// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
 const LINK_LEN: usize = 20;
@@ -247,6 +251,20 @@ pub enum Notice {
         /// 合言葉。**`Debug` では中身が出ない。**
         合言葉: warifu_core::合言葉,
     },
+    /// **ルームの名前**（0.1.28）。
+    ///
+    /// 名前を付けられるのは誰でもよい。**主催が配り、いちばん新しいものが勝つ。**
+    /// 前は付けた人の画面にしか出ず、同じルームが機械ごとに別の名前で見えていた。
+    ///
+    /// **空にすると「名前を外す」意味になる**（外したことも伝わる必要がある）。
+    RoomName {
+        /// どのルームの名前か。
+        meeting: MeetingId,
+        /// 誰が付けたか。**主催が配り直すので、経路の相手とは限らない。**
+        from: PublicKey,
+        /// 名前。[`ROOM_NAME_MAX`] まで。
+        名前: String,
+    },
 }
 
 impl Notice {
@@ -263,7 +281,8 @@ impl Notice {
             | Self::Image { meeting, .. }
             | Self::Profile { meeting, .. }
             | Self::Key { meeting, .. }
-            | Self::RoomSecret { meeting, .. } => *meeting,
+            | Self::RoomSecret { meeting, .. }
+            | Self::RoomName { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -350,6 +369,13 @@ impl Notice {
                 (PROFILE, 塊)
             }
             Self::RoomSecret { 合言葉, .. } => (ROOM_SECRET, 合言葉.バイト列().to_vec()),
+            Self::RoomName { from, 名前, .. } => {
+                ルームの名前を検める(名前)?;
+                let mut 塊 = Vec::with_capacity(32 + 名前.len());
+                塊.extend_from_slice(&from.to_bytes());
+                塊.extend_from_slice(名前.as_bytes());
+                (ROOM_NAME, 塊)
+            }
             Self::Link { report, .. } => {
                 let mut 塊 = Vec::with_capacity(LINK_LEN);
                 塊.extend_from_slice(&report.uplink_bps().to_be_bytes());
@@ -452,6 +478,22 @@ impl Notice {
                     合言葉: warifu_core::合言葉::から(中身),
                 })
             }
+            ROOM_NAME => {
+                // `[付けた人 32][名前]`。**組み立てる側と同じ検めをする**
+                let 頭: [u8; 32] = 荷物
+                    .get(..32)
+                    .ok_or(Error::Malformed)?
+                    .try_into()
+                    .map_err(|_| Error::Malformed)?;
+                let from = PublicKey::from_bytes(頭).map_err(|_| Error::Malformed)?;
+                let 名前 = String::from_utf8(荷物[32..].to_vec()).map_err(|_| Error::Malformed)?;
+                ルームの名前を検める(&名前)?;
+                Ok(Self::RoomName {
+                    meeting,
+                    from,
+                    名前,
+                })
+            }
             INTRODUCE => {
                 if 荷物.len() < 32 || 荷物.len() > 32 + ADDRESS_MAX {
                     return Err(Error::Malformed);
@@ -500,6 +542,14 @@ fn 鍵を検める(鍵: &str) -> Result<(), Error> {
         || 鍵.len() == KEY_PREFIX.len()
         || !鍵.bytes().all(|b| b.is_ascii_graphic())
     {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// ルームの名前として運べるか。**長すぎず、行と欄を壊さない。**空は通す（外したこと）。
+fn ルームの名前を検める(名前: &str) -> Result<(), Error> {
+    if 名前.len() > ROOM_NAME_MAX || 名前.chars().any(char::is_control) {
         return Err(Error::Malformed);
     }
     Ok(())

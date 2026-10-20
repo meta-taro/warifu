@@ -58,7 +58,7 @@ mod roster;
 mod signal;
 
 pub use error::Error;
-pub use notice::{IMAGE_MAX, KEY_MAX, Notice};
+pub use notice::{IMAGE_MAX, KEY_MAX, Notice, ROOM_NAME_MAX};
 // **`Notice::Link` が `Report` を持っているので、ここから辿れないといけない。**
 // 2026-09-17 まで再公開しておらず、**公開の enum に入っているのに
 // 名前を書けない型**になっていた（画面の試験で気づいた）。

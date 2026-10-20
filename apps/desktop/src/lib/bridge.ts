@@ -79,6 +79,13 @@ export const EVENT_CHECK_UPDATE = 'warifu://check-update';
  */
 export const EVENT_CLAIMED = 'warifu://claimed';
 
+/**
+ * **ルームの名前が届いた**（0.1.28）。`[ルーム id, 名前]`。空なら名前を外した。
+ *
+ * 名前は居る人みんなで持つ。誰が付けても、いちばん新しいものが勝つ。
+ */
+export const EVENT_ROOM_NAME = 'warifu://room-name';
+
 
 /** 相手から届いた下ごしらえ 1 通。 */
 export interface SignalPayload {
@@ -497,7 +504,7 @@ export const sendSignal = (step: SignalPayload['step'], blob: string, to?: strin
   invoke<void>('send_signal', { payload: { step, blob, to } });
 
 /**
- * ルームに名前を付ける。**置き場所に書く**（閉じても消えない）。
+ * ルームに名前を付ける。**置き場所に書き、そのルームに居る人へ渡す**（0.1.28）。
  *
  * 画面の中だけに持つと、開き直すたびに名前が消える（2026-09-11）。
  */
@@ -506,6 +513,9 @@ export const nameRoom = (id: string, name: string) =>
 
 /** 主催しているルームの名前。**無ければ空。** */
 export const roomName = () => invoke<string>('room_name');
+
+/** **ルームごとの名前**（ルーム id → 名前）。入ったルームの名前もここにある（0.1.28）。 */
+export const roomNames = () => invoke<Record<string, string>>('room_names');
 
 /**
  * **経路の札を Rust へ置く**（`direct` / `relayed` / `unknown`）。

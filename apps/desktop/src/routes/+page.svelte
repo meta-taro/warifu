@@ -166,6 +166,8 @@
     relaySetting,
     setRelay,
     roomName,
+    roomNames,
+    EVENT_ROOM_NAME,
     scheduleAdd,
     scheduleList,
     scheduleRemove,
@@ -1917,6 +1919,15 @@
         }),
       );
       unsubs.push(
+        // **ルームの名前が届いた**（0.1.28）。居る人みんなで同じ名前を持つ
+        await onEvent<[string, string]>(EVENT_ROOM_NAME, ([id, 名前]) => {
+          const 次 = { ...ルームの名前たち };
+          if (名前.trim()) 次[id] = 名前.trim();
+          else delete 次[id];
+          ルームの名前たち = 次;
+        }),
+      );
+      unsubs.push(
         await onEvent<string>(EVENT_LEFT, (key) => 片付ける(key)),
       );
       unsubs.push(
@@ -1980,13 +1991,19 @@
     return () => clearInterval(札);
   });
 
-  // **主催しているルームの名前を、置き場所から読む。**
-  // 画面の中だけに持っていた頃は、閉じると消えていた（2026-09-11）
+  // **ルームの名前を、置き場所から読む。**
+  // 画面の中だけに持っていた頃は、閉じると消えていた（2026-09-11）。
+  // **入ったルームの名前も読む**（0.1.28）—— 前は主催しているルームの分だけだった
   $effect(() => {
     void (async () => {
+      const 控え = (await roomNames().catch(() => ({}))) ?? {};
       const 名 = (await roomName()) ?? '';
       const id = いまのルーム;
-      if (名 && id) ルームの名前たち = { ...ルームの名前たち, [id]: 名 };
+      ルームの名前たち = {
+        ...控え,
+        ...(名 && id ? { [id]: 名 } : {}),
+        ...ルームの名前たち,
+      };
     })();
   });
 

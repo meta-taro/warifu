@@ -1253,6 +1253,66 @@ fn 貼られた文字に区切りが混ざっていても崩れない() {
     assert_eq!(鍵, "warifu://join/AAABBB");
 }
 
+// --- ルームの名前を、居る人みんなで持つ（0.1.28） ---------------------------
+//
+// **`room.tsv` は主催しているルームのためのもの。**他人のルームの名前をそこへ書くと、
+// 次の起動で他人の id で建てることになる。名前は別のファイルに持つ。
+
+#[test]
+fn ルームの名前はルームごとに持てる() {
+    let dir = 仮の置き場("room-names");
+    let vault = Vault::at(&dir);
+    assert!(vault.room_names().expect("読める").is_empty());
+    vault.save_room_name("ROOM-A", "開発").expect("書ける");
+    vault.save_room_name("ROOM-B", "雑談").expect("書ける");
+    vault
+        .save_room_name("ROOM-A", "割符の開発")
+        .expect("書ける");
+    assert_eq!(
+        Vault::at(&dir).room_names().expect("読める"),
+        vec![
+            ("ROOM-B".to_owned(), "雑談".to_owned()),
+            ("ROOM-A".to_owned(), "割符の開発".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn 空の名前はその行を消す() {
+    let dir = 仮の置き場("room-names-clear");
+    let vault = Vault::at(&dir);
+    vault.save_room_name("ROOM-A", "開発").expect("書ける");
+    vault.save_room_name("ROOM-A", "  ").expect("書ける");
+    assert!(vault.room_names().expect("読める").is_empty());
+}
+
+#[test]
+fn ルームの名前に区切りが混ざっても崩れない() {
+    let dir = 仮の置き場("room-names-tab");
+    let vault = Vault::at(&dir);
+    vault
+        .save_room_name("ROOM-A", "一\t二\n三")
+        .expect("書ける");
+    assert_eq!(
+        vault.room_names().expect("読める"),
+        vec![("ROOM-A".to_owned(), "一 二 三".to_owned())]
+    );
+}
+
+#[test]
+fn ルームの名前は持ちすぎない() {
+    let dir = 仮の置き場("room-names-cap");
+    let vault = Vault::at(&dir);
+    for i in 0..(warifu_vault::ROOM_NAMES_MAX + 2) {
+        vault
+            .save_room_name(&format!("ROOM-{i}"), "名")
+            .expect("書ける");
+    }
+    let 並び = vault.room_names().expect("読める");
+    assert_eq!(並び.len(), warifu_vault::ROOM_NAMES_MAX);
+    assert_eq!(並び[0].0, "ROOM-2");
+}
+
 // --- 帰り道を、入ったルームの数だけ持つ（0.1.28） -------------------------
 //
 // 1 つしか持てないと、2 つ目のルームへ入った時点で 1 つ目へ戻れなくなる。

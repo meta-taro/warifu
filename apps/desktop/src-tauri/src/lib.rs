@@ -102,6 +102,7 @@ mod media_path;
 mod notify;
 mod postbox;
 mod profile;
+mod room_name;
 mod schedule;
 mod voice;
 mod window_place;
@@ -1172,10 +1173,9 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
 ///
 /// 2026-09-11。それまで名前は画面の中だけで、**閉じると消えていた。**
 #[tauri::command]
-async fn name_room(id: String, name: String) -> Answer<()> {
-    let vault = warifu_vault::Vault::default_location()?;
-    vault.save_my_room(&id, &name)?;
-    Ok(())
+async fn name_room(bridge: State<'_, Bridge>, id: String, name: String) -> Answer<()> {
+    // **居る人みんなへ渡す**（0.1.28）。`room.tsv` へは主催しているルームのときだけ書く
+    room_name::付ける(&bridge, &id, &name).await
 }
 
 /// **まだ人が答えていないリンクの鍵**（画面が起き上がったときに取りに来る）。
@@ -2054,6 +2054,26 @@ fn 汲む(
                         );
                         continue;
                     }
+                    // **ルームの名前**（0.1.28）。主催なら、ほかの人へ配り直す
+                    if let Notice::RoomName {
+                        meeting,
+                        from,
+                        名前,
+                    } = &notice
+                    {
+                        if !conferences.lock().await.contains_key(meeting) {
+                            記録!("ルームの名前を捨てました（居ないルームあて）");
+                            continue;
+                        }
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        let 受けた =
+                            room_name::届いた(&app, *meeting, *from, peer, 部屋の主催, 名前);
+                        // **覚えていない部屋は、自分が建てたもの**（`rooms` と同じ読み方）
+                        if 受けた && 部屋の主催.is_none_or(|主催| 主催 == me) {
+                            他へ配る(&outbound, peer, &notice).await;
+                        }
+                        continue;
+                    }
                     // **合言葉を受け取ってしまう**（**D118**）。
                     //
                     // **主催以外から来たものは捨てる。**合言葉は主催が決めるものであり、
@@ -2123,6 +2143,8 @@ fn 汲む(
                             // 主催が紹介を配る」が揃った 1 点であり、
                             // **通る前に渡す理由が無い。**
                             部屋の合言葉を渡す(&合言葉たち, &outbound, *who, *meeting).await;
+                            // **ルームの名前も渡す**（0.1.28）。入った人にも同じ名前で見える
+                            room_name::新入りへ渡す(&app.state::<Bridge>(), *who, *meeting).await;
                             紹介を配る(&conferences, &outbound, &addresses, me, *who, *meeting)
                                 .await;
                         } else if contacts::呼びに行かせるか(peer, *who) {
@@ -3136,6 +3158,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Key { .. } => "鍵の手渡し",
         // **中身は出さない。**種別だけ言う —— これは合言葉を運ぶ知らせである（**D118**）
         Notice::RoomSecret { .. } => "部屋の合言葉",
+        Notice::RoomName { .. } => "ルームの名前",
         _ => "知らない知らせ",
     }
 }
@@ -3356,6 +3379,7 @@ pub fn run() {
             set_menu_locale,
             cli_state,
             rejoin_key,
+            room_name::room_names,
             postbox::postbox,
             postbox::set_postbox,
             postbox::fetch_postbox,
@@ -3515,6 +3539,11 @@ mod 知らせの名の試験 {
                 meeting: 部屋,
                 from: 鍵(),
                 鍵: "WARIFU1-ABC".to_owned(),
+            },
+            Notice::RoomName {
+                meeting: 部屋,
+                from: 鍵(),
+                名前: String::new(),
             },
         ]
     }
