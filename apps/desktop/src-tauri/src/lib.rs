@@ -91,6 +91,7 @@ macro_rules! 記録 {
 }
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
+mod absence;
 mod call;
 mod cli;
 mod come_back;
@@ -2272,12 +2273,21 @@ fn 汲む(
         // **知らせは画面へ渡さない。**画面には `EVENT_CLOSED` で伝わっていて、
         // ここで `Left` も出すと**退室の行が 2 本出る。**
         // 外すのは、次の入り直しを通すためである。
-        {
+        let 居た = {
             let mut 棚 = conferences.lock().await;
+            let mut 居た = false;
             for c in 棚.values_mut() {
                 let ルーム = c.id();
-                let _ = c.on_notice(peer, &Notice::Leave { meeting: ルーム });
+                居た |= c
+                    .on_notice(peer, &Notice::Leave { meeting: ルーム })
+                    .is_ok_and(|出来事| !出来事.is_empty());
             }
+            居た
+        };
+        // **抜けたのではなく、切れた。**一員のままなので、戻るのを待つ（0.1.28）。
+        // 名簿に居なかった（もう抜けていた）相手は待たない
+        if 居た {
+            absence::切れた(&key_to_string(peer));
         }
 
         記録!("経路が終わった: {}（{訳}）", 短く(&key_to_string(peer)));
@@ -3171,6 +3181,7 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
                 // 連絡先から呼ばれた側は、人に聞かずにルームへ入る ——
                 // 押し出さないと、**誰も気づかないまま相手だけが待つ**
                 let 鍵 = key_to_string(*key);
+                absence::戻った(&鍵);
                 let 名 = desk::入退室を配る(&app.state::<Bridge>(), &鍵, true);
                 let 名 = if 名 == 鍵 { 短く(&鍵) } else { 名 };
                 notify::入ったと知らせる(app, &名);
@@ -3179,6 +3190,8 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
             warifu_app::Event::Left(key) => {
                 // 出たことはエージェントにだけ見せる。**人へは鳴らさない**（うるさい）
                 let 鍵 = key_to_string(*key);
+                // **ここへ来るのは、本人が抜けたときだけ**（切れたときは `Left` を出さない）
+                absence::抜けた(&鍵);
                 desk::入退室を配る(&app.state::<Bridge>(), &鍵, false);
                 app.emit(EVENT_LEFT, 鍵)
             }
@@ -3314,6 +3327,8 @@ pub fn run() {
             desk::開く(app.handle().clone());
             // **主催と切れたら、自分から戻る**（0.1.28）。押す人が画面の前に居るとは限らない
             tauri::async_runtime::spawn(come_back::見張る(app.handle().clone()));
+            // **切れたまま戻らない人を知らせる**（0.1.28）
+            tauri::async_runtime::spawn(absence::見張る(app.handle().clone()));
 
             // **窓が開いている間に来たリンク**を受ける
             {

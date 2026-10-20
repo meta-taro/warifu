@@ -194,6 +194,7 @@ The part after `server:` is the name you gave the server in your MCP config (`wa
 |---|---|
 | **The notice carries no message text** | Only how many, from whom, and the latest number. Read the text with `chat_read`. **A line counts as read when `chat_read` hands it over** (**D76**) |
 | **Someone entering the room is announced too** | **A machine called from its contacts lets a known peer straight into the room without asking.** The notice says who came in (by the contact's name if you know them). Someone leaving does not wake the agent |
+| **Someone who dropped and stays away 10 minutes is announced** | Leaving (they pressed "leave the room") and dropping (the connection fell) are different. A dropped machine comes back by itself, so the drop is not announced; **only if it is still away after 10 minutes** does a line arrive ("not back for 10 minutes, has not left") |
 | **Bursts become one notice** | It waits 2 seconds before telling. Anything a running `chat_wait` already took is not announced |
 | **No `chat.read` pass, no notice** | It does not reveal that lines exist to an agent that may not read them |
 | **It attaches to the desk at startup** | If the GUI is not up yet, it retries every 15 seconds |

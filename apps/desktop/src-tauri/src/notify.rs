@@ -82,6 +82,17 @@ pub fn 入ったと知らせる(app: &AppHandle, 誰: &str) {
     知らせを出す(app, &format!("{誰} がルームに入りました"));
 }
 
+/// **長く戻らない人がいる**と知らせる（0.1.28）。窓が前に居るときは鳴らさない。
+pub fn 不在を知らせる(app: &AppHandle, 誰: &str, 分: u64) {
+    if 前に居る(app) || !間が空いた() {
+        return;
+    }
+    if let Some(窓) = app.get_webview_window("main") {
+        let _ = 窓.request_user_attention(Some(tauri::UserAttentionType::Informational));
+    }
+    知らせを出す(app, &format!("{誰} が {分} 分、ルームに戻っていません"));
+}
+
 fn 前に居る(app: &AppHandle) -> bool {
     app.get_webview_window("main")
         .and_then(|w| w.is_focused().ok())

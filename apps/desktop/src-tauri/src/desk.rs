@@ -738,9 +738,7 @@ pub(crate) fn 連絡先の組() -> Vec<(String, String)> {
 /// 名前は書き出しと同じ決め方にする（覚えている相手なら呼び名を前に出す）。
 /// **返した名前は人への通知にも使う**（画面とエージェントで呼び方を揃える）。
 pub fn 入退室を配る(bridge: &Bridge, 鍵: &str, 入った: bool) -> String {
-    let 帳 = 連絡先の組();
-    let 自分 = crate::key_to_string(bridge.device.public_key());
-    let 名 = crate::contacts::書き出しの名(&帳, &自分, 鍵);
+    let 名 = 名を引く(bridge, 鍵);
     let 中身 = if 入った {
         FromDesk::Joined { who: 名.clone() }
     } else {
@@ -748,6 +746,13 @@ pub fn 入退室を配る(bridge: &Bridge, 鍵: &str, 入った: bool) -> String
     };
     配る(bridge, 中身);
     名
+}
+
+/// **エージェントに見せる名**（呼び名があれば呼び名・無ければ鍵）。
+pub fn 名を引く(bridge: &Bridge, 鍵: &str) -> String {
+    let 帳 = 連絡先の組();
+    let 自分 = crate::key_to_string(bridge.device.public_key());
+    crate::contacts::書き出しの名(&帳, &自分, 鍵)
 }
 
 /// **控えている会話を、書き出す形にする**（2026-10-16）。古い順。誰が、には呼び名を添える。
