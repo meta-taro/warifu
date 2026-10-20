@@ -710,6 +710,30 @@ pub(crate) async fn 流す(
     Ok((id, 名札で並べる(&届いた)))
 }
 
+/// **誰かが入った・出たことを、この機械のエージェントにも見せる**（2026-10-20）。
+///
+/// 連絡先から呼ばれた側は、知り合いなら人に聞かずにルームへ入る。
+/// **見せないと、エージェントは自分から `room_status` を見るまで気づけない。**
+///
+/// 名前は書き出しと同じ決め方にする（覚えている相手なら呼び名を前に出す）。
+/// **返した名前は人への通知にも使う**（画面とエージェントで呼び方を揃える）。
+pub fn 入退室を配る(bridge: &Bridge, 鍵: &str, 入った: bool) -> String {
+    let 帳: Vec<(String, String)> = 連絡先を並べる()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| (r.鍵, r.名前))
+        .collect();
+    let 自分 = crate::key_to_string(bridge.device.public_key());
+    let 名 = crate::contacts::書き出しの名(&帳, &自分, 鍵);
+    let 中身 = if 入った {
+        FromDesk::Joined { who: 名.clone() }
+    } else {
+        FromDesk::Left { who: 名.clone() }
+    };
+    配る(bridge, 中身);
+    名
+}
+
 /// **控えている会話を、書き出す形にする**（2026-10-16）。古い順。誰が、には呼び名を添える。
 fn 会話を書き出す(自分: &str) -> Vec<warifu_desk::書き出しの行> {
     let 帳: Vec<(String, String)> = 連絡先を並べる()

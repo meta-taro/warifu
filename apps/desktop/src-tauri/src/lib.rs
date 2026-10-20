@@ -3098,8 +3098,22 @@ fn 知らせの名(n: &Notice) -> &'static str {
 fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
     for event in events {
         let _ = match event {
-            warifu_app::Event::Joined(key) => app.emit(EVENT_JOINED, key_to_string(*key)),
-            warifu_app::Event::Left(key) => app.emit(EVENT_LEFT, key_to_string(*key)),
+            warifu_app::Event::Joined(key) => {
+                // **入ったことを、人とエージェントへ押し出す**（2026-10-20）。
+                // 連絡先から呼ばれた側は、人に聞かずにルームへ入る ——
+                // 押し出さないと、**誰も気づかないまま相手だけが待つ**
+                let 鍵 = key_to_string(*key);
+                let 名 = desk::入退室を配る(&app.state::<Bridge>(), &鍵, true);
+                let 名 = if 名 == 鍵 { 短く(&鍵) } else { 名 };
+                notify::入ったと知らせる(app, &名);
+                app.emit(EVENT_JOINED, 鍵)
+            }
+            warifu_app::Event::Left(key) => {
+                // 出たことはエージェントにだけ見せる。**人へは鳴らさない**（うるさい）
+                let 鍵 = key_to_string(*key);
+                desk::入退室を配る(&app.state::<Bridge>(), &鍵, false);
+                app.emit(EVENT_LEFT, 鍵)
+            }
             warifu_app::Event::Signal { from, step, blob } => app.emit(
                 EVENT_SIGNAL,
                 SignalPayload {

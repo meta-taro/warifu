@@ -65,6 +65,11 @@ pub struct Chat {
     /// **控えるのはこちら側**である。次に繋ぐときにこれを名乗って、
     /// **切れている間の言葉をもらう。**
     印の道: std::path::PathBuf,
+    /// **まだエージェントへ知らせていない出来事**（発言・入室・退室・`push.rs`）。
+    ///
+    /// 溜め箱とは別に持つ。溜め箱は `chat_read` が空にするので、
+    /// **どれが新しく来たかは、溜め箱からは分からない**（入退室には番号が無い）。
+    知らせ待ち: Arc<Mutex<VecDeque<FromDesk>>>,
 }
 
 /// 声の結果を、エージェントが読める 1 行にする（#50）。
@@ -194,6 +199,8 @@ impl Chat {
         // **いつつながったかをこの機械が返す**（`issues/4` の 1 番）
         let つながった: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
         let つながった写し = Arc::clone(&つながった);
+        let 知らせ待ち = Arc::new(Mutex::new(VecDeque::new()));
+        let 知らせ先 = Arc::clone(&知らせ待ち);
 
         tokio::spawn(async move {
             loop {
@@ -206,7 +213,11 @@ impl Chat {
                     }
                     来た = 口.受ける() => {
                         match 来た {
-                            Ok(Some(行)) => 仕分ける(&溜め先, &返し先, &起こす, &つながった写し, &行),
+                            Ok(Some(行)) => {
+                                // **鈴が鳴る前に積む** —— 起きた側が見たときに在るように
+                                知らせに積む(&知らせ先, &行);
+                                仕分ける(&溜め先, &返し先, &起こす, &つながった写し, &行);
+                            }
                             // 相手が閉じた・読めない。**黙って繋がっているふりをしない**
                             Ok(None) | Err(_) => break,
                         }
@@ -228,6 +239,7 @@ impl Chat {
             来た,
             返事待ち,
             印の道,
+            知らせ待ち,
         })
     }
 
@@ -674,30 +686,25 @@ impl Chat {
         self.汲む()
     }
 
-    /// 溜まっている発言を**消さずに**見る（エージェントへの知らせ・`push.rs`）。
+    /// **まだ知らせていない出来事**を取り出す（`push.rs`）。取り出したら、もう知らせない。
     ///
+    /// **エージェントがもう読んだものは落とす** —— `chat_wait` で待っている呼びが
+    /// 先に受け取っていれば、知らせは要らない。
     /// **知らせるだけで、読んだことにはしない**（**D76**）。
-    /// 読んだのは、エージェントが `chat_read` で受け取ったときである。
-    pub(crate) fn 覗く(&self) -> Vec<FromDesk> {
-        self.聞いた
+    pub(crate) fn 知らせ待ちを取る(&self) -> Vec<FromDesk> {
+        let 待ち: Vec<FromDesk> = self
+            .知らせ待ち
             .lock()
             .expect("毒されていない")
-            .iter()
-            .cloned()
-            .collect()
+            .drain(..)
+            .collect();
+        let 箱 = self.聞いた.lock().expect("毒されていない");
+        待ち.into_iter().filter(|一つ| 箱.contains(一つ)).collect()
     }
 
     /// 何か届いたら鳴る鈴（`push.rs` が待つ）。
     pub(crate) fn 来た鈴(&self) -> Arc<Notify> {
         Arc::clone(&self.来た)
-    }
-
-    /// **同じ繋がりか**を見分ける印。繋ぎ直すと変わる。
-    ///
-    /// 机を立て直すと発言の番号は 1 から振り直されるので、
-    /// **繋ぎ直したら、どこまで知らせたかも数え直す**（`push.rs`）。
-    pub(crate) fn 繋がりの印(&self) -> usize {
-        Arc::as_ptr(&self.聞いた) as usize
     }
 
     /// 溜まっている発言を取り出す。**取り出したら消える。**
@@ -916,6 +923,16 @@ fn 仕分ける(
     積む_直に(箱, 中身);
     // **待っている人を起こす。**起こさないと、待てる口の意味が無い
     起こす.notify_waiters();
+}
+
+/// 知らせる出来事なら、知らせ待ちに積む（`push.rs`）。**返事や名乗りは積まない。**
+fn 知らせに積む(待ち: &Arc<Mutex<VecDeque<FromDesk>>>, 行: &str) {
+    let Ok(中身) = FromDesk::読む(行) else {
+        return;
+    };
+    if crate::push::知らせるか(&中身) {
+        積む_直に(待ち, 中身);
+    }
 }
 
 fn 積む_直に(箱: &Arc<Mutex<VecDeque<FromDesk>>>, 中身: FromDesk) {

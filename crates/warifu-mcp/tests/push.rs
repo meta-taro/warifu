@@ -28,12 +28,19 @@ fn 試験の控え(名: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("warifu-mcp-push-控え-{名}-{}", std::process::id()))
 }
 
-/// 聞くと言われたら、**発言を 2 つ渡す机**。
+/// 聞くと言われたら、**誰かが入ったことと、発言を 2 つ渡す机**。
 fn 喋る机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut 口 = 行の口::新しく(待ち.受ける().await.expect("繋がること"));
         while let Ok(Some(行)) = 口.受ける().await {
             if let Ok(ToDesk::Listen { .. }) = ToDesk::読む(&行) {
+                // **連絡先から呼ばれて、相手が入ってきた**形
+                let 入室 = FromDesk::Joined {
+                    who: "相手A（ABCDEFGHIJKL…）".to_owned(),
+                };
+                if 口.送る(&入室.書く()).await.is_err() {
+                    return;
+                }
                 for (id, body) in [(5, "一つめの中身"), (6, "二つめの中身")] {
                     let 発言 = FromDesk::Heard {
                         id,
@@ -126,6 +133,11 @@ async fn 届いたら_本文を運ばずに知らせる() {
         "件数と番号が無い: {文}"
     );
     assert!(!文.contains("中身"), "本文を運んでいる: {文}");
+    assert!(
+        文.contains("相手A（ABCDEFGHIJKL…） が入りました"),
+        "入ったことを言っていない: {文}"
+    );
+    assert_eq!(知らせ["params"]["meta"]["joined"], "相手A（ABCDEFGHIJKL…）");
     assert_eq!(知らせ["params"]["meta"]["latest"], "6");
 }
 

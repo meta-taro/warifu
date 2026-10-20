@@ -271,18 +271,11 @@ impl Warifu {
     /// **呼ばないエージェントには、届いたことを伝える道が無かった。**
     /// 受け手が閉じたら終わる。
     async fn 知らせ続ける(self, 受け手: Peer<RoleServer>) {
-        let mut 知らせた: u64 = 0;
-        let mut いまの繋がり = 0;
         loop {
             let Ok(この機械) = self.この機械().await else {
                 tokio::time::sleep(繋ぎ直す間).await;
                 continue;
             };
-            // **繋ぎ直したら数え直す** —— 机を立て直すと、番号は 1 から振り直される
-            if この機械.繋がりの印() != いまの繋がり {
-                いまの繋がり = この機械.繋がりの印();
-                知らせた = 0;
-            }
             // **鈴を先に構えてから見る。**見たあとに構えると、その間に届いたものを取りこぼす
             let 鈴 = この機械.来た鈴();
             let 鳴った = 鈴.notified();
@@ -292,10 +285,11 @@ impl Warifu {
             // `chat_wait` で待っている呼びが先に取れば、知らせは要らなくなる
             tokio::time::sleep(束ねる間).await;
 
+            // **札が無くても取り出す**（溜め続けない）。知らせないだけ
+            let 新しい = この機械.知らせ待ちを取る();
             if self.通るか("chat.read").is_ok()
-                && let Some(知) = crate::push::知らせを組む(&この機械.覗く(), 知らせた)
+                && let Some(知) = crate::push::知らせを組む(&新しい)
             {
-                知らせた = 知.最新;
                 let 通知 = ServerNotification::CustomNotification(CustomNotification::new(
                     crate::push::知らせの方法,
                     Some(crate::push::知らせの中身(&知)),
@@ -967,7 +961,7 @@ impl ServerHandler for Warifu {
              2026-09-20、機械を立ち上げ直したあとに\
              「どのエージェントが動いていたか分からない」が起きた。\
              口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。\
-             **会話に発言が届くと、`<channel>` で知らせが来ることがある**\
+             **会話に発言が届いたり、ルームに誰かが入ったりすると、`<channel>` で知らせが来ることがある**\
              （channels を付けて立ち上げたとき）。知らせに本文は無い —— chat_read で読む。\
              返事が要るものにだけ返す。",
             建てた版

@@ -50,7 +50,22 @@ pub fn 届いたと知らせる(app: &AppHandle, 誰から: &str) {
         let _ = 窓.request_user_attention(Some(tauri::UserAttentionType::Informational));
     }
 
-    知らせを出す(app, 誰から);
+    知らせを出す(app, &format!("{誰から} から届きました"));
+}
+
+/// **誰かがルームに入った**ことを知らせる（2026-10-20）。
+///
+/// 連絡先から呼ばれた側は、知り合いなら人に聞かずにルームへ入る。
+/// **鳴らさないと、呼んだ相手だけが画面の前で待つことになる。**
+/// 届いたときと同じく、窓が前に居るときは鳴らさず、短い間に何度も鳴らさない。
+pub fn 入ったと知らせる(app: &AppHandle, 誰: &str) {
+    if 前に居る(app) || !間が空いた() {
+        return;
+    }
+    if let Some(窓) = app.get_webview_window("main") {
+        let _ = 窓.request_user_attention(Some(tauri::UserAttentionType::Informational));
+    }
+    知らせを出す(app, &format!("{誰} がルームに入りました"));
 }
 
 fn 前に居る(app: &AppHandle) -> bool {
@@ -73,7 +88,7 @@ fn 間が空いた() -> bool {
 ///
 /// 人が通知を切っていることも、まだ許していないこともある。
 /// **そのときは Dock が跳ねるだけで済ませる** —— 会議は続く。
-fn 知らせを出す(app: &AppHandle, 誰から: &str) {
+fn 知らせを出す(app: &AppHandle, 本文: &str) {
     let 口 = app.notification();
     // 許可を尋ねるのは 1 回だけ。**断られたら、もう尋ねない**（D31 と同じ構え）
     if matches!(口.permission_state(), Ok(PermissionState::Prompt)) {
@@ -83,12 +98,8 @@ fn 知らせを出す(app: &AppHandle, 誰から: &str) {
         記録!("通知: 許可が無いので出さない（窓の合図だけ）");
         return;
     }
-    // **本文を入れない。**誰からかだけ。通知はロック画面にも出る
-    let 結果 = 口
-        .builder()
-        .title("warifu")
-        .body(format!("{誰から} から届きました"))
-        .show();
+    // **会話の本文を入れない。**誰が・何が起きたかだけ。通知はロック画面にも出る
+    let 結果 = 口.builder().title("warifu").body(本文).show();
     if let Err(e) = 結果 {
         記録!("通知: 出せませんでした: {e}");
     }
