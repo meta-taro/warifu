@@ -1282,6 +1282,15 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         bridge.主催たち.lock().await.insert(meeting, peer);
         vec![warifu_app::Event::Joined(peer)]
     };
+    // **入った先の主催を、こちらの戸口にも迎える**（0.1.28）。
+    //
+    // 戸口の知り合いは**通した側にしか残らない**ので、ゲストから主催へは割符なしで戻れるが、
+    // **主催からゲストを呼ぶと無言で断っていた**（片方向）。
+    // **鍵を受け取って入るのは「この相手と話す」という意思表示である**（呼んだときと同じ）
+    {
+        let mut door = bridge.door.lock().await;
+        contacts::迎える(&mut door, peer);
+    }
     let meeting_id = meeting;
     記録!("入室: 会議 {} に入る", 短く(&meeting.to_string()));
     // **呼んだ側にも「入った」を流す。**
@@ -1421,11 +1430,6 @@ fn invite_window(invite: String) -> Answer<String> {
 /// **見張り（[`come_back`]）も、ここを通る**（0.1.28）。人が押さなくても戻る。
 #[tauri::command]
 async fn rejoin_room(app: AppHandle) -> Answer<()> {
-    come_back::戻る(app).await
-}
-
-/// 帰り道から戻る中身。**直に呼ばない** —— [`come_back::戻る`] が重ねて叩かないよう見張っている。
-pub(crate) async fn 前のルームへ戻る(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
     let vault = warifu_vault::Vault::default_location()?;
     let Some((_部屋, 鍵)) = vault.rejoin()? else {
         return Err(Failure {
@@ -1433,6 +1437,15 @@ pub(crate) async fn 前のルームへ戻る(app: AppHandle, bridge: State<'_, B
             code: Some("room.back.none".into()),
         });
     };
+    come_back::戻る(app, 鍵).await
+}
+
+/// 帰り道から戻る中身。**直に呼ばない** —— [`come_back::戻る`] が重ねて叩かないよう見張っている。
+pub(crate) async fn 前のルームへ戻る(
+    app: AppHandle,
+    bridge: State<'_, Bridge>,
+    鍵: String,
+) -> Answer<()> {
     let (address, token, _meeting) = parse_invite(&鍵)?;
     // **窓の中なら、いつもの道。**割符を持っているほうが強い（名簿にも載る）
     if bridge.device.accept(&token, now_secs()).is_ok() {
@@ -2941,12 +2954,10 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     // **帰り道を忘れる**（`gh issue 13`）。
     // **自分で抜けた人に「戻る」を出さない**し、**使わない秘密を持ち続けない**
     // （帰り道には割符の片割れが入っている）
+    // **抜けたルームの分だけ忘れる**（0.1.28）。ほかのルームへは戻り続ける
     if let Ok(vault) = warifu_vault::Vault::default_location() {
-        let 帰り道 = vault.rejoin().ok().flatten();
-        if 帰り道.is_some_and(|(id, _)| id == meeting.to_string()) {
-            if let Err(e) = vault.forget_rejoin() {
-                記録!("帰り道を消せませんでした: {e}");
-            }
+        if let Err(e) = vault.forget_rejoin_room(&meeting.to_string()) {
+            記録!("帰り道を消せませんでした: {e}");
         }
     }
     Ok(())

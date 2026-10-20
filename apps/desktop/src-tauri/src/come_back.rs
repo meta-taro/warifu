@@ -8,14 +8,15 @@
 //! 2026-10-20、主催の機械を上げ直したあと、ルームに残ったのは主催の機械の席だけだった。
 //! 戻る口はあったが、**押す人が画面の前に居なかった。**
 //!
-//! だから**ゲストの機械が自分で戻る。**戻る先は帰り道（`rejoin.tsv`）の 1 つだけで、
-//! **自分で抜けたルームには戻らない**（抜けたら帰り道を消している）。
+//! だから**ゲストの機械が自分で戻る。**戻る先は帰り道（`rejoin.tsv`・入ったルームの数だけある）で、
+//! **自分で抜けたルームには戻らない**（抜けたら、そのルームの帰り道を消している）。
 //!
 //! **通すかどうかは、相手の戸口が決める**（`rejoin_room` と同じ道を通る）。
 //! 断られ続けたら、間を延ばして叩き続ける —— 主催がいつ戻るかは、こちらから分からない。
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Manager as _};
 
@@ -65,70 +66,80 @@ pub fn 次に待つ秒(しくじった: u32) -> u64 {
 /// **戻る。**人の［戻る］も、見張りも、ここを通る。
 ///
 /// 戻っている最中なら、**何もせずに返す**（同じ相手を 2 度叩かない）。
-pub async fn 戻る(app: AppHandle) -> crate::Answer<()> {
+pub async fn 戻る(app: AppHandle, 鍵: String) -> crate::Answer<()> {
     if 戻っている.swap(true, Ordering::SeqCst) {
         記録!("戻る: もう戻っている最中です（重ねて叩きません）");
         return Ok(());
     }
-    let 結果 = crate::前のルームへ戻る(app.clone(), app.state::<Bridge>()).await;
+    let 結果 = crate::前のルームへ戻る(app.clone(), app.state::<Bridge>(), 鍵).await;
     戻っている.store(false, Ordering::SeqCst);
     結果
 }
 
+/// ルームごとの、しくじった回数と、次に叩いてよい時刻。
+type 控え = HashMap<String, (u32, Instant)>;
+
 /// **見張る。**起動したら 1 本だけ立てる。
+///
+/// **入っているルームそれぞれを見る**（帰り道はルームの数だけある）。
+/// 叩く間はルームごとに延ばす —— 1 つの主催が落ちたままでも、ほかの部屋へは早く戻る。
 pub async fn 見張る(app: AppHandle) {
     tokio::time::sleep(Duration::from_secs(起動を待つ秒)).await;
-    let mut しくじった: u32 = 0;
+    let mut 控え: 控え = HashMap::new();
     loop {
-        if !いま戻るべきか(&app).await {
-            しくじった = 0;
-            tokio::time::sleep(Duration::from_secs(見直す秒)).await;
-            continue;
-        }
-        記録!("戻る: 主催と繋がっていないので、帰り道から戻ります");
-        let 結果 = 戻る(app.clone()).await;
-        // **繋がった直後に断られることがある**（主催が別の部屋を建て直していると、
-        // 割符を見てから口を閉じる）。すぐ見直すと「戻れた」と言い、30 秒ごとに叩き続けた
-        if 結果.is_ok() {
-            tokio::time::sleep(Duration::from_secs(落ち着くまでの秒)).await;
-        }
-        match 結果 {
-            // **繋がっても、戻る先とは別のルームへ招かれることがある**
-            // （割符なしで叩くと、主催がいま見ているルームへ招かれる）。
-            // 戻れたかは見直して決める —— 決めないと 30 秒ごとに叩き続ける
-            Ok(()) if !いま戻るべきか(&app).await => {
-                記録!("戻る: 戻れました");
-                しくじった = 0;
+        let 戻る先 = いま戻る先(&app).await;
+        // **戻らなくてよくなった部屋の控えは捨てる**（次に落ちたら 30 秒から）
+        控え.retain(|id, _| 戻る先.iter().any(|(部屋, _)| 部屋 == id));
+        for (id, 鍵) in 戻る先 {
+            if 控え.get(&id).is_some_and(|(_, 次)| Instant::now() < *次) {
+                continue;
             }
-            Ok(()) => {
-                しくじった = しくじった.saturating_add(1);
-                記録!(
-                    "戻る: 繋がりましたが、戻る先のルームではありませんでした。{} 秒あとにもう一度叩きます",
-                    次に待つ秒(しくじった)
-                );
-            }
-            Err(e) => {
-                しくじった = しくじった.saturating_add(1);
-                記録!(
-                    "戻る: 戻れませんでした（{}）。{} 秒あとにもう一度叩きます",
-                    e.message,
-                    次に待つ秒(しくじった)
-                );
-            }
+            一つ戻る(&app, &mut 控え, id, 鍵).await;
         }
-        tokio::time::sleep(Duration::from_secs(次に待つ秒(しくじった))).await;
+        tokio::time::sleep(Duration::from_secs(見直す秒)).await;
     }
 }
 
-async fn いま戻るべきか(app: &AppHandle) -> bool {
+async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: String) {
+    let 頭 = crate::短く(&id);
+    記録!("戻る: ルーム {頭} の主催と繋がっていないので、帰り道から戻ります");
+    let 結果 = 戻る(app.clone(), 鍵).await;
+    // **繋がった直後に断られることがある**（主催が別の部屋を建て直していると、
+    // 割符を見てから口を閉じる）。すぐ見直すと「戻れた」と言い、30 秒ごとに叩き続けた
+    if 結果.is_ok() {
+        tokio::time::sleep(Duration::from_secs(落ち着くまでの秒)).await;
+    }
+    // **繋がっても、戻る先とは別のルームへ招かれることがある**
+    // （割符なしで叩くと、主催がいま見ているルームへ招かれる）。戻れたかは見直して決める
+    let まだ = いま戻る先(app).await.iter().any(|(部屋, _)| *部屋 == id);
+    if !まだ {
+        記録!("戻る: ルーム {頭} へ戻れました");
+        控え.remove(&id);
+        return;
+    }
+    let しくじった = 控え.get(&id).map_or(0, |(n, _)| *n).saturating_add(1);
+    let 秒 = 次に待つ秒(しくじった);
+    match 結果 {
+        Ok(()) => 記録!(
+            "戻る: 繋がりましたが、ルーム {頭} ではありませんでした。{秒} 秒あとにもう一度叩きます"
+        ),
+        Err(e) => 記録!(
+            "戻る: ルーム {頭} へ戻れませんでした（{}）。{秒} 秒あとにもう一度叩きます",
+            e.message
+        ),
+    }
+    控え.insert(id, (しくじった, Instant::now() + Duration::from_secs(秒)));
+}
+
+/// **戻るべきルームの帰り道**（ルーム id と鍵）。
+async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
     let Ok(vault) = warifu_vault::Vault::default_location() else {
-        return false;
+        return Vec::new();
     };
     // 読めないときは戻らない。**半端な帰り道で叩かない**
-    let Ok(帰り道) = vault.rejoin() else {
-        return false;
+    let Ok(帰り道) = vault.rejoins() else {
+        return Vec::new();
     };
-    let 帰り道のルーム = 帰り道.map(|(id, _)| id);
     let bridge = app.state::<Bridge>();
     let 部屋たち = crate::ルームの並び(&bridge).await;
     let 繋がっている: Vec<String> = bridge
@@ -139,9 +150,12 @@ async fn いま戻るべきか(app: &AppHandle) -> bool {
         .filter_map(|k| warifu_core::PublicKey::from_bytes(*k).ok())
         .map(crate::key_to_string)
         .collect();
-    戻るべきか(帰り道のルーム.as_deref(), &部屋たち, |鍵| {
-        繋がっている.iter().any(|k| k == 鍵)
-    })
+    帰り道
+        .into_iter()
+        .filter(|(id, _)| {
+            戻るべきか(Some(id), &部屋たち, |鍵| 繋がっている.iter().any(|k| k == 鍵))
+        })
+        .collect()
 }
 
 #[cfg(test)]

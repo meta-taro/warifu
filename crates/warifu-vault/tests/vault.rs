@@ -1253,6 +1253,99 @@ fn 貼られた文字に区切りが混ざっていても崩れない() {
     assert_eq!(鍵, "warifu://join/AAABBB");
 }
 
+// --- 帰り道を、入ったルームの数だけ持つ（0.1.28） -------------------------
+//
+// 1 つしか持てないと、2 つ目のルームへ入った時点で 1 つ目へ戻れなくなる。
+// **抜けると言うまで、どのルームの一員でもあり続ける。**
+
+#[test]
+fn 帰り道はルームごとに持てる() {
+    let dir = 仮の置き場("rejoin-many");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM-A", "KEY-A").expect("書ける");
+    vault.save_rejoin("ROOM-B", "KEY-B").expect("書ける");
+    assert_eq!(
+        Vault::at(&dir).rejoins().expect("読める"),
+        vec![
+            ("ROOM-A".to_owned(), "KEY-A".to_owned()),
+            ("ROOM-B".to_owned(), "KEY-B".to_owned()),
+        ]
+    );
+    // **「戻る」の押し口は、いちばん新しく入ったルームを指す**
+    assert_eq!(
+        vault.rejoin().expect("読める"),
+        Some(("ROOM-B".to_owned(), "KEY-B".to_owned()))
+    );
+}
+
+#[test]
+fn 同じルームへ入り直したら鍵を差し替えて_新しい側へ回す() {
+    let dir = 仮の置き場("rejoin-replace");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM-A", "KEY-A1").expect("書ける");
+    vault.save_rejoin("ROOM-B", "KEY-B").expect("書ける");
+    vault.save_rejoin("ROOM-A", "KEY-A2").expect("書ける");
+    assert_eq!(
+        vault.rejoins().expect("読める"),
+        vec![
+            ("ROOM-B".to_owned(), "KEY-B".to_owned()),
+            ("ROOM-A".to_owned(), "KEY-A2".to_owned()),
+        ]
+    );
+}
+
+#[test]
+fn 抜けたルームの帰り道だけを忘れる() {
+    let dir = 仮の置き場("rejoin-forget-one");
+    let vault = Vault::at(&dir);
+    vault.save_rejoin("ROOM-A", "KEY-A").expect("書ける");
+    vault.save_rejoin("ROOM-B", "KEY-B").expect("書ける");
+    vault.forget_rejoin_room("ROOM-A").expect("消せる");
+    assert_eq!(
+        vault.rejoins().expect("読める"),
+        vec![("ROOM-B".to_owned(), "KEY-B".to_owned())]
+    );
+    // **最後の 1 つを忘れたら、ファイルごと消す**（使わない秘密を置かない）
+    vault.forget_rejoin_room("ROOM-B").expect("消せる");
+    assert!(!vault.rejoin_path().exists());
+    // **無いものを忘れるのは失敗ではない**
+    vault.forget_rejoin_room("ROOM-C").expect("通る");
+}
+
+#[test]
+fn 帰り道は持ちすぎない() {
+    // **鍵は秘密である。**際限なく溜めない —— 古いものから落とす
+    let dir = 仮の置き場("rejoin-cap");
+    let vault = Vault::at(&dir);
+    for i in 0..(warifu_vault::REJOIN_MAX + 3) {
+        vault
+            .save_rejoin(&format!("ROOM-{i}"), &format!("KEY-{i}"))
+            .expect("書ける");
+    }
+    let 並び = vault.rejoins().expect("読める");
+    assert_eq!(並び.len(), warifu_vault::REJOIN_MAX);
+    assert_eq!(並び[0].0, "ROOM-3");
+}
+
+#[test]
+fn 前の形の帰り道もそのまま読める() {
+    // 0.1.27 までは 1 行だけ書いていた。**上げ直しても戻れる**
+    let dir = 仮の置き場("rejoin-old");
+    let vault = Vault::at(&dir);
+    std::fs::create_dir_all(&dir).expect("作れる");
+    std::fs::write(
+        vault.rejoin_path(),
+        "warifu-rejoin-v1
+ROOM	KEY
+",
+    )
+    .expect("書ける");
+    assert_eq!(
+        vault.rejoins().expect("読める"),
+        vec![("ROOM".to_owned(), "KEY".to_owned())]
+    );
+}
+
 // ── 置き場所の出どころ（**#22**・2026-09-15） ──────────────────────
 //
 // Windows で `rejoin.tsv` が見つからなかった。**書けてはいて、

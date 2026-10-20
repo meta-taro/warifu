@@ -140,6 +140,10 @@ const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
 const MY_ROOM_HEADER: &str = "warifu-room-v1";
 /// **帰り道**の見出し。**中身は 2 欄**（ルーム id・入るのに使ったルームキー）。
 const REJOIN_HEADER: &str = "warifu-rejoin-v1";
+/// **帰り道を持つ上限。**鍵は秘密なので、際限なく溜めない（古いものから落とす）。
+///
+/// 1 つの機械が入るルームの数としては十分に大きい。
+pub const REJOIN_MAX: usize = 16;
 /// **主催が出した割符の控え**（**#38**・2026-09-16）。
 ///
 /// 1 行に `<ルーム id>\t<base32 の割符>`。**割符には secret が入っている**ので 0600。
@@ -449,9 +453,23 @@ impl Vault {
     /// # Errors
     /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
     pub fn rejoin(&self) -> Result<Option<(String, String)>, Error> {
+        // **いちばん新しく入ったルーム**を返す（書くときに後ろへ回している）
+        Ok(self.rejoins()?.pop())
+    }
+
+    /// **入っているルームすべての帰り道**（0.1.28）。古いものから並ぶ。
+    ///
+    /// 1 つしか持てないと、2 つ目のルームへ入った時点で 1 つ目へ戻れなくなる。
+    /// **抜けると言うまで、どのルームの一員でもあり続ける。**
+    ///
+    /// **欄が欠けた行は飛ばす。**半端なものを渡さない。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn rejoins(&self) -> Result<Vec<(String, String)>, Error> {
         let path = self.rejoin_path();
         if !path.exists() {
-            return Ok(None);
+            return Ok(Vec::new());
         }
         let text = fs::read_to_string(&path).map_err(Error::io(&path, "帰り道を読む"))?;
         let mut lines = text.lines();
@@ -462,23 +480,22 @@ impl Vault {
                 format!("見出しが違います（{REJOIN_HEADER} を待っていました）"),
             ));
         }
-        let Some(行) = lines.find(|l| !l.trim().is_empty()) else {
-            return Ok(None);
-        };
-        let mut 欄 = 行.split('\t');
-        let id = 欄.next().unwrap_or_default().trim().to_owned();
-        let 鍵 = 欄.next().unwrap_or_default().trim().to_owned();
-        // **どちらかが欠けていれば、帰り道は無い。**半端なものを渡さない
-        if id.is_empty() || 鍵.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some((id, 鍵)))
+        Ok(lines
+            .filter_map(|行| {
+                let mut 欄 = 行.split('\t');
+                let id = 欄.next().unwrap_or_default().trim().to_owned();
+                let 鍵 = 欄.next().unwrap_or_default().trim().to_owned();
+                (!id.is_empty() && !鍵.is_empty()).then_some((id, 鍵))
+            })
+            .collect())
     }
 
-    /// 帰り道を書き置く。
+    /// 帰り道を書き置く。**同じルームの行は差し替えて、後ろへ回す。**
+    ///
+    /// [`REJOIN_MAX`] を超えたら、古いものから落とす。
     ///
     /// # Errors
-    /// 書けないとき [`Error::Io`]。
+    /// 読めない・書けないとき。
     pub fn save_rejoin(&self, id: &str, ルームキー: &str) -> Result<(), Error> {
         // **貼られた文字を、そのままファイルへ流さない**（TSV が崩れる）
         let 削る = |文: &str| -> String {
@@ -488,11 +505,39 @@ impl Vault {
                 .trim()
                 .to_owned()
         };
-        let out = format!("{REJOIN_HEADER}\n{}\t{}\n", 削る(id), 削る(ルームキー));
+        let id = 削る(id);
+        let mut 並び = self.rejoins()?;
+        並び.retain(|(部屋, _)| *部屋 != id);
+        並び.push((id, 削る(ルームキー)));
+        let 余り = 並び.len().saturating_sub(REJOIN_MAX);
+        並び.drain(..余り);
+        self.帰り道を書く(&並び)
+    }
+
+    fn 帰り道を書く(&self, 並び: &[(String, String)]) -> Result<(), Error> {
+        let mut out = format!("{REJOIN_HEADER}\n");
+        for (id, 鍵) in 並び {
+            out.push_str(&format!("{id}\t{鍵}\n"));
+        }
         self.write_private(&self.rejoin_path(), &out, "帰り道を書く")
     }
 
-    /// 帰り道を忘れる。**抜けたら消す** —— 使わない秘密を持ち続けない。
+    /// **抜けたルームの帰り道だけを忘れる**（0.1.28）。
+    ///
+    /// 最後の 1 つを忘れたら、**ファイルごと消す** —— 使わない秘密を置かない。
+    ///
+    /// # Errors
+    /// 読めない・書けない・消せないとき。**無いのは失敗ではない。**
+    pub fn forget_rejoin_room(&self, id: &str) -> Result<(), Error> {
+        let mut 並び = self.rejoins()?;
+        並び.retain(|(部屋, _)| 部屋 != id);
+        if 並び.is_empty() {
+            return self.forget_rejoin();
+        }
+        self.帰り道を書く(&並び)
+    }
+
+    /// 帰り道を**すべて**忘れる。**抜けたら消す** —— 使わない秘密を持ち続けない。
     ///
     /// # Errors
     /// 消せないとき [`Error::Io`]。**無いのは失敗ではない。**
