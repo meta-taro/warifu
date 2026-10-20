@@ -38,6 +38,9 @@ const 返事を待つ秒: u64 = 5;
 /// **呼ぶ返事を待つ秒**（2026-10-16）。呼ぶのは繋ぎに行くので、ほかの頼みより長くかかる。
 const 呼ぶを待つ秒: u64 = 30;
 
+/// **鍵の手渡しで、人の答えを待つ既定の秒**（2026-10-20）。`札を待つ` の既定と同じ。
+const 手渡しを待つ秒: u64 = 30;
+
 /// この機械につながっている状態。
 #[derive(Clone)]
 pub struct Chat {
@@ -453,6 +456,38 @@ impl Chat {
         }
     }
 
+    /// **ルームキーを、その相手の機械にだけ手渡す**（2026-10-20）。
+    ///
+    /// 机が画面に承認の帯を出し、人が［渡す］を押したら鍵を出して送る。
+    /// **鍵の文字はここへ返らない**（返りに欄が無い）。
+    /// 人の答えを最長 `秒` 待つ。待ちきれなければ [`warifu_desk::手渡しの返り::まだ`]。
+    pub async fn 鍵を渡す(
+        &self,
+        相手: &str,
+        訳: &str,
+        秒: Option<u64>,
+    ) -> Result<warifu_desk::手渡しの返り, crate::ToolError> {
+        let 待つ秒 = 秒
+            .unwrap_or(手渡しを待つ秒)
+            .clamp(1, warifu_desk::札を待てる秒);
+        let 行 = ToDesk::鍵を渡す {
+            相手: 相手.trim().to_owned(),
+            訳: 訳.trim().to_owned(),
+            秒: Some(待つ秒),
+        };
+        // **机が待つ分に、返事の分を足して待つ**（机より先に諦めない）
+        match self
+            .頼んで待つ(行, 手渡しの返事, 待つ秒 + 返事を待つ秒)
+            .await?
+        {
+            FromDesk::手渡し { 結果 } => Ok(結果),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **いま画面アプリが持っている会話を書き出してもらう**（2026-10-16）。古い順。
     pub async fn 書き出す(
         &self,
@@ -815,6 +850,9 @@ fn 連絡先の返事(中身: &FromDesk) -> bool {
 fn 書き出しの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::書き出し { .. } | FromDesk::Denied { .. })
 }
+fn 手渡しの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::手渡し { .. } | FromDesk::Denied { .. })
+}
 fn 呼ぶの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::呼んだ { .. } | FromDesk::Denied { .. })
 }
@@ -909,6 +947,8 @@ fn 仕分ける(
             | FromDesk::連絡先たち { .. }
             | FromDesk::呼んだ { .. }
             | FromDesk::書き出し { .. }
+            // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
+            | FromDesk::手渡し { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -983,9 +1023,10 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             // **声の返りも会話の行ではない**（#50）。会話へは机が別に流す
             FromDesk::声の返り { .. } => String::new(),
             // **連絡先と呼んだ返りも会話の行ではない**（尋ねたときだけ返る）
-            FromDesk::連絡先たち { .. } | FromDesk::呼んだ { .. } | FromDesk::書き出し { .. } => {
-                String::new()
-            }
+            FromDesk::連絡先たち { .. }
+            | FromDesk::呼んだ { .. }
+            | FromDesk::書き出し { .. }
+            | FromDesk::手渡し { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),

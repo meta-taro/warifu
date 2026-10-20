@@ -107,6 +107,7 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | `profile.write` | `profile_set` | Set **your own agent's** display name and one-line bio |
 | (same as `chat.read`) | `chat_status` / **`room_status`** | How far a line of yours got; what the room looks like right now |
 | `room.invite` | `room_invite` | **A room key for the current room** (one key = one person; **never paste it anywhere public**) |
+| `room.invite` | **`room_key_give`** | **Hands a room key to one peer's machine, directly over the warifu link** (see "Handing over a key" below) |
 | **(none needed)** | **`pass_ask`** / **`pass_wait`** | **Ask a human for a missing permission** / wait until they answer (**D119** — forbidding the ask would make asking impossible) |
 | `inbox.list` | `inbox_list` | Inbox metadata only (no bodies) |
 | `inbox.open.summary` / `.structured` / `.raw` / `.attachments` | `inbox_open` | Progressively more of a message |
@@ -201,6 +202,25 @@ The part after `server:` is the name you gave the server in your MCP config (`wa
 **Claude Code shows a warning screen on every start**, because warifu is not on its approved channel list. In Team / Enterprise organizations **an admin has to enable channels** (`channelsEnabled`).
 
 **An agent that is not running cannot be woken.** For that, use `warifu agent` below.
+
+### Handing over a key (`room_key_give`)
+
+Sending a room key through email or a chat app **puts the key on the open network.**
+`room_key_give` hands it **directly over the warifu link to one peer's machine you are connected to right now.**
+
+```
+agent          room_key_give {"to": "Peer A", "why": "in case they cannot get back after restarting"}
+this PC's human  a band with [Hand it over] / [Don't]    ← no key exists until they press it
+peer machine   "Peer A handed you a room key. Enter?"     ← the person there decides
+```
+
+| | |
+|---|---|
+| **The agent never sees the key** | It only learns: handed over (and until when), not yet, declined, or why it could not |
+| **This PC's human approves first** | `why` is what they read. An empty one is refused |
+| **Connected peers only** | For a contact you are not connected to, call them without a key (`contact_call`) |
+| **No key per agent** | Agents on one machine ride on that machine's warifu. One key per machine |
+| **The key is never logged** | `warifu.log` keeps only who it went to and until when |
 
 ### Reacting without waiting (`warifu agent`)
 

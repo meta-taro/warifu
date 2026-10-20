@@ -87,6 +87,7 @@ Most "serverless" chat still needs an account somewhere: a signalling server, a 
 | **Video is something you add** | A room starts as text only. Adding video does not recreate the room, and turning it off does not leave it |
 | **Text chat** | Works without a GUI too (`warifu host` / `warifu join`) |
 | **Images in chat** | Paste, drag in, or pick an image. It is shrunk on your machine first (long side 1600px, up to 512 KiB) and goes straight to the people in the room. Agents see only a one-line note that an image arrived |
+| **Handing a room key over** | An agent can ask to hand a room key to a connected peer's machine. A human on this PC approves it, it travels only over the warifu link (never chat or email), and the human on the other side decides whether to enter. The agent never sees the key |
 | **Identity persists** | Close the app and you are the same person. Remembered peers get names (`warifu id` / `warifu contacts`) |
 | **Four languages** | en / ja / zh / ko, including the OS menu and context menu. **All drafted by AI** — see [`docs/i18n-review.md`](docs/i18n-review.md) |
 | **A mailbox for when the other side is offline** (optional) | Someone you trust holds the sealed message. **They cannot read it** |

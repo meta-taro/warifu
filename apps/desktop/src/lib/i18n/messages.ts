@@ -147,6 +147,14 @@ export type MessageKey =
   | 'pass.allowed'
   | 'pass.refused'
   | 'pass.who'
+  | 'handoff.asked'
+  | 'handoff.who'
+  | 'handoff.hint'
+  | 'handoff.give'
+  | 'handoff.keep'
+  | 'link.gift'
+  | 'link.gift.hint'
+  | 'link.gift.declined'
   | 'link.invited'
   | 'link.invited.hint'
   | 'link.invited.enter'
@@ -569,6 +577,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。',
     'pass.refused': '通しませんでした。{who} は {what} を使えません。',
     'pass.who': '{who} が {what} を使いたい',
+    'handoff.asked': 'エージェントが、ルームキーを相手の機械へ渡してよいか聞いています',
+    'handoff.who': '{who} が、{to} の機械へ、いま見ているルームのキーを渡そうとしています',
+    'handoff.hint': '渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。',
+    'handoff.give': '渡す',
+    'handoff.keep': '渡さない',
+    'link.gift': '{from} からルームキーが届きました。入りますか？',
+    'link.gift.hint': '割符の線で、相手の機械から直接届きました。心当たりがなければ入らないでください。',
+    'link.gift.declined': '入りませんでした。入るときは、相手にもう一度渡してもらってください。',
     'link.invited': 'リンクでルームに誘われています。入りますか？',
     'link.invited.hint': 'このリンクは誰でも作れます。心当たりのない誘いには入らないでください。',
     'link.invited.enter': '入る',
@@ -947,6 +963,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': 'Allowed. {who} can now use {what} (you can revoke it later).',
     'pass.refused': 'Not allowed. {who} cannot use {what}.',
     'pass.who': '{who} wants to use {what}',
+    'handoff.asked': 'An agent is asking whether it may hand a room key to another machine',
+    'handoff.who': '{who} wants to hand {to}\'s machine a key to the room you are viewing',
+    'handoff.hint': 'If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.',
+    'handoff.give': 'Hand it over',
+    'handoff.keep': 'Don\'t hand it over',
+    'link.gift': '{from} handed you a room key. Enter?',
+    'link.gift.hint': 'It came directly from their machine over the warifu link. If you were not expecting it, do not enter.',
+    'link.gift.declined': 'You did not enter. To enter later, ask them to hand you a key again.',
     'link.invited': 'A link is inviting you into a room. Enter?',
     'link.invited.hint': 'Anyone can make such a link. Do not enter an invitation you were not expecting.',
     'link.invited.enter': 'Enter',
@@ -1323,6 +1347,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '已放行。{who} 现在可以使用 {what}（之后可以撤销）。',
     'pass.refused': '没有放行。{who} 不能使用 {what}。',
     'pass.who': '{who} 想使用 {what}',
+    'handoff.asked': '有代理在询问能否把房间钥匙交给对方的机器',
+    'handoff.who': '{who} 想把你正在看的房间的钥匙交给 {to} 的机器',
+    'handoff.hint': '交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。',
+    'handoff.give': '交出',
+    'handoff.keep': '不交出',
+    'link.gift': '{from} 交给你一把房间钥匙。要进入吗？',
+    'link.gift.hint': '它是通过 warifu 的线路从对方的机器直接送来的。如果没有印象，请不要进入。',
+    'link.gift.declined': '没有进去。想进去的时候，请对方再交给你一次钥匙。',
     'link.invited': '有链接邀请你进入房间。要进入吗？',
     'link.invited.hint': '这样的链接谁都能做。没有印象的邀请，请不要进入。',
     'link.invited.enter': '进入',
@@ -1703,6 +1735,14 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.',
     'pass.refused': '통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.',
     'pass.who': '{who} 이(가) {what} 을(를) 쓰고 싶어 합니다',
+    'handoff.asked': '에이전트가 룸 키를 상대 기기에 건네도 되는지 묻고 있습니다',
+    'handoff.who': '{who} 이(가) 지금 보고 있는 방의 키를 {to} 의 기기에 건네려 합니다',
+    'handoff.hint': '건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.',
+    'handoff.give': '건넨다',
+    'handoff.keep': '건네지 않는다',
+    'link.gift': '{from} 에게서 룸 키가 왔습니다. 들어가시겠습니까?',
+    'link.gift.hint': 'warifu 회선으로 상대 기기에서 직접 왔습니다. 짐작 가지 않으면 들어가지 마세요.',
+    'link.gift.declined': '들어가지 않았습니다. 들어가려면 상대에게 키를 다시 건네 달라고 하세요.',
     'link.invited': '링크로 방에 초대받았습니다. 들어가시겠습니까?',
     'link.invited.hint': '이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.',
     'link.invited.enter': '들어간다',

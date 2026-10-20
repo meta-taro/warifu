@@ -116,6 +116,11 @@ face.big.open	View the face larger	顔を大きく見る	放大查看头像	얼�
 face.clear.confirm	Go back to the initial avatar?	初期アバターに戻しますか？	要恢复为初始头像吗？	초기 아바타로 되돌릴까요?				
 face.clear.confirm.hint	The image you set is deleted. Drop one again to put it back.	差し替えた画像は消えます。もう一度落とせば、入れ直せます。	你换上的图片会被删除。再拖放一次就可以放回去。	바꿔 넣은 이미지는 지워집니다. 다시 끌어다 놓으면 되돌릴 수 있습니다.				
 face.clear.do	Go back	戻す	恢复	되돌리기				
+handoff.asked	An agent is asking whether it may hand a room key to another machine	エージェントが、ルームキーを相手の機械へ渡してよいか聞いています	有代理在询问能否把房间钥匙交给对方的机器	에이전트가 룸 키를 상대 기기에 건네도 되는지 묻고 있습니다				
+handoff.give	Hand it over	渡す	交出	건넨다				
+handoff.hint	If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.	渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。	交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。	건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.	★	「相手の機械にだけ」「チャットやメールを通らない」を落とさないこと —— 鍵が外に出ないことが、押す理由である。		
+handoff.keep	Don't hand it over	渡さない	不交出	건네지 않는다				
+handoff.who	{who} wants to hand {to}'s machine a key to the room you are viewing	{who} が、{to} の機械へ、いま見ているルームのキーを渡そうとしています	{who} 想把你正在看的房间的钥匙交给 {to} 的机器	{who} 이(가) 지금 보고 있는 방의 키를 {to} 의 기기에 건네려 합니다				
 help.close	Close	閉じる	关闭	닫기				
 help.open	Show explanation	説明を出す	显示说明	설명 보기				
 help.this.me	You — the owner of this computer. Always listed (the badge stays green).	あなた —— この PC の持ち主です。いつも出ます（顔の右下はいつも緑）。	你 —— 这台电脑的主人。总是显示（头像右下角一直是绿色）。	나 —— 이 PC의 주인입니다. 항상 나옵니다(얼굴 오른쪽 아래는 늘 초록).				
@@ -159,6 +164,9 @@ link.blocked.unknown	No route. Could not check whether this PC is allowed to com
 link.closed	The other person left.	相手が退出しました。	对方已离开。	상대방이 나갔습니다.				
 link.declined	You did not enter. This room key works until {until} — open the link again when you want to enter.	入りませんでした。このルームキーは {until} まで使えます —— 入るときは、もう一度リンクを開いてください。	没有进去。这把 room key 到 {until} 之前都能用 —— 想进去的时候，再打开一次链接。	들어가지 않았습니다. 이 룸 키는 {until} 까지 쓸 수 있습니다 —— 들어갈 때는 링크를 다시 열어 주세요.				
 link.direct	Direct	直接	直连	직접				
+link.gift	{from} handed you a room key. Enter?	{from} からルームキーが届きました。入りますか？	{from} 交给你一把房间钥匙。要进入吗？	{from} 에게서 룸 키가 왔습니다. 들어가시겠습니까?				
+link.gift.declined	You did not enter. To enter later, ask them to hand you a key again.	入りませんでした。入るときは、相手にもう一度渡してもらってください。	没有进去。想进去的时候，请对方再交给你一次钥匙。	들어가지 않았습니다. 들어가려면 상대에게 키를 다시 건네 달라고 하세요.	★	鍵はこちらの手元に残らない（入らなかった鍵は捨てる）。「もう一度開いて」と読める訳にしないこと —— 開くものが無い。		
+link.gift.hint	It came directly from their machine over the warifu link. If you were not expecting it, do not enter.	割符の線で、相手の機械から直接届きました。心当たりがなければ入らないでください。	它是通过 warifu 的线路从对方的机器直接送来的。如果没有印象，请不要进入。	warifu 회선으로 상대 기기에서 직접 왔습니다. 짐작 가지 않으면 들어가지 마세요.	★	「直接届いた」を「安全です」と読ませないこと。届いた経路は確かだが、入るかは人が決める。		
 link.invited	A link is inviting you into a room. Enter?	リンクでルームに誘われています。入りますか？	有链接邀请你进入房间。要进入吗？	링크로 방에 초대받았습니다. 들어가시겠습니까?				
 link.invited.enter	Enter	入る	进入	들어간다				
 link.invited.hint	Anyone can make such a link. Do not enter an invitation you were not expecting.	このリンクは誰でも作れます。心当たりのない誘いには入らないでください。	这样的链接谁都能做。没有印象的邀请，请不要进入。	이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.	★	**警告である。**「安全です」「割符が確認済みです」と読める訳にしないこと。このリンクは誰でも作れる。割符は差出人を確かめていない。確かめられるのは、心当たりがあるかどうかだけで、それは人にしか分からない。		

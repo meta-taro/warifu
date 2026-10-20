@@ -95,6 +95,7 @@ mod call;
 mod cli;
 mod contacts;
 mod desk;
+mod key_give;
 mod link;
 mod media_path;
 mod notify;
@@ -1990,6 +1991,24 @@ fn 汲む(
                         }
                         continue;
                     }
+                    // **鍵の手渡し**（2026-10-20）。**名簿は動かさない。入るかは人が決める**
+                    if let Notice::Key { from, 鍵, .. } = &notice {
+                        if *from != peer {
+                            記録!("受信: 鍵の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        // **読めない鍵は人に見せない**（押しても入れないものを出さない）
+                        if warifu_app::parse_invite(鍵).is_err() {
+                            記録!("受信: 手渡された鍵が読めません。捨てた");
+                            continue;
+                        }
+                        let 鍵の主 = key_to_string(peer);
+                        let 帳 = desk::連絡先の組();
+                        let 名 = contacts::書き出しの名(&帳, "", &鍵の主);
+                        let 名 = if 名 == 鍵の主 { 短く(&鍵の主) } else { 名 };
+                        key_give::受け取った(&app, 鍵, &名);
+                        continue;
+                    }
                     // **紹介は名簿を動かさない**（D41）
                     記録!("受信: {}", 知らせの名(&notice));
                     // **相手が名乗った**（**D75**）。**呼び名は上書きしない**（D46）——
@@ -3089,6 +3108,8 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Text { .. } => "文字",
         Notice::Image { .. } => "画像",
         Notice::Profile { .. } => "名乗り",
+        // **中身は出さない**（鍵は割符の片割れ）。種別だけ
+        Notice::Key { .. } => "鍵の手渡し",
         // **中身は出さない。**種別だけ言う —— これは合言葉を運ぶ知らせである（**D118**）
         Notice::RoomSecret { .. } => "部屋の合言葉",
         _ => "知らない知らせ",
@@ -3296,6 +3317,8 @@ pub fn run() {
             set_relay,
             pending_passes,
             answer_pass,
+            key_give::pending_handoffs,
+            key_give::answer_handoff,
             stop_knowing,
             known_keys,
             note_path,
@@ -3461,6 +3484,11 @@ mod 知らせの名の試験 {
             Notice::RoomSecret {
                 meeting: 部屋,
                 合言葉: warifu_core::合言葉::作る().expect("作れる"),
+            },
+            Notice::Key {
+                meeting: 部屋,
+                from: 鍵(),
+                鍵: "WARIFU1-ABC".to_owned(),
             },
         ]
     }

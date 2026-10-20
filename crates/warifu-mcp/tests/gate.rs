@@ -267,6 +267,9 @@ fn 出している口を_数えて名前で押さえる() {
     //
     // **待つだけで、押させる力は持たない**（**D56** ——「札を出すのは人である」）。
     // 時間切れなら「まだ」が返る。**上限 60 秒**（`chat_wait` と同じ）。
+    // 2026-10-20 に room_key_give を足した —— **札は room_invite と同じ room.invite**。
+    // **鍵を出すことに変わりは無い**ので、同じ札にする。違うのは、**鍵の文字を
+    // エージェントへ返さず、人が画面で承認してから相手の機械にだけ送る**ことである。
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -289,6 +292,7 @@ fn 出している口を_数えて名前で押さえる() {
             "pass_wait",
             "profile_set",
             "room_invite",
+            "room_key_give",
             "room_status",
             "rules_list",
             "voice_say",
@@ -957,6 +961,10 @@ fn 外へ出る引数名は_asciiだけ() {
         "room_invite",
         &schemars::schema_for!(warifu_mcp::InviteArgs),
     );
+    名を検める(
+        "room_key_give",
+        &schemars::schema_for!(warifu_mcp::KeyGiveArgs),
+    );
     名を検める("chat_send", &schemars::schema_for!(warifu_mcp::SayArgs));
     名を検める("contact_call", &schemars::schema_for!(warifu_mcp::CallArgs));
     名を検める("voice_say", &schemars::schema_for!(warifu_mcp::VoiceArgs));
@@ -1084,4 +1092,40 @@ fn 書き出す口は_札が無ければ通らない() {
             .expect_err("書き出す札が無い")
     );
     assert!(読むだけ.contains("chat.export"), "{読むだけ}");
+}
+
+#[test]
+fn 鍵の手渡しは_招く札が無ければ通らない() {
+    // **2026-10-20 に room_key_give を足した。**鍵を出す口なので、room_invite と同じ札を要る
+    let 口 = 用意(&[]);
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+    let 渡した = format!(
+        "{:?}",
+        rt.block_on(口.room_key_give(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::KeyGiveArgs {
+                to: "だれか".to_owned(),
+                why: "試験".to_owned(),
+                seconds: None,
+            },
+        )))
+        .expect_err("札が無い")
+    );
+    assert!(渡した.contains("room.invite"), "{渡した}");
+    // **読む札・送る札では渡せない**
+    let 会話だけ = 用意(&["chat.read", "chat.send"]);
+    assert!(
+        rt.block_on(
+            会話だけ.room_key_give(rmcp::handler::server::wrapper::Parameters(
+                warifu_mcp::KeyGiveArgs {
+                    to: "だれか".to_owned(),
+                    why: "試験".to_owned(),
+                    seconds: None,
+                },
+            ))
+        )
+        .is_err()
+    );
 }

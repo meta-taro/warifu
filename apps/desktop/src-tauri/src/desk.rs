@@ -104,7 +104,7 @@ static エージェントたち: Mutex<BTreeMap<u64, String>> = Mutex::new(BTree
 ///
 /// **画面と同じ値にしてある**（`+page.svelte` の `KEY_TTL_SECS`）——
 /// **2 か所で違う値を持つと、「24 時間」と書いた案内が嘘になる。**
-const 既定の鍵の寿命: u64 = 60 * 60 * 24;
+pub(crate) const 既定の鍵の寿命: u64 = 60 * 60 * 24;
 
 /// **人が札に答えたことを、待っている口へ知らせる**（2026-09-24）。
 ///
@@ -442,6 +442,17 @@ async fn 応じる(
                 .await;
             Ok(())
         }
+        // **ルームキーを、その相手の機械にだけ手渡す**（2026-10-20）。
+        //
+        // **人が画面で承認してから送る**（`key_give.rs`）。鍵の文字はエージェントへ返さない ——
+        // 返りの形（`手渡しの返り`）に欄が無い。
+        ToDesk::鍵を渡す { 相手, 訳, 秒 } => {
+            let 待つ秒 = 秒.unwrap_or(既定の待ち秒).min(warifu_desk::札を待てる秒);
+            let 結果 =
+                crate::key_give::頼む(app, &相手, &訳, &呼び方(名乗り.as_deref()), 待つ秒).await;
+            let _ = 口.送る(&FromDesk::手渡し { 結果 }.書く()).await;
+            Ok(())
+        }
         // **覚えている相手を並べる**（2026-10-16）。住所そのものは渡さない
         ToDesk::連絡先 => {
             let 返事 = match 連絡先を並べる() {
@@ -710,6 +721,15 @@ pub(crate) async fn 流す(
     Ok((id, 名札で並べる(&届いた)))
 }
 
+/// 覚えている相手を（鍵, 呼び名）の組で並べる。**読めなければ空**（手渡し・書き出しで使う）。
+pub(crate) fn 連絡先の組() -> Vec<(String, String)> {
+    連絡先を並べる()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|r| (r.鍵, r.名前))
+        .collect()
+}
+
 /// **誰かが入った・出たことを、この機械のエージェントにも見せる**（2026-10-20）。
 ///
 /// 連絡先から呼ばれた側は、知り合いなら人に聞かずにルームへ入る。
@@ -718,11 +738,7 @@ pub(crate) async fn 流す(
 /// 名前は書き出しと同じ決め方にする（覚えている相手なら呼び名を前に出す）。
 /// **返した名前は人への通知にも使う**（画面とエージェントで呼び方を揃える）。
 pub fn 入退室を配る(bridge: &Bridge, 鍵: &str, 入った: bool) -> String {
-    let 帳: Vec<(String, String)> = 連絡先を並べる()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|r| (r.鍵, r.名前))
-        .collect();
+    let 帳 = 連絡先の組();
     let 自分 = crate::key_to_string(bridge.device.public_key());
     let 名 = crate::contacts::書き出しの名(&帳, &自分, 鍵);
     let 中身 = if 入った {

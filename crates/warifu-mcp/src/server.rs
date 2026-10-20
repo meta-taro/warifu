@@ -14,7 +14,7 @@ use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
 use crate::chat::{Chat, 並べる};
-use crate::tools::{CallArgs, InviteArgs};
+use crate::tools::{CallArgs, InviteArgs, KeyGiveArgs};
 use crate::{OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError, WaitArgs};
 
 /// この口を叩いている相手の名前。
@@ -516,6 +516,44 @@ impl Warifu {
             いつまで
         );
         Ok(format!("{頭}\n\n{}", 鍵たち.join("\n")))
+    }
+
+    /// **ルームキーを、その相手の機械にだけ手渡す**（2026-10-20）。
+    #[tool(
+        description = "いま見ているルームのルームキーを 1 本出し、割符の線で、指定した相手の機械にだけ\
+                       直接渡す（チャット・メール・Issue を通さないので、鍵が外の網に出ない）。\
+                       to は連絡先の名前か鍵。いま割符でつながっている相手の機械だけに渡せる。\
+                       渡す前に、この PC の人が画面で承認する（why はその人が読む理由・140 バイトまで）。\
+                       受け取った側も、入るかは人が画面で決める。\
+                       鍵の文字はあなたには返らない。返るのは渡したか・まだか・断られたか・渡せない理由だけ。\
+                       エージェントごとに鍵は要らない（同じ機械のエージェントは、その機械の割符に乗る）。\
+                       この口には札（room.invite）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn room_key_give(
+        &self,
+        Parameters(args): Parameters<KeyGiveArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("room.invite")?;
+        let この機械 = self.この機械().await?;
+        let 結果 = この機械.鍵を渡す(&args.to, &args.why, args.seconds).await?;
+        Ok(match 結果 {
+            warifu_desk::手渡しの返り::渡した {
+                相手, いつまで
+            } => format!(
+                "{相手} の機械へルームキーを渡しました（{いつまで} まで使えます）。\
+                 入るかは、受け取った側の人が画面で決めます。入ったかは room_status で確かめられます。"
+            ),
+            warifu_desk::手渡しの返り::まだ => "この PC の人がまだ答えていません。\
+                 頼みは画面に残っていて、人が［渡す］を押せばその時に渡します。\
+                 同じ頼みを繰り返さないでください。"
+                .to_owned(),
+            warifu_desk::手渡しの返り::断った => "この PC の人が、渡さないと決めました。\
+                 同じ頼みを繰り返さないでください。"
+                .to_owned(),
+            warifu_desk::手渡しの返り::渡せない { 訳 } => {
+                format!("渡せませんでした：{訳}")
+            }
+        })
     }
 
     /// **いま画面アプリが持っている会話を書き出す**（2026-10-16）。

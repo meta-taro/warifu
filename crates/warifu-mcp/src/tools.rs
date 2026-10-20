@@ -84,6 +84,21 @@ pub struct InviteArgs {
     pub ttl_secs: Option<u64>,
 }
 
+/// [`crate::Warifu::room_key_give`] の引数（2026-10-20）。
+///
+/// **鍵の文字を受け取る欄も、返す欄も無い。**出すのも送るのも割符の画面アプリである。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct KeyGiveArgs {
+    /// 誰へ渡すか。連絡先の名前（`contacts_list` に出るもの）か、鍵（頭だけでもよい）。
+    /// **いま割符でつながっている相手の機械**だけに渡せる。
+    pub to: String,
+    /// **なぜ渡すか**（140 バイトまで）。この PC の人が承認するときに読む。
+    pub why: String,
+    /// 人の答えを何秒まで待つか（最大 60）。省くと 30 秒。
+    /// 待ちきれなくても頼みは画面に残り、人が押せばその時に渡す。
+    pub seconds: Option<u64>,
+}
+
 /// [`crate::Warifu::contact_call`] の引数（2026-10-16）。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct CallArgs {

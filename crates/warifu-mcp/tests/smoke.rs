@@ -30,8 +30,8 @@ use rmcp::handler::server::wrapper::Parameters;
 use warifu_capability::{Action, Gate, Grant};
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 use warifu_mcp::{
-    AskArgs, CallArgs, ChangesArgs, InviteArgs, ProfileArgs, SayArgs, StatusArgs, VoiceArgs,
-    WaitArgs, WaitPassArgs, Warifu, subject,
+    AskArgs, CallArgs, ChangesArgs, InviteArgs, KeyGiveArgs, ProfileArgs, SayArgs, StatusArgs,
+    VoiceArgs, WaitArgs, WaitPassArgs, Warifu, subject,
 };
 use warifu_read::{Body, Received, RuleStore, SenderId, Source};
 
@@ -150,6 +150,12 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     }],
                 }),
                 ToDesk::呼ぶ { 相手 } => Some(FromDesk::呼んだ { 相手 }),
+                ToDesk::鍵を渡す { 相手, .. } => Some(FromDesk::手渡し {
+                    結果: warifu_desk::手渡しの返り::渡した {
+                        相手,
+                        いつまで: "10-21 03:42 UTC".to_owned(),
+                    },
+                }),
                 ToDesk::書き出す => Some(FromDesk::書き出し {
                     行たち: vec![warifu_desk::書き出しの行 {
                         番号: 1,
@@ -293,6 +299,19 @@ async fn 口を全部_1回ずつ呼ぶ() {
             "{:?}",
             口.contact_call(Parameters(CallArgs {
                 name: "試験の相手".to_owned()
+            }))
+            .await
+        ),
+    ));
+
+    結果.push((
+        "room_key_give",
+        format!(
+            "{:?}",
+            口.room_key_give(Parameters(KeyGiveArgs {
+                to: "試験の相手".to_owned(),
+                why: "煙の確かめ".to_owned(),
+                seconds: Some(1),
             }))
             .await
         ),

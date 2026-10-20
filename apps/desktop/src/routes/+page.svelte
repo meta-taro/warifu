@@ -12,7 +12,7 @@
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
   import { DEFAULT_CAPACITY, 主催の札を付ける, 相手を入れる } from '$lib/meeting/roster';
   import type { LinkPath } from '$lib/link/path';
-  import type { 待っている札 } from '$lib/bridge';
+  import type { 待っている札, 手渡しの頼み } from '$lib/bridge';
   import {
     入退室の知らせ,
     話の記録,
@@ -145,6 +145,8 @@
     EVENT_DESK_SEATS,
     EVENT_THEME,
     EVENT_LINK,
+    EVENT_HANDOFF,
+    EVENT_KEY_GIFT,
     EVENT_CHECK_UPDATE,
     EVENT_AGENT_VOICE,
     setAgentVoice,
@@ -152,6 +154,8 @@
     reportAgentVoice,
     roomLink,
     answerPass,
+    answerHandoff,
+    pendingHandoffs,
     linkAnswered,
     pendingLinks,
     mediaTurn,
@@ -280,6 +284,16 @@
    * **聞く口と流す口を分ける。**
    */
   let 待っている札たち = $state<待っている札[]>([]);
+  /**
+   * **ルームキーの手渡しの頼み**（2026-10-20）。人が［渡す］を押すまで鍵は出さない。
+   * 札の帯と同じ所に、同じ形で出す。
+   */
+  let 手渡しの頼みたち = $state<手渡しの頼み[]>([]);
+  /**
+   * **鍵を手渡してきた相手**（2026-10-20）。リンクで誘われたときは `null`。
+   * 誰から届いたかで、尋ね方を変える（リンクは誰でも作れるが、こちらは線の相手から来た）。
+   */
+  let 誘いの送り主 = $state<string | null>(null);
   let received = $state('');
   /** 会議キーの有効期間。既定 10 分。**長く置くほど、渡した先が分からなくなる** */
   /**
@@ -1229,6 +1243,21 @@
     }
   }
 
+  /**
+   * **人が鍵の手渡しに答えた**（2026-10-20）。渡すなら、ここで初めて鍵を出して送る。
+   * **押したあとは帯を畳み、何が起きたかを返す**（札と同じ —— 畳むだけでは結果が分からない）。
+   */
+  async function 手渡しに答える(番号: number, 渡す: boolean) {
+    try {
+      const 言い方 = await answerHandoff(番号, 渡す);
+      notice = 言い方 ?? '';
+    } catch (e) {
+      notice = 読める(e);
+    } finally {
+      手渡しの頼みたち = 手渡しの頼みたち.filter((頼み) => 頼み.番号 !== 番号);
+    }
+  }
+
   /** 選んだ機器を、その段の制約へ重ねる。 */
   function 機器の指定(attempt: MediaStreamConstraints): MediaStreamConstraints {
     const base = constraintsFor(prefs);
@@ -1694,6 +1723,24 @@
         }),
       );
       unsubs.push(
+        await onEvent<手渡しの頼み[]>(EVENT_HANDOFF, (頼みたち) => {
+          // **鍵の手渡しの頼みが来た**（2026-10-20）。札と同じく、部屋の会話には出さない
+          手渡しの頼みたち = 頼みたち;
+        }),
+      );
+      unsubs.push(
+        await onEvent<[string, string]>(EVENT_KEY_GIFT, ([鍵, 誰から]) => {
+          // **相手の機械から鍵が届いた**（2026-10-20）。**ここでは入らない**（D79 と同じ）
+          誘われた鍵 = 鍵;
+          誘いの送り主 = 誰から;
+          誘いの期限 = null;
+          void inviteWindow(鍵)
+            .then((まで) => (誘いの期限 = まで))
+            .catch(() => (誘いの期限 = null));
+          log(`鍵が手渡されました（${誰から}・${鍵.length} 文字）`);
+        }),
+      );
+      unsubs.push(
         await onEvent<[string, string, string]>(EVENT_INTRODUCED, ([key, address, 部屋]) => {
           // **同じ相手を二度呼びに行かない**（`gh issue 9`）。
           // `calls` は通話が出来てから入るので、**出来る前は何度でも呼び直せていた** ——
@@ -1805,6 +1852,7 @@
         // **ここでは入らない。**届いた URL は他人が作れるので、人に尋ねる
         await onEvent<string>(EVENT_LINK, (鍵) => {
           誘われた鍵 = 鍵;
+          誘いの送り主 = null;
           // **押す前に、いつまで使えるかを読む**（**#18**）。**繋がない**
           誘いの期限 = null;
           void inviteWindow(鍵)
@@ -1824,6 +1872,8 @@
       // **画面を入れ替えると知らせは飛ばない**ので、溜まっている分が出なくなる。
       // **リンクの有無に関わらず読む**（前はリンクの条件の中に入っていて、同じく走っていなかった）
       待っている札たち = (await pendingPasses().catch(() => null)) ?? [];
+      // **手渡しの頼みも読み直す**（画面を入れ替えると知らせは飛ばない）
+      手渡しの頼みたち = (await pendingHandoffs().catch(() => null)) ?? [];
       // **機械の中の TURN を覚える**（**D125**）。Rust 側は起動と並んで建てるので、
       // 画面が先に立つと、まだ無いことがある。**少しの間だけ取りに行き直す**
       void (async () => {
@@ -2108,6 +2158,7 @@
   async function 誘いに乗る() {
     const 鍵 = 誘われた鍵;
     誘われた鍵 = '';
+    誘いの送り主 = null;
     // **答えたことを Rust へ伝える。**待っている数を減らす
     void linkAnswered().catch(() => {});
     if (!鍵) return;
@@ -2870,8 +2921,14 @@
 
 {#if 誘われた鍵}
   <div class="invited" role="alertdialog" aria-live="polite">
-    <p class="what">{t('link.invited')}</p>
-    <p class="hint">{t('link.invited.hint')}</p>
+    {#if 誘いの送り主}
+      <!-- **線の相手から手渡された鍵**（2026-10-20）。誰から来たかを先に言う -->
+      <p class="what">{format(t('link.gift'), { from: 誘いの送り主 })}</p>
+      <p class="hint">{t('link.gift.hint')}</p>
+    {:else}
+      <p class="what">{t('link.invited')}</p>
+      <p class="hint">{t('link.invited.hint')}</p>
+    {/if}
     {#if 誘いの期限}
       <p class="hint">{format(t('link.invited.until'), { until: 誘いの期限 })}</p>
     {/if}
@@ -2882,10 +2939,14 @@
         class="quiet"
         onclick={() => {
           // **断っても鍵は減らない。**そう言わないと、人は断れない（**#18**）
-          notice = 誘いの期限
-            ? format(t('link.declined'), { until: 誘いの期限 })
-            : '';
+          // **手渡された鍵は、断ると手元に残らない**（開き直すリンクが無い）
+          notice = 誘いの送り主
+            ? t('link.gift.declined')
+            : 誘いの期限
+              ? format(t('link.declined'), { until: 誘いの期限 })
+              : '';
           誘われた鍵 = '';
+          誘いの送り主 = null;
           誘いの期限 = null;
           void linkAnswered().catch(() => {});
         }}
@@ -2920,6 +2981,30 @@
       </button>
       <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, false)}>
         {t('pass.refuse')}
+      </button>
+    </div>
+  </div>
+{/each}
+
+<!--
+  **ルームキーの手渡し**（2026-10-20）。札の帯と同じ形で出す。
+  **［渡す］を押すまで、鍵は出していない。**押したら出して、その相手の機械にだけ送る。
+-->
+{#each 手渡しの頼みたち as 頼み (頼み.番号)}
+  <div class="invited" role="alertdialog" aria-live="polite">
+    <p class="what">{t('handoff.asked')}</p>
+    <p class="hint">
+      {format(t('handoff.who'), { who: エージェントの名(頼み.頼んだ人), to: 頼み.相手 })}
+    </p>
+    <!-- **なぜ渡すかを必ず出す。**空の頼みは、ここへ来ない（机が受け付けていない） -->
+    <p class="hint">{頼み.訳}</p>
+    <p class="hint">{t('handoff.hint')}</p>
+    <div class="tail">
+      <button type="button" onclick={() => void 手渡しに答える(頼み.番号, true)}>
+        {t('handoff.give')}
+      </button>
+      <button type="button" class="quiet" onclick={() => void 手渡しに答える(頼み.番号, false)}>
+        {t('handoff.keep')}
       </button>
     </div>
   </div>

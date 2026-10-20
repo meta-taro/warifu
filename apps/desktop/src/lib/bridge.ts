@@ -184,6 +184,34 @@ export const pendingPasses = () => invoke<待っている札[]>('pending_passes'
 export const answerPass = (動作: string, 許す: boolean) =>
   invoke<void>('answer_pass', { 動作, 許す });
 
+/** **ルームキーの手渡しの頼み**（2026-10-20）。**鍵はまだ出していない**（人が押してから出す）。 */
+export type 手渡しの頼み = {
+  /** 答えるときに指す番号。 */
+  番号: number;
+  /** 誰へ（連絡先の名前、覚えていなければ鍵の頭）。 */
+  相手: string;
+  /** **なぜ渡すか。**人が読んで決める。 */
+  訳: string;
+  /** どのエージェントが頼んだか。 */
+  頼んだ人: string;
+};
+
+/** 手渡しの頼みが変わった。 */
+export const EVENT_HANDOFF = 'warifu://handoff';
+/** 相手の機械から鍵が届いた。中身は `[鍵, 誰から]`。 */
+export const EVENT_KEY_GIFT = 'warifu://keygift';
+
+/** 承認を待っている手渡しの頼み（画面が起き上がったときに取りに来る）。 */
+export const pendingHandoffs = () => invoke<手渡しの頼み[]>('pending_handoffs');
+
+/**
+ * **人が手渡しに答えた。**渡すなら、ここで鍵を出して相手の機械へ送る。
+ * **エージェントはこの口を呼べない** —— 机（`desk.sock`）には無い。
+ * 返りは人に見せる一文（渡した・渡さなかった・渡せなかった）。
+ */
+export const answerHandoff = (番号: number, 渡す: boolean) =>
+  invoke<string>('answer_handoff', { 番号, 渡す });
+
 export const connectInRoom = (key: string, address: string, meeting: string) =>
   invoke<void>('connect_in_room', { key, address, meeting });
 

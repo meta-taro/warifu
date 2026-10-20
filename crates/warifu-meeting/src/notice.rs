@@ -25,6 +25,15 @@ const TEXT: &str = "meeting.text";
 const IMAGE: &str = "meeting.image";
 /// **本人の名乗り**（プロフィール・**D75**）。
 const PROFILE: &str = "meeting.profile";
+/// **ルームキーを、その相手にだけ手渡す**（2026-10-20）。
+const KEY: &str = "meeting.key";
+
+/// 手渡すルームキーの長さの上限（バイト）。**受け取る側でも数える**（D15）。
+/// いまの鍵は 400 バイトほど。宛先が長くなっても 4 KiB には収まる。
+pub const KEY_MAX: usize = 4 * 1024;
+
+/// ルームキーの頭。**これで始まらないものは鍵として運ばない。**
+const KEY_PREFIX: &str = "WARIFU1-";
 
 /// **部屋の合言葉を渡す口**（**D118**）。
 ///
@@ -164,6 +173,22 @@ pub enum Notice {
         /// 中身。空は送れない。[`IMAGE_MAX`] まで。
         中身: Vec<u8>,
     },
+    /// **ルームキーを、その相手にだけ手渡す**（2026-10-20）。
+    ///
+    /// 人が別の道（メール・チャットのアプリ）で渡すと、**鍵が外の網に出る。**
+    /// 割符の線は暗号化されていて、相手の機械に直接届くので、ここで渡す。
+    ///
+    /// **送る側は、人が画面で承認してから送る。**受け取った側も、
+    /// **入るかは人が画面で決める**（届いただけでは入らない・**D79** と同じ）。
+    /// `meeting` は**この線で共にしている会議**であり、鍵の行き先とは限らない。
+    Key {
+        /// この線で共にしている会議（経路の宛先として使う）。
+        meeting: MeetingId,
+        /// 誰が渡したか。**受け取った側は、経路の相手と同じかを確かめる。**
+        from: PublicKey,
+        /// ルームキー（`WARIFU1-…`）。[`KEY_MAX`] まで。
+        鍵: String,
+    },
     /// **本人の名乗り**（**D75**）。名前と短い紹介を相手へ渡す。
     ///
     /// **これは本人確認ではない。**名乗った名前は誰でも真似できるので、
@@ -237,6 +262,7 @@ impl Notice {
             | Self::Text { meeting, .. }
             | Self::Image { meeting, .. }
             | Self::Profile { meeting, .. }
+            | Self::Key { meeting, .. }
             | Self::RoomSecret { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
@@ -287,6 +313,13 @@ impl Notice {
                 中身,
                 ..
             } => (IMAGE, 画像を詰める(from, 話し手.as_deref(), 型, 中身)?),
+            Self::Key { from, 鍵, .. } => {
+                鍵を検める(鍵)?;
+                let mut 荷物 = Vec::with_capacity(32 + 鍵.len());
+                荷物.extend_from_slice(&from.to_bytes());
+                荷物.extend_from_slice(鍵.as_bytes());
+                (KEY, 荷物)
+            }
             Self::Introduce { who, address, .. } => {
                 if address.len() > ADDRESS_MAX {
                     return Err(Error::Malformed);
@@ -378,6 +411,18 @@ impl Notice {
                 })
             }
             IMAGE => 画像を読む(meeting, 荷物),
+            KEY => {
+                // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
+                let 頭: [u8; 32] = 荷物
+                    .get(..32)
+                    .ok_or(Error::Malformed)?
+                    .try_into()
+                    .map_err(|_| Error::Malformed)?;
+                let from = PublicKey::from_bytes(頭).map_err(|_| Error::Malformed)?;
+                let 鍵 = String::from_utf8(荷物[32..].to_vec()).map_err(|_| Error::Malformed)?;
+                鍵を検める(&鍵)?;
+                Ok(Self::Key { meeting, from, 鍵 })
+            }
             PROFILE => {
                 // 差出人 32 byte ＋ 名前の長さ 1 byte ＋ 名前 ＋ 紹介。
                 // **空の名乗りは通す** —— 「取り消した」ことも伝わる必要がある
@@ -443,6 +488,21 @@ impl Notice {
             _ => Err(Error::NotMeeting),
         }
     }
+}
+
+/// 鍵として運べる形か。**頭が `WARIFU1-` で、空白や制御文字を含まず、長すぎない。**
+///
+/// 中身（宛先・割符）までは読まない —— 入るときに画面の側が読む。
+/// ここで止めるのは、**鍵でないもの（本文・命令）を鍵の口で運ばせない**ためである。
+fn 鍵を検める(鍵: &str) -> Result<(), Error> {
+    if 鍵.len() > KEY_MAX
+        || !鍵.starts_with(KEY_PREFIX)
+        || 鍵.len() == KEY_PREFIX.len()
+        || !鍵.bytes().all(|b| b.is_ascii_graphic())
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
 }
 
 /// 札が行と欄を壊さないか（[`Notice::Text`] と同じ決まり）。

@@ -175,6 +175,22 @@ pub fn 答えた() {
     }
 }
 
+/// **相手の機械から手渡された鍵**を、答えを待つ列に足す（`key_give.rs`・2026-10-20）。
+///
+/// リンクで誘われたときと同じ列に並べる —— 画面は 1 つずつ尋ね、答えたら
+/// `link_answered` で減らす。**列を 2 つにすると、数え方が 2 つになる。**
+pub fn 届いた鍵を待たせる(鍵: &str) {
+    if let Ok((_, _, ルーム)) = warifu_app::parse_invite(鍵)
+        && let Ok(mut 棚) = 待っているルーム.lock()
+    {
+        if 棚.iter().any(|w| w.鍵 == 鍵) {
+            return;
+        }
+        足す(&mut 棚, &ルーム.to_string(), 鍵);
+        待っているリンク.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 pub fn 受ける(app: &AppHandle, urls: &[String]) {
     for url in urls {
         let Some(鍵) = 鍵を取り出す(url) else {
