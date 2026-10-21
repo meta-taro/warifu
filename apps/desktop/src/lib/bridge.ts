@@ -586,6 +586,11 @@ export type CLIの様子 =
 	| { 読めない: { 場所: string; 出たもの: string } };
 
 export const cliState = () => invoke<CLIの様子>('cli_state');
+/**
+ * **更新を入れ替えてよい置き方か。**macOS で `.app` の外から動かしていると、
+ * 入れ替えが置き場所のフォルダを丸ごと上書きする（`bundle.rs`）。
+ */
+export const canUpdate = () => invoke<boolean>('can_update');
 
 /**
  * **前に入ったルームへの帰り道**（`gh issue 13`）。

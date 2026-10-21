@@ -92,6 +92,7 @@ macro_rules! 記録 {
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
 mod absence;
+mod bundle;
 mod call;
 mod cli;
 mod come_back;
@@ -3393,6 +3394,7 @@ pub fn run() {
             look_at_room,
             set_menu_locale,
             cli_state,
+            bundle::can_update,
             rejoin_key,
             room_name::room_names,
             postbox::postbox,

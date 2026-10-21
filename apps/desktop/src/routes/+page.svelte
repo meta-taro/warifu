@@ -201,6 +201,7 @@
     sendToContact,
     postbox,
     cliState,
+    canUpdate,
     firewallState,
     rejoinKey,
     rejoinRoom,
@@ -2193,7 +2194,8 @@
     if (更新の様子 === '確認中' || 更新の様子 === '落とし中') return;
     更新の様子 = '確認中';
     try {
-      const 見つけた = await 確かめる();
+      // **`.app` の外で動いているなら、確かめない**（入れ替えると置き場所が消える・`bundle.rs`）
+      const 見つけた = (await canUpdate().catch(() => false)) ? await 確かめる() : null;
       更新 = 見つけた;
       更新の様子 = '休み';
       // 起動直後の確認では、無いことをわざわざ言わない（うるさい）
