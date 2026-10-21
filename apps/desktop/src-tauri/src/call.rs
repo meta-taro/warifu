@@ -98,6 +98,7 @@ pub async fn 住所へ呼ぶ(
     crate::media_path::足す(session.包みの口());
     let mut channel = Channel::new(session);
     let (meeting, roster) = 招待を待つ(&mut channel).await?;
+    let roster = 自分を名簿に足す(roster, bridge.device.public_key());
     記録!(
         "呼ぶ: 招かれた（会議 {}）",
         crate::短く(&meeting.to_string())
@@ -110,6 +111,11 @@ pub async fn 住所へ呼ぶ(
             Conference::joined(bridge.device.public_key(), meeting, roster),
         )
         .await;
+        // **呼んだ相手を、この部屋の主催として覚える**（`connect` と同じ・**#37**）。
+        // 覚えないと、ゲストなのに「あなたが建てた」と出て、
+        // **帰り道の見張りが「自分の部屋」とみなし、次に主催が落ちても戻らない**
+        // （2026-10-21・割符なしで戻った機械で実測）
+        bridge.主催たち.lock().await.insert(meeting, peer);
         vec![warifu_app::Event::Joined(peer)]
     };
     emit_events(app, &events);
@@ -150,6 +156,20 @@ pub async fn 住所へ呼ぶ(
 
     始める(app, bridge, channel, peer).await;
     Ok(())
+}
+
+/// **招かれた名簿に、自分を足す。**
+///
+/// 招く側は**自分の名簿**（先頭が招く側・呼んだ側はまだ居ない）を送ってくる。
+/// そのまま使うと、**呼んだ側の画面に自分が数えられず**、相手と話していても
+/// 「（1 人）まだ自分だけです」と出ていた（2026-10-21）。`connect` は自分から名簿を組むので起きない。
+/// 満員なら足さない（入れたかは相手の戸口が決めている）。
+fn 自分を名簿に足す(mut roster: Roster, 自分: PublicKey) -> Roster {
+    if !roster.contains(&自分) {
+        // 満員で足せないときは、相手の名簿のまま使う（入る・入らないは相手の戸口が決める）
+        let _ = roster.add(自分);
+    }
+    roster
 }
 
 /// 相手が会議へ招くのを待つ。
@@ -323,4 +343,31 @@ async fn 部屋へ足す(
         code: None,
     })?;
     Ok(vec![warifu_app::Event::Joined(相手)])
+}
+
+#[cfg(test)]
+mod 試験 {
+    use super::*;
+
+    fn 鍵(n: u8) -> PublicKey {
+        warifu_core::Seed::from_bytes([n; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key()
+    }
+
+    #[test]
+    fn 招かれた名簿に_呼んだ自分が数えられる() {
+        let 名簿 = 自分を名簿に足す(Roster::new(鍵(1)), 鍵(2));
+        assert_eq!(名簿.len(), 2);
+        assert_eq!(名簿.host(), 鍵(1));
+        assert!(名簿.contains(&鍵(2)));
+    }
+
+    #[test]
+    fn もう居るなら_二度は足さない() {
+        let mut 元 = Roster::new(鍵(1));
+        元.add(鍵(2)).unwrap();
+        assert_eq!(自分を名簿に足す(元, 鍵(2)).len(), 2);
+    }
 }

@@ -53,13 +53,13 @@ mod 試験 {
     }
 
     #[test]
-    fn app_でないフォルダの_Contents_MacOS_なら入れ替えない() {
+    fn app_でないフォルダの_contents_macos_なら入れ替えない() {
         let p = Path::new("/tmp/x/Contents/MacOS/warifu-desktop");
         assert!(!入れ替えてよいか(p, true));
     }
 
     #[test]
-    fn macOS_でなければ止めない() {
+    fn macos_でなければ止めない() {
         let p = Path::new("C:/Program Files/warifu/warifu-desktop.exe");
         assert!(入れ替えてよいか(p, false));
     }
