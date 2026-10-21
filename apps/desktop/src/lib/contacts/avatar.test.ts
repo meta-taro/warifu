@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { マス, 顔を描く } from './avatar';
+import { マス, 顔の主を決める, 顔を描く } from './avatar';
 
 const 鍵A = 'PEERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const 鍵B = '4VKCVUBF4RNLZ7DG2XFNZVIWHQNXVYNGWTYTAOALSPKNGWTZA3WA';
@@ -41,5 +41,19 @@ describe('顔を描く', () => {
     const a = 顔を描く('AAAAAAAAAAAA1');
     const b = 顔を描く('AAAAAAAAAAAA2');
     expect(JSON.stringify(a.ます)).not.toBe(JSON.stringify(b.ます));
+  });
+});
+
+describe('顔の主を決める', () => {
+  it('この機械につながっているエージェントは、エージェント', () => {
+    expect(顔の主を決める('desk:zumen')).toBe('エージェント');
+  });
+
+  it('公開鍵の顔は、人', () => {
+    expect(顔の主を決める(鍵A)).toBe('人');
+  });
+
+  it('desk: が頭に無ければ、途中にあっても人', () => {
+    expect(顔の主を決める(`${鍵B}desk:`)).toBe('人');
   });
 });

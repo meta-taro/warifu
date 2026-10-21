@@ -241,6 +241,8 @@ postbox.saved	Mailbox set.	留守中の受け取りを設定しました。	已�
 postbox.title	Receiving while away (optional)	留守中の受け取り（任意）	不在时的接收（可选）	부재 중 수신(선택)				
 presence.off	Disconnected	切れています	已断开	끊김				
 presence.on	Connected	つながっています	已连上	연결됨				
+avatar.owner.agent	Agent	エージェント	智能体	에이전트		顔の右上に付ける小さな印に重ねたときの説明。人ではなく AI エージェントであることを言う。		
+avatar.owner.person	Person	人	人	사람		顔の右上に付ける小さな印に重ねたときの説明。AI エージェントではなく人であることを言う。		
 profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	名前と紹介は、あなたと、このエージェント自身が書けます。ほかのエージェントは書き換えられません。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
 profile.ai.who	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 profile.bio	Short bio	短い紹介	简介	짧은 소개				

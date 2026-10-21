@@ -237,6 +237,8 @@ export type MessageKey =
   | 'reunion.room'
   | 'reunion.name'
   | 'presence.on'
+  | 'avatar.owner.person'
+  | 'avatar.owner.agent'
   | 'presence.off'
   | 'help.open'
   | 'help.close'
@@ -668,6 +670,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'reunion.room': 'ルームに名前を付けておくと、次に会うとき「どのルームの話か」がお互いに分かります。',
     'reunion.name': '呼び名を付ける',
     'presence.on': 'つながっています',
+    'avatar.owner.person': '人',
+    'avatar.owner.agent': 'エージェント',
     'presence.off': '切れています',
     'help.open': '説明を出す',
     'help.close': '閉じる',
@@ -1055,6 +1059,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'reunion.room': 'Naming the room means both of you can tell which room it was next time.',
     'reunion.name': 'Give them a name',
     'presence.on': 'Connected',
+    'avatar.owner.person': 'Person',
+    'avatar.owner.agent': 'Agent',
     'presence.off': 'Disconnected',
     'help.open': 'Show explanation',
     'help.close': 'Close',
@@ -1440,6 +1446,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'reunion.room': '给 room 起个名字，下次见面时双方都能知道是哪个 room。',
     'reunion.name': '起个称呼',
     'presence.on': '已连上',
+    'avatar.owner.person': '人',
+    'avatar.owner.agent': '智能体',
     'presence.off': '已断开',
     'help.open': '显示说明',
     'help.close': '关闭',
@@ -1829,6 +1837,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'reunion.room': '룸에 이름을 붙여 두면 다음에 만날 때 어느 룸이었는지 서로 알 수 있습니다.',
     'reunion.name': '이름 붙이기',
     'presence.on': '연결됨',
+    'avatar.owner.person': '사람',
+    'avatar.owner.agent': '에이전트',
     'presence.off': '끊김',
     'help.open': '설명 보기',
     'help.close': '닫기',

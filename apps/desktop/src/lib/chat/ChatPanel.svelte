@@ -120,6 +120,9 @@
   }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
+  /** 顔の右上の印に重ねたときの説明。**人か、エージェントか**（2026-10-21）。 */
+  const 主の名 = (主: '人' | 'エージェント') =>
+    t(主 === 'エージェント' ? 'avatar.owner.agent' : 'avatar.owner.person');
   /** エージェントの名札を、この画面の言葉で出す（元の名札は変えない） */
   const 見せる名 = (名: string) =>
     エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n }));
@@ -251,7 +254,7 @@
         <span class="faces-label">{format(t('chat.reach'), { who: '' }).trim()}</span>
         {#each 届く先 as 名, i (i)}
           <span class="who" title={見せる名(名)}>
-            <Avatar 種={届く先の顔[i]} 大きさ={22} 画像={顔の画[届く先の顔[i]] ?? null} 名={見せる名(名)} />
+            <Avatar 種={届く先の顔[i]} 大きさ={22} 画像={顔の画[届く先の顔[i]] ?? null} 名={見せる名(名)} {主の名} />
             <span class="who-name">{見せる名(名)}</span>
           </span>
         {/each}
