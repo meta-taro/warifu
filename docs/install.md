@@ -134,6 +134,8 @@ Some antivirus products (Norton was reported, #42) refuse to start the **downloa
 
 **For the app, Norton may show a window** (measured 2026-09-30 with the v0.1.20 installer) saying it **needs to examine the file more closely**. **Press [Open] and the app starts.** If nothing appears for about 30 seconds, wait, or turn off Norton's Auto-Protect for 10 minutes from the notification area and start the app again.
 
+**If the app still vanishes 1–2 minutes after starting, or opening it from Explorer says "Access is denied" even with an exclusion in place**, run Norton's **Repair Norton product** (measured 2026-10-21 with v0.1.28: after the repair, the same exe started as is). In this case warifu's log (`warifu.log`) has no lines at all — it is stopped before warifu's own code runs.
+
 **A build made on the same machine from source was not blocked** (reported 2026-09-28, CLI only).
 
 ```powershell
