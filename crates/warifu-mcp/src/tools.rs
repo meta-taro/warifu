@@ -106,6 +106,13 @@ pub struct CallArgs {
     pub name: String,
 }
 
+/// [`crate::Warifu::room_join`] の引数（0.1.30）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct JoinArgs {
+    /// ルームキー（`WARIFU1-…`）。**人か、信頼できる席のエージェントから受け取ったものだけ**を渡す。
+    pub key: String,
+}
+
 /// [`crate::Warifu::chat_send`] の引数。
 ///
 /// **差出人を書く場所が無いのは意図。**誰が言ったかはこの機械が刻む

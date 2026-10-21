@@ -30,8 +30,8 @@ use rmcp::handler::server::wrapper::Parameters;
 use warifu_capability::{Action, Gate, Grant};
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 use warifu_mcp::{
-    AskArgs, CallArgs, ChangesArgs, InviteArgs, KeyGiveArgs, ProfileArgs, SayArgs, StatusArgs,
-    VoiceArgs, WaitArgs, WaitPassArgs, Warifu, subject,
+    AskArgs, CallArgs, ChangesArgs, InviteArgs, JoinArgs, KeyGiveArgs, ProfileArgs, SayArgs,
+    StatusArgs, VoiceArgs, WaitArgs, WaitPassArgs, Warifu, subject,
 };
 use warifu_read::{Body, Received, RuleStore, SenderId, Source};
 
@@ -65,6 +65,7 @@ fn 全部許す() -> Gate {
         "voice.say",
         "contacts.read",
         "contacts.call",
+        "room.join",
         "chat.export",
     ] {
         関所.issue(Grant::new(
@@ -155,6 +156,9 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                         相手,
                         いつまで: "10-21 03:42 UTC".to_owned(),
                     },
+                }),
+                ToDesk::入る { .. } => Some(FromDesk::入った {
+                    ルーム: "ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
                 }),
                 ToDesk::書き出す => Some(FromDesk::書き出し {
                     行たち: vec![warifu_desk::書き出しの行 {
@@ -305,6 +309,28 @@ async fn 口を全部_1回ずつ呼ぶ() {
     ));
 
     結果.push((
+        "room_join",
+        format!(
+            "{:?}",
+            口.room_join(Parameters(JoinArgs {
+                key: "WARIFU1-AAA#BBB#CCC".to_owned()
+            }))
+            .await
+        ),
+    ));
+
+    // **room.join は使ったら消える**（0.1.30・セキュリティ審査）。2 回目は関所が断る
+    let 二度目 = 口
+        .room_join(Parameters(JoinArgs {
+            key: "WARIFU1-AAA#BBB#CCC".to_owned(),
+        }))
+        .await;
+    assert!(
+        format!("{二度目:?}").contains("room.join"),
+        "2 回目の room_join が通った: {二度目:?}"
+    );
+
+    結果.push((
         "room_key_give",
         format!(
             "{:?}",
@@ -363,6 +389,10 @@ async fn 口を全部_1回ずつ呼ぶ() {
     assert!(
         机が受けた.iter().any(|x| x.contains("呼ぶ")),
         "呼ぶ頼みが机まで届いていない: {机が受けた:?}"
+    );
+    assert!(
+        机が受けた.iter().any(|x| x.contains("入る")),
+        "入る頼みが机まで届いていない: {机が受けた:?}"
     );
     let _ = std::fs::remove_dir_all(&控え);
 }

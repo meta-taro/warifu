@@ -1210,6 +1210,33 @@ async fn room_name() -> Answer<String> {
 /// **繋がった後は、届いたものを画面へ流し続ける。**
 #[tauri::command]
 async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> Answer<()> {
+    会議キーで入る(app.clone(), &bridge, invite, 誰が入れるか::人).await?;
+    Ok(())
+}
+
+/// **誰の頼みで入るか**（0.1.30）。人が［入る］を押したのか、札を持つエージェントか。
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum 誰が入れるか {
+    /// 人が画面で押した。**入った先を見る・主催を知り合いにする・帰り道を残す。**
+    人,
+    /// 札（`room.join`）を持つエージェント。**鍵は流れてきたものかもしれない**ので、
+    /// 入る以上のことをしない —— **見ているルームを奪わない**（ほかの発言が相手へ流れないように）、
+    /// **主催を戸口に載せない**（鍵なしで入ってこられる裏口にしない）、**帰り道を残さない**
+    /// （起動のたびに入り直さない）。2026-10-21 のセキュリティ審査で決めた。
+    ///
+    /// **人がまだどのルームも見ていない機械では、入った先が見ているルームになる**
+    /// （`見る部屋を決める(None, id)`）。遠隔で新しい機械を入れるのが、この口の用途なので、
+    /// そう決めた。人がどこかを見ていれば、そちらは変えない。
+    エージェント,
+}
+
+/// 会議キーで入る。入った会議の id を返す。
+pub(crate) async fn 会議キーで入る(
+    app: AppHandle,
+    bridge: &Bridge,
+    invite: String,
+    誰が: 誰が入れるか,
+) -> Answer<MeetingId> {
     // **宛先だけでは繋がない。**会議キーに割符が付いていなければここで止まる（D31）
     let (address, token, meeting) = parse_invite(&invite)?;
     // **自分の会議キーを貼ったときは、ここで気づく。**
@@ -1272,12 +1299,12 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
             message: e.to_string(),
             code: None,
         })?;
-        ルームを足す(
-            &bridge.conferences,
-            &bridge.いまのルーム,
-            Conference::joined(bridge.device.public_key(), meeting, roster),
-        )
-        .await;
+        let 部屋 = Conference::joined(bridge.device.public_key(), meeting, roster);
+        if 誰が == 誰が入れるか::人 {
+            ルームを足す(&bridge.conferences, &bridge.いまのルーム, 部屋).await;
+        } else {
+            ルームを足す_見るのは奪わない(&bridge.conferences, &bridge.いまのルーム, 部屋).await;
+        }
         // **呼んだ相手が、この部屋の主催**（**#37**）。
         // **ゲストの名簿は先頭が自分**なので、名簿からは主催が分からない ——
         // 覚えないと **D111 の迎えが一度も起きない**（Mac Air の実測で 08 が落ちた）
@@ -1289,7 +1316,7 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     // 戸口の知り合いは**通した側にしか残らない**ので、ゲストから主催へは割符なしで戻れるが、
     // **主催からゲストを呼ぶと無言で断っていた**（片方向）。
     // **鍵を受け取って入るのは「この相手と話す」という意思表示である**（呼んだときと同じ）
-    {
+    if 誰が == 誰が入れるか::人 {
         let mut door = bridge.door.lock().await;
         contacts::迎える(&mut door, peer);
     }
@@ -1310,10 +1337,11 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
     //
     // **ここには割符の片割れが入る。**0600 で置き、画面には出さず、抜けたら消す。
     // 再入場は **D44** で通る（同じ人が同じ割符で戻るのは `rematch`）。
-    if let Ok(vault) = warifu_vault::Vault::default_location() {
-        if let Err(e) = vault.save_rejoin(&meeting.to_string(), &invite) {
-            記録!("帰り道を書き置けませんでした: {e}");
-        }
+    if 誰が == 誰が入れるか::人
+        && let Ok(vault) = warifu_vault::Vault::default_location()
+        && let Err(e) = vault.save_rejoin(&meeting.to_string(), &invite)
+    {
+        記録!("帰り道を書き置けませんでした: {e}");
     }
 
     // 入ると告げる
@@ -1369,14 +1397,14 @@ async fn connect(app: AppHandle, bridge: State<'_, Bridge>, invite: String) -> A
         .await
         .insert(peer.to_bytes(), address.clone());
 
-    始める(&app, &bridge, channel, peer).await;
+    始める(&app, bridge, channel, peer).await;
     // **送り口ができてから「入った」を画面へ流す**（2026-09-29）。
     //
     // 前は名乗りと住所を送る**前**に流していた。住所はルーターの口を最長 2 秒待つので、
     // **その間に画面が offer と候補を送り、「まだ繋がっていません」で全部落ちた**
     // （別の網にある 2 台の間。27 通のうち届いたのは 40 秒後の終わりの印だけ）。
     emit_events(&app, &events);
-    Ok(())
+    Ok(meeting_id)
 }
 
 /// **覚えた相手を、割符なしで呼ぶ。**

@@ -439,6 +439,23 @@ impl Chat {
         }
     }
 
+    /// **ルームキーで、この機械の割符をそのルームへ入れる**（0.1.30）。入ったルームの id を返す。
+    ///
+    /// 繋ぎに行くので、呼ぶと同じだけ待つ（[`呼ぶを待つ秒`]）。
+    pub async fn 入る(&self, 鍵: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::入る {
+            鍵: 鍵.trim().to_owned(),
+        };
+        match self.頼んで待つ(行, 入るの返事, 呼ぶを待つ秒).await? {
+            FromDesk::入った { ルーム } => Ok(ルーム),
+            // **入れなかった理由は、そのまま渡す**（人が読むので）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。呼んだ相手の名前を返す。
     ///
     /// 繋ぎに行くので、ほかの頼みより長く待つ（[`呼ぶを待つ秒`]）。
@@ -853,6 +870,9 @@ fn 書き出しの返事(中身: &FromDesk) -> bool {
 fn 手渡しの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::手渡し { .. } | FromDesk::Denied { .. })
 }
+fn 入るの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::入った { .. } | FromDesk::Denied { .. })
+}
 fn 呼ぶの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::呼んだ { .. } | FromDesk::Denied { .. })
 }
@@ -946,6 +966,7 @@ fn 仕分ける(
             // 足した日に、煙の試験が「返事をしません」で落として見つけた（同じ穴）
             | FromDesk::連絡先たち { .. }
             | FromDesk::呼んだ { .. }
+            | FromDesk::入った { .. }
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
@@ -1025,6 +1046,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             // **連絡先と呼んだ返りも会話の行ではない**（尋ねたときだけ返る）
             FromDesk::連絡先たち { .. }
             | FromDesk::呼んだ { .. }
+            | FromDesk::入った { .. }
             | FromDesk::書き出し { .. }
             | FromDesk::手渡し { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),

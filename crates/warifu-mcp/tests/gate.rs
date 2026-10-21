@@ -270,6 +270,8 @@ fn 出している口を_数えて名前で押さえる() {
     // 2026-10-20 に room_key_give を足した —— **札は room_invite と同じ room.invite**。
     // **鍵を出すことに変わりは無い**ので、同じ札にする。違うのは、**鍵の文字を
     // エージェントへ返さず、人が画面で承認してから相手の機械にだけ送る**ことである。
+    // 0.1.30 に room_join を足した —— **札は別の room.join**。入ると、この機械の会話が
+    // 相手に流れる。**鍵を出す（招く）とは向きが逆**なので、同じ札にしない。
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -292,6 +294,7 @@ fn 出している口を_数えて名前で押さえる() {
             "pass_wait",
             "profile_set",
             "room_invite",
+            "room_join",
             "room_key_give",
             "room_status",
             "rules_list",

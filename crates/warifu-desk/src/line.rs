@@ -215,7 +215,21 @@ pub enum ToDesk {
         /// 待ちきれなくても頼みは画面に残り、**人が押せばその時に渡す。**
         秒: Option<u64>,
     },
+    /// **ルームキーで、この機械の割符をそのルームへ入れる**（0.1.30）。
+    ///
+    /// 新しい機械が最初に繋がるときに、**受け取った機械の前に人が居ないと止まっていた**
+    /// （リンクは画面が人に尋ねる・**D79**）。遠隔で回すために、札を持つエージェントが入れる。
+    ///
+    /// **鍵は誰でも作れる。**会話に流れてきた鍵で入ると、こちらの会話が相手に流れる。
+    /// だから**人が 1 回だけ許す札**（`room.join`）を MCP 側が確かめる。
+    入る {
+        /// ルームキー（`WARIFU1-…`）。上限は [`入る鍵の上限`]（バイト）。
+        鍵: String,
+    },
 }
+
+/// **入る鍵の上限**（バイト）。リンクで受ける鍵と同じ長さにそろえる。
+pub const 入る鍵の上限: usize = 4096;
 
 /// 鍵の手渡しの結果（[`FromDesk::手渡し`]）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -550,6 +564,11 @@ pub enum FromDesk {
         /// 渡したか、なぜ渡していないか。
         結果: 手渡しの返り,
     },
+    /// **ルームへ入った**（[`ToDesk::入る`] の返り）。入れなければ [`FromDesk::Denied`]。
+    入った {
+        /// 入ったルームの id。
+        ルーム: String,
+    },
 }
 
 /// 行が読めなかった理由。
@@ -644,6 +663,8 @@ impl ToDesk {
                 訳を検める(訳)?;
                 待つ秒を検める(*秒)?;
             }
+            // **鍵の形も書き手の側で検める**（0.1.30）。中身（宛先・割符）はこの機械が読む
+            Self::入る { 鍵 } => 入る鍵を検める(鍵)?,
             Self::連絡先 | Self::書き出す => {}
             // 番号だけの行と、尋ねるだけの行。**中身が無いので検めるものが無い**
             Self::Read { .. } | Self::Status { .. } | Self::Status様子 => {}
@@ -736,6 +757,28 @@ fn 呼ぶ相手を検める(相手: &str) -> Result<(), Error> {
     let 数 = 相手.chars().count();
     if 数 > 呼ぶ相手の上限 {
         return Err(Error::TooLong(数));
+    }
+    Ok(())
+}
+
+/// **ルームキーの形か**（0.1.30）。
+///
+/// `WARIFU1-` で始まり、[`入る鍵の上限`] を超えず、使う字（base32 の大文字と数字・`-`・`#`）だけ。
+/// 前後の空白は許す（貼るときに付く）。
+fn 入る鍵を検める(鍵: &str) -> Result<(), Error> {
+    let 鍵 = 鍵.trim();
+    if 鍵.is_empty() {
+        return Err(Error::Empty);
+    }
+    if 鍵.len() > 入る鍵の上限 {
+        return Err(Error::TooLong(鍵.len()));
+    }
+    if !鍵.starts_with("WARIFU1-")
+        || !鍵
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-' || c == '#')
+    {
+        return Err(Error::Malformed);
     }
     Ok(())
 }
@@ -1482,5 +1525,54 @@ mod 手渡しの試験 {
             ToDesk::読む(&頼み("相手A", &"あ".repeat(訳の上限), None).書く()),
             Err(Error::TooLong(_))
         ));
+    }
+}
+
+#[cfg(test)]
+mod 入る試験 {
+    use super::*;
+
+    #[test]
+    fn 入る頼みが往復する() {
+        let 元 = ToDesk::入る {
+            鍵: "WARIFU1-ABC234#DEF#GHI".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+    }
+
+    #[test]
+    fn ルームキーでないものは運ばない() {
+        for 鍵 in [
+            "",
+            "   ",
+            "warifu1-abc",
+            "HELLO",
+            "WARIFU1-abc",
+            "WARIFU1-AB C",
+            "WARIFU1-A\nB",
+        ] {
+            let 行 = ToDesk::入る {
+                鍵: 鍵.to_owned()
+            }
+            .書く();
+            assert!(ToDesk::読む(&行).is_err(), "{鍵:?} を通した");
+        }
+    }
+
+    #[test]
+    fn 長すぎる鍵は運ばない() {
+        let 行 = ToDesk::入る {
+            鍵: format!("WARIFU1-{}", "A".repeat(入る鍵の上限)),
+        }
+        .書く();
+        assert!(matches!(ToDesk::読む(&行), Err(Error::TooLong(_))));
+    }
+
+    #[test]
+    fn 入った返りが往復する() {
+        let 元 = FromDesk::入った {
+            ルーム: "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+        };
+        assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
     }
 }

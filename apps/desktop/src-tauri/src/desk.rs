@@ -495,6 +495,24 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+        // **ルームキーで入る**（0.1.30）。札（room.join）は MCP 側が見る。
+        //
+        // 画面の［入る］と同じ道（`connect`）を通る。**誰が入れたかを記録に残す** ——
+        // 人が画面の前に居なくても、あとで「なぜこのルームに居るか」を辿れるように
+        ToDesk::入る { 鍵 } => {
+            let 返事 = 鍵で入る(app, 鍵.trim(), &呼び方(名乗り.as_deref())).await;
+            記録!(
+                "入る: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::入った { ルーム } => format!("ルーム {} へ入りました", crate::短く(ルーム)),
+                    FromDesk::Denied { why } => format!("入れませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         // **そこまで読んだ**（**D76**）。返事は要らない —— 数えるだけ
         ToDesk::Read { まで } => {
             読んだ(自分, まで);
@@ -789,6 +807,79 @@ fn 連絡先を並べる() -> Result<Vec<warifu_desk::連絡先の行>, String> 
             住所あり: c.address().is_some(),
         })
         .collect())
+}
+
+/// **ルームキーで入る**（0.1.30）。画面の［入る］と同じ道を、**エージェントの入り方**で通る。
+///
+/// **見ているルームを奪わない・主催を戸口に載せない・帰り道を残さない**（`誰が入れるか`）。
+/// 入ったら、**必ず人に知らせる**（OS の通知と記録）。返すのは鍵から読んだ会議の id。
+async fn 鍵で入る(app: &AppHandle, 鍵: &str, 誰: &str) -> FromDesk {
+    // **札は画面の側でも確かめて、ここで消す**（口の関所だけに任せない・`使い切りの札を受け取る`）
+    if !使い切りの札を受け取る("room.join") {
+        return FromDesk::Denied {
+            why: "札（room.join）を人が許していません（1 回使うと消えます。pass_ask で頼み直してください）"
+                .to_owned(),
+        };
+    }
+    let bridge = app.state::<Bridge>();
+    match crate::会議キーで入る(
+        app.clone(),
+        &bridge,
+        鍵.to_owned(),
+        crate::誰が入れるか::エージェント,
+    )
+    .await
+    {
+        Ok(会議) => {
+            let 主催 = bridge
+                .主催たち
+                .lock()
+                .await
+                .get(&会議)
+                .map(|k| crate::短く(&crate::key_to_string(*k)))
+                .unwrap_or_default();
+            crate::notify::エージェントが入ったと知らせる(app, 誰, &主催);
+            FromDesk::入った {
+                ルーム: 会議.to_string(),
+            }
+        }
+        Err(e) => FromDesk::Denied {
+            why: format!("入れませんでした: {}", e.message),
+        },
+    }
+}
+
+/// **札の控え（`passes`）を読み書きするときの錠**（0.1.30）。
+///
+/// 人が札を押すのと、使い切りの札を消すのが同時に走ると、片方の書き換えが消える
+/// （「札が残る」か「人が許した札が消える」）。読み書きはこの錠の中でだけ行う。
+static 札の控えの錠: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// **使い切りの札を受け取る**（0.1.30）。人が許していれば控えから落として `true`。
+///
+/// `room.join` は **1 回使ったら終わり**。確かめて消すのは**ここ 1 か所**にする ——
+/// 口（MCP）の関所は口ごとに札を覚えるので、口が 2 つ・同時の呼び・時間切れ・
+/// `--allow` で、人に聞かずにもう 1 回入れていた（2026-10-21 のセキュリティ審査）。
+/// **入る前に消す。**入れなかったときも札は戻らない（次はまた人に頼む）。
+fn 使い切りの札を受け取る(動作: &str) -> bool {
+    let _錠 = 札の控えの錠.lock().expect("毒されていない");
+    let 結果 = warifu_vault::Vault::default_location().and_then(|v| {
+        let 一覧 = v.passes()?;
+        if !一覧.iter().any(|(a, 許した)| a == 動作 && *許した) {
+            return Ok(false);
+        }
+        let 残す: Vec<(String, bool)> = 一覧.into_iter().filter(|(a, _)| a != 動作).collect();
+        v.save_passes(&残す)?;
+        Ok(true)
+    });
+    match 結果 {
+        Ok(受け取れた) => 受け取れた,
+        Err(e) => {
+            // **読めない・書けないなら通さない。**消せない札で入ると、使い切りにならない
+            記録!("札 {動作} を確かめられませんでした: {e}");
+            false
+        }
+    }
 }
 
 /// **名前（か鍵の頭）から相手を決めて、画面の［ルームに呼ぶ］と同じ道で呼ぶ**（2026-10-16）。
@@ -1186,6 +1277,7 @@ pub fn 待っている札() -> Vec<待ち> {
 /// # Errors
 /// 控えへ書けないとき。
 pub fn 人が答えた(動作: &str, 許した: bool) -> Result<(), String> {
+    let _錠 = 札の控えの錠.lock().expect("毒されていない");
     let vault = warifu_vault::Vault::default_location().map_err(|e| e.to_string())?;
     let mut 一覧 = vault.passes().unwrap_or_default();
     // **同じ動作は 1 行だけ。**書き換える

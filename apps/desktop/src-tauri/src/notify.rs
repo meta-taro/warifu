@@ -93,6 +93,20 @@ pub fn 不在を知らせる(app: &AppHandle, 誰: &str, 分: u64) {
     知らせを出す(app, &format!("{誰} が {分} 分、ルームに戻っていません"));
 }
 
+/// **エージェントがルームキーで入った**（0.1.30）。**いつも鳴らす**（間を空けない・前に居ても）。
+///
+/// 人が画面の前に居なくても入れる口なので、**入ったことは必ず人に見せる**
+/// （流れてきた鍵で入れられたなら、人が気づいて抜けられるように）。
+pub fn エージェントが入ったと知らせる(app: &AppHandle, 誰: &str, 主催: &str) {
+    if let Some(窓) = app.get_webview_window("main") {
+        let _ = 窓.request_user_attention(Some(tauri::UserAttentionType::Informational));
+    }
+    知らせを出す(
+        app,
+        &format!("{誰} がルームキーで別のルームへ入りました（主催 {主催}）。心当たりが無ければ、そのルームを抜けてください"),
+    );
+}
+
 fn 前に居る(app: &AppHandle) -> bool {
     app.get_webview_window("main")
         .and_then(|w| w.is_focused().ok())
