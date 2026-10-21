@@ -161,6 +161,7 @@ const ISSUED_ADDRS_HEADER: &str = "warifu-issued-addrs-v1";
 
 /// 中継を使うかの控えの見出し（**#5**・2026-09-18）。
 const RELAY_HEADER: &str = "warifu-relay-v1";
+const RELAY_SERVER_HEADER: &str = "warifu-relay-server-v1";
 
 /// 部屋の合言葉の控えの見出し（**D118**）。
 const ROOM_SECRET_HEADER: &str = "warifu-room-secret-v1";
@@ -856,6 +857,86 @@ impl Vault {
             Some("使わない") => Some(false),
             _ => None,
         })
+    }
+
+    /// 自前の中継の控えの置き場所（0.1.31）。
+    #[must_use]
+    pub fn relay_server_path(&self) -> PathBuf {
+        self.dir.join("relay-server.tsv")
+    }
+
+    /// **自前の中継の URL とトークンを控える**（0.1.31）。
+    ///
+    /// 画面版は Finder から起動すると環境変数を読まないので、置き場所に持たせる。
+    /// **トークンは秘密である。**0600 で置き、画面にも記録にも出さない
+    /// （出すのは「トークンあり／なし」だけ）。書くのは人（`warifu relay set`）。
+    ///
+    /// URL・トークンに改行やタブがあれば書かない（行が割れる）。
+    ///
+    /// # Errors
+    /// 形が悪いとき [`Error::Malformed`]、書けないとき [`Error::Io`]。
+    pub fn save_relay_server(&self, url: &str, token: Option<&str>) -> Result<(), Error> {
+        let path = self.relay_server_path();
+        let 壊す = |s: &str| s.is_empty() || s.chars().any(|c| c.is_control());
+        let url = url.trim();
+        if 壊す(url) {
+            return Err(Error::malformed(
+                &path,
+                "中継の URL が空か、使えない字を含みます",
+            ));
+        }
+        let token = token.map(str::trim).filter(|t| !t.is_empty());
+        if token.is_some_and(壊す) {
+            return Err(Error::malformed(&path, "トークンに使えない字を含みます"));
+        }
+        let mut out = format!("{RELAY_SERVER_HEADER}\nurl\t{url}\n");
+        if let Some(t) = token {
+            out.push_str(&format!("token\t{t}\n"));
+        }
+        self.write_private(&path, &out, "自前の中継を控える")
+    }
+
+    /// 控えた自前の中継（URL・トークン）。**無ければ `None`。**
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn relay_server(&self) -> Result<Option<(String, Option<String>)>, Error> {
+        let path = self.relay_server_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(Error::io(&path, "自前の中継を読む")(e)),
+        };
+        let mut lines = text.lines();
+        if lines.next().unwrap_or_default().trim() != RELAY_SERVER_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{RELAY_SERVER_HEADER} を待っていました）"),
+            ));
+        }
+        let mut url = None;
+        let mut token = None;
+        for line in lines {
+            match line.split_once('\t') {
+                Some(("url", v)) if !v.trim().is_empty() => url = Some(v.trim().to_owned()),
+                Some(("token", v)) if !v.trim().is_empty() => token = Some(v.trim().to_owned()),
+                _ => {}
+            }
+        }
+        Ok(url.map(|u| (u, token)))
+    }
+
+    /// 自前の中継の控えを消す。**無くても止めない。**
+    ///
+    /// # Errors
+    /// 消せないとき [`Error::Io`]。
+    pub fn forget_relay_server(&self) -> Result<(), Error> {
+        let path = self.relay_server_path();
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::io(&path, "自前の中継を忘れる")(e)),
+        }
     }
 
     /// **次の起動で取りに行く口を控える。**

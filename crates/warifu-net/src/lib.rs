@@ -48,8 +48,8 @@ mod upnp;
 pub use address::{Address, RELAY_MAX};
 pub use error::Error;
 pub use node::{
-    MAX_MESSAGE, Node, Session, 中継の使い方, 包みの口, 口の様子, 口の決め方, 通り道,
-    通り道の出来事,
+    MAX_MESSAGE, Node, Session, 中継の使い方, 包みの口, 口の様子, 口の決め方, 自前の中継を置く,
+    通り道, 通り道の出来事,
 };
 pub use pick::{
     口の種類, 宛先に載せる, 宛先に載せる_口の種類つき, 載せる本数

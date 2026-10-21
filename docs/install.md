@@ -2,7 +2,7 @@
 
 > 日本語版: [install.ja.md](install.ja.md)
 
-Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.30**.
+Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.31**.
 
 **Read [`SECURITY.md`](../SECURITY.md) first if you are planning to rely on this for anything.** It is an alpha.
 
@@ -38,7 +38,7 @@ The `.dmg` contains **the app only**. The mailbox (`warifu relay`), agent endpoi
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.30+<commit>
+./warifu version          # → warifu 0.1.31+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # if ~/bin is on your PATH
 ```
 
@@ -71,8 +71,8 @@ pnpm tauri build --bundles app
 
 | File | |
 |---|---|
-| **`warifu_0.1.30_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
-| `warifu_0.1.30_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
+| **`warifu_0.1.31_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
+| `warifu_0.1.31_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
 | `warifu.exe` | The CLI. Runs from wherever you put it |
 
 ### SmartScreen will warn
@@ -88,8 +88,8 @@ Windows によって PC が保護されました
 **How you download it changes this** (measured 2026-09-16): a browser marks the file with `Zone.Identifier`, which is what triggers SmartScreen. `gh release download` does not mark it, so **the warning never appears** — the file is still unsigned either way.
 
 ```powershell
-gh release download v0.1.30 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.30_x64-setup.exe -Stream Zone.Identifier   # → not found
+gh release download v0.1.31 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.31_x64-setup.exe -Stream Zone.Identifier   # → not found
 ```
 
 ### **First run needs a firewall rule** (this one bites)
@@ -149,6 +149,22 @@ cargo build --release -p warifu-cli     # → target\release\warifu.exe
 You need Rust and the Visual Studio Build Tools. **On ARM64 Windows you also need LLVM (clang)** — without it the build stops when a dependency looks for `clang` (reported 2026-09-28 on a Snapdragon machine).
 
 ---
+
+## Using your own relay (to reach peers on another network)
+
+Peers you cannot reach directly (home and office, for example) can use **a relay you run yourselves** as a fallback path.
+Get the relay URL and token from whoever runs it (**do not put them anywhere public**).
+
+```bash
+# Do not pass the token as an argument (it stays in your shell history). Pipe it in
+pbpaste | warifu relay-server set https://<relay-host>/relay   # with the token on the clipboard
+warifu relay-server show    # shows the URL and only whether a token is set
+warifu relay-server clear   # stop using it
+```
+
+- It is stored as `relay-server.tsv` next to your identity (readable only by you). **The app uses it from its next start**
+- The relay is used only when a direct path fails. **The relay operator can see who connected to whom and when** (not the content)
+- The CLI uses it with `--relay`. The environment variables `WARIFU_RELAY_URL` and `WARIFU_RELAY_TOKEN` take precedence
 
 ## Updating
 

@@ -1957,3 +1957,51 @@ fn 番地の控えは_この機械の人だけが読める() {
         assert_eq!(mode, 0o600, "0600 で置く");
     }
 }
+
+#[test]
+fn 自前の中継は_url_とトークンを控え_消せる() {
+    let vault = Vault::at(仮の置き場("relay-server"));
+    assert_eq!(vault.relay_server().expect("読める"), None);
+    vault
+        .save_relay_server("https://relay.example.org/relay", Some("t0ken"))
+        .expect("書ける");
+    assert_eq!(
+        vault.relay_server().expect("読める"),
+        Some((
+            "https://relay.example.org/relay".to_owned(),
+            Some("t0ken".to_owned())
+        ))
+    );
+    vault
+        .save_relay_server("https://relay.example.org/relay", None)
+        .expect("書ける");
+    assert_eq!(
+        vault.relay_server().expect("読める"),
+        Some(("https://relay.example.org/relay".to_owned(), None))
+    );
+    vault.forget_relay_server().expect("消せる");
+    assert_eq!(vault.relay_server().expect("読める"), None);
+}
+
+#[test]
+fn 自前の中継に改行やタブは書かない() {
+    let vault = Vault::at(仮の置き場("relay-server-bad"));
+    assert!(vault.save_relay_server("https://a\nb", None).is_err());
+    assert!(vault.save_relay_server("https://a", Some("t\tx")).is_err());
+    assert!(vault.save_relay_server("  ", None).is_err());
+}
+
+#[cfg(unix)]
+#[test]
+fn 自前の中継の控えは_本人だけが読める() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let vault = Vault::at(仮の置き場("relay-server-mode"));
+    vault
+        .save_relay_server("https://relay.example.org", Some("t"))
+        .expect("書ける");
+    let mode = std::fs::metadata(vault.relay_server_path())
+        .expect("在る")
+        .permissions()
+        .mode();
+    assert_eq!(mode & 0o777, 0o600);
+}

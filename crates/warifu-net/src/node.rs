@@ -262,8 +262,8 @@ impl Node {
         let secret = SecretKey::from_bytes(&raw);
         raw.zeroize();
 
-        let 中継の設定 =
-            中継の設定を選ぶ(中継, std::env::var(中継の場所の変数).ok().as_deref())?;
+        let (場所, トークン) = 中継の場所とトークン();
+        let 中継の設定 = 中継の設定を選ぶ(中継, 場所.as_deref(), トークン.as_deref())?;
 
         let mut builder = Endpoint::builder(presets::Minimal)
             .secret_key(secret)
@@ -854,12 +854,43 @@ fn 内側か(ip: std::net::IpAddr) -> bool {
 /// 既定は中継なしのまま（[`中継の使い方::使わない`]）。中継なしで繋がるのがいちばん良い。
 pub const 中継の場所の変数: &str = "WARIFU_RELAY_URL";
 
+/// **自前の中継のトークンを指す変数**（0.1.31）。[`中継の場所の変数`] と組で使う。
+///
+/// 中継が `access.shared_token` で利用者を絞っているときに要る（`Authorization: Bearer`）。
+pub const 中継のトークンの変数: &str = "WARIFU_RELAY_TOKEN";
+
+/// 画面・CLI が置き場所から読んで置いた、自前の中継（URL・トークン）。
+static 置いた中継: std::sync::Mutex<Option<(String, Option<String>)>> = std::sync::Mutex::new(None);
+
+/// **自前の中継を置く**（0.1.31）。画面・CLI が、置き場所の `relay-server.tsv` を読んで呼ぶ。
+///
+/// **環境変数が在れば、そちらが勝つ**（[`中継の場所の変数`]・[`中継のトークンの変数`]）。
+/// `None` で消す。
+pub fn 自前の中継を置く(中継: Option<(String, Option<String>)>) {
+    *置いた中継.lock().expect("毒されていない") = 中継;
+}
+
+/// 使う中継の場所とトークン。**環境変数の組が先、無ければ置いたもの。**
+///
+/// 混ぜない —— 環境変数の URL に、置き場所のトークンを付けて別の中継へ送らない。
+fn 中継の場所とトークン() -> (Option<String>, Option<String>) {
+    if let Ok(場所) = std::env::var(中継の場所の変数) {
+        return (Some(場所), std::env::var(中継のトークンの変数).ok());
+    }
+    match 置いた中継.lock().expect("毒されていない").clone() {
+        Some((場所, トークン)) => (Some(場所), トークン),
+        None => (None, None),
+    }
+}
+
 /// **中継の使い方と、指された場所から、iroh の設定を決める。**
 ///
 /// 場所が読めないときは**止める**。黙って n0 へ落とすと、
 /// 自前の中継を使っているつもりで、繋いだことを別の運用者に見せることになる。
 fn 中継の設定を選ぶ(
-    中継: 中継の使い方, 場所: Option<&str>
+    中継: 中継の使い方,
+    場所: Option<&str>,
+    トークン: Option<&str>,
 ) -> Result<RelayMode, Error> {
     match (中継, 場所.map(str::trim).filter(|s| !s.is_empty())) {
         (中継の使い方::使わない, _) => Ok(RelayMode::Disabled),
@@ -870,7 +901,14 @@ fn 中継の設定を選ぶ(
                     "{中継の場所の変数} が中継の URL として読めません"
                 )))
             })?;
-            Ok(RelayMode::Custom(iroh::RelayMap::from(url)))
+            let 地図 = iroh::RelayMap::from(url);
+            // **トークンは中継の利用者を絞るためのもの**（`Authorization: Bearer`）。記録に出さない
+            Ok(RelayMode::Custom(
+                match トークン.map(str::trim).filter(|t| !t.is_empty()) {
+                    Some(t) => 地図.with_auth_token(t),
+                    None => 地図,
+                },
+            ))
         }
     }
 }
@@ -936,26 +974,31 @@ mod 中継の設定の試験 {
 
     #[test]
     fn 使わないなら_場所が在っても使わない() {
-        let 設定 =
-            中継の設定を選ぶ(中継の使い方::使わない, Some("https://relay.example.org")).unwrap();
+        let 設定 = 中継の設定を選ぶ(
+            中継の使い方::使わない,
+            Some("https://relay.example.org"),
+            None,
+        )
+        .unwrap();
         assert!(matches!(設定, RelayMode::Disabled));
     }
 
     #[test]
     fn 使うが場所が無ければ_n0() {
         assert!(matches!(
-            中継の設定を選ぶ(中継の使い方::使う, None).unwrap(),
+            中継の設定を選ぶ(中継の使い方::使う, None, None).unwrap(),
             RelayMode::Default
         ));
         assert!(matches!(
-            中継の設定を選ぶ(中継の使い方::使う, Some("  ")).unwrap(),
+            中継の設定を選ぶ(中継の使い方::使う, Some("  "), None).unwrap(),
             RelayMode::Default
         ));
     }
 
     #[test]
     fn 使うで場所が在れば_その中継だけ() {
-        let 設定 = 中継の設定を選ぶ(中継の使い方::使う, Some("https://relay.example.org")).unwrap();
+        let 設定 =
+            中継の設定を選ぶ(中継の使い方::使う, Some("https://relay.example.org"), None).unwrap();
         let RelayMode::Custom(地図) = 設定 else {
             panic!("自前の中継になっていない")
         };
@@ -968,8 +1011,40 @@ mod 中継の設定の試験 {
     }
 
     #[test]
+    fn トークンがあれば_自前の中継に付ける() {
+        let 設定 = 中継の設定を選ぶ(
+            中継の使い方::使う,
+            Some("https://relay.example.org"),
+            Some("t0ken"),
+        )
+        .unwrap();
+        let RelayMode::Custom(地図) = 設定 else {
+            panic!("自前の中継になっていない")
+        };
+        let url: iroh::RelayUrl = "https://relay.example.org".parse().unwrap();
+        assert_eq!(
+            地図.get(&url).expect("在る").auth_token.as_deref(),
+            Some("t0ken")
+        );
+    }
+
+    #[test]
+    fn 空のトークンは付けない() {
+        let RelayMode::Custom(地図) = 中継の設定を選ぶ(
+            中継の使い方::使う,
+            Some("https://relay.example.org"),
+            Some("  "),
+        )
+        .unwrap() else {
+            panic!("自前の中継になっていない")
+        };
+        let url: iroh::RelayUrl = "https://relay.example.org".parse().unwrap();
+        assert!(地図.get(&url).expect("在る").auth_token.is_none());
+    }
+
+    #[test]
     fn 読めない場所は_n0_へ落とさず止める() {
-        assert!(中継の設定を選ぶ(中継の使い方::使う, Some("中継")).is_err());
+        assert!(中継の設定を選ぶ(中継の使い方::使う, Some("中継"), None).is_err());
     }
 }
 

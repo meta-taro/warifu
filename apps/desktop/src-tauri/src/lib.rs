@@ -497,12 +497,29 @@ impl Bridge {
         //
         // **既定は使わない**（**D13**）。中継を使うと、
         // **繋いだことが中継の運用者に見える**ので、**入れるのは人が決めること**である。
+        // **自前の中継を控えていれば、経路の層へ渡し、使う**（0.1.31）。
+        // 直接つながれないときだけ通る予備の道なので、控えてあれば入れる。
+        // **URL とトークンは記録に出さない**（出すのは「控えてある・トークンあり」だけ）
+        let 自前の中継 = warifu_vault::Vault::default_location()
+            .ok()
+            .and_then(|v| v.relay_server().ok().flatten());
+        if let Some((_, トークン)) = &自前の中継 {
+            記録!(
+                "中継: 自前の中継を控えています（トークン{}）",
+                if トークン.is_some() { "あり" } else { "なし" }
+            );
+        }
+        let 自前の中継がある = 自前の中継.is_some();
+        warifu_net::自前の中継を置く(自前の中継);
         let 使う = match std::env::var("WARIFU_RELAY").ok() {
             Some(言葉) => 中継を使うか(Some(&言葉)),
-            None => warifu_vault::Vault::default_location()
-                .ok()
-                .and_then(|v| v.relay().ok().flatten())
-                .unwrap_or(false),
+            None => {
+                自前の中継がある
+                    || warifu_vault::Vault::default_location()
+                        .ok()
+                        .and_then(|v| v.relay().ok().flatten())
+                        .unwrap_or(false)
+            }
         };
         // **どこで決まったかまで言う**（2026-09-21）。
         //

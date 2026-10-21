@@ -3,7 +3,7 @@
 > **English:** [install.md](install.md)
 
 配布物は [ダウンロードのページ](https://meta-taro.github.io/warifu/) と
-[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.30**。
+[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.31**。
 
 **何かを預ける前に、[`SECURITY.ja.md`](../SECURITY.ja.md) を読んでください。**アルファ版です。
 
@@ -41,7 +41,7 @@ spctl -a -vv -t exec /Applications/warifu.app
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.30+<commit>
+./warifu version          # → warifu 0.1.31+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば
 ```
 
@@ -78,8 +78,8 @@ pnpm tauri build --bundles app
 
 | ファイル | |
 |---|---|
-| **`warifu_0.1.30_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
-| `warifu_0.1.30_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
+| **`warifu_0.1.31_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
+| `warifu_0.1.31_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
 | `warifu.exe` | CLI。置いた場所から、そのまま打てます |
 
 ### SmartScreen が出ます
@@ -98,8 +98,8 @@ Windows によって PC が保護されました
 （**署名が無いのは、どちらでも同じ**です）。
 
 ```powershell
-gh release download v0.1.30 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.30_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
+gh release download v0.1.31 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.31_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
 ```
 
 ### **初回はファイアウォールの規則が要ります**（ここで詰まります）
@@ -177,6 +177,22 @@ Rust と Visual Studio Build Tools が要ります。**ARM64 の Windows では�
 無いと、依存が `clang` を探したところで止まります（2026-09-28・Snapdragon の機械で確認）。
 
 ---
+
+## 自前の中継を使う（別の網の相手と繋ぐとき）
+
+直接つながれない相手（自宅と事務所など）とは、**自分たちで立てた中継**を予備の道にできます。
+中継の URL とトークンは、立てた人から受け取ります（**公開の場に書かないこと**）。
+
+```bash
+# トークンは引数に書かない（シェルの履歴に残る）。標準入力で渡す
+pbpaste | warifu relay-server set https://<中継の名前>/relay   # クリップボードにトークンを入れておく
+warifu relay-server show    # URL と「トークンあり／なし」だけが出る
+warifu relay-server clear   # 使うのをやめる
+```
+
+- 控えは身元と同じ置き場所の `relay-server.tsv`（本人だけが読める）。**画面版は次の起動から使います**
+- 中継は、直接つながれないときだけ通ります。**中継の運用者には「誰がいつ誰に繋いだか」が見えます**（中身は見えません）
+- CLI は `--relay` を付けたときに使います。環境変数 `WARIFU_RELAY_URL`・`WARIFU_RELAY_TOKEN` があれば、そちらが勝ちます
 
 ## 版を上げる
 

@@ -40,6 +40,7 @@ mod identity;
 mod mcp;
 mod post;
 mod relay;
+mod relay_server;
 mod setup;
 
 /// 会議キーの既定の有効期間（秒）。**24 時間。**画面側と揃えてある。
@@ -110,6 +111,8 @@ fn 使い方() -> ExitCode {
          \x20 warifu contacts                       覚えた相手を並べる\n\
          \x20 warifu contacts add <公開鍵> <呼び名>  覚える\n\
          \x20 warifu contacts forget <呼び名|公開鍵> 忘れる\n\
+         \x20 warifu relay-server set <URL>         自前の中継を控える（トークンは標準入力から）\n\
+         \x20 warifu relay-server [show|clear]      控えを見る（トークンは出さない）／消す\n\
          \n\
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
@@ -123,7 +126,8 @@ fn 使い方() -> ExitCode {
          \x20          （会話は黙っている時間のほうが長いため）\n\
          --remember つながった相手を、その呼び名で覚える\n\
          --relay    **中継を使う**（別の網の相手へも届きうる・D78）\n\
-         \x20          付けると「誰がいつ誰に繋いだか」が中継の運用者（n0）に見えます\n\
+         \x20          付けると「誰がいつ誰に繋いだか」が中継の運用者に見えます\n\
+         \x20          中継は warifu relay-server で控えた自前の中継（無ければ n0）\n\
          \x20          付けなければ今までどおり、中継を使いません\n\
          \n\
          身元はこの端末に残ります。閉じても同じ人でいられます（warifu id で確認）。\n\
@@ -327,6 +331,12 @@ fn main() -> ExitCode {
 async fn 本体() -> ExitCode {
     let mut args = std::env::args().skip(1);
     let 命令 = args.next();
+    // **自前の中継を控えていれば、経路の層へ渡す**（0.1.31）。--relay を付けたときに使う
+    if let Ok(v) = Vault::default_location()
+        && let Ok(Some(中継)) = v.relay_server()
+    {
+        warifu_net::自前の中継を置く(Some(中継));
+    }
     let result = match 命令.as_deref() {
         Some("host") => match 読む_options(&mut args) {
             Ok(o) => 待つ(&o).await,
@@ -358,6 +368,10 @@ async fn 本体() -> ExitCode {
         },
         Some("relay") => match relay::読む(&mut args) {
             Ok(設) => relay::立てる(&設).await,
+            Err(e) => Err(e.into()),
+        },
+        Some("relay-server") => match relay_server::読む(&mut args) {
+            Ok(設) => relay_server::行う(&設),
             Err(e) => Err(e.into()),
         },
         Some("agent") => match agent::読む(&mut args) {
