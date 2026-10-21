@@ -280,7 +280,7 @@ fn 訳が長すぎる頼みは_この機械まで運ばない() {
     .書く();
     assert!(matches!(
         ToDesk::読む(&行),
-        Err(warifu_desk::Error::TooLong(_))
+        Err(warifu_desk::Error::長すぎる { .. })
     ));
 }
 

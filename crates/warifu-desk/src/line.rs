@@ -337,7 +337,12 @@ fn 待つ秒を検める(秒: Option<u64>) -> Result<(), Error> {
         // **0 は「待たない」ではなく、書き間違いとして扱う** ——
         // 待たないなら `Ask` を使えばよい
         Some(0) => Err(Error::Empty),
-        Some(秒) if 秒 > 札を待てる秒 => Err(Error::TooLong(秒 as usize)),
+        Some(秒) if 秒 > 札を待てる秒 => Err(Error::長すぎる {
+            何: "待つ秒",
+            数: 秒 as usize,
+            上限: 札を待てる秒 as usize,
+            単位: "秒",
+        }),
         _ => Ok(()),
     }
 }
@@ -583,6 +588,20 @@ pub enum Error {
     TooLong(usize),
     /// 声の本文が [`声の上限`]（文字）を超えた（#50）。
     声が長すぎる(usize),
+    /// 本文以外の項目が上限を超えた。**何の上限かを言う**（本文の上限を言わない）。
+    ///
+    /// 前は全部 [`Error::TooLong`] で返していたので、140 バイトが上限の「訳」に 173 バイトを入れると
+    /// 「本文が長すぎます（173 バイト / 上限 4096）」と出ていた（2026-10-21）。
+    長すぎる {
+        /// 何が（訳・名前・紹介・秒・本数・相手・鍵など）。
+        何: &'static str,
+        /// 実際の数。
+        数: usize,
+        /// 上限。
+        上限: usize,
+        /// 数え方（バイト・文字・秒・本）。
+        単位: &'static str,
+    },
 }
 
 impl core::fmt::Display for Error {
@@ -594,6 +613,9 @@ impl core::fmt::Display for Error {
             Self::声が長すぎる(n) => {
                 write!(f, "声の本文が長すぎます（{n} 文字 / 上限 {声の上限}）")
             }
+            Self::長すぎる {
+                何, 数, 上限, 単位
+            } => write!(f, "{何}が長すぎます（{数} {単位} / 上限 {上限} {単位}）"),
         }
     }
 }
@@ -610,7 +632,12 @@ impl core::error::Error for Error {}
 /// **「届いていない」と「形が悪い」を見分けられない**（D102 で踏んだのと同じ形）。
 fn 訳を検める(訳: &str) -> Result<(), Error> {
     if 訳.len() > 訳の上限 {
-        return Err(Error::TooLong(訳.len()));
+        return Err(Error::長すぎる {
+            何: "訳",
+            数: 訳.len(),
+            上限: 訳の上限,
+            単位: "バイト",
+        });
     }
     if 訳.chars().any(|c| c.is_control() || c == '\t') {
         return Err(Error::Malformed);
@@ -703,10 +730,20 @@ fn プロフィールを検める(名前: &str, 紹介: &str) -> Result<(), Erro
         return Err(Error::Malformed);
     }
     if 名前.chars().count() > 名前の上限 {
-        return Err(Error::TooLong(名前.chars().count()));
+        return Err(Error::長すぎる {
+            何: "名前",
+            数: 名前.chars().count(),
+            上限: 名前の上限,
+            単位: "文字",
+        });
     }
     if 紹介.chars().count() > 紹介の上限 {
-        return Err(Error::TooLong(紹介.chars().count()));
+        return Err(Error::長すぎる {
+            何: "紹介",
+            数: 紹介.chars().count(),
+            上限: 紹介の上限,
+            単位: "文字",
+        });
     }
     Ok(())
 }
@@ -725,7 +762,12 @@ fn 名乗りを検める(名: &str) -> Result<(), Error> {
         return Err(Error::Malformed);
     }
     if 名.chars().count() > 名乗りの上限 {
-        return Err(Error::TooLong(名.len()));
+        return Err(Error::長すぎる {
+            何: "名乗り",
+            数: 名.chars().count(),
+            上限: 名乗りの上限,
+            単位: "文字",
+        });
     }
     Ok(())
 }
@@ -740,7 +782,12 @@ fn 招く本数を検める(何本: u8) -> Result<(), Error> {
         return Err(Error::Empty);
     }
     if 何本 > 招ける本数 {
-        return Err(Error::TooLong(何本 as usize));
+        return Err(Error::長すぎる {
+            何: "本数",
+            数: 何本 as usize,
+            上限: 招ける本数 as usize,
+            単位: "本",
+        });
     }
     Ok(())
 }
@@ -756,7 +803,12 @@ fn 呼ぶ相手を検める(相手: &str) -> Result<(), Error> {
     }
     let 数 = 相手.chars().count();
     if 数 > 呼ぶ相手の上限 {
-        return Err(Error::TooLong(数));
+        return Err(Error::長すぎる {
+            何: "相手の指定",
+            数,
+            上限: 呼ぶ相手の上限,
+            単位: "文字",
+        });
     }
     Ok(())
 }
@@ -771,7 +823,12 @@ fn 入る鍵を検める(鍵: &str) -> Result<(), Error> {
         return Err(Error::Empty);
     }
     if 鍵.len() > 入る鍵の上限 {
-        return Err(Error::TooLong(鍵.len()));
+        return Err(Error::長すぎる {
+            何: "ルームキー",
+            数: 鍵.len(),
+            上限: 入る鍵の上限,
+            単位: "バイト",
+        });
     }
     if !鍵.starts_with("WARIFU1-")
         || !鍵
@@ -1201,7 +1258,7 @@ mod 招く試験 {
         // **無限に出させない** —— 鍵は持参人式（**D31 の追記**）で、
         // **出した分だけ入り口が増える**
         let 行 = format!(r#"{{"型":"招く","何本":{}}}"#, 招ける本数 + 1);
-        assert!(matches!(ToDesk::読む(&行), Err(Error::TooLong(_))));
+        assert!(matches!(ToDesk::読む(&行), Err(Error::長すぎる { .. })));
     }
 
     #[test]
@@ -1266,7 +1323,7 @@ mod 札を待つ試験 {
             r#"{{"型":"札を待つ","動作":"chat.send","訳":"返すため","秒":{}}}"#,
             札を待てる秒 + 1
         );
-        assert!(matches!(ToDesk::読む(&行), Err(Error::TooLong(_))));
+        assert!(matches!(ToDesk::読む(&行), Err(Error::長すぎる { .. })));
     }
 
     #[test]
@@ -1429,7 +1486,10 @@ mod 連絡先試験 {
         let 長い = ToDesk::呼ぶ {
             相手: "a".repeat(呼ぶ相手の上限 + 1),
         };
-        assert!(matches!(ToDesk::読む(&長い.書く()), Err(Error::TooLong(_))));
+        assert!(matches!(
+            ToDesk::読む(&長い.書く()),
+            Err(Error::長すぎる { .. })
+        ));
     }
 }
 
@@ -1519,11 +1579,11 @@ mod 手渡しの試験 {
         );
         assert!(matches!(
             ToDesk::読む(&頼み("相手A", "訳", Some(札を待てる秒 + 1)).書く()),
-            Err(Error::TooLong(_))
+            Err(Error::長すぎる { .. })
         ));
         assert!(matches!(
             ToDesk::読む(&頼み("相手A", &"あ".repeat(訳の上限), None).書く()),
-            Err(Error::TooLong(_))
+            Err(Error::長すぎる { .. })
         ));
     }
 }
@@ -1565,7 +1625,7 @@ mod 入る試験 {
             鍵: format!("WARIFU1-{}", "A".repeat(入る鍵の上限)),
         }
         .書く();
-        assert!(matches!(ToDesk::読む(&行), Err(Error::TooLong(_))));
+        assert!(matches!(ToDesk::読む(&行), Err(Error::長すぎる { .. })));
     }
 
     #[test]
@@ -1574,5 +1634,27 @@ mod 入る試験 {
             ルーム: "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
+    }
+}
+
+#[cfg(test)]
+mod 長すぎる試験 {
+    use super::*;
+
+    #[test]
+    fn 訳が長すぎるときは_訳の上限を言う() {
+        let 行 = ToDesk::Ask {
+            動作: "room.invite".to_owned(),
+            訳: "あ".repeat(60),
+        }
+        .書く();
+        let e = ToDesk::読む(&行).unwrap_err();
+        let 文 = e.to_string();
+        assert!(文.contains("訳"), "{文}");
+        assert!(文.contains(&format!("上限 {訳の上限} バイト")), "{文}");
+        assert!(
+            !文.contains(&本文の上限.to_string()),
+            "本文の上限を言っている: {文}"
+        );
     }
 }
