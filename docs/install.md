@@ -136,6 +136,8 @@ Some antivirus products (Norton was reported, #42) refuse to start the **downloa
 
 **If the app still vanishes 1–2 minutes after starting, or opening it from Explorer says "Access is denied" even with an exclusion in place**, run Norton's **Repair Norton product** (measured 2026-10-21 with v0.1.28: after the repair, the same exe started as is). In this case warifu's log (`warifu.log`) has no lines at all — it is stopped before warifu's own code runs.
 
+**Right after installing a new version, Norton blocks it for about an hour** (measured twice with Norton 360 on 2026-10-21: both 0.1.28 and 0.1.29 started on their own about 65 minutes after installing). Meanwhile it says "Access is denied", or runs it inside Norton's sandbox (`C:\Norton sandbox\…`). No notification or history entry appears, and folder exclusions, wildcards and restarting did not make it faster. In-app updates also fail during this time, because the installer crashes inside the sandbox. **After installing a new version, wait about an hour before starting it.**
+
 **A build made on the same machine from source was not blocked** (reported 2026-09-28, CLI only).
 
 ```powershell
