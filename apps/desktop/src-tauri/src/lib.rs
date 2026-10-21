@@ -3256,7 +3256,23 @@ fn 中身を言う(info: &std::panic::PanicHookInfo<'_>) -> String {
 
 pub fn run() {
     落ちた理由を書き残す();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // **割符は 1 つだけ**（0.1.29・Windows と Linux）。**いちばん先に登録する**（プラグインの決まり）。
+    // 2 つ目が立つと、同じ身元で窓が 2 つになり、口（パイプ）も取れず、
+    // 閉じたほうが帰り道まで消していた（2026-10-21・Windows で実測）。
+    // 2 つ目は、持ってきたリンクを 1 つ目へ渡して閉じる。1 つ目は窓を前に出す。
+    // **macOS は入れない** —— リンクは OS が動いている割符へ渡すので要らず、
+    // 入れると試験で別の身元（`WARIFU_HOME`）の割符を並べて立てられなくなる
+    #[cfg(any(windows, target_os = "linux"))]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        記録!("2 つ目の起動を受けました。この窓を前に出します");
+        if let Some(窓) = app.get_webview_window("main") {
+            let _ = 窓.unminimize();
+            let _ = 窓.show();
+            let _ = 窓.set_focus();
+        }
+    }));
+    builder
         // **届いたことを窓の外へ押し出すため**（`notify.rs`）。
         // 押し出せないとチャットにならない（2026-09-07）
         .plugin(tauri_plugin_notification::init())
@@ -3334,6 +3350,13 @@ pub fn run() {
             // **窓が開いている間に来たリンク**を受ける
             {
                 use tauri_plugin_deep_link::DeepLinkExt as _;
+                // **`warifu://` の登録を、起動するたびに確かめる**（Windows・Linux）。
+                // インストーラが途中で落ちた機械では登録が無く、リンクを押しても開かなかった
+                // （2026-10-21）。利用者ごとの登録（HKCU）なので、管理者は要らない
+                #[cfg(any(windows, target_os = "linux"))]
+                if let Err(e) = app.deep_link().register_all() {
+                    記録!("warifu:// を登録できませんでした: {e}");
+                }
                 let handle = app.handle().clone();
                 app.deep_link().on_open_url(move |event| {
                     let urls: Vec<String> = event.urls().iter().map(ToString::to_string).collect();
