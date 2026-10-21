@@ -176,11 +176,17 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
 ///
 /// **断ったものは返さない。**返すのは**人が許したものだけ**である。
 fn 人が押した札(この機械: &std::path::Path) -> Vec<String> {
-    // **この機械の場所から、置き場所を割り出す。**`--desk` で移されていても付いていく
-    let Some(置き場所) = この機械.parent() else {
-        return Vec::new();
+    let vault = match 札の置き場所(この機械) {
+        Some(置き場所) => warifu_vault::Vault::at(置き場所),
+        // **パイプは置き場所を持たない。**画面と同じ決め方で探す（`WARIFU_HOME` も見る）
+        None => match warifu_vault::Vault::default_location() {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("warifu mcp: 人が押した札の置き場所が分かりません（{e}）");
+                return Vec::new();
+            }
+        },
     };
-    let vault = warifu_vault::Vault::at(置き場所.to_path_buf());
     match vault.passes() {
         Ok(棚) => 棚
             .into_iter()
@@ -192,6 +198,19 @@ fn 人が押した札(この機械: &std::path::Path) -> Vec<String> {
             Vec::new()
         }
     }
+}
+
+/// **札の置き場所を、この機械の場所から割り出す。**`--desk` で移されていても付いていく。
+///
+/// **Windows の口は名前付きパイプ**（`\\.\pipe\warifu-desk`）で、親は置き場所ではない。
+/// 0.1.28 までは `\\.\pipe\` の中に札を探して、**人が許しても `room_invite` が断られていた**
+/// （2026-10-21・Windows の機械で実測）。パイプなら `None` を返し、画面と同じ決め方に任せる。
+fn 札の置き場所(この機械: &std::path::Path) -> Option<std::path::PathBuf> {
+    let 文字 = この機械.to_string_lossy();
+    if 文字.starts_with(r"\\.\pipe\") || 文字.starts_with("//./pipe/") {
+        return None;
+    }
+    この機械.parent().map(std::path::Path::to_path_buf)
 }
 
 /// 口を出す。**繋いだ相手が閉じるまで戻らない。**
@@ -274,6 +293,31 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let 務め = 口.serve((入力, tokio::io::stdout())).await?;
     務め.waiting().await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod 札の置き場所の試験 {
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn ソケットなら_その隣() {
+        assert_eq!(
+            super::札の置き場所(Path::new("/home/me/.local/share/warifu/desk.sock")),
+            Some(PathBuf::from("/home/me/.local/share/warifu"))
+        );
+    }
+
+    #[test]
+    fn 名前付きパイプなら_置き場所は決めない() {
+        assert_eq!(
+            super::札の置き場所(Path::new(r"\\.\pipe\warifu-desk")),
+            None
+        );
+        assert_eq!(
+            super::札の置き場所(Path::new(r"\\.\pipe\warifu-desk-abc")),
+            None
+        );
+    }
 }
 
 #[cfg(test)]
