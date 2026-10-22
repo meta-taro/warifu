@@ -978,15 +978,15 @@ pub(crate) async fn 鍵を出す(
     let address = node.address().await?.to_string();
     // **会議 id を鍵に載せる。**載せないと入る側が別の id を名乗り、
     // こちらが「別の会議あて」として捨てる（2026-09-04 に実機で踏んだ）
-    let meeting = {
-        // **ルームが無ければ建てる。**鍵はルームへの招待なので、ルームが要る
-        if let Some(id) = いま見ているルーム(&bridge.いまのルーム).await {
-            id
-        } else {
-            let c = Conference::host(bridge.device.public_key(), warifu_app::DEFAULT_CAPACITY)?;
-            ルームを足す(&bridge.conferences, &bridge.いまのルーム, c).await
-        }
-    };
+    //
+    // **自分が主催している部屋の鍵だけを出す**（0.1.37）。主催している部屋が無ければ建てる。
+    // 前は「いま見ている部屋」の鍵を出していたので、ゲストとして他人の部屋を見ているときに出すと、
+    // 鍵で入った人は**主催の知らない所で、同じ id の部屋の 2 つめの中心**につながった
+    // （鍵なしの呼び出しで 0.1.35 に直したのと同じ割れ方・10-22 に 2 台で確かめた）
+    let meeting = 招く部屋を用意する(bridge).await.ok_or_else(|| Failure {
+        message: "鍵を出す部屋を建てられませんでした".into(),
+        code: None,
+    })?;
     // **鍵を出す前に合言葉を用意する**（**D118**）。
     // 鍵で入ってきた人へ、戸口を通った直後に渡す
     部屋の合言葉を用意する(bridge, meeting).await;
@@ -1819,6 +1819,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 }
 
 /// **鍵なしで来た相手を招く部屋を用意する**（0.1.35）。主催している部屋が無ければ建てる。
+/// 鍵を出すときも同じ部屋を選ぶ（0.1.37・`鍵を出す`）。
 ///
 /// 建てた部屋は**見る部屋を奪わない** —— 人は別の部屋を見て話しているかもしれない。
 async fn 招く部屋を用意する(bridge: &Bridge) -> Option<MeetingId> {
