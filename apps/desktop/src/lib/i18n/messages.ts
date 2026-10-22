@@ -75,6 +75,9 @@ export type MessageKey =
   | 'chat.desk'
   | 'chat.placeholder.desk'
   | 'chat.late'
+  | 'chat.mention.to'
+  | 'chat.mention.me'
+  | 'chat.mention.pick'
   | 'cli.old'
   | 'cli.ahead'
   | 'chat.new'
@@ -508,6 +511,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': 'この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。',
     'chat.placeholder.desk': 'マイ PC エージェントに話しかける',
     'chat.late': '留守中',
+    'chat.mention.to': '{who} を呼びます（ルームの全員に見えます）',
+    'chat.mention.me': 'あなた宛て',
+    'chat.mention.pick': '呼ぶ相手を選ぶ（↑↓ で選び、Enter で入れる）',
     'cli.old': 'この PC の warifu コマンドが古いままです（{ver}）。{path} を入れ直してください。画面だけ上げても、コマンドは上がりません。',
     'cli.ahead': 'この PC の warifu コマンド（{ver}）のほうが新しいです。画面を上げてください。{path}',
     'chat.new': '新しい発言 {n} 件',
@@ -897,6 +903,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': 'An agent on this computer is connected. You can talk to it even with nobody else in the room.',
     'chat.placeholder.desk': 'Talk to an agent on this computer',
     'chat.late': 'while away',
+    'chat.mention.to': 'Mentioning {who} (everyone in the room can see it)',
+    'chat.mention.me': 'to you',
+    'chat.mention.pick': 'Pick who to mention (↑↓ to move, Enter to insert)',
     'cli.old': 'The warifu command on this PC is still old ({ver}). Reinstall {path}. Updating the app does not update the command.',
     'cli.ahead': 'The warifu command on this PC ({ver}) is newer than the app. Update the app. {path}',
     'chat.new': '{n} new',
@@ -1284,6 +1293,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': '这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。',
     'chat.placeholder.desk': '对这台电脑的代理说话',
     'chat.late': '离线期间',
+    'chat.mention.to': '将提及 {who}（房间内所有人都能看到）',
+    'chat.mention.me': '提到你',
+    'chat.mention.pick': '选择要提及的人（↑↓ 选择，Enter 插入）',
     'cli.old': '这台电脑上的 warifu 命令还是旧版（{ver}）。请重新安装 {path}。只更新界面不会更新命令。',
     'cli.ahead': '这台电脑上的 warifu 命令（{ver}）比界面更新。请更新界面。{path}',
     'chat.new': '{n} 条新发言',
@@ -1675,6 +1687,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.desk': '이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.',
     'chat.placeholder.desk': '이 PC 의 에이전트에게 말을 걸기',
     'chat.late': '부재 중',
+    'chat.mention.to': '{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)',
+    'chat.mention.me': '나를 부름',
+    'chat.mention.pick': '부를 상대 고르기 (↑↓ 로 고르고 Enter 로 넣기)',
     'cli.old': '이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}). {path} 를 다시 설치해 주세요. 화면만 올려도 명령은 올라가지 않습니다.',
     'cli.ahead': '이 PC 의 warifu 명령({ver})이 화면보다 새롭습니다. 화면을 올려 주세요. {path}',
     'chat.new': '새 발언 {n} 건',

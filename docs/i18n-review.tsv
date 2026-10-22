@@ -45,6 +45,9 @@ chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들
 chat.keep	You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.	打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。	你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。	입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.				
 chat.keep.switch	Switch to the new destination	新しい宛先に切り替える	切换到新的收件对象	새 보낼 곳으로 바꾸기				
 chat.late	while away	留守中	离线期间	부재 중				
+chat.mention.me	to you	あなた宛て	提到你	나를 부름		自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。		
+chat.mention.pick	Pick who to mention (↑↓ to move, Enter to insert)	呼ぶ相手を選ぶ（↑↓ で選び、Enter で入れる）	选择要提及的人（↑↓ 选择，Enter 插入）	부를 상대 고르기 (↑↓ 로 고르고 Enter 로 넣기)		`@` を打ったときに出る候補の一覧の説明。		
+chat.mention.to	Mentioning {who} (everyone in the room can see it)	{who} を呼びます（ルームの全員に見えます）	将提及 {who}（房间内所有人都能看到）	{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)	★	呼んでも**届く先は変わらない**ことを必ず残す。「{who} にだけ送ります」と読める訳にすると、人は見られたくないことを書く。		
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.new	{n} new	新しい発言 {n} 件	{n} 条新发言	새 발언 {n} 건				

@@ -16,8 +16,9 @@
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
-  import { untrack } from 'svelte';
+  import { tick, untrack } from 'svelte';
   import { 画像を拾う } from './image';
+  import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, type 打ちかけ } from './mention';
 
   interface Props {
     locale: Locale;
@@ -96,6 +97,11 @@
      * 渡されなければ、これまでどおり「文字で話す」を出す。
      */
     宛先?: 見出し | null;
+    /**
+     * **この端末の人が `@` で呼ばれる名前**（0.1.35・メンション）。
+     * 呼ばれた行に印を付ける。渡されなければ印は付かない
+     */
+    自分の呼ばれる名?: readonly string[];
   }
 
   const {
@@ -117,6 +123,7 @@
     据え置いている = false,
     新しい宛先へ移る,
     宛先 = null,
+    自分の呼ばれる名 = [],
   }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
@@ -228,6 +235,57 @@
     if (!body) return;
     送る(body);
     下書き = '';
+    呼びかけ = null;
+  }
+
+  // **`@名前` で呼ぶ**（0.1.35・メンション）。人数が多いと、誰に話しかけたか分からない。
+  // **呼んでも届く先は変わらない**（ルームの全員に見える）。そのことを打つ欄の下で言う
+  /** 呼べる名前。いま届く相手を、画面と同じ名前で */
+  const 呼べる名 = $derived(届く先.map(見せる名));
+  /** 印を付けて読む名前。届く相手のほか、名簿の名前と自分の名前も */
+  const 見分ける名 = $derived(
+    呼べる名に広げる([...呼べる名, ...Object.values(画面での名簿), ...自分の呼ばれる名])
+  );
+  const 呼んでいる名 = $derived(宛ての名(下書き, 呼べる名に広げる(呼べる名)));
+  let 打つ欄: HTMLTextAreaElement | undefined = $state();
+  let 呼びかけ = $state<打ちかけ | null>(null);
+  let 選んでいる = $state(0);
+
+  function 候補を見直す() {
+    if (!打つ欄) return;
+    // **欄の値を直に読む。**`bind:value` が下書きへ写すより先にここが走ることがある
+    const 値 = 打つ欄.value;
+    // **変換中は打つ位置の端が `selectionEnd` にある**（`selectionStart` は変換の頭のまま）
+    呼びかけ = 候補を出す(値, 打つ欄.selectionEnd ?? 値.length, 呼べる名);
+    if (選んでいる >= (呼びかけ?.候補.length ?? 0)) 選んでいる = 0;
+  }
+
+  function 候補を選ぶ(名: string) {
+    if (!呼びかけ || !打つ欄) return;
+    const 次 = 候補を入れる(打つ欄.value, 打つ欄.selectionStart ?? 打つ欄.value.length, 呼びかけ.頭, 名);
+    下書き = 次.下書き;
+    呼びかけ = null;
+    const 欄 = 打つ欄;
+    // **描き直してから焦点と位置を戻す**（先に置くと、描き直しで焦点が外れていた）
+    void tick().then(() => {
+      欄.focus();
+      欄.setSelectionRange(次.位置, 次.位置);
+    });
+  }
+
+  /** 候補が出ているときのキー。**扱ったら true**（送らない） */
+  function 候補のキー(e: KeyboardEvent): boolean {
+    // **日本語入力の確定の Enter で選ばない**（`送ってよい` と同じ見分け方・229 は古い WebView の保険）
+    if (!呼びかけ || e.isComposing || e.keyCode === 229) return false;
+    const 数 = 呼びかけ.候補.length;
+    if (e.key === 'ArrowDown') 選んでいる = (選んでいる + 1) % 数;
+    else if (e.key === 'ArrowUp') 選んでいる = (選んでいる + 数 - 1) % 数;
+    else if ((e.key === 'Enter' && !e.shiftKey && !e.altKey) || e.key === 'Tab')
+      候補を選ぶ(呼びかけ.候補[選んでいる]);
+    else if (e.key === 'Escape') 呼びかけ = null;
+    else return false;
+    e.preventDefault();
+    return true;
   }
 </script>
 
@@ -270,7 +328,13 @@
     {/if}
     {#each 会話 as line, i (i)}
       <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
-      <p class="line" class:mine={line.mine} class:system={line.system} class:agent={line.agent}>
+      <p
+        class="line"
+        class:mine={line.mine}
+        class:system={line.system}
+        class:agent={line.agent}
+        class:to-me={!line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
+      >
         {#if line.at}<span class="at">{line.at}</span>{/if}{#if line.留守中}<span class="late"
             >{t('chat.late')}</span
           >{/if}{#if 差出人の顔(line)}<Avatar
@@ -278,7 +342,12 @@
             大きさ={14}
             名=""
           />{/if}{#if !line.system}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b
-          >{/if}{line.body}{#if line.画像}<button
+          >{/if}{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
+                class="mention"
+                class:me={自分の呼ばれる名.includes(片.呼び)}>{片.文}</span
+              >{:else}{片.文}{/if}{/each}{#if !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}<span
+              class="mark to-me-mark">{t('chat.mention.me')}</span
+            >{/if}{#if line.画像}<button
             type="button"
             class="pic"
             onclick={() => (大きく見る = line.画像 ?? null)}
@@ -337,6 +406,27 @@
          預けるだけのときにも出ていた（2026-09-08 に実物で踏んだ） -->
     <p class="hint">{t('chat.desk')}</p>
   {/if}
+  {#if 呼んでいる名.length > 0}
+    <!-- **呼んでも、届く先は変わらない。**「その人にだけ」と誤解させない -->
+    <p class="hint mention-to">{format(t('chat.mention.to'), { who: 呼んでいる名.map((n) => `@${n}`).join(' ') })}</p>
+  {/if}
+  {#if 呼びかけ}
+    <div class="mention-pick" role="listbox" aria-label={t('chat.mention.pick')} title={t('chat.mention.pick')}>
+      {#each 呼びかけ.候補 as 名, i (名)}
+        <button
+          type="button"
+          role="option"
+          aria-selected={i === 選んでいる}
+          class:picked={i === 選んでいる}
+          onmousedown={(e) => {
+            // **欄から焦点を奪わない**（奪うと打っている位置を失う）
+            e.preventDefault();
+            候補を選ぶ(名);
+          }}>@{名}</button
+        >
+      {/each}
+    </div>
+  {/if}
   <div class="say">
     <!--
       **改行できる**（2026-09-06）。Shift+Enter / Option+Enter で改行、
@@ -345,13 +435,20 @@
     -->
     <textarea
       rows="1"
+      bind:this={打つ欄}
       bind:value={下書き}
+      oninput={候補を見直す}
+      oncompositionupdate={() => queueMicrotask(候補を見直す)}
+      oncompositionend={候補を見直す}
+      onclick={候補を見直す}
+      onblur={() => (呼びかけ = null)}
       placeholder={会議中
         ? t('chat.placeholder')
         : この機械の人数 > 0
           ? t('chat.placeholder.desk')
           : t('chat.placeholder.nobody')}
       onkeydown={(e) => {
+        if (候補のキー(e)) return;
         if (送ってよい(e)) {
           e.preventDefault();
           出す();
@@ -629,6 +726,51 @@
   .mark.none {
     color: var(--warning-fg);
     background: var(--warning-bg);
+  }
+  /* **`@名前` で呼んだ所**（0.1.35）。誰に話しかけたかが一目で分かるように */
+  .mention {
+    color: var(--info-fg);
+    font-weight: 600;
+  }
+  /* 自分が呼ばれた所は、地も付けて目に入れる */
+  .mention.me {
+    padding: 0 2px;
+    background: var(--info-bg);
+    border-radius: var(--radius-sm);
+  }
+  /* **自分が呼ばれた行。**左に帯を付ける（ぶら下げを崩さない幅で） */
+  .line.to-me {
+    /* 帯の幅だけ字を右へ逃がす（帯が時刻の 1 字目に重なっていた） */
+    padding-left: calc(5.5em + 8px);
+    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--accent-subtle);
+    border-radius: var(--radius-sm);
+  }
+  .mark.to-me-mark {
+    color: var(--info-fg);
+    background: var(--info-bg);
+    cursor: default;
+  }
+  /* **呼ぶ相手の候補。**打つ欄のすぐ上に並べる */
+  .mention-pick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  /* **選んでいない候補は控えめに**（主要な操作に見せない・DESIGN.md §2） */
+  .mention-pick button {
+    width: auto;
+    padding: 2px 8px;
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+  }
+  .mention-pick button.picked {
+    color: var(--info-fg);
+    background: var(--info-bg);
+    border-color: var(--info-fg);
   }
 
   .line.system {

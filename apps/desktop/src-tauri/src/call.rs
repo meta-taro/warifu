@@ -118,6 +118,14 @@ pub async fn 住所へ呼ぶ(
         bridge.主催たち.lock().await.insert(meeting, peer);
         vec![warifu_app::Event::Joined(peer)]
     };
+    // **鍵なしで入った部屋にも、帰り道を書き置く**（0.1.35）。
+    // 書かないと、主催が上がり直したとき**見張りが戻る先を持たず、ひとりのまま**だった。
+    // 中身は住所だけで、割符は入らない（戻るときも鍵なしで叩く）
+    if let Ok(vault) = warifu_vault::Vault::default_location()
+        && let Err(e) = vault.save_rejoin(&meeting.to_string(), &住所)
+    {
+        記録!("帰り道を書き置けませんでした: {e}");
+    }
     emit_events(app, &events);
 
     channel
@@ -190,11 +198,9 @@ async fn 招待を待つ(channel: &mut Channel) -> Answer<(warifu_meeting::Meeti
 ///
 /// `Notice::Invite` は型も試験も前からあったのに、**誰も送っていなかった。**
 /// 割符つきで来た相手には送らない —— そちらは会議キーに id が入っている。
-pub fn 招く(
-    conferences: &crate::ルームたち, いまのルーム: &crate::見ているルーム
-) -> Option<Notice> {
-    // **いま見ているルームへ招く。**ルームを複数持つので、どこへ招くかを決める必要がある
-    let id = (*いまのルーム.try_lock().ok()?)?;
+///
+/// 招く部屋は [`招く部屋を選ぶ`] で決めてから渡す。
+pub fn 招く(conferences: &crate::ルームたち, id: warifu_meeting::MeetingId) -> Option<Notice> {
     let 棚 = conferences.try_lock().ok()?;
     let c = 棚.get(&id)?;
     let mut roster = Roster::with_capacity(c.me(), c.capacity()).ok()?;
@@ -207,6 +213,24 @@ pub fn 招く(
         meeting: c.id(),
         roster,
     })
+}
+
+/// **鍵なしで来た相手を、どの部屋へ招くか**（0.1.35）。`None` なら新しく建てる。
+///
+/// **自分が主催している部屋にだけ招く。**前は「いま見ている部屋」へ招いていたので、
+/// ゲストとして他人の部屋を見ているときに呼ばれると、その部屋の主催の知らない所で
+/// **同じ id の部屋が 2 つに割れた**（呼んだ側はゲストの名簿にしか載らず、
+/// 主催にもほかのゲストにも見えなかった・10-22 に 3 台で確かめた）。
+///
+/// 見ている部屋を主催していればそこ、でなければ主催している部屋のどれか（並びの先頭）。
+pub fn 招く部屋を選ぶ<T: Copy + PartialEq>(
+    見ている: Option<T>,
+    主催している部屋: &[T],
+) -> Option<T> {
+    match 見ている {
+        Some(id) if 主催している部屋.contains(&id) => Some(id),
+        _ => 主催している部屋.first().copied(),
+    }
 }
 
 /// **部屋の合言葉の証しを見せて、同じ部屋のゲストを呼ぶ**（**D118** / **#28**）。
@@ -354,6 +378,23 @@ mod 試験 {
             .profile("Personal")
             .device("PC")
             .public_key()
+    }
+
+    #[test]
+    fn 見ている部屋を主催していれば_そこへ招く() {
+        assert_eq!(招く部屋を選ぶ(Some(2), &[1, 2]), Some(2));
+    }
+
+    #[test]
+    fn 他人の部屋を見ていても_自分の部屋へ招く() {
+        // 3 はゲストとして入っている部屋（主催していない）
+        assert_eq!(招く部屋を選ぶ(Some(3), &[1, 2]), Some(1));
+        assert_eq!(招く部屋を選ぶ(None, &[1]), Some(1));
+    }
+
+    #[test]
+    fn 主催している部屋が無ければ_建てる() {
+        assert_eq!(招く部屋を選ぶ::<u8>(Some(3), &[]), None);
     }
 
     #[test]

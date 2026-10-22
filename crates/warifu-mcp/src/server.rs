@@ -13,7 +13,7 @@ use warifu_calendar::{Calendar, Span};
 use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
-use crate::chat::{Chat, 並べる};
+use crate::chat::{Chat, 並べる, 宛ても見て並べる};
 use crate::tools::{CallArgs, ContactAddArgs, InviteArgs, JoinArgs, KeyGiveArgs};
 use crate::{OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError, WaitArgs};
 
@@ -297,7 +297,8 @@ impl Warifu {
             // **札が無くても取り出す**（溜め続けない）。知らせないだけ
             let 新しい = この機械.知らせ待ちを取る();
             if self.通るか("chat.read").is_ok()
-                && let Some(知) = crate::push::知らせを組む(&新しい)
+                && let Some(知) =
+                    crate::push::宛ても見て知らせを組む(&新しい, &この機械.呼ばれる名())
             {
                 let 通知 = ServerNotification::CustomNotification(CustomNotification::new(
                     crate::push::知らせの方法,
@@ -898,7 +899,7 @@ impl Warifu {
                 この機械.つながってからの一言()
             ));
         }
-        Ok(並べる(&出た))
+        Ok(宛ても見て並べる(&出た, &この機械.呼ばれる名()))
     }
 
     /// **何か届くまで待つ。**届いたらその分を返す。
@@ -934,7 +935,10 @@ impl Warifu {
             if 続き.is_empty() {
                 return Ok(format!("{}{一言}", 並べる(&続き)));
             }
-            return Ok(format!("{一言}\n{}", 並べる(&続き)));
+            return Ok(format!(
+                "{一言}\n{}",
+                宛ても見て並べる(&続き, &この機械.呼ばれる名())
+            ));
         }
 
         if 出た.is_empty() {
@@ -944,7 +948,7 @@ impl Warifu {
                 この機械.つながってからの一言()
             ));
         }
-        Ok(並べる(&出た))
+        Ok(宛ても見て並べる(&出た, &この機械.呼ばれる名()))
     }
 
     /// 承認済みの規則を、人が読める形で出す。
@@ -1083,7 +1087,9 @@ impl ServerHandler for Warifu {
              口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。\
              **会話に発言が届いたり、ルームに誰かが入ったりすると、`<channel>` で知らせが来ることがある**\
              （channels を付けて立ち上げたとき）。知らせに本文は無い —— chat_read で読む。\
-             返事が要るものにだけ返す。",
+             返事が要るものにだけ返す。\
+             **`@名前` で呼ばれた発言には `（あなた宛て）` が付く** —— まずそれに返す。\
+             人数が多いルームで誰かに話しかけるときは、本文に `@相手の名前` を書く（届く先は変わらない）。",
             建てた版
         ));
         info

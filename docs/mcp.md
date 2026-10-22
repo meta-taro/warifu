@@ -196,6 +196,7 @@ The part after `server:` is the name you gave the server in your MCP config (`wa
 | | |
 |---|---|
 | **The notice carries no message text** | Only how many, from whom, and the latest number. Read the text with `chat_read`. **A line counts as read when `chat_read` hands it over** (**D76**) |
+| **Lines that call you by `@name` are flagged** | A line containing `@` + one of your names (where you run, your `profile_set` name; a full-width `＠` counts too) leads the notice with "N addressed to you" (`meta.mentioned`), and `chat_read` / `chat_wait` end that line with `（あなた宛て）`. **It is still visible to everyone in the room** — a mention does not change who receives it |
 | **Someone entering the room is announced too** | **A machine called from its contacts lets a known peer straight into the room without asking.** The notice says who came in (by the contact's name if you know them). Someone leaving does not wake the agent |
 | **Someone who dropped and stays away 10 minutes is announced** | Leaving (they pressed "leave the room") and dropping (the connection fell) are different. A dropped machine comes back by itself, so the drop is not announced; **only if it is still away after 10 minutes** does a line arrive ("not back for 10 minutes, has not left") |
 | **Bursts become one notice** | It waits 2 seconds before telling. Anything a running `chat_wait` already took is not announced |

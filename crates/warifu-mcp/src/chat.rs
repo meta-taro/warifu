@@ -73,6 +73,10 @@ pub struct Chat {
     /// 溜め箱とは別に持つ。溜め箱は `chat_read` が空にするので、
     /// **どれが新しく来たかは、溜め箱からは分からない**（入退室には番号が無い）。
     知らせ待ち: Arc<Mutex<VecDeque<FromDesk>>>,
+    /// **このエージェントが `@` で呼ばれうる名前**（0.1.35・メンション）。
+    ///
+    /// 繋ぐときの名乗り（どこで動いているか）と、`profile_set` で書いた名前。
+    呼ばれる名: Arc<Mutex<Vec<String>>>,
 }
 
 /// 声の結果を、エージェントが読める 1 行にする（#50）。
@@ -168,6 +172,9 @@ impl Chat {
         控えのフォルダ: Option<&Path>,
     ) -> std::io::Result<Self> {
         let mut 口 = 口::新しく(繋ぐ(場所).await?);
+        let 呼ばれる名 = Arc::new(Mutex::new(名乗りから呼ばれる名(
+            名乗り.as_deref(),
+        )));
         // **どこまで聞いたかを控えてある**（内部の Issue 019）。
         // これを名乗ると、**切れている間の言葉を机が渡してくれる** ——
         // 控えが無ければ `None`（**新しい分だけ。頼まれてもいない過去を押し付けない**）
@@ -243,6 +250,7 @@ impl Chat {
             返事待ち,
             印の道,
             知らせ待ち,
+            呼ばれる名,
         })
     }
 
@@ -737,7 +745,17 @@ impl Chat {
             .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
 
         match 返事 {
-            FromDesk::Wrote { who } => Ok(who),
+            FromDesk::Wrote { who } => {
+                // **書いた名前でも呼ばれるようにする**（0.1.35）
+                let mut 名 = self.呼ばれる名.lock().expect("毒されていない");
+                for n in [名前, who.as_str()] {
+                    let n = n.trim();
+                    if !n.is_empty() && !名.iter().any(|m| m == n) {
+                        名.push(n.to_owned());
+                    }
+                }
+                Ok(who)
+            }
             FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
             他 => Err(crate::ToolError::Unavailable(format!(
                 "この機械が想定しない返事をしました: {他:?}"
@@ -1039,6 +1057,15 @@ fn 知らせに積む(待ち: &Arc<Mutex<VecDeque<FromDesk>>>, 行: &str) {
     }
 }
 
+/// 行の末尾に付ける「あなた宛て」の印。宛てでなければ空。
+fn 宛ての印(本文: &str, 名前たち: &[String]) -> &'static str {
+    if crate::push::宛てられたか(本文, 名前たち) {
+        "\t（あなた宛て）"
+    } else {
+        ""
+    }
+}
+
 fn 積む_直に(箱: &Arc<Mutex<VecDeque<FromDesk>>>, 中身: FromDesk) {
     let mut 箱 = 箱.lock().expect("毒されていない");
     if 箱.len() >= 溜める上限 {
@@ -1047,11 +1074,41 @@ fn 積む_直に(箱: &Arc<Mutex<VecDeque<FromDesk>>>, 中身: FromDesk) {
     箱.push_back(中身);
 }
 
+/// **繋ぐときの名乗りから、呼ばれうる名前を出す**（0.1.35）。
+///
+/// 名乗りは `docs のエージェント` の形なので、`docs` だけでも呼べるようにする。
+fn 名乗りから呼ばれる名(名乗り: Option<&str>) -> Vec<String> {
+    let Some(名乗り) = 名乗り.map(str::trim).filter(|n| !n.is_empty()) else {
+        return Vec::new();
+    };
+    let mut 名 = vec![名乗り.to_owned()];
+    if let Some(場所) = 名乗り.strip_suffix(" のエージェント")
+        && !場所.trim().is_empty()
+    {
+        名.push(場所.trim().to_owned());
+    }
+    名
+}
+
+impl Chat {
+    /// このエージェントが `@` で呼ばれうる名前（0.1.35）。
+    #[must_use]
+    pub fn 呼ばれる名(&self) -> Vec<String> {
+        self.呼ばれる名.lock().expect("毒されていない").clone()
+    }
+}
+
 /// 発言を人が読める行にする。
 ///
 /// **本文をそのまま出す前に、それが相手の言い分だと分かる形にする。**
 #[must_use]
 pub fn 並べる(発言: &[FromDesk]) -> String {
+    宛ても見て並べる(発言, &[])
+}
+
+/// [`並べる`] に、**このエージェント宛ての印**を足す（0.1.35・メンション）。
+#[must_use]
+pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) -> String {
     if 発言.is_empty() {
         return "新しい発言はありません。".to_owned();
     }
@@ -1062,9 +1119,11 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             // **番号の無い発言（古いこの機械）には番号を出さない。**
             // 出すと、尋ねられる番号があるように見える
             FromDesk::Heard { id, from, body, at } if *id > 0 => {
-                format!("{at}\t{from}\t{body}\t#{id}")
+                format!("{at}\t{from}\t{body}\t#{id}{}", 宛ての印(body, 名前たち))
             }
-            FromDesk::Heard { from, body, at, .. } => format!("{at}\t{from}\t{body}"),
+            FromDesk::Heard { from, body, at, .. } => {
+                format!("{at}\t{from}\t{body}{}", 宛ての印(body, 名前たち))
+            }
             FromDesk::Joined { who } => format!("\t{who}\t（入室）"),
             FromDesk::Left { who } => format!("\t{who}\t（退室）"),
             FromDesk::Sent { to, id, 届いた } => {
@@ -1115,6 +1174,29 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 名乗りの場所でも呼ばれる() {
+        assert_eq!(
+            名乗りから呼ばれる名(Some("docs のエージェント")),
+            vec!["docs のエージェント".to_owned(), "docs".to_owned()]
+        );
+        assert!(名乗りから呼ばれる名(None).is_empty());
+    }
+
+    #[test]
+    fn あなた宛ての発言には_印が付く() {
+        let 行 = 宛ても見て並べる(
+            &[FromDesk::Heard {
+                id: 5,
+                from: "人A".to_owned(),
+                body: "@docs 見て".to_owned(),
+                at: "10:00".to_owned(),
+            }],
+            &["docs".to_owned()],
+        );
+        assert!(行.ends_with("#5\t（あなた宛て）"), "{行}");
+    }
 
     #[test]
     fn 発言は_いつ_誰が_なにを_の順で出る() {

@@ -28,6 +28,7 @@
 #![forbid(unsafe_code)]
 
 mod line;
+mod mention;
 mod pipe;
 mod place;
 mod talk;
@@ -37,6 +38,7 @@ pub use line::{
     声を待てる秒, 手渡しの返り, 招ける本数, 書き出しの行, 本文の上限, 札を待てる秒, 訳の上限,
     連絡先の行, 頼みの返り,
 };
+pub use mention::宛てられたか;
 pub use pipe::{一本, 受け口, 繋ぐ, 開いているか};
 pub use place::{
     この機械の在り処, この機械の場所, 在り処, 在り処を決める, 場所を決める

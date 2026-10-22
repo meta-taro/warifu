@@ -71,6 +71,8 @@ pub struct 知らせ {
     pub 誰から: String,
     /// 入った人（並べた名前）。居なければ空
     pub 入った: String,
+    /// このエージェント宛て（`@名前`）の発言の数
+    pub 宛て: usize,
 }
 
 /// 知らせる出来事か。**発言と入退室だけ**（返事・名乗り・断りは知らせない）。
@@ -103,12 +105,27 @@ fn 並べる<'a>(名前: impl Iterator<Item = &'a str>) -> String {
     行
 }
 
+/// **呼ばれたか**（0.1.35・メンション）。規則は机の側に 1 か所だけ置く。
+pub use warifu_desk::宛てられたか;
+
 /// **まだ知らせていない出来事**から、知らせを組む。
 ///
 /// 知らせるものが無ければ `None`。**起こすのは、誰かが喋ったか、誰かが入ったときだけ** ——
 /// 出ただけでは起こさない（出たことは `chat_read` で読める）。
 #[must_use]
 pub fn 知らせを組む(新しい: &[FromDesk]) -> Option<知らせ> {
+    宛ても見て知らせを組む(新しい, &[])
+}
+
+/// [`知らせを組む`] に、**このエージェント宛ての数**を足す（0.1.35・メンション）。
+///
+/// 人数が多いと、誰に話しかけたかが分からない。`@名前` で呼ばれた発言は、
+/// **知らせの頭で「あなた宛て」と言う** —— 返事が要るのはまずそれである。
+#[must_use]
+pub fn 宛ても見て知らせを組む(
+    新しい: &[FromDesk],
+    名前たち: &[String],
+) -> Option<知らせ> {
     let 発言: Vec<(u64, &str)> = 新しい
         .iter()
         .filter_map(|一つ| match 一つ {
@@ -116,6 +133,10 @@ pub fn 知らせを組む(新しい: &[FromDesk]) -> Option<知らせ> {
             _ => None,
         })
         .collect();
+    let 宛て = 新しい
+        .iter()
+        .filter(|一つ| matches!(一つ, FromDesk::Heard { body, .. } if 宛てられたか(body, 名前たち)))
+        .count();
     let 入った = 並べる(新しい.iter().filter_map(|一つ| match 一つ {
         FromDesk::Joined { who } => Some(who.as_str()),
         _ => None,
@@ -132,6 +153,11 @@ pub fn 知らせを組む(新しい: &[FromDesk]) -> Option<知らせ> {
     let 最新 = 発言.iter().map(|(id, _)| *id).filter(|id| *id > 0).max();
     let 誰から = 並べる(発言.iter().map(|(_, from)| *from));
     let mut 文 = String::new();
+    if 宛て > 0 {
+        文.push_str(&format!(
+            "あなた宛ての発言（@ で呼ばれたもの）が {宛て} 件あります。"
+        ));
+    }
     if !入った.is_empty() {
         文.push_str(&format!("割符のルームに {入った} が入りました。"));
     }
@@ -158,6 +184,7 @@ pub fn 知らせを組む(新しい: &[FromDesk]) -> Option<知らせ> {
         最新,
         誰から,
         入った,
+        宛て,
     })
 }
 
@@ -175,6 +202,9 @@ pub fn 知らせの中身(知らせ: &知らせ) -> serde_json::Value {
     }
     if !知らせ.入った.is_empty() {
         meta.insert("joined".into(), 知らせ.入った.clone().into());
+    }
+    if 知らせ.宛て > 0 {
+        meta.insert("mentioned".into(), 知らせ.宛て.to_string().into());
     }
     serde_json::json!({ "content": 知らせ.文, "meta": meta })
 }
@@ -196,6 +226,32 @@ mod tests {
         FromDesk::Joined {
             who: who.to_owned(),
         }
+    }
+
+    fn 言った(id: u64, body: &str) -> FromDesk {
+        FromDesk::Heard {
+            id,
+            from: "人A".to_owned(),
+            body: body.to_owned(),
+            at: "13:07".to_owned(),
+        }
+    }
+
+    #[test]
+    fn 宛ての発言は_知らせの頭で言う() {
+        let 名 = vec!["連動".to_owned()];
+        let 知 = 宛ても見て知らせを組む(
+            &[言った(1, "@連動 見て"), 言った(2, "みんなへ")],
+            &名,
+        )
+        .unwrap();
+        assert_eq!(知.宛て, 1);
+        assert!(知.文.starts_with("あなた宛ての発言"));
+        assert_eq!(知らせの中身(&知)["meta"]["mentioned"], "1");
+        // 宛てが無ければ言わない
+        let 知 = 宛ても見て知らせを組む(&[言った(3, "みんなへ")], &名).unwrap();
+        assert_eq!(知.宛て, 0);
+        assert!(知らせの中身(&知)["meta"].get("mentioned").is_none());
     }
 
     #[test]

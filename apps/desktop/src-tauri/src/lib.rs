@@ -1493,6 +1493,14 @@ pub(crate) async fn 前のルームへ戻る(
     bridge: State<'_, Bridge>,
     鍵: String,
 ) -> Answer<()> {
+    // **鍵なしで入った部屋の帰り道は、住所だけである**（0.1.35）。
+    // 住所は**いま覚えているものを先に使う** —— 入ったあとに主催が名乗り直した住所の方が新しい
+    if let Some(宛先) = contacts::住所だけの帰り道(&鍵) {
+        let 相手 = 宛先.public_key();
+        let 住所 = contacts::住所を引く(相手).unwrap_or(鍵);
+        記録!("戻る: 鍵なしで入った部屋なので、住所へ割符なしで叩きます");
+        return call::住所へ呼ぶ(&app, &bridge, 相手, &住所).await;
+    }
     let (address, token, _meeting) = parse_invite(&鍵)?;
     // **窓の中なら、いつもの道。**割符を持っているほうが強い（名簿にも載る）
     if bridge.device.accept(&token, now_secs()).is_ok() {
@@ -1744,14 +1752,24 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // 割符つきで来た相手には送らない —— そちらは鍵に id が入っている
             // **部屋の証しで来た相手にも教えない。**もう同じ部屋に居るので、
             // 教えると**別の部屋へ入れ直すことになる**
-            if 中身 == 叩きの中身::どちらでもない
-                && let Some(招待) = call::招く(&conferences, &いまのルーム)
-                && let Ok(intent) = 招待.to_intent()
-            {
-                if channel.send(&intent).await.is_err() {
+            // **招いた部屋**（鍵なしの相手だけ）。名乗りもこの部屋あてに送る
+            let mut 招いた部屋: Option<MeetingId> = None;
+            if 中身 == 叩きの中身::どちらでもない {
+                let Some(id) = 招く部屋を用意する(&app.state::<Bridge>()).await else {
                     continue;
+                };
+                if let Some(招待) = call::招く(&conferences, id)
+                    && let Ok(intent) = 招待.to_intent()
+                {
+                    if channel.send(&intent).await.is_err() {
+                        continue;
+                    }
+                    記録!(
+                        "待受: 割符なしの相手へ会議を教えた（部屋 {}）",
+                        短く(&id.to_string())
+                    );
+                    招いた部屋 = Some(id);
                 }
-                記録!("待受: 割符なしの相手へ会議を教えた");
             }
             {
                 // **ルームが 1 つも無ければ建てる。**受けた相手を入れる先が要る
@@ -1766,8 +1784,12 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             }
             // **迎える側も名乗る**（**D75**）。
             // 呼ぶ側だけが名乗ると、**片方向にしか名前が出ない**
+            let 名乗る部屋 = match 招いた部屋 {
+                Some(id) => Some(id),
+                None => いま見ているルーム(&いまのルーム).await,
+            };
             if let Ok((名前, 紹介)) = 自分の名乗り()
-                && let Some(id) = いま見ているルーム(&いまのルーム).await
+                && let Some(id) = 名乗る部屋
                 && let Ok(intent) = (Notice::Profile {
                     meeting: id,
                     from: me,
@@ -1794,6 +1816,41 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
         }
     });
     Ok(())
+}
+
+/// **鍵なしで来た相手を招く部屋を用意する**（0.1.35）。主催している部屋が無ければ建てる。
+///
+/// 建てた部屋は**見る部屋を奪わない** —— 人は別の部屋を見て話しているかもしれない。
+async fn 招く部屋を用意する(bridge: &Bridge) -> Option<MeetingId> {
+    let me = bridge.device.public_key();
+    let (conferences, いまのルーム, 主催たち) =
+        (&bridge.conferences, &bridge.いまのルーム, &bridge.主催たち);
+    let 見ている = いま見ているルーム(いまのルーム).await;
+    let 主催している: Vec<MeetingId> = {
+        let 主催たち = 主催たち.lock().await;
+        let 棚 = conferences.lock().await;
+        let mut 並び: Vec<MeetingId> = 棚
+            .keys()
+            .filter(|id| 主催たち.get(id).is_none_or(|主催| *主催 == me))
+            .copied()
+            .collect();
+        // **並びを固定する。**`HashMap` の順は読むたびに変わる
+        並び.sort_by_key(ToString::to_string);
+        並び
+    };
+    if let Some(id) = call::招く部屋を選ぶ(見ている, &主催している) {
+        return Some(id);
+    }
+    let c = Conference::host(me, warifu_app::DEFAULT_CAPACITY).ok()?;
+    let id = ルームを足す_見るのは奪わない(conferences, いまのルーム, c).await;
+    // **建てた部屋の主催は自分**（**#37**）。合言葉も渡す前に用意する（**D118**）
+    主催たち.lock().await.insert(id, me);
+    部屋の合言葉を用意する(bridge, id).await;
+    記録!(
+        "待受: 主催している部屋が無いので、招くために建てました（部屋 {}）",
+        短く(&id.to_string())
+    );
+    Some(id)
 }
 
 /// 相手が最初に送ってくる片割れを、手元の割符と照らす。
@@ -1966,6 +2023,8 @@ fn 汲む(
         // **自分が置いたものだけを片付ける。**
         let 私の口 = tx.clone();
         outbound.lock().await.insert(peer.to_bytes(), tx);
+        // **この経路で、どの部屋について名乗り返したか**（0.1.35）。1 部屋 1 度だけ
+        let mut 名乗り返した: std::collections::HashSet<MeetingId> = std::collections::HashSet::new();
         let 訳 = loop {
             tokio::select! {
                 // 画面から送るもの
@@ -2014,8 +2073,13 @@ fn 汲む(
                         // **どのルームの発言かも渡す**（0.1.33）。渡さないと、画面は
                         // その瞬間に見ているルームへ積み、**別のルームの発言が混ざっていた**
                         let _ = app.emit(EVENT_TEXT, (名.clone(), body.clone(), meeting.to_string()));
-                        // **窓が後ろに居ると、届いたことに気づけない。**押し出す
-                        notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
+                        // **窓が後ろに居ると、届いたことに気づけない。**押し出す。
+                        // **`@` で呼ばれていたら、間を空けずに鳴らす**（0.1.35）
+                        if warifu_desk::宛てられたか(body, &profile::人の呼ばれる名()) {
+                            notify::呼ばれたと知らせる(&app, &短く(&key_to_string(*from)));
+                        } else {
+                            notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
+                        }
                         // **同じエージェントの AI にも、同じ行を見せる。**
                         // 見せないと、人にだけ見えている話に AI が返事をすることになる
                         // **誰が言ったかは、画面と同じ名で渡す**（2026-10-16）。
@@ -2197,6 +2261,17 @@ fn 汲む(
                         // （`配ってよいか`）。第三者の紹介を受けて配り直すと、
                         // **両側が「自分が主催だ」と思っている場合に往復する** ——
                         // 2026-09-13 に実測: **66 ミリ秒で約 130 件**来て `lost` になった
+                        // **主催も、新入りへ自分の住所を名乗る**（0.1.35）。
+                        // 名乗らないと、新入りは入るときに使った住所しか知らない
+                        if contacts::名乗り返すか(
+                            主催 == Some(true),
+                            peer,
+                            *who,
+                            名乗り返した.contains(meeting),
+                        ) {
+                            名乗り返した.insert(*meeting);
+                            自分の住所を名乗り返す(app.clone(), 私の口.clone(), me, *meeting);
+                        }
                         if contacts::配ってよいか(主催 == Some(true), peer, *who) {
                             // **合言葉を、紹介と同じ瞬間に渡す**（**D118**）。
                             //
@@ -2543,6 +2618,42 @@ async fn 合言葉の控えを揃える(bridge: &Bridge) {
 /// 相手への口が無いのは「まだ繋がっていない」ときである。
 /// **記録に残す** —— 残さないと、**合言葉が渡っていないのに
 /// 「ゲスト同士が繋がらない」という別の症状として現れる。**
+/// **自分の住所を、経路の相手へ名乗る**（0.1.35）。
+///
+/// 住所はルーターの口を最長 2 秒待つので、**受ける輪を止めないよう別に走らせる。**
+fn 自分の住所を名乗り返す(
+    app: AppHandle,
+    口: mpsc::Sender<Notice>,
+    me: PublicKey,
+    meeting: MeetingId,
+) {
+    tokio::spawn(async move {
+        let 住所 = match app.state::<Bridge>().node().await {
+            Ok(node) => node.address().await,
+            Err(e) => {
+                記録!("紹介: 自分の住所を名乗れません（{}）", e.message);
+                return;
+            }
+        };
+        let Ok(住所) = 住所 else {
+            記録!("紹介: 自分の住所が分かりません。名乗り返せません");
+            return;
+        };
+        let 送れた = 口
+            .send(Notice::Introduce {
+                meeting,
+                who: me,
+                address: 住所.to_string(),
+            })
+            .await
+            .is_ok();
+        記録!(
+            "紹介: 新入りへ自分の住所を名乗り返し{}",
+            if 送れた { "ました" } else { "ませんでした（口が閉じていました）" }
+        );
+    });
+}
+
 async fn 部屋の合言葉を渡す(
     合言葉たち: &Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
     outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
