@@ -108,6 +108,7 @@ mod postbox;
 mod profile;
 mod room_name;
 mod schedule;
+mod snapshot;
 mod voice;
 mod window_place;
 
@@ -3490,6 +3491,7 @@ pub fn run() {
             schedule::schedule_list,
             schedule::schedule_add,
             schedule::schedule_remove,
+            snapshot::snapshot_reply,
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,

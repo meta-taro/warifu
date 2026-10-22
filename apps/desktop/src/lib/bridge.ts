@@ -87,6 +87,8 @@ export const EVENT_CLAIMED = 'warifu://claimed';
 export const EVENT_ROOM_NAME = 'warifu://room-name';
 /** **見るルームが変わった**（0.1.33）。見張りが戻ったあと、前のルームへ戻したとき。読み直す */
 export const EVENT_LOOK = 'warifu://look';
+/** **画面の写しを頼まれた**（0.1.34）。中身は頼みの番号。{@link snapshotReply} で返す */
+export const EVENT_SNAPSHOT_ASK = 'warifu://snapshot-ask';
 
 
 /** 相手から届いた下ごしらえ 1 通。 */
@@ -117,6 +119,8 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
 
 /** 自分の宛先。**これだけでは繋げない**（割符が要る・D31）。 */
 export const myAddress = () => invoke<string>('my_address');
+/** **画面の写しを返す**（0.1.34）。エージェントの `app_view` へ渡る */
+export const snapshotReply = (id: number, text: string) => invoke<void>('snapshot_reply', { id, text });
 
 /**
  * 招待を出す。**宛先と割符を 1 本にした文字列**が返る。

@@ -279,6 +279,7 @@ fn 出している口を_数えて名前で押さえる() {
         名前,
         [
             "about",
+            "app_view",
             "calendar_slots",
             "changes",
             "chat_export",

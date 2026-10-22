@@ -471,6 +471,15 @@ async fn 応じる(
         //
         // 人はあとで必ずエージェントに「どんな話をしたっけ？」と聞く。議事録に使う。
         // **常には残さない** —— 返すのはこのプロセスが控えている直近の分だけで、閉じれば消える
+        // **画面の写し**（0.1.34）。札（screen.read）は MCP 側が見る
+        ToDesk::画面の写し => {
+            let 返事 = match crate::snapshot::写してもらう(app).await {
+                Ok(中身) => FromDesk::写し { 中身 },
+                Err(why) => FromDesk::Denied { why },
+            };
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         ToDesk::書き出す => {
             let 自分 = crate::key_to_string(app.state::<Bridge>().device.public_key());
             let 行たち = 会話を書き出す(&自分);

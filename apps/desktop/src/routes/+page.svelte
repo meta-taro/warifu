@@ -53,6 +53,7 @@
   import { 機械の中のTURNを覚える, 機械の中のTURNがあるか } from '$lib/webrtc/media';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
+  import { 画面の写しを書く } from '$lib/chat/snapshot';
   import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める, 見ているルームの相手だけ } from '$lib/chat/reach';
   import { 画像を縮める } from '$lib/chat/image';
   import { エージェントの名札 } from '$lib/contacts/seat';
@@ -169,6 +170,8 @@
     roomNames,
     EVENT_ROOM_NAME,
     EVENT_LOOK,
+    EVENT_SNAPSHOT_ASK,
+    snapshotReply,
     scheduleAdd,
     scheduleList,
     scheduleRemove,
@@ -373,20 +376,24 @@
    * **題字は札ではなく、出ている文字そのもの**を渡す ——
    * `経路` だけでは、画面の文言と一致する保証が無いからである。
    */
+  /** いま題字に出ている文字。**画面の写し（0.1.34）でも同じものを使う** */
+  function いまの題字(): string {
+    return 状態 === '会議中'
+      ? t(
+          つながりの言い方({
+            相手が居る: remotes.length > 0,
+            受けている: 映像の流れ.受けている,
+            送っている: 映像の流れ.送っている,
+            掴んでいる: localStream !== null,
+          }) as MessageKey,
+        )
+      : 状態 === '待っている'
+        ? t('meeting.status.waiting')
+        : '';
+  }
+
   $effect(() => {
-    const 題字 =
-      状態 === '会議中'
-        ? t(
-            つながりの言い方({
-              相手が居る: remotes.length > 0,
-              受けている: 映像の流れ.受けている,
-              送っている: 映像の流れ.送っている,
-              掴んでいる: localStream !== null,
-            }) as MessageKey,
-          )
-        : 状態 === '待っている'
-          ? t('meeting.status.waiting')
-          : '';
+    const 題字 = いまの題字();
     void noteScreen(
       映像の流れ.送っている,
       映像の流れ.受けている,
@@ -1002,6 +1009,32 @@
     } catch (e) {
       notice = 読める(e);
     }
+  }
+
+  /** **画面の写し**（0.1.34）。開いているルームと、ほかのルームの欄をそのまま字にする */
+  function 画面の写しをつくる(): string {
+    const 部屋の名 = (id: string) => ルームの名前たち[id] ?? `ルーム ${id.slice(0, 8)}…`;
+    const 人数 = (id: string) => ルームたち.find((r) => r.id === id)?.members ?? null;
+    const 宛 = 会話の宛先;
+    const 見出し = 宛 ? (宛.値 ? format(t(宛.鍵 as MessageKey), 宛.値) : t(宛.鍵 as MessageKey)) : '';
+    return 画面の写しを書く({
+      版,
+      題字: いまの題字(),
+      知らせ: notice || null,
+      選んでいる: 選んだ相手,
+      見ている: 見ている
+        ? {
+            名前: 部屋の名(見ている),
+            人数: 人数(見ている),
+            見出し,
+            届く先,
+            行たち: そのルームの会話(ルームの会話たち, 見ている),
+          }
+        : null,
+      ほか: ルームたち
+        .filter((r) => r.id !== 見ている)
+        .map((r) => ({ 名前: 部屋の名(r.id), 人数: r.members, 行たち: そのルームの会話(ルームの会話たち, r.id) })),
+    });
   }
 
   async function ルームを読み直す() {
@@ -1926,6 +1959,12 @@
         // **相手が名乗った。**覚えはしない（呼び名だけを覚える・D46）
         await onEvent<[string, string, string]>(EVENT_CLAIMED, ([key, 名前, 紹介]) => {
           相手の名乗り = { ...相手の名乗り, [key]: { 名前, 紹介 } };
+        }),
+      );
+      unsubs.push(
+        // **画面の写しを頼まれた**（0.1.34）。人が見ているものを、そのまま字にして返す
+        await onEvent<number>(EVENT_SNAPSHOT_ASK, (番号) => {
+          void snapshotReply(番号, 画面の写しをつくる());
         }),
       );
       unsubs.push(

@@ -456,6 +456,21 @@ impl Chat {
         }
     }
 
+    /// **画面の写し**（0.1.34）。画面が描いて返すまで待つ。
+    pub async fn 画面の写し(&self) -> Result<String, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::画面の写し, 写しの返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::写し { 中身 } => Ok(中身),
+            // **古い画面は、この口を知らない**（`札を頼む` と同じ形）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **相手の住所から、連絡先に足す**（0.1.33）。足した名前を返す。
     pub async fn 連絡先を足す(
         &self,
@@ -890,6 +905,9 @@ fn 書き出しの返事(中身: &FromDesk) -> bool {
 fn 手渡しの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::手渡し { .. } | FromDesk::Denied { .. })
 }
+fn 写しの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::写し { .. } | FromDesk::Denied { .. })
+}
 fn 足すの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::足した { .. } | FromDesk::Denied { .. })
 }
@@ -991,6 +1009,7 @@ fn 仕分ける(
             | FromDesk::呼んだ { .. }
             | FromDesk::入った { .. }
             | FromDesk::足した { .. }
+            | FromDesk::写し { .. }
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
@@ -1072,6 +1091,7 @@ pub fn 並べる(発言: &[FromDesk]) -> String {
             | FromDesk::呼んだ { .. }
             | FromDesk::入った { .. }
             | FromDesk::足した { .. }
+            | FromDesk::写し { .. }
             | FromDesk::書き出し { .. }
             | FromDesk::手渡し { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
