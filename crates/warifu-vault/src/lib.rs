@@ -132,6 +132,8 @@ const CONTACTS_HEADER_V2: &str = "warifu-contacts-v2";
 /// （2026-09-08）。**v1 / v2 も読める。**書くときは必ずこれ。
 const CONTACTS_HEADER_V3: &str = "warifu-contacts-v3";
 const KNOWN_HEADER: &str = "warifu-known-v1";
+/// 会った相手の住所の見出し（0.1.32）。**呼び名の無い相手**を、鍵の頭で呼び直すため。
+const MET_HEADER: &str = "warifu-met-v1";
 
 /// 予定の見出し。**中身は 4 欄**（始まり・終わり・題・覚え書き）。
 const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
@@ -1242,6 +1244,80 @@ impl Vault {
             out.push('\n');
         }
         self.write_private(&self.schedule_path(), &out, "予定を書く")
+    }
+
+    /// 会った相手の住所を何人まで覚えるか。**古い方から忘れる。**
+    pub const MET_MAX: usize = 64;
+
+    /// 会った相手の住所のファイル。
+    #[must_use]
+    pub fn met_path(&self) -> PathBuf {
+        self.dir.join("met.tsv")
+    }
+
+    /// **ルームで会った相手の、最後の住所**を読む（0.1.32）。
+    ///
+    /// 連絡帳（`contacts.tsv`）は**人が呼び名を付けた相手**だけを持つ。
+    /// そのため、名前を付けていない相手は、鍵を運ばないと二度と呼べなかった。
+    /// ここは呼び名を持たない。**表示に使わず、呼ぶときの宛先だけに使う**
+    /// （知らない相手を、知っているように見せない・D46）。
+    ///
+    /// 無ければ空。古い順に並ぶ。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn met(&self) -> Result<Vec<(PublicKey, String)>, Error> {
+        let path = self.met_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "会った相手を読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != MET_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{MET_HEADER} を待っていました）"),
+            ));
+        }
+        let mut 一覧: Vec<(PublicKey, String)> = Vec::new();
+        for line in lines {
+            let mut 欄 = line.split('\t');
+            let (Some(鍵), Some(住所)) = (欄.next(), 欄.next()) else {
+                continue;
+            };
+            // **読めない行は捨てる。**捨てたことを理由に全体を落とさない
+            let Ok(鍵) = 鍵.trim().parse::<PublicKey>() else {
+                continue;
+            };
+            let 住所 = 住所.trim();
+            if 住所.is_empty() {
+                continue;
+            }
+            一覧.retain(|(k, _)| *k != 鍵);
+            一覧.push((鍵, 住所.to_owned()));
+        }
+        Ok(一覧)
+    }
+
+    /// 会った相手の住所を書き留める。**同じ相手は新しい住所で書き換える。**
+    ///
+    /// 住所が相手のものかは、呼ぶ側（経路で確定した相手と、住所の中の鍵の一致）が確かめる。
+    ///
+    /// # Errors
+    /// 住所が置けない形のとき [`Error::BadAddress`]、書けないとき [`Error::Io`]。
+    pub fn save_met(&self, key: PublicKey, address: &str) -> Result<(), Error> {
+        let address = contacts::check_address(address)?;
+        let mut 一覧 = self.met()?;
+        一覧.retain(|(k, _)| *k != key);
+        一覧.push((key, address));
+        let 余り = 一覧.len().saturating_sub(Self::MET_MAX);
+        一覧.drain(..余り);
+        let mut out = format!("{MET_HEADER}\n");
+        for (鍵, 住所) in &一覧 {
+            out.push_str(&format!("{鍵}\t{住所}\n"));
+        }
+        self.write_private(&self.met_path(), &out, "会った相手を書く")
     }
 
     /// 戸口の知り合いを読む。

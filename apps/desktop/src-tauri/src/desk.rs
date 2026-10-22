@@ -455,7 +455,7 @@ async fn 応じる(
         }
         // **覚えている相手を並べる**（2026-10-16）。住所そのものは渡さない
         ToDesk::連絡先 => {
-            let 返事 = match 連絡先を並べる() {
+            let 返事 = match 呼べる相手を並べる() {
                 Ok(行たち) => FromDesk::連絡先たち { 行たち },
                 Err(why) => FromDesk::Denied { why },
             };
@@ -741,7 +741,7 @@ pub(crate) async fn 流す(
 
 /// 覚えている相手を（鍵, 呼び名）の組で並べる。**読めなければ空**（手渡し・書き出しで使う）。
 pub(crate) fn 連絡先の組() -> Vec<(String, String)> {
-    連絡先を並べる()
+    名前のある連絡先()
         .unwrap_or_default()
         .into_iter()
         .map(|r| (r.鍵, r.名前))
@@ -775,7 +775,7 @@ pub fn 名を引く(bridge: &Bridge, 鍵: &str) -> String {
 
 /// **控えている会話を、書き出す形にする**（2026-10-16）。古い順。誰が、には呼び名を添える。
 fn 会話を書き出す(自分: &str) -> Vec<warifu_desk::書き出しの行> {
-    let 帳: Vec<(String, String)> = 連絡先を並べる()
+    let 帳: Vec<(String, String)> = 名前のある連絡先()
         .unwrap_or_default()
         .into_iter()
         .map(|r| (r.鍵, r.名前))
@@ -795,19 +795,58 @@ fn 会話を書き出す(自分: &str) -> Vec<warifu_desk::書き出しの行> {
 }
 
 /// **覚えている相手を、エージェントへ渡す形にする**（2026-10-16）。住所そのものは載せない。
-fn 連絡先を並べる() -> Result<Vec<warifu_desk::連絡先の行>, String> {
-    let 帳 = warifu_vault::Vault::default_location()
-        .and_then(|v| v.contacts())
+fn 呼べる相手を並べる() -> Result<Vec<warifu_desk::連絡先の行>, String> {
+    let 置き場 = warifu_vault::Vault::default_location()
         .map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
-    Ok(帳
+    let 帳 = 置き場
+        .contacts()
+        .map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
+    let mut 行たち: Vec<warifu_desk::連絡先の行> = 帳
         .iter()
         .map(|c| warifu_desk::連絡先の行 {
             名前: c.label().to_owned(),
             鍵: c.key().to_string(),
             住所あり: c.address().is_some(),
         })
+        .collect();
+    // **名前を付けていない相手も、ルームで会っていれば鍵の頭で呼べる**（0.1.32）。
+    // 名前は付けない（知らない相手を、知っているように見せない・D46）
+    let 会った = 置き場.met().unwrap_or_else(|e| {
+        記録!("会った相手を読めませんでした（名前のある相手だけを並べます）: {e}");
+        Vec::new()
+    });
+    行たち.extend(名前の無い会った相手(&行たち, 会った));
+    Ok(行たち)
+}
+
+/// 名前を付けた相手だけ（書き出し・入退室の名前に使う）。**名前の無い行を名前として出さない。**
+fn 名前のある連絡先() -> Result<Vec<warifu_desk::連絡先の行>, String> {
+    Ok(呼べる相手を並べる()?
+        .into_iter()
+        .filter(|r| r.名前 != 名前の無い相手)
         .collect())
 }
+
+/// 会った相手のうち、**連絡帳に無い者だけ**を、名前の無い行にする。新しく会った順。
+fn 名前の無い会った相手(
+    帳: &[warifu_desk::連絡先の行],
+    会った: Vec<(warifu_core::PublicKey, String)>,
+) -> Vec<warifu_desk::連絡先の行> {
+    会った
+        .into_iter()
+        .rev()
+        .map(|(鍵, _)| 鍵.to_string())
+        .filter(|鍵| !帳.iter().any(|r| r.鍵 == *鍵))
+        .map(|鍵| warifu_desk::連絡先の行 {
+            名前: 名前の無い相手.to_owned(),
+            鍵,
+            住所あり: true,
+        })
+        .collect()
+}
+
+/// 名前の無い相手の、名前の欄。**鍵の頭で呼んでもらう。**
+const 名前の無い相手: &str = "（名前なし・ルームで会った相手）";
 
 /// **ルームキーで入る**（0.1.30）。画面の［入る］と同じ道を、**エージェントの入り方**で通る。
 ///
@@ -884,7 +923,7 @@ fn 使い切りの札を受け取る(動作: &str) -> bool {
 
 /// **名前（か鍵の頭）から相手を決めて、画面の［ルームに呼ぶ］と同じ道で呼ぶ**（2026-10-16）。
 async fn 連絡先から呼ぶ(app: &AppHandle, 指定: &str) -> FromDesk {
-    let 行たち = match 連絡先を並べる() {
+    let 行たち = match 呼べる相手を並べる() {
         Ok(行たち) => 行たち,
         Err(why) => return FromDesk::Denied { why },
     };
@@ -899,7 +938,8 @@ async fn 連絡先から呼ぶ(app: &AppHandle, 指定: &str) -> FromDesk {
     let 名前 = 行たち
         .iter()
         .find(|r| r.鍵 == 鍵)
-        .map_or_else(|| 鍵.clone(), |r| r.名前.clone());
+        .filter(|r| r.名前 != 名前の無い相手)
+        .map_or_else(|| crate::短く(&鍵), |r| r.名前.clone());
     let Ok(相手) = 鍵.parse::<warifu_core::PublicKey>() else {
         return FromDesk::Denied {
             why: "連絡先の鍵が読めません".to_owned(),
@@ -1614,5 +1654,32 @@ mod tests {
     fn 呼び方はエージェントと分かる形にする() {
         assert_eq!(呼び方(Some("docs")), "docs のエージェント");
         assert!(呼び方(None).contains("エージェント"));
+    }
+
+    /// **名前の無い相手は、連絡帳に無い者だけ・新しく会った順に足す**（0.1.32）。
+    #[test]
+    fn 会った相手は_名前の無い行として連絡帳の後ろに並ぶ() {
+        use super::{名前の無い会った相手, 名前の無い相手};
+        use warifu_core::Seed;
+        let 鍵 = |b: u8| {
+            Seed::from_bytes([b; 32])
+                .profile("Personal")
+                .device(warifu_core::端末の呼び名)
+                .public_key()
+        };
+        let 帳 = vec![warifu_desk::連絡先の行 {
+            名前: "相手A".to_owned(),
+            鍵: 鍵(1).to_string(),
+            住所あり: true,
+        }];
+        let 会った = vec![
+            (鍵(2), "住所2".to_owned()),
+            (鍵(1), "住所1".to_owned()),
+            (鍵(3), "住所3".to_owned()),
+        ];
+        let 足す = 名前の無い会った相手(&帳, 会った);
+        let 鍵たち: Vec<String> = 足す.iter().map(|r| r.鍵.clone()).collect();
+        assert_eq!(鍵たち, vec![鍵(3).to_string(), 鍵(2).to_string()]);
+        assert!(足す.iter().all(|r| r.名前 == 名前の無い相手 && r.住所あり));
     }
 }

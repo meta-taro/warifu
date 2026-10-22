@@ -2005,3 +2005,41 @@ fn 自前の中継の控えは_本人だけが読める() {
         .mode();
     assert_eq!(mode & 0o777, 0o600);
 }
+
+#[test]
+fn 会った相手の住所は_名前が無くても残る() {
+    let vault = Vault::at(仮の置き場("met"));
+    let a = 鍵([1; 32]);
+    let b = 鍵([2; 32]);
+    assert!(vault.met().expect("無くても読める").is_empty());
+    vault.save_met(a, "住所A1").expect("書ける");
+    vault.save_met(b, "住所B").expect("書ける");
+    // 同じ相手は新しい住所で書き換わり、行は増えない
+    vault.save_met(a, "住所A2").expect("書ける");
+    assert_eq!(
+        vault.met().expect("読める"),
+        vec![(b, "住所B".to_owned()), (a, "住所A2".to_owned())]
+    );
+}
+
+#[test]
+fn 会った相手の住所に改行やタブは書かない() {
+    let vault = Vault::at(仮の置き場("met-bad"));
+    assert!(vault.save_met(鍵([1; 32]), "a\tb").is_err());
+    assert!(vault.save_met(鍵([1; 32]), "a\nb").is_err());
+    assert!(vault.save_met(鍵([1; 32]), " ").is_err());
+}
+
+#[test]
+fn 会った相手は上限を超えたら古い方から忘れる() {
+    let vault = Vault::at(仮の置き場("met-max"));
+    for i in 0..=Vault::MET_MAX {
+        let mut s = [0u8; 32];
+        s[0] = u8::try_from(i % 256).expect("収まる");
+        s[1] = u8::try_from(i / 256).expect("収まる");
+        vault.save_met(鍵(s), &format!("住所{i}")).expect("書ける");
+    }
+    let 一覧 = vault.met().expect("読める");
+    assert_eq!(一覧.len(), Vault::MET_MAX);
+    assert_eq!(一覧[0].1, "住所1");
+}

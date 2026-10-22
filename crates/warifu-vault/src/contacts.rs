@@ -251,7 +251,7 @@ fn check_note(note: &str) -> Result<String, Error> {
 ///
 /// **中身が正しい住所かは見ない。**それは経路の層の仕事である。
 /// ここが見るのは「この行を書いて、読み戻せるか」だけ。
-fn check_address(address: &str) -> Result<String, Error> {
+pub(crate) fn check_address(address: &str) -> Result<String, Error> {
     let trimmed = address.trim();
     if trimmed.is_empty() {
         return Err(Error::BadAddress { why: "空です" });

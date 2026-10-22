@@ -165,7 +165,21 @@ pub fn 住所を覚える(相手: PublicKey, 名乗り: PublicKey, 住所: &str)
         記録!("住所: 宛先に入っている鍵が相手と違う。捨てた");
         return false;
     }
+    会ったと書き留める(相手, 住所);
     書き留める(相手, 住所)
+}
+
+/// **呼び名の無い相手の住所も、別の帳に残す**（0.1.32）。
+///
+/// 連絡帳は人が名前を付けた相手だけを持つ（上の 3）。そのため、ルームで会っても
+/// 名前を付けなかった相手は、**鍵を運ばないと二度と呼べなかった。**
+/// こちらは呼ぶときの宛先にだけ使い、表示の名前には使わない（D46）。
+fn 会ったと書き留める(相手: PublicKey, 住所: &str) {
+    let 結果 = Vault::default_location().and_then(|v| v.save_met(相手, 住所));
+    if let Err(e) = 結果 {
+        // **握り潰さない。**書けなければ、名前の無い相手は鍵なしで呼べないまま
+        記録!("会った相手の住所を書き留められませんでした: {e}");
+    }
 }
 
 /// 呼び名を付けるのと同時に、覚えている住所も書く。
@@ -195,15 +209,27 @@ pub fn 書き留める(相手: PublicKey, 住所: &str) -> bool {
 /// # Errors
 /// 名簿が読めないとき、覚えていないとき、住所をまだ知らないとき。
 pub fn 住所を引く(相手: PublicKey) -> Result<String, Failure> {
-    let 名簿 = Vault::default_location()
-        .and_then(|v| v.contacts())
-        .map_err(|e| Failure {
-            message: e.to_string(),
-            code: None,
-        })?;
+    let 置き場 = Vault::default_location().map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+    let 名簿 = 置き場.contacts().map_err(|e| Failure {
+        message: e.to_string(),
+        code: None,
+    })?;
+    // **名前を付けた相手の住所を先に使う。**無ければ、ルームで会ったときの住所（0.1.32）
+    let 会った = || -> Option<String> {
+        置き場
+            .met()
+            .ok()?
+            .into_iter()
+            .find(|(鍵, _)| *鍵 == 相手)
+            .map(|(_, 住所)| 住所)
+    };
     let 住所 = 名簿
         .find(相手)
         .and_then(|c| c.address().map(str::to_owned))
+        .or_else(会った)
         .ok_or_else(|| Failure {
             message: "この相手の居場所をまだ知りません".into(),
             code: Some("contact.no_address".into()),
