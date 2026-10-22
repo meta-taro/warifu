@@ -226,7 +226,24 @@ pub enum ToDesk {
         /// ルームキー（`WARIFU1-…`）。上限は [`入る鍵の上限`]（バイト）。
         鍵: String,
     },
+    /// **相手の住所から、連絡先に足す**（0.1.33）。
+    ///
+    /// 名前を付けるのは、これまで**ルームで会ったあとに人が画面で**するしかなかった。
+    /// 会えない相手（受けの口が防火壁に止められている機械など）は、鍵を運ばないと呼べなかった。
+    /// 住所は公開の身元と番地だけで、**入るための割符を含まない**（ルームキーとは違う）。
+    ///
+    /// 足すと、**この機械の戸口もその相手を通す**（相手から鍵なしで呼べるようになる）。
+    /// だから**人が 1 回だけ許す札**（`contacts.add`）を MCP 側が確かめ、画面の側でも消す。
+    連絡先を足す {
+        /// 相手の住所（`WARIFU1-…`・`#` を含まない）。上限は [`足す住所の上限`]（バイト）。
+        住所: String,
+        /// 呼び名。上限は [`呼ぶ相手の上限`]（文字）。
+        名前: String,
+    },
 }
+
+/// **足す住所の上限**（バイト）。連絡帳が住所に許す長さにそろえる。
+pub const 足す住所の上限: usize = 1024;
 
 /// **入る鍵の上限**（バイト）。リンクで受ける鍵と同じ長さにそろえる。
 pub const 入る鍵の上限: usize = 4096;
@@ -574,6 +591,11 @@ pub enum FromDesk {
         /// 入ったルームの id。
         ルーム: String,
     },
+    /// **連絡先に足した**（[`ToDesk::連絡先を足す`] の返り）。足せなければ [`FromDesk::Denied`]。
+    足した {
+        /// 足した相手の名前。
+        名前: String,
+    },
 }
 
 /// 行が読めなかった理由。
@@ -692,6 +714,11 @@ impl ToDesk {
             }
             // **鍵の形も書き手の側で検める**（0.1.30）。中身（宛先・割符）はこの機械が読む
             Self::入る { 鍵 } => 入る鍵を検める(鍵)?,
+            // **住所と名前も書き手の側で検める**（0.1.33）。住所が本物かはこの機械が読む
+            Self::連絡先を足す { 住所, 名前 } => {
+                足す住所を検める(住所)?;
+                呼ぶ相手を検める(名前)?;
+            }
             Self::連絡先 | Self::書き出す => {}
             // 番号だけの行と、尋ねるだけの行。**中身が無いので検めるものが無い**
             Self::Read { .. } | Self::Status { .. } | Self::Status様子 => {}
@@ -834,6 +861,33 @@ fn 入る鍵を検める(鍵: &str) -> Result<(), Error> {
         || !鍵
             .chars()
             .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-' || c == '#')
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// **相手の住所の形か**（0.1.33）。
+///
+/// `WARIFU1-` で始まり、[`足す住所の上限`] を超えず、base32 の大文字と数字・`-` だけ。
+/// **`#` を含むもの（ルームキー）は受けない** —— 割符の付いた鍵を連絡帳へ置かせない。
+fn 足す住所を検める(住所: &str) -> Result<(), Error> {
+    let 住所 = 住所.trim();
+    if 住所.is_empty() {
+        return Err(Error::Empty);
+    }
+    if 住所.len() > 足す住所の上限 {
+        return Err(Error::長すぎる {
+            何: "住所",
+            数: 住所.len(),
+            上限: 足す住所の上限,
+            単位: "バイト",
+        });
+    }
+    if !住所.starts_with("WARIFU1-")
+        || !住所
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-')
     {
         return Err(Error::Malformed);
     }
@@ -1467,6 +1521,47 @@ mod 連絡先試験 {
             相手: "相手A".to_owned(),
         };
         assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);
+    }
+
+    #[test]
+    fn 連絡先を足す頼みと返りが往復する() {
+        let 元 = ToDesk::連絡先を足す {
+            住所: "WARIFU1-K5JEMQIDAAAA".to_owned(),
+            名前: "相手A".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+        let 返り = FromDesk::足した {
+            名前: "相手A".to_owned(),
+        };
+        assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);
+    }
+
+    #[test]
+    fn ルームキーや崩れた住所は_連絡先に足させない() {
+        let 足す = |住所: &str, 名前: &str| ToDesk::連絡先を足す {
+            住所: 住所.to_owned(),
+            名前: 名前.to_owned(),
+        };
+        // **割符の付いた鍵（`#`）は住所ではない**
+        assert_eq!(
+            ToDesk::読む(&足す("WARIFU1-AAAA#BBBB#CCCC", "相手A").書く()),
+            Err(Error::Malformed)
+        );
+        assert_eq!(
+            ToDesk::読む(&足す("AAAA", "相手A").書く()),
+            Err(Error::Malformed)
+        );
+        assert_eq!(ToDesk::読む(&足す(" ", "相手A").書く()), Err(Error::Empty));
+        assert_eq!(
+            ToDesk::読む(&足す("WARIFU1-AAAA", " ").書く()),
+            Err(Error::Empty)
+        );
+        assert!(matches!(
+            ToDesk::読む(
+                &足す(&format!("WARIFU1-{}", "A".repeat(足す住所の上限)), "相手A").書く()
+            ),
+            Err(Error::長すぎる { 何: "住所", .. })
+        ));
     }
 
     #[test]

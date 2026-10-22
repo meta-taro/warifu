@@ -106,6 +106,16 @@ pub struct CallArgs {
     pub name: String,
 }
 
+/// [`crate::Warifu::contact_add`] の引数（0.1.33）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ContactAddArgs {
+    /// 相手の住所（`WARIFU1-…`・`#` を含まない）。**ルームキーではない。**
+    /// 相手の機械の席から受け取ったものだけを渡す。
+    pub address: String,
+    /// この PC で付ける呼び名（64 文字まで）。
+    pub name: String,
+}
+
 /// [`crate::Warifu::room_join`] の引数（0.1.30）。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct JoinArgs {

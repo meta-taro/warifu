@@ -34,6 +34,8 @@ const EVENT_JOINED: &str = "warifu://joined";
 const EVENT_LEFT: &str = "warifu://left";
 const EVENT_SIGNAL: &str = "warifu://signal";
 const EVENT_CLOSED: &str = "warifu://closed";
+/// **見るルームが変わった**（0.1.33）。画面は読み直す。見張りが戻ったあと、前のルームへ戻したとき
+pub(crate) const EVENT_LOOK: &str = "warifu://look";
 /// 誰かの住所を教わった（**D41**）。画面はこれを見て、自分から呼びに行く。
 const EVENT_INTRODUCED: &str = "warifu://introduced";
 /// 文字が届いた。`[誰から, 中身]` で渡す。
@@ -428,10 +430,7 @@ pub(crate) async fn 相手が居るルーム(
 /// 置き場所を開けないとき。
 pub(crate) fn 自分の名乗り() -> Result<(String, String), warifu_vault::Error> {
     let 面々 = warifu_vault::Vault::default_location()?.profiles()?;
-    Ok(面々
-        .find(&warifu_vault::Who::Me)
-        .map(|p| (p.name().to_owned(), p.bio().to_owned()))
-        .unwrap_or_default())
+    Ok(profile::この機械の名乗り(&面々))
 }
 
 /// この端末の身元。**CLI と同じものを使う。**
@@ -1991,7 +1990,11 @@ fn 汲む(
                     };
                     // **文字は名簿を動かさない。**そのまま画面へ渡す
                     if let Notice::Text {
-                        from, 話し手, body, ..
+                        meeting,
+                        from,
+                        話し手,
+                        body,
+                        ..
                     } = &notice
                     {
                         // **名乗った差出人と、繋いできた相手が違うなら通さない。**
@@ -2007,7 +2010,9 @@ fn 汲む(
                             Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
                             None => key_to_string(peer),
                         };
-                        let _ = app.emit(EVENT_TEXT, (名.clone(), body.clone()));
+                        // **どのルームの発言かも渡す**（0.1.33）。渡さないと、画面は
+                        // その瞬間に見ているルームへ積み、**別のルームの発言が混ざっていた**
+                        let _ = app.emit(EVENT_TEXT, (名.clone(), body.clone(), meeting.to_string()));
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **同じエージェントの AI にも、同じ行を見せる。**
@@ -2033,7 +2038,12 @@ fn 汲む(
                     }
                     // **画像も文字と同じ道を通る。**差出人を確かめ、画面へ渡し、主催なら配る
                     if let Notice::Image {
-                        from, 話し手, 型, 中身, ..
+                        meeting,
+                        from,
+                        話し手,
+                        型,
+                        中身,
+                        ..
                     } = &notice
                     {
                         if *from != peer {
@@ -2045,7 +2055,10 @@ fn 汲む(
                             None => key_to_string(peer),
                         };
                         記録!("受信: 画像（{} バイト・{型}）", 中身.len());
-                        let _ = app.emit(EVENT_IMAGE, (名.clone(), 型.clone(), 中身.clone()));
+                        let _ = app.emit(
+                            EVENT_IMAGE,
+                            (名.clone(), 型.clone(), 中身.clone(), meeting.to_string()),
+                        );
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **エージェントには絵を渡さない。**画像が来たことだけを 1 行で見せる
                         desk::配る(&app.state::<Bridge>(), desk::聞いた(&名, &画像の札(中身.len())));
@@ -3078,6 +3091,11 @@ pub struct RoomRow {
     /// 画面は起動したときに「自分が主催」と決め打ちしていたので、
     /// 鍵で他人の部屋に入ると、ゲストの名簿で自分に「主催」が付いていた。
     pub(crate) host_key: String,
+    /// **そのルームに居る人の公開鍵**（全桁・自分を含む・0.1.33）。
+    ///
+    /// 画面は「入ってきた相手」を、どのルームの人かを見ずに並べていた。
+    /// 別のルームへ戻った相手まで「届く先」に出ていた（送るのはそのルームの人だけだった）。
+    pub(crate) member_keys: Vec<String>,
 }
 
 /// **いま居るルームを並べる。**
@@ -3114,6 +3132,7 @@ pub(crate) async fn ルームの並び(bridge: &Bridge) -> Vec<RoomRow> {
             // **覚えていない＝誰にも入られていない自分の部屋**
             host: 主催たち.get(&c.id()).is_none_or(|主催| *主催 == me),
             host_key: key_to_string(主催たち.get(&c.id()).copied().unwrap_or(me)),
+            member_keys: c.members().iter().map(|k| key_to_string(*k)).collect(),
         })
         .collect();
     // **並びを固定する。**`HashMap` の順は読むたびに変わる

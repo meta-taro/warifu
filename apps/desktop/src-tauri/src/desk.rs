@@ -362,9 +362,14 @@ async fn 応じる(
                 },
                 Some(名) => match crate::profile::エージェントの名乗りを書く(app, 名, &名前, &紹介)
                 {
-                    Ok(()) => FromDesk::Wrote {
-                        who: 呼び方(Some(名)),
-                    },
+                    Ok(()) => {
+                        // **相手の名簿にも出す**（0.1.33）。人が名乗っていない PC では、
+                        // この名乗りが相手に見える名前になる。入ったあとで名乗っても届くよう、配り直す
+                        crate::profile::配る(&app.state::<Bridge>()).await;
+                        FromDesk::Wrote {
+                            who: 呼び方(Some(名)),
+                        }
+                    }
                     Err(訳) => FromDesk::Denied { why: 訳 },
                 },
             };
@@ -488,6 +493,21 @@ async fn 応じる(
                 match &返事 {
                     FromDesk::呼んだ { 相手 } => format!("{相手} を呼びました"),
                     FromDesk::Denied { why } => format!("呼べませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **住所から連絡先に足す**（0.1.33）。札（contacts.add）は MCP 側が見て、ここでも消す
+        ToDesk::連絡先を足す { 住所, 名前 } => {
+            let 返事 = 住所で足す(app, &住所, &名前, &呼び方(名乗り.as_deref())).await;
+            記録!(
+                "連絡先を足す: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::足した { 名前 } => format!("{名前} を足しました"),
+                    FromDesk::Denied { why } => format!("足せませんでした: {why}"),
                     _ => String::new(),
                 },
                 名乗り.as_deref().unwrap_or("名乗りなし")
@@ -847,6 +867,47 @@ fn 名前の無い会った相手(
 
 /// 名前の無い相手の、名前の欄。**鍵の頭で呼んでもらう。**
 const 名前の無い相手: &str = "（名前なし・ルームで会った相手）";
+
+/// **相手の住所から、連絡先と戸口に足す**（0.1.33）。
+///
+/// 戸口にも載せるので、相手から鍵なしで呼べるようになる。**札は 1 回で消え、人に必ず知らせる**
+/// （`鍵で入る` と同じ構え）。連絡帳は名前のため、戸口は通すかの判断のため（2 つを 1 つにしない）。
+async fn 住所で足す(app: &AppHandle, 住所: &str, 名前: &str, 誰: &str) -> FromDesk {
+    if !使い切りの札を受け取る("contacts.add") {
+        return FromDesk::Denied {
+            why: "札（contacts.add）を人が許していません（1 回使うと消えます。pass_ask で頼み直してください）"
+                .to_owned(),
+        };
+    }
+    let bridge = app.state::<Bridge>();
+    let 自分 = bridge.device.public_key();
+    let 結果 = warifu_vault::Vault::default_location()
+        .map_err(|e| format!("連絡先を読めませんでした: {e}"))
+        .and_then(|v| {
+            let mut 帳 = v.contacts().map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
+            let 相手 = crate::contacts::住所から足す(&mut 帳, 自分, 住所, 名前, crate::now_secs())?;
+            v.save_contacts(&帳)
+                .map_err(|e| format!("連絡先を書けませんでした: {e}"))?;
+            Ok(相手)
+        });
+    let 相手 = match 結果 {
+        Ok(相手) => 相手,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    {
+        let mut door = bridge.door.lock().await;
+        crate::contacts::迎える(&mut door, 相手);
+    }
+    crate::notify::エージェントが連絡先を足したと知らせる(
+        app,
+        誰,
+        名前.trim(),
+        &crate::短く(&crate::key_to_string(相手)),
+    );
+    FromDesk::足した {
+        名前: 名前.trim().to_owned(),
+    }
+}
 
 /// **ルームキーで入る**（0.1.30）。画面の［入る］と同じ道を、**エージェントの入り方**で通る。
 ///

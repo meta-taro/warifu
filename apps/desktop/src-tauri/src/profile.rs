@@ -313,12 +313,10 @@ pub fn エージェントの名乗りを書く(
 ///
 /// **空も配る。**消したことが伝わらないと、相手の画面に前の名前が残る。
 pub async fn 配る(bridge: &Bridge) {
+    // **人が名乗っていなければ、この PC のエージェントの名乗りで代える**（`この機械の名乗り`）。
+    // どちらも無ければ空を配って、相手の画面からも消す
     let (名前, 紹介) = match 読む() {
-        Ok(面々) => match 面々.find(&Who::Me) {
-            Some(p) => (p.name().to_owned(), p.bio().to_owned()),
-            // **名乗りを消した。**空を配って、相手の画面からも消す
-            None => (String::new(), String::new()),
-        },
+        Ok(面々) => この機械の名乗り(&面々),
         Err(e) => {
             記録!("名乗りを読めませんでした（配りません）: {}", e.message);
             return;
@@ -350,6 +348,33 @@ pub async fn 配る(bridge: &Bridge) {
             })
             .await;
     }
+}
+
+/// **この PC として相手に名乗る名前と紹介**（0.1.33）。
+///
+/// 相手の名簿に出るのは、この PC の**人の**名乗りだけだった。人が画面で書いていないと、
+/// エージェントが profile_set で名乗っていても、**相手からは鍵の頭しか見えなかった。**
+/// 人の名乗りがあればそれ。無ければ、名乗っているエージェントを「◯◯ のエージェント」で出す
+/// （**人ではないと分かる形**にする。人の名乗りに見せかけない）。
+#[must_use]
+pub fn この機械の名乗り(面々: &warifu_vault::Profiles) -> (String, String) {
+    if let Some(人) = 面々.find(&Who::Me)
+        && !人.name().trim().is_empty()
+    {
+        return (人.name().to_owned(), 人.bio().to_owned());
+    }
+    let エージェントたち: Vec<&warifu_vault::Profile> = 面々
+        .iter()
+        .filter(|p| matches!(p.who(), Who::Desk(_)) && !p.name().trim().is_empty())
+        .collect();
+    let Some(先頭) = エージェントたち.first() else {
+        return (String::new(), String::new());
+    };
+    let 名前 = match エージェントたち.len() {
+        1 => format!("{} のエージェント", 先頭.name().trim()),
+        数 => format!("{} のエージェント ほか {}", 先頭.name().trim(), 数 - 1),
+    };
+    (名前, 先頭.bio().to_owned())
 }
 
 /// **そのエージェントの名乗り**を、線に載せる形にする。
@@ -414,5 +439,50 @@ mod tests {
         // 落とすと、**相手の画面で取り違えられる**（D75）
         let 名札 = 名札にする("tools のエージェント", Some("資料くん"));
         assert!(名札.contains("tools"), "{名札}");
+    }
+}
+
+#[cfg(test)]
+mod この機械の名乗りの試験 {
+    use super::この機械の名乗り;
+    use warifu_vault::{Profile, Profiles, Who};
+
+    fn 作る(並び: &[(Who, &str, &str)]) -> Profiles {
+        let mut 面々 = Profiles::new();
+        for (誰, 名, 紹介) in 並び {
+            面々.put(Profile::new(誰.clone(), 名, 紹介).expect("置ける"));
+        }
+        面々
+    }
+
+    #[test]
+    fn 人が名乗っていれば_人の名乗り() {
+        let 面々 = 作る(&[
+            (Who::Me, "人A", "開発"),
+            (Who::Desk("docs".to_owned()), "資料くん", "資料"),
+        ]);
+        assert_eq!(この機械の名乗り(&面々), ("人A".to_owned(), "開発".to_owned()));
+    }
+
+    #[test]
+    fn 人が名乗っていなければ_エージェントの名乗りで代える() {
+        let 面々 = 作る(&[(Who::Desk("zen".to_owned()), "ZenBook", "Windows の席")]);
+        assert_eq!(
+            この機械の名乗り(&面々),
+            ("ZenBook のエージェント".to_owned(), "Windows の席".to_owned())
+        );
+        let 二人 = 作る(&[
+            (Who::Desk("a".to_owned()), "A", ""),
+            (Who::Desk("b".to_owned()), "B", ""),
+        ]);
+        assert!(この機械の名乗り(&二人).0.ends_with("のエージェント ほか 1"));
+    }
+
+    #[test]
+    fn 誰も名乗っていなければ_空() {
+        assert_eq!(
+            この機械の名乗り(&Profiles::new()),
+            (String::new(), String::new())
+        );
     }
 }

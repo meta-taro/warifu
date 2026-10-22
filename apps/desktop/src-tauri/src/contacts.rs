@@ -45,6 +45,59 @@ pub fn 呼ぶ相手を決める(帳: &[(String, String)], 指定: &str) -> Resul
     }
 }
 
+/// **相手の住所から、連絡帳に名前と住所を書く**（0.1.33）。足した相手の鍵を返す。
+///
+/// 会えない相手（受けの口が防火壁に止められている機械など）は、名前を付ける場が無かった。
+/// **自分自身は足さない**（自分を呼んでも意味が無く、戸口に自分を載せることになる）。
+/// 名前が他の相手と重なれば連絡帳が断る。返す `Err` は人が読む訳。
+pub fn 住所から足す(
+    帳: &mut warifu_vault::Contacts,
+    自分: PublicKey,
+    住所: &str,
+    名前: &str,
+    今: u64,
+) -> Result<PublicKey, String> {
+    let 宛先 = Address::from_str(住所.trim())
+        .map_err(|_| "住所として読めません（WARIFU1-… の住所を渡してください。ルームキーではありません）".to_owned())?;
+    let 相手 = 宛先.public_key();
+    if 相手 == 自分 {
+        return Err("この PC 自身の住所です。自分は連絡先に足せません".to_owned());
+    }
+    // **既にいる相手は書き換えない**（審査）。名前や住所を黙ってすり替えさせない。
+    // 付け直すのは人が画面で行う
+    if let Some(行) = 帳.find(相手) {
+        return Err(format!("既に「{}」として連絡先にいます", 行.label()));
+    }
+    let 名前 = 名前.trim();
+    // **向きを変える字などの見えない書式文字を、名前に入れさせない**（通知を読み違えさせない）
+    if 名前.chars().any(見えない書式文字か) {
+        return Err("名前に見えない書式文字（向きを変える字など）は使えません".to_owned());
+    }
+    // **他の相手の鍵の頭と同じ名前にさせない**（名前が鍵の頭より先に当たるので、呼び先がずれる）
+    if 名前.chars().count() >= 鍵の頭の下限
+        && 帳.iter().any(|c| c.key().to_string().starts_with(名前))
+    {
+        return Err("他の相手の鍵の頭と同じ名前は付けられません".to_owned());
+    }
+    帳.add(相手, 名前, 今)
+        .map_err(|e| format!("連絡先に足せません: {e}"))?;
+    帳.note_address(相手, &宛先.to_string())
+        .map_err(|e| format!("住所を書けません: {e}"))?;
+    Ok(相手)
+}
+
+/// 見えない書式文字（幅ゼロ・向きを変える字・BOM）か。
+fn 見えない書式文字か(c: char) -> bool {
+    matches!(
+        c,
+        '\u{200B}'..='\u{200F}'
+            | '\u{202A}'..='\u{202E}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{FEFF}'
+    )
+}
+
 /// **書き出す会話の「誰が」を、人が読める形にする**（2026-10-16）。
 ///
 /// 帳は（鍵, 呼び名）の組。線の向こうの人は鍵の全桁で、線の向こうのエージェントは
@@ -522,5 +575,70 @@ mod 書き出しの名の試験 {
     fn 覚えていない相手と_この機械の名札はそのまま() {
         assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "ZZZZZZZZZZZZ9999"), "ZZZZZZZZZZZZ9999");
         assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "warifu のエージェント"), "warifu のエージェント");
+    }
+}
+
+#[cfg(test)]
+mod 住所から足す試験 {
+    use super::*;
+    use warifu_core::Seed;
+
+    fn 鍵(b: u8) -> PublicKey {
+        Seed::from_bytes([b; 32])
+            .profile("Personal")
+            .device(warifu_core::端末の呼び名)
+            .public_key()
+    }
+
+    fn 住所(b: u8) -> String {
+        Address::from_ip_addrs(鍵(b), ["192.0.2.1:4000".parse().expect("番地")]).to_string()
+    }
+
+    #[test]
+    fn 住所から_名前と住所が連絡帳に入る() {
+        let mut 帳 = warifu_vault::Contacts::new();
+        let 相手 = 住所から足す(&mut 帳, 鍵(1), &住所(2), "相手B", 10).expect("足せる");
+        assert_eq!(相手, 鍵(2));
+        let 行 = 帳.find(鍵(2)).expect("在る");
+        assert_eq!(行.label(), "相手B");
+        assert_eq!(行.address(), Some(住所(2).as_str()));
+    }
+
+    #[test]
+    fn 自分の住所や_読めない住所や_ルームキーは足さない() {
+        let mut 帳 = warifu_vault::Contacts::new();
+        assert!(住所から足す(&mut 帳, 鍵(1), &住所(1), "自分", 10).is_err());
+        assert!(住所から足す(&mut 帳, 鍵(1), "WARIFU1-AAAA", "相手", 10).is_err());
+        let 鍵付き = format!("{}#AAAA#BBBB", 住所(2));
+        assert!(住所から足す(&mut 帳, 鍵(1), &鍵付き, "相手", 10).is_err());
+        assert_eq!(帳.len(), 0);
+    }
+
+    #[test]
+    fn 既にいる相手は_名前も住所も書き換えない() {
+        let mut 帳 = warifu_vault::Contacts::new();
+        住所から足す(&mut 帳, 鍵(1), &住所(2), "相手B", 10).expect("足せる");
+        let 別の番地 = Address::from_ip_addrs(鍵(2), ["198.51.100.1:5000".parse().expect("番地")]).to_string();
+        let 訳 = 住所から足す(&mut 帳, 鍵(1), &別の番地, "別名", 20).unwrap_err();
+        assert!(訳.contains("相手B"), "{訳}");
+        let 行 = 帳.find(鍵(2)).expect("在る");
+        assert_eq!(行.label(), "相手B");
+        assert_eq!(行.address(), Some(住所(2).as_str()));
+    }
+
+    #[test]
+    fn 見えない書式文字や_他の鍵の頭と同じ名前は断る() {
+        let mut 帳 = warifu_vault::Contacts::new();
+        住所から足す(&mut 帳, 鍵(1), &住所(2), "相手B", 10).expect("足せる");
+        assert!(住所から足す(&mut 帳, 鍵(1), &住所(3), "相手\u{202E}C", 10).is_err());
+        let 頭: String = 鍵(2).to_string().chars().take(8).collect();
+        assert!(住所から足す(&mut 帳, 鍵(1), &住所(3), &頭, 10).is_err());
+    }
+
+    #[test]
+    fn 名前が他の相手と重なれば断る() {
+        let mut 帳 = warifu_vault::Contacts::new();
+        住所から足す(&mut 帳, 鍵(1), &住所(2), "同じ名", 10).expect("足せる");
+        assert!(住所から足す(&mut 帳, 鍵(1), &住所(3), "同じ名", 10).is_err());
     }
 }

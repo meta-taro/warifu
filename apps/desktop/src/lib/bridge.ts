@@ -85,6 +85,8 @@ export const EVENT_CLAIMED = 'warifu://claimed';
  * 名前は居る人みんなで持つ。誰が付けても、いちばん新しいものが勝つ。
  */
 export const EVENT_ROOM_NAME = 'warifu://room-name';
+/** **見るルームが変わった**（0.1.33）。見張りが戻ったあと、前のルームへ戻したとき。読み直す */
+export const EVENT_LOOK = 'warifu://look';
 
 
 /** 相手から届いた下ごしらえ 1 通。 */
@@ -415,6 +417,8 @@ export interface RoomRow {
   host: boolean;
   /** 主催の公開鍵（全桁）。名簿の「主催」の札をここで決める。 */
   host_key: string;
+  /** そのルームに居る人の公開鍵（全桁・自分を含む）。 */
+  member_keys: string[];
 }
 
 /**

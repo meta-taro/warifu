@@ -107,6 +107,19 @@ pub fn エージェントが入ったと知らせる(app: &AppHandle, 誰: &str,
     );
 }
 
+/// **エージェントが住所から連絡先を足したら、人に必ず知らせる**（0.1.33）。
+///
+/// 戸口にも載せるので、その相手は鍵なしでこの PC を呼べるようになる。心当たりが無ければ人が降ろす。
+pub fn エージェントが連絡先を足したと知らせる(app: &AppHandle, 誰: &str, 名前: &str, 鍵の頭: &str) {
+    if let Some(窓) = app.get_webview_window("main") {
+        let _ = 窓.request_user_attention(Some(tauri::UserAttentionType::Informational));
+    }
+    知らせを出す(
+        app,
+        &format!("{誰} が「{名前}」（{鍵の頭}）を連絡先に足しました。この相手は鍵なしでこの PC を呼べます。心当たりが無ければ、連絡帳から降ろしてください"),
+    );
+}
+
 fn 前に居る(app: &AppHandle) -> bool {
     app.get_webview_window("main")
         .and_then(|w| w.is_focused().ok())

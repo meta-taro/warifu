@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める } from './reach';
+import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める, 見ているルームの相手だけ } from './reach';
 
 const この機械 = 'マイ PC エージェント';
 
@@ -98,5 +98,17 @@ describe('届く先の顔', () => {
     expect(
       届く先の顔を並べる({ 会議の相手の鍵: ['KA', 'KB'], この機械のAIたち: 素材.この機械のAIたち }),
     ).toHaveLength(届く先を並べる(素材).length);
+  });
+});
+
+describe('見ているルームの相手だけ', () => {
+  const 相手たち = [{ key: 'KA' }, { key: 'KB' }, { key: 'KC' }];
+
+  it('別のルームの相手は、届く先に出さない', () => {
+    expect(見ているルームの相手だけ(相手たち, ['ME', 'KB'])).toEqual([{ key: 'KB' }]);
+  });
+
+  it('ルームの顔ぶれが分からないときは、絞らない', () => {
+    expect(見ているルームの相手だけ(相手たち, null)).toEqual(相手たち);
   });
 });

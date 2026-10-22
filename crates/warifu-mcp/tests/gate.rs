@@ -286,6 +286,7 @@ fn 出している口を_数えて名前で押さえる() {
             "chat_send",
             "chat_status",
             "chat_wait",
+            "contact_add",
             "contact_call",
             "contacts_list",
             "inbox_list",
@@ -970,6 +971,10 @@ fn 外へ出る引数名は_asciiだけ() {
     );
     名を検める("chat_send", &schemars::schema_for!(warifu_mcp::SayArgs));
     名を検める("contact_call", &schemars::schema_for!(warifu_mcp::CallArgs));
+    名を検める(
+        "contact_add",
+        &schemars::schema_for!(warifu_mcp::ContactAddArgs),
+    );
     名を検める("voice_say", &schemars::schema_for!(warifu_mcp::VoiceArgs));
     名を検める("chat_wait", &schemars::schema_for!(warifu_mcp::WaitArgs));
     名を検める(

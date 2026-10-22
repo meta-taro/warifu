@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use tauri::{AppHandle, Manager as _};
+use tauri::{AppHandle, Emitter as _, Manager as _};
 
 use crate::{Bridge, RoomRow};
 
@@ -100,10 +100,33 @@ pub async fn 見張る(app: AppHandle) {
     }
 }
 
+/// **見張りが戻ったあと、どのルームを見るか。**前に見ていたルームがまだ在れば、そこに戻す。
+fn 見張りのあとに見るルーム<T: Copy>(前: Option<T>, いま: Option<T>, 前は在る: bool) -> Option<T> {
+    match 前 {
+        Some(前) if 前は在る => Some(前),
+        _ => いま,
+    }
+}
+
 async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: String) {
     let 頭 = crate::短く(&id);
     記録!("戻る: ルーム {頭} の主催と繋がっていないので、帰り道から戻ります");
+    // **見ているルームを奪わない**（0.1.33）。戻る道は人が押したときと同じで、
+    // 戻った先を「いま話すルーム」にしていた。人は別のルームを見たまま打つので、
+    // **打った文字が、戻った先のルームへ流れていた**（10-22 に 3 台で確かめた）
+    let bridge = app.state::<Bridge>();
+    let 前 = crate::いま見ているルーム(&bridge.いまのルーム).await;
     let 結果 = 戻る(app.clone(), 鍵).await;
+    {
+        let 在る = match 前 {
+            Some(前) => bridge.conferences.lock().await.contains_key(&前),
+            None => false,
+        };
+        let mut いま = bridge.いまのルーム.lock().await;
+        *いま = 見張りのあとに見るルーム(前, *いま, 在る);
+    }
+    // **画面にも読み直させる。**戻った瞬間に画面は戻った先を読んでいる
+    let _ = app.emit(crate::EVENT_LOOK, ());
     // **繋がった直後に断られることがある**（主催が別の部屋を建て直していると、
     // 割符を見てから口を閉じる）。すぐ見直すと「戻れた」と言い、30 秒ごとに叩き続けた
     if 結果.is_ok() {
@@ -160,6 +183,17 @@ async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod 試験 {
+
+    #[test]
+    fn 見張りが戻っても_前に見ていたルームを奪わない() {
+        use super::見張りのあとに見るルーム;
+        assert_eq!(見張りのあとに見るルーム(Some(1), Some(2), true), Some(1));
+        // 前のルームが無くなっていれば、戻った先を見る
+        assert_eq!(見張りのあとに見るルーム(Some(1), Some(2), false), Some(2));
+        // 何も見ていなかったなら、戻った先を見る
+        assert_eq!(見張りのあとに見るルーム(None, Some(2), false), Some(2));
+    }
+
     use super::*;
 
     fn 部屋(id: &str, host: bool, host_key: &str) -> RoomRow {
@@ -168,6 +202,7 @@ mod 試験 {
             members: 1,
             host,
             host_key: host_key.into(),
+            member_keys: vec![],
         }
     }
 

@@ -30,8 +30,8 @@ use rmcp::handler::server::wrapper::Parameters;
 use warifu_capability::{Action, Gate, Grant};
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口 as 行の口};
 use warifu_mcp::{
-    AskArgs, CallArgs, ChangesArgs, InviteArgs, JoinArgs, KeyGiveArgs, ProfileArgs, SayArgs,
-    StatusArgs, VoiceArgs, WaitArgs, WaitPassArgs, Warifu, subject,
+    AskArgs, CallArgs, ChangesArgs, ContactAddArgs, InviteArgs, JoinArgs, KeyGiveArgs, ProfileArgs,
+    SayArgs, StatusArgs, VoiceArgs, WaitArgs, WaitPassArgs, Warifu, subject,
 };
 use warifu_read::{Body, Received, RuleStore, SenderId, Source};
 
@@ -65,6 +65,7 @@ fn 全部許す() -> Gate {
         "voice.say",
         "contacts.read",
         "contacts.call",
+        "contacts.add",
         "room.join",
         "chat.export",
     ] {
@@ -157,6 +158,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                         いつまで: "10-21 03:42 UTC".to_owned(),
                     },
                 }),
+                ToDesk::連絡先を足す { 名前, .. } => Some(FromDesk::足した { 名前 }),
                 ToDesk::入る { .. } => Some(FromDesk::入った {
                     ルーム: "ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
                 }),
@@ -328,6 +330,30 @@ async fn 口を全部_1回ずつ呼ぶ() {
     assert!(
         format!("{二度目:?}").contains("room.join"),
         "2 回目の room_join が通った: {二度目:?}"
+    );
+
+    結果.push((
+        "contact_add",
+        format!(
+            "{:?}",
+            口.contact_add(Parameters(ContactAddArgs {
+                address: "WARIFU1-AAAA".to_owned(),
+                name: "試験の相手".to_owned(),
+            }))
+            .await
+        ),
+    ));
+
+    // **contacts.add も使ったら消える**（0.1.33）。戸口も開けるので、2 回目は関所が断る
+    let 二度目 = 口
+        .contact_add(Parameters(ContactAddArgs {
+            address: "WARIFU1-AAAA".to_owned(),
+            name: "試験の相手".to_owned(),
+        }))
+        .await;
+    assert!(
+        format!("{二度目:?}").contains("contacts.add"),
+        "2 回目の contact_add が通った: {二度目:?}"
     );
 
     結果.push((

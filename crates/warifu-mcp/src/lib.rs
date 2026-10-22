@@ -52,6 +52,6 @@ pub use chat::Chat;
 pub use inflight::{呼びの札, 呼び中, 待つ上限, 閉じを待つ入力};
 pub use server::{Warifu, subject, 建てた版};
 pub use tools::{
-    AskArgs, CallArgs, ChangesArgs, InviteArgs, JoinArgs, KeyGiveArgs, OpenArgs, ProfileArgs,
-    SayArgs, SlotsArgs, StatusArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
+    AskArgs, CallArgs, ChangesArgs, ContactAddArgs, InviteArgs, JoinArgs, KeyGiveArgs, OpenArgs,
+    ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
 };
