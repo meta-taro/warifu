@@ -3108,6 +3108,25 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
         // まだ会議が無い。**断りではない**ので黙って戻る
         return Ok(());
     };
+    部屋を畳む(&bridge, meeting).await;
+    // **名簿で通していた相手を降ろす**（**D111**）。
+    // **持ち越さない** —— 「主催が言ったから通した」が次の部屋まで効かないように
+    {
+        let mut door = bridge.door.lock().await;
+        let 数 = door.名簿の数();
+        door.名簿を忘れる();
+        if 数 > 0 {
+            記録!("戸口: 名簿で通していた {数} 人を降ろしました");
+        }
+    }
+    Ok(())
+}
+
+/// **1 つの部屋から抜けて、その部屋の物を落とす**（告げる・畳む・合言葉・控え・帰り道）。
+///
+/// 人の［このルームを抜ける］と、見張りが頼んでいない部屋へ招かれたとき（`come_back.rs`）が通る。
+/// 戸口の名簿は落とさない —— それは人が抜けたときだけ（`leave`）。
+pub(crate) async fn 部屋を畳む(bridge: &Bridge, meeting: MeetingId) {
     // **そのルームの相手だけへ。**別のルームには居続ける
     let 送り先 = そのルームの相手(
         &bridge.conferences,
@@ -3126,7 +3145,7 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
     // **抜けた部屋へ、証しで入り直せてしまう。**
     // 使わない秘密を持ち続けない（`issued.tsv` と同じ構え）
     bridge.部屋の合言葉.lock().await.remove(&meeting);
-    合言葉の控えを揃える(&bridge).await;
+    合言葉の控えを揃える(bridge).await;
     let mut いま = bridge.いまのルーム.lock().await;
     if *いま == Some(meeting) {
         *いま = bridge.conferences.lock().await.keys().next().copied();
@@ -3144,16 +3163,6 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
             }
         }
     }
-    // **名簿で通していた相手を降ろす**（**D111**）。
-    // **持ち越さない** —— 「主催が言ったから通した」が次の部屋まで効かないように
-    {
-        let mut door = bridge.door.lock().await;
-        let 数 = door.名簿の数();
-        door.名簿を忘れる();
-        if 数 > 0 {
-            記録!("戸口: 名簿で通していた {数} 人を降ろしました");
-        }
-    }
     // **帰り道を忘れる**（`gh issue 13`）。
     // **自分で抜けた人に「戻る」を出さない**し、**使わない秘密を持ち続けない**
     // （帰り道には割符の片割れが入っている）
@@ -3163,8 +3172,8 @@ async fn leave(bridge: State<'_, Bridge>) -> Answer<()> {
             記録!("帰り道を消せませんでした: {e}");
         }
     }
-    Ok(())
 }
+
 
 /// **前に入ったルームへの帰り道**（`gh issue 13`）。
 ///

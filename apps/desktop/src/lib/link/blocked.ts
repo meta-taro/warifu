@@ -44,6 +44,14 @@ export type 場 = {
 	 * 相手は塞がれていない —— **画面を持っていないだけ**である。
 	 */
 	返してきた: boolean;
+	/**
+	 * **映像と音を使っているか**（0.1.36）。省けば使っているものとする。
+	 *
+	 * 文字は割符の経路で届き、映像の経路を通らない。文字だけの部屋で
+	 * 「経路が付きません」「画面なしで入っています」と出すと、困っていないのに脅かす
+	 * （mac air で、文字は届いているのに帯が出ていた）。
+	 */
+	映像を使う?: boolean;
 };
 
 /**
@@ -54,6 +62,7 @@ export type 場 = {
  * **返ってこないのは、答える物を持っていないとき**である。
  */
 export function 画面なしで入っているか(場: 場): boolean {
+	if (場.映像を使う === false) return false;
 	if (!場.相手が居る) return false;
 	if (場.経路 !== 'unknown') return false;
 	if (場.返してきた) return false;
@@ -67,6 +76,7 @@ export function 画面なしで入っているか(場: 場): boolean {
  * **相手が居ないのは、誰も来ていないだけ**である（そこで脅かさない）。
  */
 export function 経路が付かないと言うか(場: 場): boolean {
+	if (場.映像を使う === false) return false;
 	if (!場.相手が居る) return false;
 	if (場.経路 !== 'unknown') return false;
 	// **画面なしで入った相手を、ふさがりの話にしない**（2026-09-25 に実測）。

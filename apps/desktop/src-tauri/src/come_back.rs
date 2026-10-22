@@ -77,7 +77,20 @@ pub async fn 戻る(app: AppHandle, 鍵: String) -> crate::Answer<()> {
 }
 
 /// ルームごとの、しくじった回数と、次に叩いてよい時刻。
-type 控え = HashMap<String, (u32, Instant)>;
+/// しくじった回数・次に叩いてよい時刻・**主催に繋がったのに別の部屋を教えられた回数**（続けて）。
+type 控え = HashMap<String, (u32, Instant, u32)>;
+
+/// **主催が「その部屋は知らない」と続けて言ったら、見切る回数**（0.1.36）。
+const 見切る回数: u32 = 3;
+
+/// **その部屋は、もう主催の居ない部屋か。**
+///
+/// 主催に繋がれたのに別の部屋を教えられるのは、主催がその部屋を主催していないとき。
+/// 0.1.32 までの取り違えで、**2 台が互いに「主催は相手」と覚えた部屋**が残っていた
+/// （10-22 に mac mini と mac air で見た）。そのままだと、10 分ごとに叩き合い続ける。
+pub fn 見切るか(続けて違った: u32) -> bool {
+    続けて違った >= 見切る回数
+}
 
 /// **見張る。**起動したら 1 本だけ立てる。
 ///
@@ -91,7 +104,7 @@ pub async fn 見張る(app: AppHandle) {
         // **戻らなくてよくなった部屋の控えは捨てる**（次に落ちたら 30 秒から）
         控え.retain(|id, _| 戻る先.iter().any(|(部屋, _)| 部屋 == id));
         for (id, 鍵) in 戻る先 {
-            if 控え.get(&id).is_some_and(|(_, 次)| Instant::now() < *次) {
+            if 控え.get(&id).is_some_and(|(_, 次, _)| Instant::now() < *次) {
                 continue;
             }
             一つ戻る(&app, &mut 控え, id, 鍵).await;
@@ -108,6 +121,17 @@ fn 見張りのあとに見るルーム<T: Copy>(前: Option<T>, いま: Option<
     }
 }
 
+/// **戻るときに、頼んでいない部屋へ招かれた分**（0.1.36）。
+///
+/// 割符なしで叩くと、主催が選んだ部屋へ招かれる。戻りたい部屋でなければ、
+/// その部屋は持ち続けない —— 叩き直すたびに知らない部屋が増え、通話も作り直していた。
+fn 頼んでいない部屋<T: PartialEq + Copy>(前: &[T], 後: &[T], 戻る先: Option<T>) -> Vec<T> {
+    後.iter()
+        .filter(|id| !前.contains(id) && Some(**id) != 戻る先)
+        .copied()
+        .collect()
+}
+
 async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: String) {
     let 頭 = crate::短く(&id);
     記録!("戻る: ルーム {頭} の主催と繋がっていないので、帰り道から戻ります");
@@ -116,6 +140,7 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     // **打った文字が、戻った先のルームへ流れていた**（10-22 に 3 台で確かめた）
     let bridge = app.state::<Bridge>();
     let 前 = crate::いま見ているルーム(&bridge.いまのルーム).await;
+    let 前の部屋: Vec<_> = bridge.conferences.lock().await.keys().copied().collect();
     let 結果 = 戻る(app.clone(), 鍵).await;
     {
         let 在る = match 前 {
@@ -132,6 +157,13 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     if 結果.is_ok() {
         tokio::time::sleep(Duration::from_secs(落ち着くまでの秒)).await;
     }
+    // **頼んでいない部屋へ招かれていたら、抜ける**（0.1.36）
+    let 後の部屋: Vec<_> = bridge.conferences.lock().await.keys().copied().collect();
+    let 戻る先 = 後の部屋.iter().copied().find(|m| m.to_string() == id);
+    for 部屋 in 頼んでいない部屋(&前の部屋, &後の部屋, 戻る先) {
+        記録!("戻る: 頼んでいない部屋 {} へ招かれたので抜けます", crate::短く(&部屋.to_string()));
+        crate::部屋を畳む(&bridge, 部屋).await;
+    }
     // **繋がっても、戻る先とは別のルームへ招かれることがある**
     // （割符なしで叩くと、主催がいま見ているルームへ招かれる）。戻れたかは見直して決める
     let まだ = いま戻る先(app).await.iter().any(|(部屋, _)| *部屋 == id);
@@ -140,7 +172,15 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
         控え.remove(&id);
         return;
     }
-    let しくじった = 控え.get(&id).map_or(0, |(n, _)| *n).saturating_add(1);
+    let (前のしくじり, _, 前の違い) = 控え.get(&id).copied().unwrap_or((0, Instant::now(), 0));
+    let しくじった = 前のしくじり.saturating_add(1);
+    // 繋がれなかった回は数えない（主催が落ちているだけかもしれない）
+    let 違った = if 結果.is_ok() { 前の違い.saturating_add(1) } else { 0 };
+    if 見切るか(違った) {
+        見切る(app, &id).await;
+        控え.remove(&id);
+        return;
+    }
     let 秒 = 次に待つ秒(しくじった);
     match 結果 {
         Ok(()) => 記録!(
@@ -151,7 +191,40 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
             e.message
         ),
     }
-    控え.insert(id, (しくじった, Instant::now() + Duration::from_secs(秒)));
+    控え.insert(id, (しくじった, Instant::now() + Duration::from_secs(秒), 違った));
+}
+
+/// **主催の居ない部屋を見切る。**帰り道を忘れ、自分のほかに誰も居なければ部屋も畳む。
+async fn 見切る(app: &AppHandle, id: &str) {
+    let 頭 = crate::短く(id);
+    記録!("戻る: 主催がルーム {頭} を知らないと {見切る回数} 回続けて言ったので、もう戻りません");
+    let bridge = app.state::<Bridge>();
+    let 部屋たち = crate::ルームの並び(&bridge).await;
+    let 誰も居ない = 部屋たち
+        .iter()
+        .find(|r| r.id == id)
+        .is_none_or(|r| r.member_keys.len() <= 1);
+    let 部屋 = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .copied()
+        .find(|m| m.to_string() == id);
+    match 部屋 {
+        // 畳むと帰り道も忘れる
+        Some(部屋) if 誰も居ない => {
+            記録!("戻る: ルーム {頭} には誰も居ないので畳みます");
+            crate::部屋を畳む(&bridge, 部屋).await;
+        }
+        _ => {
+            if let Ok(vault) = warifu_vault::Vault::default_location() {
+                if let Err(e) = vault.forget_rejoin_room(id) {
+                    記録!("帰り道を消せませんでした: {e}");
+                }
+            }
+        }
+    }
 }
 
 /// **戻るべきルームの帰り道**（ルーム id と鍵）。
@@ -195,6 +268,27 @@ mod 試験 {
     }
 
     use super::*;
+
+    #[test]
+    fn 主催が別の部屋を_3_回続けて教えたら見切る() {
+        assert!(!見切るか(2));
+        assert!(見切るか(3));
+    }
+
+    #[test]
+    fn 戻る先とは別に増えた部屋は_頼んでいない部屋() {
+        assert_eq!(頼んでいない部屋(&[1, 2], &[1, 2, 7], Some(5)), vec![7]);
+    }
+
+    #[test]
+    fn 戻る先に戻れたなら_それは抜けない() {
+        assert_eq!(頼んでいない部屋(&[1], &[1, 5], Some(5)), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn 前から居た部屋は抜けない() {
+        assert_eq!(頼んでいない部屋(&[1, 7], &[1, 7], None), Vec::<i32>::new());
+    }
 
     fn 部屋(id: &str, host: bool, host_key: &str) -> RoomRow {
         RoomRow {
