@@ -18,6 +18,8 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { tick, untrack } from 'svelte';
   import { 画像を拾う } from './image';
+  import { 吹き出しの形 } from './bubble';
+  import Reach from './Reach.svelte';
   import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, type 打ちかけ } from './mention';
 
   interface Props {
@@ -102,6 +104,8 @@
      * 呼ばれた行に印を付ける。渡されなければ印は付かない
      */
     自分の呼ばれる名?: readonly string[];
+    /** 会話の上に届く先を出すか。連絡帳はまんなかの欄に出すので出さない（0.1.36）。 */
+    届く先を出す?: boolean;
   }
 
   const {
@@ -124,6 +128,7 @@
     新しい宛先へ移る,
     宛先 = null,
     自分の呼ばれる名 = [],
+    届く先を出す = true,
   }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
@@ -301,25 +306,10 @@
   {#if !宛先 && 相手ごとではない && !打てない訳}
     <p class="hint strong">{t('chat.shared')}</p>
   {/if}
-  <!-- **誰に届くかを、そのまま並べる。**「全員に届きます」より読みやすい -->
-  {#if 届く先.length === 0}
-    <p class="hint">{t('chat.reach.none')}</p>
-  {:else}
-    <!-- **顔つきで並べる**（2026-10-19）。名前の 1 行だけだと、
-         誰が入ってきたかに気づかない。顔が並べば目に入る -->
-    {#if 届く先の顔.length === 届く先.length}
-      <div class="faces" aria-label={format(t('chat.reach'), { who: 届く先.map(見せる名).join(' ／ ') })}>
-        <span class="faces-label">{format(t('chat.reach'), { who: '' }).trim()}</span>
-        {#each 届く先 as 名, i (i)}
-          <span class="who" title={見せる名(名)}>
-            <Avatar 種={届く先の顔[i]} 大きさ={22} 画像={顔の画[届く先の顔[i]] ?? null} 名={見せる名(名)} {主の名} />
-            <span class="who-name">{見せる名(名)}</span>
-          </span>
-        {/each}
-      </div>
-    {:else}
-      <p class="hint reach">{format(t('chat.reach'), { who: 届く先.map(見せる名).join(' ／ ') })}</p>
-    {/if}
+  <!-- **誰に届くかを、そのまま並べる。**「全員に届きます」より読みやすい。
+       連絡帳では、まんなかの欄に出すので、ここには出さない（0.1.36） -->
+  {#if 届く先を出す}
+    <Reach {locale} {届く先} {届く先の顔} {顔の画} />
   {/if}
   <div class="talkwrap">
     <div class="talk" bind:this={欄} onscroll={動かした}>
@@ -327,41 +317,58 @@
       <p class="hint">{t('chat.empty')}</p>
     {/if}
     {#each 会話 as line, i (i)}
-      <!-- **いつの発言かを出す。**無いと、あとから読み返せない -->
-      <p
-        class="line"
-        class:mine={line.mine}
-        class:system={line.system}
-        class:agent={line.agent}
-        class:to-me={!line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
-      >
-        {#if line.at}<span class="at">{line.at}</span>{/if}{#if line.留守中}<span class="late"
-            >{t('chat.late')}</span
-          >{/if}{#if 差出人の顔(line)}<Avatar
-            種={差出人の顔(line) ?? ''}
-            大きさ={14}
-            名=""
-          />{/if}{#if !line.system}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b
-          >{/if}{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
+      {@const 形 = 吹き出しの形(line)}
+      {@const 宛て = !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
+      {#if line.system}
+        <!-- **会議からの知らせ**は吹き出しにしない。真ん中に小さく -->
+        <p class="line system">
+          {#if line.at}<span class="at">{line.at}</span>{/if}{line.body}
+        </p>
+      {:else}
+        <!-- **この機械から出た発言は右、ほかの機械からは左**（0.1.36）。
+             長い発言でも「どこからどこまでが 1 通か」「誰のか」が読めるように、
+             名前と時刻を上に、本文を吹き出しに分ける -->
+        <div
+          class="line"
+          class:right={形.側 === '右'}
+          class:mine={line.mine}
+          class:agent={形.主 === 'エージェント'}
+          class:to-me={宛て}
+        >
+          <div class="head">
+            {#if 差出人の顔(line)}<Avatar 種={差出人の顔(line) ?? ''} 大きさ={14} 名="" />{/if}
+            <!-- 自分の行は右に寄っているので、名前を繰り返さない -->
+            {#if !line.mine}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b>{/if}
+            <!-- **人か、エージェントか**を字で言う（色だけに頼らない） -->
+            {#if 形.主 === 'エージェント'}<span class="kind">{t('avatar.owner.agent')}</span>{/if}
+            {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
+            {#if line.at}<span class="at">{line.at}</span>{/if}
+          </div>
+          <div class="bubble">{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
                 class="mention"
                 class:me={自分の呼ばれる名.includes(片.呼び)}>{片.文}</span
-              >{:else}{片.文}{/if}{/each}{#if !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}<span
-              class="mark to-me-mark">{t('chat.mention.me')}</span
-            >{/if}{#if line.画像}<button
-            type="button"
-            class="pic"
-            onclick={() => (大きく見る = line.画像 ?? null)}
-            ><img
-              onload={絵が開いた}
-              src={line.画像}
-              alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿)) })}
-            /></button
-          >{/if}{#if line.届き}<span
-            class="mark"
-            class:none={line.届き.札 === 'mark.none'}
-            title={t(line.届き.訳 as MessageKey)}>{t(line.届き.札 as MessageKey)}</span
-          >{/if}
-      </p>
+              >{:else}{片.文}{/if}{/each}{#if line.画像}<button
+                type="button"
+                class="pic"
+                onclick={() => (大きく見る = line.画像 ?? null)}
+                ><img
+                  onload={絵が開いた}
+                  src={line.画像}
+                  alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿)) })}
+                /></button
+              >{/if}</div>
+          {#if 宛て || line.届き}
+            <div class="foot">
+              {#if 宛て}<span class="mark to-me-mark">{t('chat.mention.me')}</span>{/if}
+              {#if line.届き}<span
+                  class="mark"
+                  class:none={line.届き.札 === 'mark.none'}
+                  title={t(line.届き.訳 as MessageKey)}>{t(line.届き.札 as MessageKey)}</span
+                >{/if}
+            </div>
+          {/if}
+        </div>
+      {/if}
     {/each}
     </div>
     <!-- **新しい発言が来たことを、読み返している人にも知らせる。**
@@ -590,40 +597,6 @@
     font-weight: 600;
   }
   /* 届く先の顔。**目を引く**ように、字より大きい顔と枠で並べる */
-  .faces {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-1) var(--space-2);
-  }
-  .faces-label {
-    font-size: var(--text-xs-size);
-    color: var(--text-secondary);
-  }
-  .who {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    max-width: 100%;
-    padding: 2px 10px 2px 2px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-sunken);
-    font-size: var(--text-xs-size);
-    font-weight: 600;
-  }
-  .who :global(.face) {
-    border-radius: 50%;
-    flex: none;
-  }
-  .who-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .hint.reach {
-    color: var(--text-secondary);
-  }
   .hint.strong {
     color: var(--text-secondary);
     font-weight: 600;
@@ -670,20 +643,64 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
   }
+  /* **1 通＝1 つの吹き出し**（0.1.36）。上に名前と時刻、下に本文。
+     ぶら下げ（字下げ）で揃えていた頃は、長い発言ほど区切りが読めなかった */
   .line {
-    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+  }
+  /* **この機械から出た発言は右**（自分とこの機械のエージェント） */
+  .line.right {
+    align-items: flex-end;
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+  }
+  .bubble {
+    max-width: min(80%, 42em);
+    padding: 6px 10px;
     /* **打った改行を、そのまま見せる。**折り返しも効かせる */
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-size: var(--text-sm-size);
-    line-height: var(--text-sm-line);
     word-break: break-word;
-    /* **折り返した 2 行目以降を、時刻と名前の下に潜り込ませない**
-       （2026-09-15 / #19）——
-       長い発言ほど「どこからどこまでが 1 通か」が読めなくなっていた。
-       ぶら下げの幅は、**時刻（5 字）＋顔（14px）＋余白**の見当である */
-    padding-left: 5.5em;
-    text-indent: -5.5em;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .line.mine .bubble {
+    background: var(--accent-subtle);
+    border-color: var(--accent-border);
+  }
+  /* **エージェントの吹き出しは点線で囲む。**人の発言と取り違えないように
+     （字の札「エージェント」と二重に言う。色だけに頼らない） */
+  .line.agent .bubble {
+    background: var(--bg-subtle);
+    border-style: dashed;
+    border-color: var(--border-strong);
+  }
+  .kind {
+    padding: 0 6px;
+    font-size: var(--text-2xs-size);
+    color: var(--neutral-fg);
+    background: var(--neutral-bg);
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+  }
+  .foot {
+    display: flex;
+    gap: 4px;
+  }
+  .foot .mark {
+    margin-left: 0;
   }
   @media (prefers-reduced-motion: reduce) {
     .talk {
@@ -709,8 +726,7 @@
   /* **差出人の顔。**連絡帳と同じ絵を出す（同じ人が場所によって変わらない）。
      行の中に並ぶので、字の高さに合わせて少し下げる */
   .line :global(.face) {
-    margin-right: 4px;
-    vertical-align: -2px;
+    flex: none;
   }
   /* **どこまで行ったかの札。**既読ではない（読んだかは分からない） */
   .mark {
@@ -738,13 +754,10 @@
     background: var(--info-bg);
     border-radius: var(--radius-sm);
   }
-  /* **自分が呼ばれた行。**左に帯を付ける（ぶら下げを崩さない幅で） */
-  .line.to-me {
-    /* 帯の幅だけ字を右へ逃がす（帯が時刻の 1 字目に重なっていた） */
-    padding-left: calc(5.5em + 8px);
+  /* **自分が呼ばれた発言。**吹き出しの左に帯を付ける */
+  .line.to-me .bubble {
     box-shadow: inset 3px 0 0 var(--accent);
     background: var(--accent-subtle);
-    border-radius: var(--radius-sm);
   }
   .mark.to-me-mark {
     color: var(--info-fg);
@@ -773,18 +786,19 @@
     border-color: var(--info-fg);
   }
 
+  /* 知らせの行は時刻と本文が横に並ぶので、間を空ける */
+  .line.system .at {
+    margin-right: 6px;
+  }
   .line.system {
+    display: block;
     color: var(--text-tertiary);
     font-style: italic;
     text-align: center;
-    /* **知らせ（入退室）はぶら下げない。**中央寄せなので、寄って見える */
-    padding-left: 0;
-    text-indent: 0;
   }
   /* **留守中に届いた分**（D71）。時刻は「出した側の時計」なので、
      いま届いたように見せない。**印を付けて、そう分かるようにする** */
   .late {
-    margin-right: 6px;
     padding: 0 4px;
     font-size: var(--text-2xs-size);
     color: var(--text-tertiary);
@@ -793,21 +807,19 @@
   }
   /* 時刻は等幅で、桁を揃える（DESIGN.md §5）。**本文より前に出て、本文より弱い** */
   .at {
-    margin-right: 6px;
     font-family: var(--font-mono);
     font-size: var(--text-2xs-size);
     font-variant-numeric: tabular-nums;
     color: var(--text-tertiary);
   }
   .line b {
-    margin-right: 6px;
     font-weight: 500;
     color: var(--text-tertiary);
   }
   .line.mine b {
     color: var(--accent);
   }
-  /* **同じエージェントのエージェント。**人の発言と一目で見分けが付く必要がある */
+  /* **エージェント。**人の発言と一目で見分けが付く必要がある */
   .line.agent b {
     color: var(--text-secondary);
     font-weight: 600;

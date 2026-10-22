@@ -14,8 +14,12 @@
     いまの面: 面;
     状態: 画面の状態;
     選ぶ: (面: 面) => void;
+    /** 上の帯に出た知らせの数（閉じた分も含む）。0 なら口を出さない。 */
+    知らせの数?: number;
+    /** 知らせの一覧を開く（0.1.36）。 */
+    知らせを開く?: () => void;
   }
-  const { locale, いまの面, 状態, 選ぶ }: Props = $props();
+  const { locale, いまの面, 状態, 選ぶ, 知らせの数 = 0, 知らせを開く }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
 
@@ -32,7 +36,8 @@
   };
 </script>
 
-<div class="rail" role="tablist" aria-orientation="vertical">
+<div class="rail">
+<div class="tabs" role="tablist" aria-orientation="vertical">
   {#each 面の並び as 一つ (一つ)}
     {@const 印 = 面の印(一つ, 状態)}
     <!--
@@ -56,16 +61,31 @@
     </button>
   {/each}
 </div>
+<!-- **閉じた知らせも、ここからあとで見られる**（0.1.36）。上の帯を×で閉じても失わない -->
+{#if 知らせを開く && 知らせの数 > 0}
+  <button type="button" class="notices" aria-label={t('notices.title')} onclick={知らせを開く}>
+    <Icon name="info" size={20} />
+    <span class="name">{t('notices.title')}</span>
+    <span class="mark">{知らせの数}</span>
+  </button>
+{/if}
+</div>
 
 <style>
   .rail {
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
     gap: 4px;
     flex: none;
     width: 92px;
     padding: var(--space-2) 6px;
     border-right: 1px solid var(--border);
+  }
+  .tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   button {
     display: flex;
@@ -106,6 +126,9 @@
       padding: 6px var(--space-2);
       border-right: none;
       border-bottom: 1px solid var(--border);
+    }
+    .tabs {
+      flex-direction: row;
     }
     button {
       flex: none;

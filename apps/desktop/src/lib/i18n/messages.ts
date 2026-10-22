@@ -245,6 +245,9 @@ export type MessageKey =
   | 'presence.off'
   | 'help.open'
   | 'help.close'
+  | 'notices.title'
+  | 'notices.empty'
+  | 'notices.dismiss'
   | 'help.this.title'
   | 'help.this.me'
   | 'help.this.on'
@@ -681,6 +684,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'presence.off': '切れています',
     'help.open': '説明を出す',
     'help.close': '閉じる',
+    'notices.title': '知らせ',
+    'notices.empty': 'まだ知らせはありません',
+    'notices.dismiss': 'この知らせを閉じる（左の「知らせ」からあとで見られます）',
     'help.this.title': 'この PC の行',
     'help.this.me': 'あなた —— この PC の持ち主です。いつも出ます（顔の右下はいつも緑）。',
     'help.this.on': '緑の丸（顔の右下）—— いまこの PC の口につながっているエージェントです。打てば届きます。',
@@ -1073,6 +1079,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'presence.off': 'Disconnected',
     'help.open': 'Show explanation',
     'help.close': 'Close',
+    'notices.title': 'Notices',
+    'notices.empty': 'No notices yet',
+    'notices.dismiss': 'Dismiss this notice (you can see it again under Notices on the left)',
     'help.this.title': 'Rows under “This computer”',
     'help.this.me': 'You — the owner of this computer. Always listed (the badge stays green).',
     'help.this.on': 'Green dot (bottom right of the face) — an agent attached to this computer right now. What you type reaches it.',
@@ -1463,6 +1472,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'presence.off': '已断开',
     'help.open': '显示说明',
     'help.close': '关闭',
+    'notices.title': '通知',
+    'notices.empty': '还没有通知',
+    'notices.dismiss': '关闭此通知（之后可在左侧的“通知”中查看）',
     'help.this.title': '「这台电脑」里的行',
     'help.this.me': '你 —— 这台电脑的主人。总是显示（头像右下角一直是绿色）。',
     'help.this.on': '绿色圆点（头像右下角）—— 现在正连在这台电脑上的智能体。你打的内容会送到。',
@@ -1857,6 +1869,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'presence.off': '끊김',
     'help.open': '설명 보기',
     'help.close': '닫기',
+    'notices.title': '알림',
+    'notices.empty': '아직 알림이 없습니다',
+    'notices.dismiss': '이 알림 닫기 (왼쪽의 ‘알림’에서 다시 볼 수 있습니다)',
     'help.this.title': '“이 PC”의 행',
     'help.this.me': '나 —— 이 PC의 주인입니다. 항상 나옵니다(얼굴 오른쪽 아래는 늘 초록).',
     'help.this.on': '초록 동그라미(얼굴 오른쪽 아래) —— 지금 이 PC에 붙어 있는 에이전트입니다. 입력하면 도착합니다.',

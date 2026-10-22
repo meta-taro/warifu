@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   // 連絡帳の面。**割符の入口。**
   //
   // 先に連絡帳があり、相手を選ぶと、会議・チャット・メールのどれをするかが並ぶ（2026-09-07）。
@@ -116,6 +117,8 @@
      * **既読は相手へ送らない**（`chat/unread.ts`）——
      * 出せるのは「自分がどこまで見たか」だけである。
      */
+    /** 選んだ相手との会話が誰に届くか（まんなかの欄に並べる・0.1.36）。 */
+    届く先の欄?: Snippet;
     未読?: (行: 行) => number;
   }
   const {
@@ -142,6 +145,7 @@
     ルームに呼ぶ = () => {},
     鍵を渡してあるか = () => false,
     未読 = () => 0,
+    届く先の欄,
   }: Props = $props();
 
   /**
@@ -646,6 +650,10 @@
           </button>
         {/if}
       </h2>
+      <!-- **誰に届くかを、ここに縦に並べる**（0.1.36）。会話の上では 2 段取って会話を狭めていた -->
+      {#if 届く先の欄 && 相手.種類 !== '自分'}
+        <div class="reach-pane">{@render 届く先の欄()}</div>
+      {/if}
       {#if 書き換え中 === 相手.key}
         <div class="rename">
           <input
@@ -1672,5 +1680,22 @@
     .pane {
       grid-template-columns: 1fr;
     }
+  }
+  .reach-pane {
+    margin: var(--space-2) 0;
+  }
+  /* **まだ見ていない行の数**（2026-09-11 に数えだしたが、形を書いておらず、
+     ただの数字に見えて気づかれなかった・0.1.36）。丸い札にして目に入れる */
+  .unread {
+    flex: none;
+    min-width: 18px;
+    padding: 0 6px;
+    font-size: var(--text-2xs-size);
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    color: var(--on-accent);
+    background: var(--accent);
+    border-radius: var(--radius-full);
   }
 </style>

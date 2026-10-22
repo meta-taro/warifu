@@ -53,6 +53,8 @@
   import { 機械の中のTURNを覚える, 機械の中のTURNがあるか } from '$lib/webrtc/media';
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
+  import Reach from '$lib/chat/Reach.svelte';
+  import { 出すか, 記録に足す, 閉じる, 閉じたから外す, type 知らせの行 } from '$lib/ui/notices';
   import { 画面の写しを書く } from '$lib/chat/snapshot';
   import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める, 見ているルームの相手だけ } from '$lib/chat/reach';
   import { 画像を縮める } from '$lib/chat/image';
@@ -438,6 +440,28 @@
   let 直し方を写した = $state(false);
   /** 同じ PC の warifu コマンドについての知らせ。**言うことが無ければ `null`。** */
   let cliの知らせ = $state<ReturnType<typeof CLIの知らせ>>(null);
+  /**
+   * **上の帯の知らせを閉じられるようにする**（0.1.36）。消す口が無く、2 段取ったまま画面を狭めていた。
+   * 閉じた分も、左の「知らせ」からあとで見られる（`$lib/ui/notices`）
+   */
+  let 知らせの記録 = $state<知らせの行[]>([]);
+  let 閉じた知らせ = $state<Set<string>>(new Set());
+  let 知らせを見ている = $state(false);
+  const cliの文 = $derived(
+    cliの知らせ ? format(t(cliの知らせ.鍵), { ver: cliの知らせ.版, path: cliの知らせ.場所 }) : '',
+  );
+  /** **新しく起きた知らせは記録に足し、閉じていても帯にまた出す。** */
+  function 知らせが起きた(文: string) {
+    if (!文) return;
+    untrack(() => {
+      知らせの記録 = 記録に足す(知らせの記録, 文, いま時刻());
+      閉じた知らせ = 閉じたから外す(閉じた知らせ, 文);
+    });
+  }
+  // **出所ごとに見張る。**1 つにまとめると、片方が変わっただけで
+  // もう片方の閉じた帯までまた出ていた（0.1.36 の試しで踏んだ）
+  $effect(() => 知らせが起きた(notice));
+  $effect(() => 知らせが起きた(cliの文));
   /** 相手ごとの通話（**M6**）。1 本しか持たないと、3 人目で前の相手が切れる。 */
   const calls = new Map<string, Call>();
   /** 相手ごとの映像と経路。名簿の並びで出す。 */
@@ -730,8 +754,19 @@
    * （入ってきた相手を、どのルームの人かを見ずに足していた）。届く先・タイル・数はこちらで数える
    */
   function この部屋の相手を見る() {
-    return 見ているルームの相手だけ(remotes, ルームたち.find((r) => r.id === 見ている)?.member_keys ?? null);
+    // **顔ぶれは機械が数えたものを正とする**（0.1.36）。読み込み直しても届く先を失わない
+    return 見ているルームの相手だけ(
+      remotes,
+      ルームたち.find((r) => r.id === 見ている)?.member_keys ?? null,
+      自分の鍵,
+      (key) => ({ key, stream: null, path: 'unknown' as LinkPath }),
+    );
   }
+  /**
+   * **見ているルームに相手が居るか**（会話の枠の案内に使う・0.1.36）。
+   * `会議中`（`remotes`）は読み込み直すと 0 に戻り、相手が居るのに「入ってきたら送れます」と出ていた
+   */
+  const 部屋に相手が居る = $derived(この部屋の相手を見る().length > 0);
   /** **名簿の「主催」の札は、部屋の主催の鍵で付ける**（起動時の決め打ちを使わない）。 */
   const 名簿の人 = $derived(
     主催の札を付ける(members, ルームたち.find((r) => r.id === 見ている)?.host_key ?? null),
@@ -2765,6 +2800,7 @@
     if (e.key !== 'Escape') return;
     渡す一本 = null;
     消す予定 = null;
+    知らせを見ている = false;
   }
 
   const 顔を差し替えられる先 = $derived.by(() => {
@@ -3105,7 +3141,18 @@
 {/each}
 
 {#if notice}
-  <p class="notice top">{notice}</p>
+  {#if 出すか(notice, 閉じた知らせ)}
+    <p class="notice top closable">
+      <span>{notice}</span>
+      <button
+        type="button"
+        class="dismiss"
+        title={t('notices.dismiss')}
+        aria-label={t('notices.dismiss')}
+        onclick={() => (閉じた知らせ = 閉じる(閉じた知らせ, notice))}><Icon name="close" size={14} /></button
+      >
+    </p>
+  {/if}
   <!-- **直し方をその場で渡す**（**D104**）。割符は管理者権限を要求しないので、
        代わりに**打つものを渡す** —— 人に探させない -->
   {#if 直し方}
@@ -3131,16 +3178,53 @@
   画面だけ上げた人は「直ったつもりで直っていない」—— 症状は「繋がらない」だけなので、
   コマンドが古いせいだと気づけない。**言うのは、言わなければ気づけないときだけ。**
 -->
-{#if cliの知らせ}
-  <p class="notice top">
-    {format(t(cliの知らせ.鍵), { ver: cliの知らせ.版, path: cliの知らせ.場所 })}
+{#if 出すか(cliの文, 閉じた知らせ)}
+  <p class="notice top closable">
+    <span>{cliの文}</span>
+    <button
+      type="button"
+      class="dismiss"
+      title={t('notices.dismiss')}
+      aria-label={t('notices.dismiss')}
+      onclick={() => (閉じた知らせ = 閉じる(閉じた知らせ, cliの文))}><Icon name="close" size={14} /></button
+    >
   </p>
+{/if}
+
+<!-- **閉じた知らせも、ここで見られる**（0.1.36）。新しいものが上 -->
+{#if 知らせを見ている}
+  <div class="幕" role="dialog" aria-modal="true" aria-label={t('notices.title')}>
+    <div class="箱">
+      <p class="what">{t('notices.title')}</p>
+      {#if 知らせの記録.length === 0}
+        <p class="hint">{t('notices.empty')}</p>
+      {:else}
+        <ul class="notice-log">
+          {#each [...知らせの記録].reverse() as 行, i (i)}
+            <li><span class="at">{行.時刻}</span>{行.文}</li>
+          {/each}
+        </ul>
+      {/if}
+      <div class="tail">
+        <button type="button" class="quiet" onclick={() => (知らせを見ている = false)}>
+          {t('help.close')}
+        </button>
+      </div>
+    </div>
+  </div>
 {/if}
 
 <svelte:window onkeydown={幕を閉じる} />
 
 <main>
-  <PaneRail {locale} いまの面={面} {状態} 選ぶ={(次) => (面 = 次)} />
+  <PaneRail
+    {locale}
+    いまの面={面}
+    {状態}
+    選ぶ={(次) => (面 = 次)}
+    知らせの数={知らせの記録.length}
+    知らせを開く={() => (知らせを見ている = true)}
+  />
 
   <!--
     **会議の面は畳まない。隠すだけ。**
@@ -3297,7 +3381,7 @@
       {locale}
       {会話}
       {届く先がある}
-      {会議中}
+      会議中={部屋に相手が居る}
       {この機械の人数}
       送る={(body) => void 話す(body)}
       画像を送る={画像の口を出す ? (f) => void 画像を話す(f) : undefined}
@@ -3858,7 +3942,14 @@
           const 部屋 = 見るルーム(行.key, いまのルーム, 行.いま会議に居る);
           return 部屋 ? (未読たち[部屋] ?? 0) : 0;
         }}
-      />
+      >
+        {#snippet 届く先の欄()}
+          <!-- **会話の欄を出しているときだけ**（自分を選んでいる間は出ない） -->
+          {#if 選んだ相手 && 選んだ相手 !== 自分の鍵}
+            <Reach {locale} {届く先} {届く先の顔} 顔の画={顔の画たち} 縦 />
+          {/if}
+        {/snippet}
+      </ContactsPane>
       <!--
         **自分を選んでいる間は、会話の枠を出さない。**
         自分から自分へ話す口は無いので、置いておくと
@@ -3877,7 +3968,7 @@
           {locale}
           {会話}
           {届く先がある}
-          {会議中}
+          会議中={部屋に相手が居る}
           {この機械の人数}
           送る={(body) => void 話す(body)}
           画像を送る={画像の口を出す ? (f) => void 画像を話す(f) : undefined}
@@ -3896,6 +3987,7 @@
           下書きが変わった={(ある) => (下書きがある = ある)}
           据え置いている={!!据え置き}
           新しい宛先へ移る={() => (据え置き = null)}
+          届く先を出す={false}
         />
       {/if}
     </div>
@@ -4475,6 +4567,47 @@
   /* **帯の直下に出す。**面をまたいで同じ場所に出る */
   .notice.top {
     margin: 0 var(--space-4);
+  }
+  /* **×で閉じられる帯**（0.1.36）。×は右端に小さく */
+  .notice.closable {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+  .notice.closable > span {
+    flex: 1;
+  }
+  .notice .dismiss {
+    flex: none;
+    display: inline-flex;
+    padding: 2px;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+  .notice .dismiss:hover {
+    background: var(--bg-hover);
+  }
+  .notice-log {
+    max-height: 50vh;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--text-sm-size);
+    line-height: var(--text-sm-line);
+  }
+  .notice-log li {
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .notice-log .at {
+    margin-right: 8px;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs-size);
+    color: var(--text-tertiary);
   }
   .notice {
     margin: 0;
