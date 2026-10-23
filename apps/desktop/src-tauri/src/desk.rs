@@ -72,6 +72,45 @@ fn 番号を続ける() {
     次の発言.store(続きの番号(控えた), Ordering::Relaxed);
 }
 
+/// 告げた版の控えの名前（`在り処.控え` の下）。
+const 版の控え: &str = "told-version";
+
+/// **版が上がったら、この機械のエージェントへ 1 度だけ告げる**（0.1.39・2026-10-23）。
+///
+/// 出してから人が不具合を見つける形が続いた。エージェントは MCP の文字で状態を見ているので、
+/// 画面と中身の食い違いを「おかしい」と言えない。**版が上がった直後に、点検して報告するよう頼む。**
+/// 行は `直近の発言` に残るので、あとから着いたエージェントにも渡る。
+fn 版が上がったと告げる(app: &AppHandle) {
+    let 道 = warifu_desk::この機械の在り処().控え.join(版の控え);
+    let 版 = env!("CARGO_PKG_VERSION");
+    let 前 = std::fs::read_to_string(&道).ok();
+    let Some(本文) = 版が上がった知らせ(前.as_deref().map(str::trim), 版) else {
+        return;
+    };
+    配る(&app.state::<Bridge>(), 聞いた("割符", &本文));
+    if let Err(e) = 道
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|()| std::fs::write(&道, 版))
+    {
+        記録!("告げた版を控えられません（{}）: {e}", 道.display());
+    }
+}
+
+/// 版が上がっていれば、エージェントへ渡す 1 行。**初めて（控えが無い）なら告げない。**
+#[must_use]
+fn 版が上がった知らせ(前: Option<&str>, 今: &str) -> Option<String> {
+    let 前 = 前?;
+    if 前 == 今 {
+        return None;
+    }
+    Some(format!(
+        "割符の画面が {前} から {今} に上がりました。room_status と app_view（札 screen.read）で、\
+         画面に出ている人数・届く先と、本体の知っている相手が合っているかを見比べ、\
+         食い違いがあれば開発の席へ知らせてください。合っていれば何もしなくてかまいません。"
+    ))
+}
+
 /// 発言に番号を振り、控える。**控えられなくても発言は止めない**（記録には残す）。
 fn 番号を振る() -> u64 {
     let id = 次の発言.fetch_add(1, Ordering::Relaxed);
@@ -210,6 +249,7 @@ fn いま時刻() -> String {
 /// エージェントが繋がらない理由が誰にも分からない）。
 pub fn 開く(app: AppHandle) {
     番号を続ける();
+    版が上がったと告げる(&app);
     tauri::async_runtime::spawn(async move {
         let 場所 = この機械の場所();
         let mut 待ち = match 受け口::開く(&場所).await {
@@ -1499,6 +1539,14 @@ pub fn 人が答えた(動作: &str, 許した: bool) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 版が上がったときだけ_初めては告げない() {
+        assert!(super::版が上がった知らせ(None, "0.1.39").is_none());
+        assert!(super::版が上がった知らせ(Some("0.1.39"), "0.1.39").is_none());
+        let 文 = super::版が上がった知らせ(Some("0.1.38"), "0.1.39").expect("告げる");
+        assert!(文.contains("0.1.38") &&文.contains("0.1.39") && 文.contains("app_view"));
+    }
+
     #[test]
     fn 立て直したら_控えの続きから番号を振る() {
         // 1 から振り直すと、エージェントの控え（前の立ち上げの番号）より小さくなり、

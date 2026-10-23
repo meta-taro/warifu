@@ -221,12 +221,47 @@ impl 網 {
             g.戸口.insert(主催の鍵);
         }
         // 客 → 主催：Join
-        let _ = self.機械たち[主催]
+        let events = self.機械たち[主催]
             .棚
             .get_mut(&部屋)
             .unwrap()
-            .on_notice(客の鍵, &Notice::Join { meeting: 部屋 });
+            .on_notice(客の鍵, &Notice::Join { meeting: 部屋 })
+            .unwrap_or_default();
+        // 主催：名簿が動いたら、ほかの客へ配る（0.1.39）
+        if crate::roster_sync::名簿を配るか(true, &events) {
+            self.名簿を配る(主催, 部屋, Some(客の鍵));
+        }
         Some(部屋)
+    }
+
+    /// **主催がいまの名簿をゲストへ配り、ゲストが合わせる**（`roster_sync`・lib.rs の `名簿を配る`）。
+    /// 線がつながっている相手にだけ届く。`除く` は入った本人（入るときに名簿を渡している）。
+    fn 名簿を配る(&mut self, 主催: usize, 部屋: MeetingId, 除く: Option<PublicKey>) {
+        let 主催の鍵 = self.機械たち[主催].鍵;
+        let 名簿: Vec<PublicKey> = self.機械たち[主催].棚[&部屋].members().to_vec();
+        for k in &名簿 {
+            if *k == 主催の鍵 || Some(*k) == 除く {
+                continue;
+            }
+            let g = self.番号(*k);
+            if !self.繋がっている(主催, g) || !self.機械たち[g].起きている {
+                continue;
+            }
+            let gm = &mut self.機械たち[g];
+            // ゲスト：主催から来た名簿だけを信じる
+            if gm.主催たち.get(&部屋) != Some(&主催の鍵) {
+                continue;
+            }
+            let Some(c) = gm.棚.get_mut(&部屋) else { continue };
+            let (足す, 外す) = crate::roster_sync::名簿の差(c.members(), &名簿, &gm.鍵, &主催の鍵);
+            for 相手 in 足す {
+                let _ = c.admit(相手);
+                gm.戸口.insert(相手);
+            }
+            for 相手 in 外す {
+                let _ = c.on_notice(相手, &Notice::Leave { meeting: 部屋 });
+            }
+        }
     }
 
     /// **部屋を畳む**（`部屋を畳む`）。その部屋の相手へ Leave を告げ、部屋と帰り道を落とす。
@@ -242,7 +277,14 @@ impl 網 {
             if self.繋がっている(i, j)
                 && let Some(c) = self.機械たち[j].棚.get_mut(&部屋)
             {
-                let _ = c.on_notice(自分, &Notice::Leave { meeting: 部屋 });
+                let events = c
+                    .on_notice(自分, &Notice::Leave { meeting: 部屋 })
+                    .unwrap_or_default();
+                // 主催なら、抜けたあとの名簿をほかの客へ配る（0.1.39）
+                let 主催か = c.members().first() == Some(&c.me());
+                if crate::roster_sync::名簿を配るか(主催か, &events) {
+                    self.名簿を配る(j, 部屋, Some(自分));
+                }
             }
         }
         let m = &mut self.機械たち[i];
@@ -381,6 +423,23 @@ impl 網 {
                 if 客は居ると思う && !主催の名簿に居る {
                     並び.push(format!("{} は部屋 {} に居るつもりだが、主催の名簿に居ない", 名(g), 頭(*部屋)));
                 }
+                // **客の名簿は、主催の名簿と同じ顔ぶれであること**（0.1.39・`roster_sync`）。
+                // 違うと、見出しの人数にも届く先にも出ない相手から発言が届く
+                if let Some(hc) = h.棚.get(部屋).filter(|_| h.起きている) {
+                    let mut 客の = c.members().to_vec();
+                    let mut 主催の = hc.members().to_vec();
+                    客の.sort_by_key(|k| k.to_bytes());
+                    主催の.sort_by_key(|k| k.to_bytes());
+                    if 客の != 主催の {
+                        並び.push(format!(
+                            "{} の部屋 {} の名簿（{} 人）が、主催の名簿（{} 人）と違う",
+                            名(g),
+                            頭(*部屋),
+                            客の.len(),
+                            主催の.len()
+                        ));
+                    }
+                }
             }
             for (部屋, 主催の鍵) in &g.帰り道 {
                 let h = &self.機械たち[self.番号(*主催の鍵)];
@@ -419,6 +478,15 @@ fn 主催と客(客の数: u8) -> 網 {
         網.叩く(g, 0).unwrap();
     }
     網
+}
+
+#[test]
+fn 客どうしが直接つながれなくても_名簿は主催と同じになる() {
+    // 10-23、網を越えて直接つながれない相手が、発言は主催ごしに届くのに
+    // 見出しの人数にも届く先にも出なかった（2 台で報告）
+    let 網 = 主催と客(2);
+    assert!(!網.繋がっている(1, 2), "客どうしは直接つながっていない前提");
+    assert_eq!(網.食い違い(), Vec::<String>::new());
 }
 
 #[test]

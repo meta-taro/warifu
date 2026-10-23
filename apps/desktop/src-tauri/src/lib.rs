@@ -107,6 +107,7 @@ mod notify;
 mod postbox;
 mod profile;
 mod room_name;
+mod roster_sync;
 #[cfg(test)]
 mod room_sim;
 mod schedule;
@@ -2062,18 +2063,35 @@ fn 汲む(
                         ..
                     } = &notice
                     {
-                        // **名乗った差出人と、繋いできた相手が違うなら通さない。**
-                        // 主催から配られた文字（三者会議）はここへ来ない ——
-                        // こちらが主催であり、配るのはこちらだからである
-                        if *from != peer {
+                        // **名乗った差出人と、繋いできた相手が違うなら、主催ごしの分だけ通す**（0.1.39）。
+                        // 主催は聞いた文字をほかの客へそのまま配る（D48）。ここで全部捨てていたので、
+                        // **直接つながっていない相手の発言は 1 通も届かなかった**（`roster_sync`）
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
                             記録!("受信: 差出人が経路の相手と違う。捨てた");
                             continue;
                         }
+                        // **名簿に居ない相手の発言が届いたら、食い違いとして人とエージェントに言う**（0.1.39）。
+                        // 見出しの人数にも届く先にも出ない相手から発言が来る、がこの形
+                        {
+                            let 棚 = conferences.lock().await;
+                            if let Some(c) = 棚.get(meeting)
+                                && !c.members().contains(from)
+                            {
+                                let 文 = format!(
+                                    "食い違い: 名簿に居ない {} から部屋 {} の発言が届きました（見出しの人数・届く先と合っていません）",
+                                    短く(&key_to_string(*from)),
+                                    短く(&meeting.to_string())
+                                );
+                                記録!("{文}");
+                                desk::配る(&app.state::<Bridge>(), desk::聞いた("割符", &文));
+                            }
+                        }
                         // **札が付いていれば、そのエージェントの誰が言ったかまで画面へ渡す**
-                        // （2026-09-08）。付いていなければ人が言ったもの
+                        // （2026-09-08）。付いていなければ人が言ったもの。**名乗るのは差出人**（主催ごしでも）
                         let 名 = match 話し手 {
-                            Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
-                            None => key_to_string(peer),
+                            Some(札) => format!("{}（{札}）", 短く(&key_to_string(*from))),
+                            None => key_to_string(*from),
                         };
                         // **どのルームの発言かも渡す**（0.1.33）。渡さないと、画面は
                         // その瞬間に見ているルームへ積み、**別のルームの発言が混ざっていた**
@@ -2116,13 +2134,15 @@ fn 汲む(
                         ..
                     } = &notice
                     {
-                        if *from != peer {
+                        // **主催ごしの画像も通す**（0.1.39・文字と同じ規則）
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
                             記録!("受信: 画像の差出人が経路の相手と違う。捨てた");
                             continue;
                         }
                         let 名 = match 話し手 {
-                            Some(札) => format!("{}（{札}）", 短く(&key_to_string(peer))),
-                            None => key_to_string(peer),
+                            Some(札) => format!("{}（{札}）", 短く(&key_to_string(*from))),
+                            None => key_to_string(*from),
                         };
                         記録!("受信: 画像（{} バイト・{型}）", 中身.len());
                         let _ = app.emit(
@@ -2320,6 +2340,57 @@ fn 汲む(
                         }
                         continue;
                     }
+                    // **主催が配り直した名簿に、自分の名簿を合わせる**（0.1.39・`roster_sync`）。
+                    // ゲストの名簿は直接つながった相手しか増えず、網を越えて直接つながれない相手は
+                    // 発言が主催ごしに届くのに、見出しの人数にも届く先にも出なかった（10-23）
+                    if let Notice::Invite { meeting, roster } = &notice
+                        && conferences.lock().await.contains_key(meeting)
+                    {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        let 足した = {
+                            let mut 棚 = conferences.lock().await;
+                            let Some(c) = 棚.get_mut(meeting) else { continue };
+                            // **信じるのは主催の言い分だけ。**自分が主催なら、自分の名簿が正
+                            if !contacts::主催と同じか(部屋の主催, peer) || c.members().first() == Some(&me) {
+                                記録!(
+                                    "名簿: 主催でない {} からの名簿は捨てた（部屋 {}）",
+                                    短く(&key_to_string(peer)),
+                                    短く(&meeting.to_string())
+                                );
+                                continue;
+                            }
+                            let (足す, 外す) =
+                                roster_sync::名簿の差(c.members(), roster.members(), &me, &peer);
+                            let mut events = Vec::new();
+                            for k in &足す {
+                                if c.admit(*k).is_ok() {
+                                    events.push(warifu_app::Event::Joined(*k));
+                                }
+                            }
+                            for k in &外す {
+                                if let Ok(出た) = c.on_notice(*k, &Notice::Leave { meeting: *meeting }) {
+                                    events.extend(出た);
+                                }
+                            }
+                            if !events.is_empty() {
+                                記録!(
+                                    "名簿: 主催の名簿に合わせた（部屋 {}・足す {}・外す {}）",
+                                    短く(&meeting.to_string()),
+                                    足す.len(),
+                                    外す.len()
+                                );
+                            }
+                            emit_events(&app, *meeting, &events);
+                            足す
+                        };
+                        // **主催が「居る」と言った相手を、戸口で通す**（D111 と同じ構え）
+                        for k in 足した {
+                            if let Some(印) = warifu_door::Subject::new(&key_to_string(k)) {
+                                door.lock().await.名簿で迎える(印);
+                            }
+                        }
+                        continue;
+                    }
                     // **どのルームあてかで振り分ける。**知らないルームのものは受け取らない
                     let mut 棚 = conferences.lock().await;
                     let Some(c) = 棚.get_mut(&notice.meeting()) else {
@@ -2366,6 +2437,13 @@ fn 汲む(
                                 }
                             }
                             emit_events(&app, c.id(), &events);
+                            // **名簿が動いたら、主催はいまの名簿をゲスト全員へ配る**（0.1.39）
+                            let 配る = roster_sync::名簿を配るか(c.members().first() == Some(&me), &events)
+                                .then(|| (c.id(), 名簿の写し(c), c.members().to_vec()));
+                            drop(棚);
+                            if let Some((部屋, 名簿, 面々)) = 配る {
+                                名簿を配る(&outbound, peer, me, 部屋, 名簿, &面々).await;
+                            }
                         }
                         Err(e) => {
                             // 相手へは理由を返さない（D31）。**手元のログには出す** —
@@ -2534,6 +2612,55 @@ async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answe
         message: "経路が閉じています".into(),
         code: None,
     })
+}
+
+/// 主催の名簿を、送れる形に写す（先頭は主催）。
+fn 名簿の写し(c: &Conference) -> warifu_meeting::Roster {
+    let me = c.me();
+    let mut 名簿 = warifu_meeting::Roster::with_capacity(me, c.capacity())
+        .unwrap_or_else(|_| warifu_meeting::Roster::new(me));
+    for k in c.members() {
+        if *k != me {
+            let _ = 名簿.add(*k);
+        }
+    }
+    名簿
+}
+
+/// **いまの名簿を、ゲスト全員へ配る**（0.1.39・`roster_sync`）。**主催だけが呼ぶ。**
+///
+/// 入った本人（`言った人`）には配らない —— 入るときに名簿を渡している。
+/// 届かない相手で止めない。
+async fn 名簿を配る(
+    outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    言った人: PublicKey,
+    me: PublicKey,
+    部屋: MeetingId,
+    名簿: warifu_meeting::Roster,
+    面々: &[PublicKey],
+) {
+    let 送り口 = outbound.lock().await;
+    let mut 配った = 0usize;
+    for k in 面々 {
+        if *k == me || *k == 言った人 {
+            continue;
+        }
+        if let Some(tx) = 送り口.get(&k.to_bytes()) {
+            let 知らせ = Notice::Invite {
+                meeting: 部屋,
+                roster: 名簿.clone(),
+            };
+            if tx.send(知らせ).await.is_ok() {
+                配った += 1;
+            }
+        }
+    }
+    記録!(
+        "名簿: {} 人へ配りました（部屋 {}・{} 人）",
+        配った,
+        短く(&部屋.to_string()),
+        名簿.members().len()
+    );
 }
 
 /// 聞いた知らせを、**言った人以外の全員へ配る**（**D48**）。**主催者だけが呼ぶ。**
