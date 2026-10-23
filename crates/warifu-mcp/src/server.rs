@@ -1026,8 +1026,28 @@ impl Warifu {
     }
 }
 
+/// **握手のある版だけ**（0.1.38・`tests/protocol.rs`）。
+///
+/// 2026-07-28 版は `initialize` の握手を無くし、頼みごとに版を載せる形（`server/discover`）になった。
+/// Claude Code は**その版で決まった口を channels として登録しない。**しかも握手が無いので
+/// `on_initialized` が呼ばれず、押し出し（[`Warifu::知らせ続ける`]）も始まらない。
+/// 10-23、channels を付けて立ち上げた 2 つの席で、部屋の発言の知らせが 1 件も来なかった。
+/// この並びに無い版で来た相手には「その版は無い」と返り、相手は `initialize` へ戻る。
+const 話せる版: &[rmcp::model::ProtocolVersion] = &[
+    rmcp::model::ProtocolVersion::V_2024_11_05,
+    rmcp::model::ProtocolVersion::V_2025_03_26,
+    rmcp::model::ProtocolVersion::V_2025_06_18,
+    rmcp::model::ProtocolVersion::V_2025_11_25,
+];
+
 #[tool_handler]
 impl ServerHandler for Warifu {
+    fn supported_protocol_versions(
+        &self,
+    ) -> std::borrow::Cow<'static, [rmcp::model::ProtocolVersion]> {
+        std::borrow::Cow::Borrowed(話せる版)
+    }
+
     /// **呼びを数えてから通す**（2026-10-07・#50）。
     /// 返事を書き終えるまで数に入れる —— 入力が閉じても、返事を捨てて終わらないように。
     async fn call_tool(
