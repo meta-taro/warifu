@@ -8,6 +8,7 @@ import {
   畳む,
   見るルーム,
   この機械のルーム,
+  入退室を書く部屋,
   type ルームの会話,
 } from './rooms';
 import type { 会話行 } from '$lib/meeting/announce';
@@ -163,5 +164,27 @@ describe('エージェントごとの 1 対 1（D86）', () => {
     expect(そのルームの会話(会話, この機械のルーム('alpha のエージェント')).map((l) => l.body)).toEqual([
       'alpha の話',
     ]);
+  });
+});
+
+describe('入退室を書く部屋', () => {
+  const 部屋たち = [
+    { id: 'A', member_keys: ['私', '甲'] },
+    { id: 'B', member_keys: ['私', '甲', '乙'] },
+  ];
+
+  it('機械が部屋を言ったら、その部屋だけに書く（見ている部屋ではない）', () => {
+    // 10-23、別の部屋への入り直しが、見ている部屋に「入りました」と 10 分おきに並んだ
+    expect(入退室を書く部屋(部屋たち, '甲', 'B', 'A')).toEqual(['B']);
+  });
+
+  it('部屋が分からない切断は、その相手が居た部屋すべてに書く', () => {
+    expect(入退室を書く部屋(部屋たち, '甲', undefined, 'A')).toEqual(['A', 'B']);
+    expect(入退室を書く部屋(部屋たち, '乙', undefined, 'A')).toEqual(['B']);
+  });
+
+  it('どの部屋にも居なかった相手は、見ている部屋に書く（消さない）', () => {
+    expect(入退室を書く部屋(部屋たち, '丙', undefined, 'A')).toEqual(['A']);
+    expect(入退室を書く部屋([], '丙', undefined, null)).toEqual([]);
   });
 });

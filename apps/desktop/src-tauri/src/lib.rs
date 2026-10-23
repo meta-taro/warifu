@@ -1420,7 +1420,7 @@ pub(crate) async fn 会議キーで入る(
     // 前は名乗りと住所を送る**前**に流していた。住所はルーターの口を最長 2 秒待つので、
     // **その間に画面が offer と候補を送り、「まだ繋がっていません」で全部落ちた**
     // （別の網にある 2 台の間。27 通のうち届いたのは 40 秒後の終わりの印だけ）。
-    emit_events(&app, &events);
+    emit_events(&app, meeting_id, &events);
     Ok(meeting_id)
 }
 
@@ -2357,11 +2357,13 @@ fn 汲む(
                                 // **既にある入室の道を通す** —— 画面はその頭で
                                 // 「もう通話があるなら閉じる」を見るので、
                                 // **入り直しも普通の入室として正しく流れる。**
-                                if let Err(e) = app.emit(EVENT_JOINED, key_to_string(peer)) {
+                                if let Err(e) = app
+                                    .emit(EVENT_JOINED, (key_to_string(peer), c.id().to_string()))
+                                {
                                     記録!("入り直しを画面へ渡せませんでした: {e}");
                                 }
                             }
-                            emit_events(&app, &events);
+                            emit_events(&app, c.id(), &events);
                         }
                         Err(e) => {
                             // 相手へは理由を返さない（D31）。**手元のログには出す** —
@@ -3384,7 +3386,11 @@ fn 知らせの名(n: &Notice) -> &'static str {
     }
 }
 
-fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
+/// **どの部屋の出来事か**も画面へ渡す（0.1.38）。入退室を、見ている部屋ではなく
+/// **その部屋の会話**に書くため —— 渡していなかったので、別の部屋への入り直しが
+/// 見ている部屋に「入りました」と並んでいた（10-23）。
+fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event]) {
+    let 部屋 = 部屋.to_string();
     for event in events {
         let _ = match event {
             warifu_app::Event::Joined(key) => {
@@ -3396,7 +3402,7 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
                 let 名 = desk::入退室を配る(&app.state::<Bridge>(), &鍵, true);
                 let 名 = if 名 == 鍵 { 短く(&鍵) } else { 名 };
                 notify::入ったと知らせる(app, &名);
-                app.emit(EVENT_JOINED, 鍵)
+                app.emit(EVENT_JOINED, (鍵, 部屋.clone()))
             }
             warifu_app::Event::Left(key) => {
                 // 出たことはエージェントにだけ見せる。**人へは鳴らさない**（うるさい）
@@ -3404,7 +3410,7 @@ fn emit_events(app: &AppHandle, events: &[warifu_app::Event]) {
                 // **ここへ来るのは、本人が抜けたときだけ**（切れたときは `Left` を出さない）
                 absence::抜けた(&鍵);
                 desk::入退室を配る(&app.state::<Bridge>(), &鍵, false);
-                app.emit(EVENT_LEFT, 鍵)
+                app.emit(EVENT_LEFT, (鍵, 部屋.clone()))
             }
             warifu_app::Event::Signal { from, step, blob } => app.emit(
                 EVENT_SIGNAL,

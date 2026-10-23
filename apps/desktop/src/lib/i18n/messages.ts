@@ -199,6 +199,9 @@ export type MessageKey =
   | 'room.name'
   | 'room.nth'
   | 'room.mine'
+  | 'room.people'
+  | 'room.people.host'
+  | 'room.people.hint'
   | 'room.back'
   | 'room.back.hint'
   | 'room.leave'
@@ -638,6 +641,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': 'ルームの名前',
     'room.nth': 'ルーム {n}（{m} 人）',
     'room.mine': 'あなたが建てた',
+    'room.people': 'この部屋に居る（{n}）',
+    'room.people.host': '主催',
+    'room.people.hint': '相手の機械のエージェントは、この部屋で話した分だけ出ます。',
     'room.back': '前のルームに戻る',
     'room.back.hint': '前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。',
     'room.leave': 'このルームを抜ける',
@@ -1033,6 +1039,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': 'Room name',
     'room.nth': 'Room {n} (people: {m})',
     'room.mine': 'you set this up',
+    'room.people': 'In this room ({n})',
+    'room.people.host': 'host',
+    'room.people.hint': 'Agents on other machines appear once they speak in this room.',
     'room.back': 'Back to the last room',
     'room.back.hint': 'Rejoins the room you were in. You do not need a new key — even after the key\'s 24 hours are up, you can return if they still let you in.',
     'room.leave': 'Leave this room',
@@ -1426,6 +1435,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': '房间名',
     'room.nth': 'Room {n}（{m} 人）',
     'room.mine': '你建的',
+    'room.people': '在这个房间里（{n}）',
+    'room.people.host': '主持',
+    'room.people.hint': '其他电脑上的智能体，在这个房间说过话后才会显示。',
     'room.back': '回到上一个房间',
     'room.back.hint': '重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。',
     'room.leave': '退出这个 room',
@@ -1823,6 +1835,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.name': '방 이름',
     'room.nth': '룸 {n}({m}명)',
     'room.mine': '내가 만든 룸',
+    'room.people': '이 룸에 있음 ({n})',
+    'room.people.host': '주최',
+    'room.people.hint': '다른 기기의 에이전트는 이 룸에서 말한 뒤에 나옵니다.',
     'room.back': '이전 룸으로 돌아가기',
     'room.back.hint': '이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.',
     'room.leave': '이 룸에서 나가기',

@@ -126,7 +126,7 @@ pub async fn 住所へ呼ぶ(
     {
         記録!("帰り道を書き置けませんでした: {e}");
     }
-    emit_events(app, &events);
+    emit_events(app, meeting, &events);
 
     channel
         .send(&Notice::Join { meeting }.to_intent()?)
@@ -311,7 +311,7 @@ pub async fn 部屋の合言葉で呼ぶ(
     // **相手を、いま居る部屋の名簿へ足す。**
     // 部屋を作り直さない —— **もう入っている部屋**である
     let events = 部屋へ足す(bridge, 部屋, peer).await?;
-    emit_events(app, &events);
+    emit_events(app, 部屋, &events);
 
     // **映像の道を足す**（**D125**）。会話に渡す前に口を取り出す
     crate::media_path::足す(session.包みの口());

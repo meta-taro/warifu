@@ -54,6 +54,8 @@
   import type { 口の種類 } from '$lib/contacts/actions';
   import ChatPanel from '$lib/chat/ChatPanel.svelte';
   import Reach from '$lib/chat/Reach.svelte';
+  import Participants from '$lib/chat/Participants.svelte';
+  import { 参加者を並べる } from '$lib/chat/participants';
   import { 出すか, 記録に足す, 閉じる, 閉じたから外す, type 知らせの行 } from '$lib/ui/notices';
   import { 画面の写しを書く } from '$lib/chat/snapshot';
   import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める, 見ているルームの相手だけ } from '$lib/chat/reach';
@@ -71,6 +73,7 @@
     この機械のルーム,
     見るルーム,
     足す as 会話に足す,
+    入退室を書く部屋,
     type ルームの会話,
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
@@ -767,6 +770,37 @@
    * `会議中`（`remotes`）は読み込み直すと 0 に戻り、相手が居るのに「入ってきたら送れます」と出ていた
    */
   const 部屋に相手が居る = $derived(この部屋の相手を見る().length > 0);
+  /**
+   * **見ているルームに誰が居るか**（まんなかの欄に並べる・0.1.38）。
+   * 見出しの「（2 人）」が誰なのか、画面のどこにも無かった
+   */
+  /**
+   * **入退室の行を、その部屋の会話に積む**（0.1.38・`入退室を書く部屋`）。
+   * この機械の会話へは 1 度だけ（部屋が複数でも重ねない）
+   */
+  function 入退室を積む(key: string, 部屋: string | undefined, 行: 会話行) {
+    const 先 = 入退室を書く部屋(ルームたち, key, 部屋, いまのルーム);
+    if (先.length === 0) {
+      ルームの会話たち = この機械とルームへ足す(ルームの会話たち, null, 行);
+      return;
+    }
+    ルームの会話たち = 先.reduce(
+      (会話, 行き先, i) =>
+        i === 0 ? この機械とルームへ足す(会話, 行き先, 行) : 会話に足す(会話, 行き先, 行),
+      ルームの会話たち,
+    );
+  }
+  const この部屋の参加者 = $derived.by(() => {
+    const 部屋 = ルームたち.find((r) => r.id === 見ている);
+    if (!部屋) return [];
+    return 参加者を並べる(
+      部屋.member_keys,
+      部屋.host_key,
+      自分の鍵,
+      この機械のAIたち,
+      ルームの会話たち[部屋.id] ?? [],
+    );
+  });
   /** **名簿の「主催」の札は、部屋の主催の鍵で付ける**（起動時の決め打ちを使わない）。 */
   const 名簿の人 = $derived(
     主催の札を付ける(members, ルームたち.find((r) => r.id === 見ている)?.host_key ?? null),
@@ -1631,7 +1665,7 @@
       // その 1 人を数え損ねて「入ってきたら送れます」が出たままになる
       この機械のAIたち = (await deskSeats()) ?? [];
       unsubs.push(
-        await onEvent<string>(EVENT_JOINED, async (key) => {
+        await onEvent<[string, string?]>(EVENT_JOINED, async ([key, 部屋]) => {
           // **同じ相手が戻ったら、「経路が切れました」を消す**（2026-09-29）
           if (戻ったら消すか(notice, 出した切れた知らせ, key)) {
             notice = '';
@@ -1732,7 +1766,8 @@
           人が入った = true;
           // **見ていない間に誰が来たかを残す。**名簿は動くが、目を離すと分からない。
           // **この機械とルームの両方へ**（`issues/1`）—— 入退室も、どちらの入口でも読める
-          ルームの会話たち = この機械とルームへ足す(ルームの会話たち, いまのルーム, {
+          // **入った部屋に積む**（0.1.38）。見ている部屋に積むと、別の部屋の出入りが混ざる
+          入退室を積む(key, 部屋, {
             ...入退室の知らせ('入室', 画面での名(key), (k, v) => format(t(`chat.${k}`), v)),
             at: いま時刻(),
           });
@@ -2035,7 +2070,7 @@
         }),
       );
       unsubs.push(
-        await onEvent<string>(EVENT_LEFT, (key) => 片付ける(key)),
+        await onEvent<[string, string?]>(EVENT_LEFT, ([key, 部屋]) => 片付ける(key, '退室', 部屋)),
       );
       unsubs.push(
         await onEvent<SignalPayload>(EVENT_SIGNAL, (p) => {
@@ -2174,7 +2209,7 @@
    *
    * **なぜ抜けたかで文言を変える。**退室は本人の意思、切断は事故である。
    */
-  function 片付ける(key: string, 種類: 出来事 = '退室') {
+  function 片付ける(key: string, 種類: 出来事 = '退室', 部屋?: string) {
     calls.get(key)?.close();
     calls.delete(key);
     // **抜けた相手の溜めは捨てる。**次に来た人へ渡さない
@@ -2182,7 +2217,8 @@
     呼びに行った.delete(key);
     remotes = remotes.filter((r) => r.key !== key);
     members = members.filter((m) => m.key !== key);
-    ルームの会話たち = この機械とルームへ足す(ルームの会話たち, いまのルーム, {
+    // **抜けた部屋に積む。**切れたときは部屋が分からないので、その人が居た部屋すべて（0.1.38）
+    入退室を積む(key, 部屋, {
       ...入退室の知らせ(種類, 画面での名(key), (k, v) => format(t(`chat.${k}`), v)),
       at: いま時刻(),
     });
@@ -3945,6 +3981,15 @@
           return 部屋 ? (未読たち[部屋] ?? 0) : 0;
         }}
       >
+        {#snippet 参加者の欄()}
+          <Participants
+            {locale}
+            並び={この部屋の参加者}
+            名={(key) => (key === 自分の鍵 ? (自分の呼ばれる名[0] ?? 画面での名(key)) : 画面での名(key))}
+            顔の画={顔の画たち}
+            席の名札={(名) => エージェントの名札(名, エージェントの名前たち[名])}
+          />
+        {/snippet}
         {#snippet 届く先の欄()}
           <!-- **会話の欄を出しているときだけ**（自分を選んでいる間は出ない） -->
           {#if 選んだ相手 && 選んだ相手 !== 自分の鍵}
