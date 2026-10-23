@@ -192,6 +192,7 @@
     knownKeys,
     stopAgent,
     currentRoom,
+    myAddress,
     rooms as ルームを読む,
     lookAtRoom,
     type RoomRow,
@@ -3974,6 +3975,7 @@
         ルームを抜ける={(id) => void ルームを抜ける(id)}
         鍵を渡す={(相手) => void その人に鍵を渡す(相手)}
         ルームに呼ぶ={(id) => void ルームに呼ぶ(id)}
+        住所を読む={async () => (await myAddress()) ?? null}
         鍵を渡してあるか={(key) => 渡してあるか(鍵たち, key)}
         未読={(行) => {
           // **行ごとに、その行の会話を引く**（人は人のルーム、席は席のルーム）

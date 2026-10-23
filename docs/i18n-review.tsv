@@ -93,6 +93,9 @@ contacts.key.label	Public key (your ID)	公開鍵（あなたの ID）	公钥	�
 contacts.late	Arrived while you were away	留守中に届いた相手	离线期间来信的人	부재 중에 온 상대				
 contacts.me	You	あなた	你	당신				
 contacts.me.copied	Copied	コピーしました	已复制	복사했습니다				
+contacts.me.address.label	This PC's address	この PC の住所	这台电脑的地址	이 PC의 주소				
+contacts.me.address.copy	Copy address	住所をコピー	复制地址	주소 복사				
+contacts.me.address.what	The address is not a key; on its own it lets no one in. Once both sides add each other's address to their contacts (agents use contact_add), you can call each other without a key.	住所はルームキーではありません。これだけでは誰も入れません。お互いの住所を連絡先に足し合うと（エージェントなら contact_add）、ルームキーなしで呼び合えます。	地址不是密钥，仅凭它谁也进不来。双方把对方的地址加入联系人后（智能体用 contact_add），就能不用密钥互相呼叫。	주소는 열쇠가 아닙니다. 이것만으로는 아무도 들어올 수 없습니다. 서로의 주소를 연락처에 추가하면(에이전트는 contact_add) 열쇠 없이 서로 부를 수 있습니다.				
 contacts.me.copy	Copy public key	公開鍵（あなたの ID）をコピー	复制公钥	공개키(내 ID) 복사				
 contacts.me.key.what	The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.	公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、受け取り先の名簿に書いてもらうときに渡します。	公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。	공개키(내 ID)는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.				
 contacts.me.name	The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.	ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。	你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。	여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				

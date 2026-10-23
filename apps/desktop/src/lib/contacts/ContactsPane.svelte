@@ -121,6 +121,11 @@
     届く先の欄?: Snippet;
     /** ルームを選んでいるとき、その部屋に誰が居るか（まんなかの欄の下・0.1.38）。 */
     参加者の欄?: Snippet;
+    /**
+     * この PC の住所を読む（自分の面に出す・0.1.38）。
+     * 画面のどこにも出ておらず、相手の席が contact_add で足すための住所を、人も席も取り出せなかった
+     */
+    住所を読む?: () => Promise<string | null>;
     未読?: (行: 行) => number;
   }
   const {
@@ -149,6 +154,7 @@
     未読 = () => 0,
     届く先の欄,
     参加者の欄,
+    住所を読む,
   }: Props = $props();
 
   /**
@@ -182,6 +188,25 @@
    * 画面に出しているのは頭だけ（人が読むため）だが、
    * **渡すときに頭だけでは相手が使えない。**
    */
+  /** この PC の住所。**自分を選んだときに読む**（番地は変わりうるので、開くたびに読み直す）。 */
+  let 住所 = $state<string | null>(null);
+  let 住所を写した = $state(false);
+  $effect(() => {
+    if (相手?.種類 !== '自分' || !住所を読む) return;
+    void 住所を読む().then((読んだ) => (住所 = 読んだ));
+  });
+  async function 住所を写す() {
+    if (!住所) return;
+    try {
+      await navigator.clipboard.writeText(住所);
+    } catch {
+      // **黙って失敗させない。**写せなければ、印を出さない
+      return;
+    }
+    住所を写した = true;
+    setTimeout(() => (住所を写した = false), 写した印の時間);
+  }
+
   async function 鍵を写す(key: string) {
     try {
       await navigator.clipboard.writeText(key);
@@ -809,6 +834,19 @@
           </button>
         </div>
         <p class="hint">{t('contacts.me.key.what')}</p>
+        {#if 住所}
+          <!-- **住所も出す**（0.1.38）。公開鍵とは別のもの。頭だけ見せて、写すのは全桁 -->
+          <p class="key">
+            <span class="label">{t('contacts.me.address.label')}</span>{住所.slice(0, 20)}…
+          </p>
+          <div class="tail">
+            <button type="button" class="quiet" onclick={() => void 住所を写す()}>
+              <Icon name={住所を写した ? 'check' : 'copy'} size={16} />
+              {住所を写した ? t('contacts.me.copied') : t('contacts.me.address.copy')}
+            </button>
+          </div>
+          <p class="hint">{t('contacts.me.address.what')}</p>
+        {/if}
         <p class="hint">{t('contacts.me.share')}</p>
         <p class="hint">{t('contacts.me.name')}</p>
 

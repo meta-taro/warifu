@@ -174,6 +174,9 @@ export type MessageKey =
   | 'howto.key'
   | 'contacts.me.copy'
   | 'contacts.me.copied'
+  | 'contacts.me.address.label'
+  | 'contacts.me.address.copy'
+  | 'contacts.me.address.what'
   | 'contacts.me.name'
   | 'profile.edit'
   | 'profile.name'
@@ -616,6 +619,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'howto.key': 'この手順で渡すのは「ルームキー」です。上の公開鍵ではありません。',
     'contacts.me.copy': '公開鍵（あなたの ID）をコピー',
     'contacts.me.copied': 'コピーしました',
+    'contacts.me.address.label': 'この PC の住所',
+    'contacts.me.address.copy': '住所をコピー',
+    'contacts.me.address.what': '住所はルームキーではありません。これだけでは誰も入れません。お互いの住所を連絡先に足し合うと（エージェントなら contact_add）、ルームキーなしで呼び合えます。',
     'contacts.me.name': 'ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。',
     'profile.edit': 'プロフィールを書く',
     'profile.name': '名前',
@@ -1014,6 +1020,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'howto.key': 'What you hand over here is the room key, not the public key above.',
     'contacts.me.copy': 'Copy public key',
     'contacts.me.copied': 'Copied',
+    'contacts.me.address.label': 'This PC\'s address',
+    'contacts.me.address.copy': 'Copy address',
+    'contacts.me.address.what': 'The address is not a key; on its own it lets no one in. Once both sides add each other\'s address to their contacts (agents use contact_add), you can call each other without a key.',
     'contacts.me.name': 'The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.',
     'profile.edit': 'Edit profile',
     'profile.name': 'Name',
@@ -1410,6 +1419,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'howto.key': '这一步交出去的是「room key」，不是上面的公钥。',
     'contacts.me.copy': '复制公钥',
     'contacts.me.copied': '已复制',
+    'contacts.me.address.label': '这台电脑的地址',
+    'contacts.me.address.copy': '复制地址',
+    'contacts.me.address.what': '地址不是密钥，仅凭它谁也进不来。双方把对方的地址加入联系人后（智能体用 contact_add），就能不用密钥互相呼叫。',
     'contacts.me.name': '你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。',
     'profile.edit': '编辑资料',
     'profile.name': '名字',
@@ -1810,6 +1822,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'howto.key': '여기서 건네는 것은 「방의 열쇠」이며, 위의 공개키(내 ID)가 아닙니다.',
     'contacts.me.copy': '공개키(내 ID) 복사',
     'contacts.me.copied': '복사했습니다',
+    'contacts.me.address.label': '이 PC의 주소',
+    'contacts.me.address.copy': '주소 복사',
+    'contacts.me.address.what': '주소는 열쇠가 아닙니다. 이것만으로는 아무도 들어올 수 없습니다. 서로의 주소를 연락처에 추가하면(에이전트는 contact_add) 열쇠 없이 서로 부를 수 있습니다.',
     'contacts.me.name': '여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).',
     'profile.edit': '프로필 쓰기',
     'profile.name': '이름',
