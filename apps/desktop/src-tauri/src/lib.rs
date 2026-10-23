@@ -107,6 +107,8 @@ mod notify;
 mod postbox;
 mod profile;
 mod room_name;
+#[cfg(test)]
+mod room_sim;
 mod schedule;
 mod snapshot;
 mod voice;

@@ -151,7 +151,7 @@ fn 見張りのあとに見るルーム<T: Copy>(前: Option<T>, いま: Option<
 ///
 /// 割符なしで叩くと、主催が選んだ部屋へ招かれる。戻りたい部屋でなければ、
 /// その部屋は持ち続けない —— 叩き直すたびに知らない部屋が増え、通話も作り直していた。
-fn 頼んでいない部屋<T: PartialEq + Copy>(前: &[T], 後: &[T], 戻る先: Option<T>) -> Vec<T> {
+pub(crate) fn 頼んでいない部屋<T: PartialEq + Copy>(前: &[T], 後: &[T], 戻る先: Option<T>) -> Vec<T> {
     後.iter()
         .filter(|id| !前.contains(id) && Some(**id) != 戻る先)
         .copied()
