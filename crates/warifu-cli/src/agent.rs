@@ -161,7 +161,8 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
 pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     // **はじめの 1 回だけは、繋がらなければ理由を出して終わる。**
     // 画面を開いていない人に、黙って回り続ける物を渡さない
-    let mut 口 = 口::新しく(繋ぐ(&設.この機械).await.map_err(|e| {
+    // この機械からの返事を受ける側（書き出しは長い・0.1.38）
+    let mut 口 = 口::返事用(繋ぐ(&設.この機械).await.map_err(|e| {
         format!("この機械が開いていません（この PC で割符の画面を開いてください）: {e}")
     })?);
     // **初めて繋ぐときは、過去をもらわない**（頼まれてもいない過去を押し付けない）
@@ -201,7 +202,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::sleep(std::time::Duration::from_secs(待ち)).await;
         match 繋ぐ(&設.この機械).await {
             Ok(一本) => {
-                口 = 口::新しく(一本);
+                口 = 口::返事用(一本);
                 // **どこまで聞いたかを名乗る**（内部の Issue 019）。
                 // これが無いと、**切れている間に届いた言葉を永久に聞けない。**
                 // 繋ぎ直せてはいるのに落ちている、という**見えない取りこぼし**になっていた
@@ -372,7 +373,7 @@ mod tests {
             // **命令は持たせない。**ここで見たいのは番号を覚えるかだけ
             命令: None,
         };
-        let mut 口 = 口::新しく(こちら);
+        let mut 口 = 口::返事用(こちら);
         let mut 数 = 回数::新しく();
         let mut 最後に聞いた = None;
         let 終わり = 一巡(&設, &mut 口, &mut 数, &mut 最後に聞いた).await;
@@ -398,7 +399,7 @@ mod tests {
             この機械: std::path::PathBuf::from("/dev/null"),
             命令: None,
         };
-        let mut 口 = 口::新しく(こちら);
+        let mut 口 = 口::返事用(こちら);
         let mut 数 = 回数::新しく();
         let mut 最後に聞いた = None;
         let _ = 一巡(&設, &mut 口, &mut 数, &mut 最後に聞いた).await;

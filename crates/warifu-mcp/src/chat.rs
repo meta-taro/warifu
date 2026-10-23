@@ -171,7 +171,8 @@ impl Chat {
         名乗り: Option<String>,
         控えのフォルダ: Option<&Path>,
     ) -> std::io::Result<Self> {
-        let mut 口 = 口::新しく(繋ぐ(場所).await?);
+        // **この機械からの返事を受ける側。**書き出しは長いので、返事の上限で受ける（0.1.38）
+        let mut 口 = 口::返事用(繋ぐ(場所).await?);
         let 呼ばれる名 = Arc::new(Mutex::new(名乗りから呼ばれる名(
             名乗り.as_deref(),
         )));

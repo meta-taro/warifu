@@ -482,11 +482,14 @@ async fn 応じる(
         }
         ToDesk::書き出す => {
             let 自分 = crate::key_to_string(app.state::<Bridge>().device.public_key());
-            let 行たち = 会話を書き出す(&自分);
+            let 全部 = 会話を書き出す(&自分);
+            let 全部の数 = 全部.len();
+            let 行たち = 書き出しを収める(全部, warifu_desk::返事の上限);
             記録!(
-                "書き出し: {} 行を渡しました（頼んだのは {}）",
+                "書き出し: {} 行を渡しました（頼んだのは {}・入りきらず落とした古い行 {}）",
                 行たち.len(),
-                名乗り.as_deref().unwrap_or("名乗りなし")
+                名乗り.as_deref().unwrap_or("名乗りなし"),
+                全部の数 - 行たち.len()
             );
             let _ = 口.送る(&FromDesk::書き出し { 行たち }.書く()).await;
             Ok(())
@@ -800,6 +803,27 @@ pub fn 名を引く(bridge: &Bridge, 鍵: &str) -> String {
     let 帳 = 連絡先の組();
     let 自分 = crate::key_to_string(bridge.device.public_key());
     crate::contacts::書き出しの名(&帳, &自分, 鍵)
+}
+
+/// **書き出しを、返事の 1 行に収める**（0.1.38）。収まらなければ**古い行から落とす。**
+///
+/// 返事は 1 行で、受ける側は [`warifu_desk::返事の上限`] を超えた行を落とす。
+/// 超えたまま送ると、エージェントには何も届かず「この機械が返事をしません」になる（0.1.37）。
+fn 書き出しを収める(
+    mut 行たち: Vec<warifu_desk::書き出しの行>,
+    上限: usize,
+) -> Vec<warifu_desk::書き出しの行> {
+    let 長さ = |行たち: &[warifu_desk::書き出しの行]| {
+        FromDesk::書き出し {
+            行たち: 行たち.to_vec(),
+        }
+        .書く()
+        .len()
+    };
+    while !行たち.is_empty() && 長さ(&行たち) > 上限 {
+        行たち.remove(0);
+    }
+    行たち
 }
 
 /// **控えている会話を、書き出す形にする**（2026-10-16）。古い順。誰が、には呼び名を添える。
@@ -1430,6 +1454,23 @@ pub fn 人が答えた(動作: &str, 許した: bool) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn 書き出しは返事の上限に収め_古い行から落とす() {
+        let 行 = |番号: u64| warifu_desk::書き出しの行 {
+            番号,
+            誰: "相手".to_owned(),
+            時刻: "12:00".to_owned(),
+            本文: "あ".repeat(1000),
+        };
+        let 行たち: Vec<_> = (1..=20).map(行).collect();
+        let 収めた = 書き出しを収める(行たち, 20_000);
+        assert!(FromDesk::書き出し { 行たち: 収めた.clone() }.書く().len() <= 20_000);
+        assert!(収めた.len() < 20 && !収めた.is_empty());
+        assert_eq!(収めた.last().unwrap().番号, 20, "新しい行は残す");
+        // 収まるなら、そのまま
+        assert_eq!(書き出しを収める((1..=3).map(行).collect(), 20_000).len(), 3);
+    }
     // 内部の Issue 019 —— **繋ぎ直したエージェントへ、切れている間の言葉を渡す。**
     //
     // 繋ぎ直したエージェントは、切れている間に来た返事を見落としていた
