@@ -40,7 +40,51 @@ pub const 配る溜め: usize = 128;
 static 次の番号: AtomicU64 = AtomicU64::new(1);
 
 /// 発言に振る通し番号（**既読**を数えるため・**D76**）。
+///
+/// **立て直しても続きから振る**（2026-10-23）。1 から振り直していたので、
+/// エージェントの控え（`heard/<名乗り>`・前の立ち上げで 29 まで）が新しい番号より大きく、
+/// 「29 より後」に 1 行も当たらなかった。画面を 0.1.38 に上げたあと、繋ぎ直した
+/// エージェントへ #1〜#7 が渡らず、知らせは来るのに本文が読めなかった。
 static 次の発言: AtomicU64 = AtomicU64::new(1);
+
+/// 番号の控えの名前（`在り処.控え` の下。`heard/` と同じ所）。
+const 番号の控え: &str = "said";
+
+fn 番号の控えの道() -> std::path::PathBuf {
+    warifu_desk::この機械の在り処().控え.join(番号の控え)
+}
+
+/// 控えの続きから振る。控えが無ければ 1 から。
+#[must_use]
+const fn 続きの番号(控えた: Option<u64>) -> u64 {
+    match 控えた {
+        Some(n) => n + 1,
+        None => 1,
+    }
+}
+
+/// 立ち上げたとき、控えの続きから番号を振るようにする。
+fn 番号を続ける() {
+    let 道 = 番号の控えの道();
+    let 控えた = std::fs::read_to_string(&道)
+        .ok()
+        .and_then(|s| s.trim().parse().ok());
+    次の発言.store(続きの番号(控えた), Ordering::Relaxed);
+}
+
+/// 発言に番号を振り、控える。**控えられなくても発言は止めない**（記録には残す）。
+fn 番号を振る() -> u64 {
+    let id = 次の発言.fetch_add(1, Ordering::Relaxed);
+    let 道 = 番号の控えの道();
+    let 書けた = 道
+        .parent()
+        .map_or(Ok(()), std::fs::create_dir_all)
+        .and_then(|()| std::fs::write(&道, id.to_string()));
+    if let Err(e) = 書けた {
+        記録!("発言の番号を控えられません（{}）: {e}", 道.display());
+    }
+    id
+}
 
 /// 発言ごとに、**どのエージェントへ届けたか。**
 ///
@@ -165,6 +209,7 @@ fn いま時刻() -> String {
 /// **開かなかったことは記録に残す**（黙って落とすと、
 /// エージェントが繋がらない理由が誰にも分からない）。
 pub fn 開く(app: AppHandle) {
+    番号を続ける();
     tauri::async_runtime::spawn(async move {
         let 場所 = この機械の場所();
         let mut 待ち = match 受け口::開く(&場所).await {
@@ -722,7 +767,7 @@ pub(crate) async fn 流す(
     // 窓が前に居るときは鳴らないので、うるさくならない
     crate::notify::届いたと知らせる(app, &名札);
     // **通し番号を振る。**あとで「誰が読んだか」を尋ねられるようにする（**D76**）
-    let id = 次の発言.fetch_add(1, Ordering::Relaxed);
+    let id = 番号を振る();
     // この機械につながっている**他の**エージェントにも同じ行を見せる（言った本人には返さない）
     let 行 = FromDesk::Heard {
         id,
@@ -1166,7 +1211,7 @@ const fn 自分あてか(出所: u64, 自分: u64) -> bool {
 #[must_use]
 pub fn 聞いた(from: &str, body: &str) -> FromDesk {
     let 行 = FromDesk::Heard {
-        id: 次の発言.fetch_add(1, Ordering::Relaxed),
+        id: 番号を振る(),
         from: from.to_owned(),
         body: body.to_owned(),
         at: いま時刻(),
@@ -1454,6 +1499,14 @@ pub fn 人が答えた(動作: &str, 許した: bool) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 立て直したら_控えの続きから番号を振る() {
+        // 1 から振り直すと、エージェントの控え（前の立ち上げの番号）より小さくなり、
+        // 「控えより後」に 1 行も当たらない（2026-10-23）
+        assert_eq!(super::続きの番号(Some(29)), 30);
+        assert_eq!(super::続きの番号(None), 1);
+    }
+
 
     #[test]
     fn 書き出しは返事の上限に収め_古い行から落とす() {

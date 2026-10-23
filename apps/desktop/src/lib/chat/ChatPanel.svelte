@@ -18,6 +18,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { tick, untrack } from 'svelte';
   import { 画像を拾う } from './image';
+  import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
   import { 吹き出しの形 } from './bubble';
   import Reach from './Reach.svelte';
   import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, type 打ちかけ } from './mention';
@@ -41,6 +42,13 @@
     この機械の人数: number;
     /** 送る。**中身は呼ぶ側が持つ**（下書きもここでは持たない）。 */
     送る: (body: string) => void;
+    /**
+     * **いま見ている部屋**（ルームの鍵、またはこの機械のルーム）。
+     *
+     * 部屋を替えたら打ちかけの文を部屋ごとに控える（`./draft`・2026-10-23）。
+     * 控えないと、ASUS の部屋に書きかけた文が開発の部屋の欄にそのまま残る。
+     */
+    部屋?: string | null;
     /** 画像を送る。**渡されなければ、画像の口を出さない**（預かり所ごしなど、送れない所） */
     画像を送る?: (画像: File) => void;
     /**
@@ -124,6 +132,7 @@
     顔の画 = {},
     画面での名簿 = {},
     下書きが変わった,
+    部屋 = null,
     据え置いている = false,
     新しい宛先へ移る,
     宛先 = null,
@@ -139,6 +148,20 @@
   const 見せる名 = (名: string) =>
     エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n }));
   let 下書き = $state('');
+  /** 部屋ごとの打ちかけの文（画面の中だけ。どこにも書かない）。 */
+  let 下書きの控え: 下書きの控えの型 = {};
+  let 見ていた部屋: string | null = untrack(() => 部屋);
+  // **部屋を替えたら、欄の文を前の部屋に控え、新しい部屋の分を出す**（2026-10-23）
+  $effect(() => {
+    const 次 = 部屋;
+    untrack(() => {
+      if (次 === 見ていた部屋) return;
+      const 替えた = 部屋を替える(下書きの控え, 見ていた部屋, 次, 下書き);
+      下書きの控え = 替えた.控え;
+      下書き = 替えた.下書き;
+      見ていた部屋 = 次;
+    });
+  });
   /** 大きく見ている画像（`blob:` の URL）。 */
   let 大きく見る = $state<string | null>(null);
   let 画像の口: HTMLInputElement | undefined = $state();
