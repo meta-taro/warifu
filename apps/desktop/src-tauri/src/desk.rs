@@ -84,16 +84,18 @@ fn 版が上がったと告げる(app: &AppHandle) {
     let 道 = warifu_desk::この機械の在り処().控え.join(版の控え);
     let 版 = env!("CARGO_PKG_VERSION");
     let 前 = std::fs::read_to_string(&道).ok();
-    let Some(本文) = 版が上がった知らせ(前.as_deref().map(str::trim), 版) else {
-        return;
-    };
-    配る(&app.state::<Bridge>(), 聞いた("割符", &本文));
+    // **控えは毎回書く。**初めて（控えが無い）は告げないが、書かないと次の版でも告げられない
+    // （0.1.39 で踏んだ：告げるときだけ書いていたので、控えが一度もできなかった）
     if let Err(e) = 道
         .parent()
         .map_or(Ok(()), std::fs::create_dir_all)
         .and_then(|()| std::fs::write(&道, 版))
     {
         記録!("告げた版を控えられません（{}）: {e}", 道.display());
+    }
+    if let Some(本文) = 版が上がった知らせ(前.as_deref().map(str::trim), 版) {
+        記録!("版が {} から {版} に上がったと、エージェントへ告げます", 前.as_deref().unwrap_or("").trim());
+        配る(&app.state::<Bridge>(), 聞いた("割符", &本文));
     }
 }
 
