@@ -1033,7 +1033,7 @@ impl Warifu {
 /// `on_initialized` が呼ばれず、押し出し（[`Warifu::知らせ続ける`]）も始まらない。
 /// 10-23、channels を付けて立ち上げた 2 つの席で、部屋の発言の知らせが 1 件も来なかった。
 /// この並びに無い版で来た相手には「その版は無い」と返り、相手は `initialize` へ戻る。
-const 話せる版: &[rmcp::model::ProtocolVersion] = &[
+pub(crate) const 話せる版: &[rmcp::model::ProtocolVersion] = &[
     rmcp::model::ProtocolVersion::V_2024_11_05,
     rmcp::model::ProtocolVersion::V_2025_03_26,
     rmcp::model::ProtocolVersion::V_2025_06_18,

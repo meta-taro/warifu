@@ -296,7 +296,10 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         口.呼び中(),
         warifu_mcp::待つ上限,
     );
-    let 務め = 口.serve((入力, tokio::io::stdout())).await?;
+    // 握手より前の頼みは rmcp の手前で断る（`warifu_mcp::握手へ戻す`）
+    let 務め = 口
+        .serve(warifu_mcp::握手へ戻す(入力, tokio::io::stdout()))
+        .await?;
     務め.waiting().await?;
     Ok(())
 }
