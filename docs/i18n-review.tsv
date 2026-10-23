@@ -225,9 +225,9 @@ meeting.status.recvonly	Connected — you are receiving their video. You are not
 meeting.status.sendonly	Connected — you are sending video. Theirs has not arrived.	つながっています（あなたは送っています。相手の映像は来ていません）	已连接（你正在发送视频。对方的视频还没有到达）	연결되어 있습니다 (당신은 보내고 있습니다. 상대의 영상은 오지 않았습니다)				
 meeting.status.textonly	Connected — text only. Camera and microphone are not in use	つながっています（いま文字だけです。カメラもマイクも使っていません）	已连接（现在只有文字。没有使用摄像头和麦克风）	연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)				
 meeting.status.waiting	Waiting for the other person	相手を待っています	正在等待对方	상대방을 기다리는 중				
-notices.dismiss	Dismiss this notice (you can see it again under Notices on the left)	この知らせを閉じる（左の「知らせ」からあとで見られます）	关闭此通知（之后可在左侧的“通知”中查看）	이 알림 닫기 (왼쪽의 ‘알림’에서 다시 볼 수 있습니다)		閉じても消えない（あとで見られる）ことが伝わる訳にする		
-notices.empty	No notices yet	まだ知らせはありません	还没有通知	아직 알림이 없습니다				
-notices.title	Notices	知らせ	通知	알림				
+notices.dismiss	Dismiss this notice (you can see it again under Notices on the left)	このお知らせを閉じる（左の「お知らせ」からあとで見られます）	关闭此通知（之后可在左侧的“通知”中查看）	이 알림 닫기 (왼쪽의 ‘알림’에서 다시 볼 수 있습니다)		閉じても消えない（あとで見られる）ことが伝わる訳にする		
+notices.empty	No notices yet	まだお知らせはありません	还没有通知	아직 알림이 없습니다				
+notices.title	Notices	お知らせ	通知	알림				
 pane.contacts	Contacts	連絡帳	通讯录	연락처				
 pane.divider	Divider (drag left or right to resize; double-click to reset)	仕切り（左右にドラッグで幅を変える・ダブルクリックで元の幅）	分隔线（左右拖动调整宽度，双击恢复原宽度）	구분선 (좌우로 끌어 너비 조절, 더블클릭하면 원래 너비)				
 pane.meeting	Room	ルーム	房间	방				
