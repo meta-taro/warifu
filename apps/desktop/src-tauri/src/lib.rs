@@ -2026,6 +2026,8 @@ fn 汲む(
         outbound.lock().await.insert(peer.to_bytes(), tx);
         // **この経路で、どの部屋について名乗り返したか**（0.1.35）。1 部屋 1 度だけ
         let mut 名乗り返した: std::collections::HashSet<MeetingId> = std::collections::HashSet::new();
+        // **この経路で、どの部屋について「居ない」と告げたか**（0.1.37）。1 部屋 1 度だけ
+        let mut 居ないと告げた: std::collections::HashSet<MeetingId> = std::collections::HashSet::new();
         let 訳 = loop {
             tokio::select! {
                 // 画面から送るもの
@@ -2365,6 +2367,28 @@ fn 汲む(
                             // 相手へは理由を返さない（D31）。**手元のログには出す** —
                             // 黙って捨てると、無言の不通の原因が追えない
                             記録!("受信: 受け取らなかった（{e}）");
+                            // **ただし、自分の部屋に居るつもりの相手には「居ない」と告げる**（0.1.37）。
+                            // 線は通っている相手なので戸口の答え（D31）ではない。
+                            // **棚を先に放す** —— 主催たちとの錠の順を、ほかの所（主催たち→棚）と逆にしない
+                            drop(棚);
+                            let ルーム = notice.meeting();
+                            let 告げる = come_back::居ないと告げるか(
+                                matches!(e, warifu_app::Error::NotAMember),
+                                主催たち.lock().await.get(&ルーム),
+                                &me,
+                                !居ないと告げた.contains(&ルーム),
+                            );
+                            if 告げる
+                                && let Ok(intent) = (Notice::Leave { meeting: ルーム }).to_intent()
+                            {
+                                居ないと告げた.insert(ルーム);
+                                記録!(
+                                    "受信: {} は部屋 {} の名簿に居ないので、居ないと告げます",
+                                    短く(&key_to_string(peer)),
+                                    短く(&ルーム.to_string())
+                                );
+                                let _ = channel.send(&intent).await;
+                            }
                             continue;
                         }
                     }
