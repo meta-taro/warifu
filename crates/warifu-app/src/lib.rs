@@ -14,6 +14,7 @@
 
 mod invite;
 mod knock;
+pub mod room;
 
 pub use invite::{InviteError, format_invite, is_own_invite, parse_invite};
 pub use knock::{KNOCK_WITHOUT_TALLY, is_knock_without_tally};

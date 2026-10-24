@@ -1,7 +1,7 @@
 id	文	層	試験の場所	状態
 S00-7	ルームの名簿は主催が持ち、主催が配る。ゲストは主催から来た名簿だけを信じる	L1	apps/desktop/src-tauri/src/room_sim.rs 客どうしが直接つながれなくても_名簿は主催と同じになる	済
-S00-8	ゲストどうしが直接つながれなくても、発言は主催を通って全員に届く	L1	apps/desktop/src-tauri/src/roster_sync.rs 主催ごしの発言は通し_それ以外の名乗りは通さない
-S00-9	主催かは「覚えた主催が自分か（覚えていなければ自分）」で決める。名簿の並び順では決めない	L0	apps/desktop/src-tauri/src/roster_sync.rs 主催かは_覚えた主催で決める_名簿の先頭では決めない	済
+S00-8	ゲストどうしが直接つながれなくても、発言は主催を通って全員に届く	L1	crates/warifu-app/src/room/roster.rs 主催ごしの発言は通し_それ以外の名乗りは通さない
+S00-9	主催かは「覚えた主催が自分か（覚えていなければ自分）」で決める。名簿の並び順では決めない	L0	crates/warifu-app/src/room/roster.rs 主催かは_覚えた主催で決める_名簿の先頭では決めない／crates/warifu-app/src/room/tests.rs ゲストの名簿は自分が先頭でも_主催ではない	済
 S00-10	主催が落ちたら、ゲストは自分で戻る	L1	apps/desktop/src-tauri/src/room_sim.rs 主催が上がり直しても_客は自分で戻る	済
 S00-11	画面の人数・届く先・見ているルームは本体と常に同じ。違えば食い違いとして知らせる	L4		未
 S00-12	生の鍵を人に見せない	L4		未
@@ -20,13 +20,13 @@ S02-1	発言の番号は立て直しても続く	L0	apps/desktop/src-tauri/src/d
 S02-2	部屋を替えても打ちかけの文は混ざらない	L0	apps/desktop/src/lib/chat/draft.test.ts	済
 S02-3	人が自分で部屋を替えたら、宛先を据え置かない	L0	apps/desktop/src/lib/chat/keep.test.ts 人が自分で部屋を替えたなら、据え置かない	済
 S01-5	名簿が動いたら主催はいまの名簿をゲスト全員へ配る	L1	apps/desktop/src-tauri/src/room_sim.rs 客どうしが直接つながれなくても_名簿は主催と同じになる	済（線が切れて外したときは未）
-S01-6	ゲストは主催から来た名簿だけを信じる	L0	apps/desktop/src-tauri/src/roster_sync.rs 主催の名簿に居て_自分の名簿に居ない相手を足す	済
-S01-8	名簿に居ない相手の発言は食い違いとして知らせる	L0	apps/desktop/src-tauri/src/lib.rs（試験なし）	未
-S01-11	ゲストは配らない	L1		未
-S01-13	1 つの発言はほかの全員にちょうど 1 回届き、自分には届かない	L1		未
+S01-6	ゲストは主催から来た名簿だけを信じる	L0	crates/warifu-app/src/room/roster.rs 主催の名簿に居て_自分の名簿に居ない相手を足す	済
+S01-8	名簿に居ない相手の発言は食い違いとして知らせる	L0	crates/warifu-app/src/room/tests.rs 名簿に居ない相手の文字は_届けたうえで食い違いを出す	済（純粋な部品。皮の配線は 0.1.41）
+S01-11	ゲストは配らない	L1	crates/warifu-app/src/room/tests.rs 主催ごしの文字は通し_主催でない相手の名乗りは捨てる	済（純粋な部品。皮の配線は 0.1.41）
+S01-13	1 つの発言はほかの全員にちょうど 1 回届き、自分には届かない	L1	crates/warifu-app/src/room/tests.rs 言う_ゲストは主催へだけ_主催は面々へ／主催は_別の部屋の線には配らない	一部（机上の網での「ちょうど 1 回」は未）
 S01-15	主催が上がり直して別の用で先に繋がっても、ゲストは置き去りにならない	L1	apps/desktop/src-tauri/src/room_sim.rs 主催が上がり直してすぐ別の用事で繋ぎ直しても_取り残されない	済
 S01-16	主催が居なくなったルームは見切って増やさない	L1	apps/desktop/src-tauri/src/room_sim.rs 主催の居ない部屋は_見切って叩き合いをやめ_部屋を増やさない	済
-S01-17	ゲストが落ちたら主催は外して配り直し、残りの名簿も揃う	L1		未
+S01-17	ゲストが落ちたら主催は外して配り直し、残りの名簿も揃う	L1	crates/warifu-app/src/room/tests.rs 客の線が切れたら_主催は外して名簿を配り直す	済（純粋な部品。皮の配線は 0.1.41）
 S01-19	エージェントが入るルームは人が見ているルームを奪わない	L1	apps/desktop/src-tauri/src/room_sim.rs 客として他人の部屋を見ていても_呼ばれたら自分の部屋へ招く	済
 S02-6	届き札は 渡した／預けた／届かない の 3 つ。既読は作らない	L0	apps/desktop/src/lib/chat/delivery.test.ts	済
 S02-8	@名前 は届く先を変えない。呼ばれた側にだけ印	L0	apps/desktop/src/lib/chat/mention.test.ts	済
