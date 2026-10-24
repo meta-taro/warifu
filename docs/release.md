@@ -76,6 +76,29 @@ security find-identity -v -p codesigning   # 出てくることを確かめる
 
 ---
 
+## 3.5 出す前の関門（**タグを打つ前に 1 回**・2026-10-24）
+
+```bash
+scripts/release-gate.sh            # Cargo.toml の版で見る
+scripts/release-gate.sh 0.1.40     # 版を言って見る（bump していなければ落ちる）
+```
+
+見るのは 6 つ。**全部通ってからタグを打つ**（打つのは人・`push` も人）。
+
+| | 落ちる条件 |
+|---|---|
+| 版 | `Cargo.toml` の版が言った版と違う（`scripts/bump-version.py` で上げる） |
+| 木 | commit していない変更がある |
+| CHANGELOG | その版の節が無い／節に「作業中」が残っている |
+| 互換 | 線の形（`warifu-meeting` の Notice・机の線・CLI の引数）が前のタグから動いているのに、節に「互換」の記述が無い。**切れないなら「互換：切れない」と 1 行書く**。切れるなら、配る前に各機械へ 1 行知らせる |
+| 文書 | 配布の文書の版が合わない（`check-doc-version.py`）／公開してはいけない語がある |
+| 試験 | workspace・画面側 Rust・画面の型・vitest のどれかが落ちる |
+
+バグが頻発した版（0.1.32〜0.1.39）は、どれもこの関門を通さずに出していた。
+**関門に無い落ち方が出たら、関門に足す**（`docs/spec/invariants.tsv` に条を足し、試験で守る）。
+
+---
+
 ## 4. 作る
 
 タグを打つか、Actions から `release` を手で起動する。

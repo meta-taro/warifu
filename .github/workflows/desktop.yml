@@ -3,9 +3,11 @@ name: desktop
 # 画面側の品質ゲート（product-baseline §5）。
 # rust.yml と同じ役割を apps/desktop に対して持つ。**落ちたまま放置しない**（§20）。
 #
-# Tauri（Rust 側）はここでは建てない。root の cargo workspace から外してあり
-# （Cargo.toml の exclude）、GUI の依存を毎 push 建てると 10 分単位で伸びる。
-# **建てるのは配布物を作るときだけ**にする。ここで見るのは純ロジックと型と build である。
+# 画面側の Rust（apps/desktop/src-tauri）は root の cargo workspace から外してある
+# （Cargo.toml の exclude）ので、rust.yml では走らない。2026-10-24 まで、その 178 本の試験
+# （机上の網 room_sim を含む）は手元の hook とタグ時の release.yml でしか走っていなかった。
+# **PR でも走らせる**（`rust-tauri` の job・macOS）。GUI の依存で 10 分前後かかるが、
+# ルームの不具合はここでしか先に捕まえられない。
 
 on:
   pull_request:
@@ -51,3 +53,30 @@ jobs:
       # 参照だけ足して壊れている状態を作らない（§23）。build まで通して初めて緑にする。
       - name: build
         run: pnpm --filter @warifu/desktop build
+
+  # 画面側の Rust の試験（机上の網 room_sim・desk・roster_sync …）。
+  # release.yml の「画面の Rust の試験」と同じコマンドを、タグを待たずに PR で回す。
+  rust-tauri:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: node と pnpm
+        run: |
+          corepack enable
+          corepack prepare --activate
+
+      - name: rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: install
+        run: pnpm install --frozen-lockfile
+
+      # tauri-build が frontendDist を見るので、先に建てる（release.yml と同じ順）
+      - name: フロントを建てる
+        run: pnpm --filter @warifu/desktop build
+
+      - name: 画面の Rust の試験
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
