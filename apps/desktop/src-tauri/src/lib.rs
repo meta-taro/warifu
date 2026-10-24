@@ -2114,12 +2114,11 @@ fn 汲む(
                         // **配らないと B と C はお互いの発言を 1 通も受け取らない**
                         // （2026-09-06 に実測）。**言った人はそのまま載っている**ので、
                         // 配られた側にも誰の発言かが分かる。
-                        let 主催 = {
-                            let 棚 = conferences.lock().await;
-                            棚.get(&notice.meeting())
-                                .map(|c| c.members().first() == Some(&me))
-                        };
-                        if 主催 == Some(true) {
+                        // **主催か**は覚えた主催で決める（0.1.40・`roster_sync::主催か`）。
+                        // 名簿の先頭で決めるとゲストでも真になり、ゲストまで配っていた
+                        let 主催 = conferences.lock().await.contains_key(&notice.meeting())
+                            && roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        if 主催 {
                             他へ配る(&outbound, peer, &notice).await;
                         }
                         continue;
@@ -2152,12 +2151,9 @@ fn 汲む(
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **エージェントには絵を渡さない。**画像が来たことだけを 1 行で見せる
                         desk::配る(&app.state::<Bridge>(), desk::聞いた(&名, &画像の札(中身.len())));
-                        let 主催 = {
-                            let 棚 = conferences.lock().await;
-                            棚.get(&notice.meeting())
-                                .map(|c| c.members().first() == Some(&me))
-                        };
-                        if 主催 == Some(true) {
+                        let 主催 = conferences.lock().await.contains_key(&notice.meeting())
+                            && roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        if 主催 {
                             他へ配る(&outbound, peer, &notice).await;
                         }
                         continue;
@@ -2350,8 +2346,12 @@ fn 汲む(
                         let 足した = {
                             let mut 棚 = conferences.lock().await;
                             let Some(c) = 棚.get_mut(meeting) else { continue };
-                            // **信じるのは主催の言い分だけ。**自分が主催なら、自分の名簿が正
-                            if !contacts::主催と同じか(部屋の主催, peer) || c.members().first() == Some(&me) {
+                            // **信じるのは主催の言い分だけ。**自分が主催なら、自分の名簿が正。
+                            // 主催かは覚えた主催で決める（0.1.40）。名簿の先頭で決めると、ゲストは自分が先頭なので
+                            // **主催が配った名簿を全部捨てていた**（0.1.39 の直しが受け取る側で死んでいた）
+                            if !contacts::主催と同じか(部屋の主催, peer)
+                                || roster_sync::主催か(部屋の主催.as_ref(), &me)
+                            {
                                 記録!(
                                     "名簿: 主催でない {} からの名簿は捨てた（部屋 {}）",
                                     短く(&key_to_string(peer)),
@@ -2391,7 +2391,9 @@ fn 汲む(
                         }
                         continue;
                     }
-                    // **どのルームあてかで振り分ける。**知らないルームのものは受け取らない
+                    // **どのルームあてかで振り分ける。**知らないルームのものは受け取らない。
+                    // 主催かは棚を取る前に読む（錠の順は 主催たち → 棚）
+                    let この部屋の主催 = 主催たち.lock().await.get(&notice.meeting()).copied();
                     let mut 棚 = conferences.lock().await;
                     let Some(c) = 棚.get_mut(&notice.meeting()) else {
                         記録!("受信: 知らないルームあてだった。捨てた");
@@ -2438,7 +2440,10 @@ fn 汲む(
                             }
                             emit_events(&app, c.id(), &events);
                             // **名簿が動いたら、主催はいまの名簿をゲスト全員へ配る**（0.1.39）
-                            let 配る = roster_sync::名簿を配るか(c.members().first() == Some(&me), &events)
+                            let 配る = roster_sync::名簿を配るか(
+                                roster_sync::主催か(この部屋の主催.as_ref(), &me),
+                                &events,
+                            )
                                 .then(|| (c.id(), 名簿の写し(c), c.members().to_vec()));
                             drop(棚);
                             if let Some((部屋, 名簿, 面々)) = 配る {

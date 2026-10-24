@@ -248,8 +248,10 @@ impl 網 {
                 continue;
             }
             let gm = &mut self.機械たち[g];
-            // ゲスト：主催から来た名簿だけを信じる
-            if gm.主催たち.get(&部屋) != Some(&主催の鍵) {
+            // ゲスト：主催から来た名簿だけを信じる。自分が主催なら自分の名簿が正（lib.rs の Invite の受けと同じ判定）
+            if gm.主催たち.get(&部屋) != Some(&主催の鍵)
+                || crate::roster_sync::主催か(gm.主催たち.get(&部屋), &gm.鍵)
+            {
                 continue;
             }
             let Some(c) = gm.棚.get_mut(&部屋) else { continue };
@@ -274,14 +276,16 @@ impl 網 {
             .unwrap_or_default();
         for k in 相手たち {
             let j = self.番号(k);
-            if self.繋がっている(i, j)
-                && let Some(c) = self.機械たち[j].棚.get_mut(&部屋)
-            {
+            if !self.繋がっている(i, j) {
+                continue;
+            }
+            // 主催かは覚えた主催で決める（0.1.40・lib.rs と同じ読み）。棚を触る前に読む
+            let 主催か = crate::roster_sync::主催か(self.機械たち[j].主催たち.get(&部屋), &self.機械たち[j].鍵);
+            if let Some(c) = self.機械たち[j].棚.get_mut(&部屋) {
                 let events = c
                     .on_notice(自分, &Notice::Leave { meeting: 部屋 })
                     .unwrap_or_default();
                 // 主催なら、抜けたあとの名簿をほかの客へ配る（0.1.39）
-                let 主催か = c.members().first() == Some(&c.me());
                 if crate::roster_sync::名簿を配るか(主催か, &events) {
                     self.名簿を配る(j, 部屋, Some(自分));
                 }
