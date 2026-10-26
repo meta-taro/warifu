@@ -168,7 +168,13 @@ warifu relay-server clear   # stop using it
 
 ## Updating
 
-The app checks on startup and offers the update itself.
+The app checks on startup, and every hour while running, and offers the update itself (a person clicks to install).
+
+**On Windows, stop every Claude Code session (`warifu mcp`) before updating.**
+A stale `warifu mcp` keeps the desk pipe (`\\.\pipe\warifu-desk`) open, and the new app then fails with
+"この機械を開けませんでした: アクセスが拒否されました (os error 5)" (seen on 0.1.39).
+Stop them, update, then start Claude Code again.
+The log is at `%USERPROFILE%\.local\share\warifu\warifu.log` (macOS: `~/Library/Application Support/warifu/warifu.log`).
 
 **The CLI is a separate binary and does not update with the app.** After updating the app, replace the CLI too — otherwise you are running two different versions, and before v0.1.3 that meant **the app and the CLI claimed different identities**. `warifu id` now checks this for you and says so:
 

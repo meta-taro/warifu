@@ -196,7 +196,13 @@ warifu relay-server clear   # 使うのをやめる
 
 ## 版を上げる
 
-画面は起動時に確かめて、自分で案内を出します。
+画面は起動時と、動いている間も 1 時間ごとに確かめて、自分で案内を出します（入れ替えは人が押します）。
+
+**Windows では、入れ替える前に Claude Code（`warifu mcp`）を全部止めてください。**
+古い `warifu mcp` が机のパイプ（`\\.\pipe\warifu-desk`）を掴んだままだと、新しい画面版が
+「この機械を開けませんでした: アクセスが拒否されました (os error 5)」で開けません（0.1.39 で実測）。
+止めてから入れ替え、入れ替えたら Claude Code を立ち上げ直してください。
+記録は `%USERPROFILE%\.local\share\warifu\warifu.log` にあります（macOS は `~/Library/Application Support/warifu/warifu.log`）。
 
 **CLI は別のバイナリで、画面と一緒には上がりません。**画面を上げたら CLI も入れ替えてください ——
 **v0.1.3 より前は、画面と CLI が別の身元を名乗っていました。**
