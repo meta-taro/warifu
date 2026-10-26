@@ -553,7 +553,7 @@
               {/if}
             </span>
           {/if}
-          <span class="name">{名(行)}</span>
+          <span class="name" title={名(行)}>{名(行)}</span>
           <!-- **まだ見ていない相手の行の数**（案 A・2026-09-11）。
                0 のときは出さない —— 0 を出すと、何も無いことが目に入り続ける -->
           {#if 未読(行) > 0}
@@ -618,7 +618,7 @@
           <div class="act" class:dim={案内.状態 === 'まだできない'}>
             <div class="top">
               <span class="glyph"><Icon name={口の見た目[案内.種類].icon} size={17} /></span>
-              <span class="title">{t(口の見た目[案内.種類].label)}</span>
+              <span class="title" title={t(口の見た目[案内.種類].label)}>{t(口の見た目[案内.種類].label)}</span>
               <span class="tag {状態の札[案内.状態].色}">{t(状態の札[案内.状態].label)}</span>
             </div>
             <p class="why">{t(案内.訳 as MessageKey)}</p>
@@ -754,7 +754,7 @@
             <div class="act" class:dim={口.状態 === 'まだできない'}>
               <div class="top">
                 <span class="glyph"><Icon name={口の見た目[口.種類].icon} size={17} /></span>
-                <span class="title">{t(口の見た目[口.種類].label)}</span>
+                <span class="title" title={t(口の見た目[口.種類].label)}>{t(口の見た目[口.種類].label)}</span>
                 <span class="tag {状態の札[口.状態].色}">{t(状態の札[口.状態].label)}</span>
               </div>
               <!-- **訳はどの札にも出す。**

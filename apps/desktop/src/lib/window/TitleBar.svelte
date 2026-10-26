@@ -76,7 +76,7 @@
       <span class="version">{版}</span>
     {/if}
   </span>
-  <span class="center">{status}</span>
+  <span class="center" title={status}>{status}</span>
   <span class="ctrls">
     {#each controls as c (c.id)}
       <button

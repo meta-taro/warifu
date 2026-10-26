@@ -72,6 +72,7 @@
 | **画面を見たか** | `apps/desktop/src/**` の `.svelte` / `.css` を触ったら、**commit message に `見た:` の行が要る** | `.githooks/commit-msg` |
 | **実在しないトークン** | `var(--…)` に書いた名前が、どこかで定義されているか | `lib/ui/tokens.test.ts` |
 | **字と地の対比** | 組にして使っている色が、WCAG の目安（本文 4.5 : 1／薄い字 3 : 1）を満たすか | `lib/ui/contrast.test.ts` |
+| **省略した字の全文** | `text-overflow: ellipsis` を当てた要素に、hover で全文を出す `title` があるか | `lib/ui/ellipsis.test.ts` |
 
 **見ていないなら、そう書く** ——「`見た: 見ていない（文言だけの直し）`」。**`--no-verify` で外さない。**
 

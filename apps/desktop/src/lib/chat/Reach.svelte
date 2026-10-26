@@ -40,7 +40,7 @@
     {#each 届く先 as 名, i (i)}
       <span class="who" title={見せる名(名)}>
         <Avatar 種={届く先の顔[i]} 大きさ={22} 画像={顔の画[届く先の顔[i]] ?? null} 名={見せる名(名)} {主の名} />
-        <span class="who-name">{見せる名(名)}</span>
+        <span class="who-name" title={見せる名(名)}>{見せる名(名)}</span>
       </span>
     {/each}
   </div>

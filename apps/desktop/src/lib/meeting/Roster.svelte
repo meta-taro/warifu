@@ -108,7 +108,7 @@
                字だけでは誰が誰か追えない（2026-09-12）。
                **確かめるのは全桁の鍵**であって、顔は見分けにすぎない -->
           <Avatar 種={m.key} 大きさ={18} 名="" />
-          <span class="name">{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
+          <span class="name" title={`${呼び名(names, m.key)}${m.me ? `（${t('tile.me')}）` : ''}`}>{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
           {#if m.host}<span class="host">{t('roster.host')}</span>{/if}
           <LinkBadge {locale} path={m.path} />
           {#if onRename && !m.me}
@@ -131,7 +131,7 @@
     <h3>{MESSAGES[locale]['contacts.this']}</h3>
     <ul class="desk">
       {#each この機械のAIたち as 呼び方 (呼び方)}
-        <li><span class="name">{呼び方}</span></li>
+        <li><span class="name" title={呼び方}>{呼び方}</span></li>
       {/each}
     </ul>
   {/if}

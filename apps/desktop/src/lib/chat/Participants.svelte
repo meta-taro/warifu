@@ -45,7 +45,7 @@
               {#each p.エージェントたち as 札 (札)}
                 <li>
                   <span class="kind">{t('avatar.owner.agent')}</span>
-                  <span class="name">{エージェントの名(p.自分 ? 席の名札(札) : 札)}</span>
+                  <span class="name" title={エージェントの名(p.自分 ? 席の名札(札) : 札)}>{エージェントの名(p.自分 ? 席の名札(札) : 札)}</span>
                 </li>
               {/each}
             </ul>
