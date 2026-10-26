@@ -117,11 +117,22 @@ pub fn 居場所から名乗る() -> Option<String> {
     let ここ = std::env::current_dir().ok()?;
     let 名 =
         仕事場の名(&ここ).or_else(|| ここ.file_name().map(|n| n.to_string_lossy().into_owned()))?;
-    let 名 = 名.trim().to_owned();
-    if 名.is_empty() || 名.chars().count() > warifu_desk::名乗りの上限 {
+    場所の名を名乗りに(&名)
+}
+
+/// **場所の名を、名乗りに収まる形にする。**空なら名乗らない。長いなら頭を残して切る。
+///
+/// 2026-10-26 に踏んだ —— 起動したリポジトリの名前が 33 字で、ここが `None` を返し、
+/// この機械は「先に名乗ってください」で `profile_set` まで断った。**名乗るための口まで名乗りを
+/// 要るので、席の中からは抜けられなかった。**`--as` は人が打つので長さを断ってよいが、
+/// 場所の名は人が選んでいない。**切って名乗る**（無いより、頭の 32 字がある方が人には分かる）。
+#[must_use]
+pub fn 場所の名を名乗りに(名: &str) -> Option<String> {
+    let 名 = 名.trim();
+    if 名.is_empty() {
         return None;
     }
-    Some(名)
+    Some(名.chars().take(warifu_desk::名乗りの上限).collect())
 }
 
 /// **仕事場（`.git` のある所）の名前。**無ければ `None`。
@@ -390,6 +401,32 @@ mod 名乗りの試験 {
         assert_eq!(
             仕事場の名(&根).as_deref(),
             根.file_name().and_then(|n| n.to_str())
+        );
+    }
+
+    #[test]
+    fn 長いフォルダ名は_切り詰めて名乗る() {
+        // **2026-10-26 に踏んだ。**起動したリポジトリの名前が 33 字で、名乗りが `None` になり、
+        // この機械は「先に名乗ってください」で `profile_set` まで断った —— **席の中からは抜けられない**。
+        // 長いなら**切って名乗る**（名乗りが無いより、頭の 32 字がある方が人には分かる）
+        let 長い = "a".repeat(warifu_desk::名乗りの上限 + 1);
+        let 名 = super::場所の名を名乗りに(&長い).expect("長くても名乗る");
+        assert_eq!(名.chars().count(), warifu_desk::名乗りの上限);
+        assert!(長い.starts_with(&名), "頭を残す");
+        // 字の途中で切らない（多バイトの字でも数は上限ちょうど）
+        let 和 = "あ".repeat(warifu_desk::名乗りの上限 + 5);
+        assert_eq!(
+            super::場所の名を名乗りに(&和).map(|n| n.chars().count()),
+            Some(warifu_desk::名乗りの上限)
+        );
+    }
+
+    #[test]
+    fn 空のフォルダ名は_名乗らない() {
+        assert_eq!(super::場所の名を名乗りに("  "), None);
+        assert_eq!(
+            super::場所の名を名乗りに(" warifu ").as_deref(),
+            Some("warifu")
         );
     }
 
