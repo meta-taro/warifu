@@ -643,6 +643,58 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+        // **棚にある部屋を並べる**（0.1.40・内部の Issue 026）。見ている部屋だけでは片付けられない
+        ToDesk::部屋たち => {
+            let bridge = app.state::<Bridge>();
+            let 並び = crate::ルームの並び(&bridge).await;
+            let 名前たち = crate::room_name::room_names();
+            let 見ている = crate::いま見ているルーム(&bridge.いまのルーム)
+                .await
+                .map(|m| m.to_string());
+            let 部屋 = 並び
+                .into_iter()
+                .map(|r| warifu_desk::部屋の行 {
+                    名前: 名前たち.get(&r.id).cloned(),
+                    人数: r.members,
+                    主催か: r.host,
+                    見ているか: 見ている.as_deref() == Some(r.id.as_str()),
+                    id: r.id,
+                })
+                .collect();
+            let _ = 口.送る(&FromDesk::部屋たち { 部屋 }.書く()).await;
+            Ok(())
+        }
+        // **部屋を指定して抜ける**（0.1.40）。画面の［このルームを抜ける］と同じ道
+        ToDesk::抜ける { 部屋 } => {
+            let 返事 = 部屋を抜ける(app, &部屋, &呼び方(名乗り.as_deref())).await;
+            記録!(
+                "抜ける: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::抜けた { 部屋 } => format!("部屋 {} を抜けました", crate::短く(部屋)),
+                    FromDesk::Denied { why } => format!("抜けませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **部屋に名前を付ける**（0.1.40）。画面の［決める］と同じ道
+        ToDesk::名前を付ける { 部屋, 名前 } => {
+            let 返事 = 部屋に名前を付ける(app, &部屋, &名前, &呼び方(名乗り.as_deref())).await;
+            記録!(
+                "名前を付ける: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::付けた { 部屋, 名前 } =>
+                        format!("部屋 {} に「{名前}」", crate::短く(部屋)),
+                    FromDesk::Denied { why } => format!("付けられませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         // **そこまで読んだ**（**D76**）。返事は要らない —— 数えるだけ
         ToDesk::Read { まで } => {
             読んだ(自分, まで);
@@ -1088,6 +1140,82 @@ async fn 住所で足す(app: &AppHandle, 住所: &str, 名前: &str, 誰: &str)
     );
     FromDesk::足した {
         名前: 名前.trim().to_owned(),
+    }
+}
+
+/// **口から部屋を抜ける**（0.1.40・内部の Issue 026）。
+///
+/// 居ない部屋・読めない指し方は**札を見る前に**断る（札を使った動作ではない）。
+/// 抜けたら画面に読み直させ、この機械の人とエージェントに 1 行で知らせる。
+async fn 部屋を抜ける(app: &AppHandle, 指定: &str, 誰: &str) -> FromDesk {
+    let bridge = app.state::<Bridge>();
+    let 候補: Vec<String> = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .map(ToString::to_string)
+        .collect();
+    let id = match 部屋を引く(&候補, 指定) {
+        Ok(id) => id,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    let Ok(meeting) = id.parse::<MeetingId>() else {
+        return FromDesk::Denied {
+            why: format!("部屋の id が読めません（{id}）"),
+        };
+    };
+    if !使い切りの札を受け取る("room.leave") {
+        return FromDesk::Denied {
+            why: "札（room.leave）を人が許していません（1 回使うと消えます。pass_ask で頼み直してください）"
+                .to_owned(),
+        };
+    }
+    crate::部屋を畳む(&bridge, meeting).await;
+    // **画面に読み直させる。**抜けたのは口なので、画面は自分では気づけない
+    let _ = app.emit(crate::EVENT_LOOK, ());
+    配る(
+        &bridge,
+        聞いた("割符", &format!("{誰} が部屋 {} を抜けました", crate::短く(&id))),
+    );
+    FromDesk::抜けた { 部屋: id }
+}
+
+/// **口から部屋に名前を付ける**（0.1.40）。居ない部屋は札を見る前に断る。
+async fn 部屋に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str, 誰: &str) -> FromDesk {
+    let bridge = app.state::<Bridge>();
+    let 候補: Vec<String> = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .map(ToString::to_string)
+        .collect();
+    let id = match 部屋を引く(&候補, 指定) {
+        Ok(id) => id,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    if !使い切りの札を受け取る("room.rename") {
+        return FromDesk::Denied {
+            why: "札（room.rename）を人が許していません（1 回使うと消えます。pass_ask で頼み直してください）"
+                .to_owned(),
+        };
+    }
+    let 名前 = 名前.trim();
+    if let Err(e) = crate::room_name::付ける(&bridge, &id, 名前).await {
+        return FromDesk::Denied {
+            why: format!("名前を付けられませんでした: {}", e.message),
+        };
+    }
+    // **画面にも同じ名前を出す**（人が付けたときと同じ出来事）
+    let _ = app.emit(crate::room_name::EVENT_ROOM_NAME, (id.clone(), 名前.to_owned()));
+    配る(
+        &bridge,
+        聞いた("割符", &format!("{誰} が部屋 {} に「{名前}」と名前を付けました", crate::短く(&id))),
+    );
+    FromDesk::付けた {
+        部屋: id,
+        名前: 名前.to_owned(),
     }
 }
 

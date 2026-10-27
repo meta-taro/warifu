@@ -54,6 +54,9 @@ const 許せる動作: &[&str] = &[
     "screen.read",
     // **会話を書き出す**（2026-10-16）。まとめて持ち出せるので chat.read と分ける
     "chat.export",
+    // **部屋を抜ける・名前を付ける**（0.1.40・内部の Issue 026）。部屋の形を変えるので、読む札とは分ける
+    "room.leave",
+    "room.rename",
 ];
 
 /// `warifu mcp` の設定。

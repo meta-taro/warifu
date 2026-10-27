@@ -133,6 +133,20 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::Profile { .. } => Some(FromDesk::Wrote {
                     who: "試験の席".to_owned(),
                 }),
+                // 0.1.40：部屋の片付けの 3 つの口
+                ToDesk::部屋たち => Some(FromDesk::部屋たち {
+                    部屋: vec![warifu_desk::部屋の行 {
+                        id: "ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+                        名前: Some("試験の部屋".to_owned()),
+                        人数: 1,
+                        主催か: true,
+                        見ているか: true,
+                    }],
+                }),
+                ToDesk::抜ける { 部屋 } => Some(FromDesk::抜けた { 部屋 }),
+                ToDesk::名前を付ける { 部屋, 名前 } => {
+                    Some(FromDesk::付けた { 部屋, 名前 })
+                }
                 ToDesk::Ask { 動作, .. } | ToDesk::札を待つ { 動作, .. } => {
                     Some(FromDesk::Asked {
                         動作,
@@ -338,6 +352,30 @@ async fn 口を全部_1回ずつ呼ぶ() {
         format!("{二度目:?}").contains("room.join"),
         "2 回目の room_join が通った: {二度目:?}"
     );
+
+    // 0.1.40：部屋の片付けの 3 つの口
+    結果.push(("room_list", format!("{:?}", 口.room_list().await)));
+    結果.push((
+        "room_rename",
+        format!(
+            "{:?}",
+            口.room_rename(Parameters(warifu_mcp::RoomRenameArgs {
+                room: "ROOMAAAAAAAA".to_owned(),
+                name: "試験の部屋".to_owned(),
+            }))
+            .await
+        ),
+    ));
+    結果.push((
+        "room_leave",
+        format!(
+            "{:?}",
+            口.room_leave(Parameters(warifu_mcp::RoomLeaveArgs {
+                room: "ROOMAAAAAAAA".to_owned(),
+            }))
+            .await
+        ),
+    ));
 
     結果.push((
         "contact_add",

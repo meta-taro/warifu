@@ -260,6 +260,23 @@ pub enum ToDesk {
     /// （10-22、届いた文字が別のルームの欄に積まれていた）。**人が見ているものを、エージェントが読む。**
     /// チャットの本文が入るので、札（`screen.read`）を MCP 側が確かめる。
     画面の写し,
+    /// **棚にある部屋を並べてもらう**（0.1.40・内部の Issue 026）。
+    ///
+    /// `Status様子` は見ている部屋の分だけなので、片付ける相手が口からは見えなかった。
+    部屋たち,
+    /// **部屋を指定して抜ける**（0.1.40）。主催なら畳む。画面の［このルームを抜ける］と同じ道。
+    /// 札（`room.leave`）は MCP 側が見て、この機械でも消す（1 回ごと）。
+    抜ける {
+        /// 部屋の id（全文か頭）。
+        部屋: String,
+    },
+    /// **部屋に名前を付ける**（0.1.40）。画面の［決める］と同じ道（居る人へ配る）。札（`room.rename`）。
+    名前を付ける {
+        /// 部屋の id（全文か頭）。
+        部屋: String,
+        /// 付ける名前。上限は [`部屋の名前の上限`]（文字）。
+        名前: String,
+    },
 }
 
 /// **画面の写しの上限**（バイト）。1 行の上限（本文の上限 ＋ 飾り）に、JSON の飾りごと収める。
@@ -361,6 +378,40 @@ pub const 名乗りの上限: usize = 32;
 
 /// 部屋の指し方（会議 id かその頭）の上限（バイト）。会議 id は 26 字。
 pub const 部屋の指し方の上限: usize = 64;
+
+/// 部屋に付ける名前の上限（文字）。画面の入力と同じ。
+pub const 部屋の名前の上限: usize = 64;
+
+/// 部屋の指し方として置ける形か（空・長すぎ・行を壊す字は受けない）。
+fn 部屋を検める(部屋: &str) -> Result<(), Error> {
+    if 部屋.is_empty()
+        || 部屋.len() > 部屋の指し方の上限
+        || 部屋.chars().any(|c| c.is_control() || c.is_whitespace())
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// 部屋の名前として置ける形か。空は「消す」ではなく受けない（消すのは画面から）。
+fn 部屋の名前を検める(名前: &str) -> Result<(), Error> {
+    let 数 = 名前.trim().chars().count();
+    if 数 == 0 {
+        return Err(Error::Empty);
+    }
+    if 数 > 部屋の名前の上限 {
+        return Err(Error::長すぎる {
+            何: "部屋の名前",
+            数,
+            上限: 部屋の名前の上限,
+            単位: "文字",
+        });
+    }
+    if 名前.chars().any(|c| c.is_control() || c == '\t') {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
 
 /// **一度に出せるルームキーの本数**（**#32 の段 2**・2026-09-21）。
 ///
@@ -639,6 +690,39 @@ pub enum FromDesk {
         /// 人が読める文字の写し。
         中身: String,
     },
+    /// **棚にある部屋**（[`ToDesk::部屋たち`] の返り・0.1.40）。
+    部屋たち {
+        /// 並び。見ている部屋も含む。
+        部屋: Vec<部屋の行>,
+    },
+    /// **抜けた**（[`ToDesk::抜ける`] の返り）。抜けられなければ [`FromDesk::Denied`]。
+    抜けた {
+        /// 抜けた部屋の id（全文）。
+        部屋: String,
+    },
+    /// **名前を付けた**（[`ToDesk::名前を付ける`] の返り）。付けられなければ [`FromDesk::Denied`]。
+    付けた {
+        /// 部屋の id（全文）。
+        部屋: String,
+        /// 付けた名前。
+        名前: String,
+    },
+}
+
+/// 棚にある部屋の 1 行（[`FromDesk::部屋たち`]・0.1.40）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct 部屋の行 {
+    /// 部屋の id（全文）。
+    pub id: String,
+    /// 付けた名前。無ければ `None`（画面は「ルーム N」と数えて呼ぶ）。
+    #[serde(default)]
+    pub 名前: Option<String>,
+    /// 居る人数（自分を含む）。
+    pub 人数: usize,
+    /// 自分が主催か。
+    pub 主催か: bool,
+    /// 画面が見ている部屋か。
+    pub 見ているか: bool,
 }
 
 /// 行が読めなかった理由。
@@ -723,12 +807,8 @@ impl ToDesk {
     pub fn say_in(body: impl Into<String>, room: Option<String>) -> Result<Self, Error> {
         let body = body.into();
         検める(&body)?;
-        if let Some(r) = &room
-            && (r.is_empty()
-                || r.len() > 部屋の指し方の上限
-                || r.chars().any(|c| c.is_control() || c.is_whitespace()))
-        {
-            return Err(Error::Malformed);
+        if let Some(r) = &room {
+            部屋を検める(r)?;
         }
         Ok(Self::Say { body, room })
     }
@@ -741,12 +821,8 @@ impl ToDesk {
         match &中身 {
             Self::Say { body, room } => {
                 検める(body)?;
-                if let Some(r) = room
-                    && (r.is_empty()
-                        || r.len() > 部屋の指し方の上限
-                        || r.chars().any(|c| c.is_control() || c.is_whitespace()))
-                {
-                    return Err(Error::Malformed);
+                if let Some(r) = room {
+                    部屋を検める(r)?;
                 }
             }
             Self::Listen {
@@ -786,7 +862,12 @@ impl ToDesk {
                 足す住所を検める(住所)?;
                 呼ぶ相手を検める(名前)?;
             }
-            Self::連絡先 | Self::書き出す | Self::画面の写し => {}
+            Self::抜ける { 部屋 } => 部屋を検める(部屋)?,
+            Self::名前を付ける { 部屋, 名前 } => {
+                部屋を検める(部屋)?;
+                部屋の名前を検める(名前)?;
+            }
+            Self::連絡先 | Self::書き出す | Self::画面の写し | Self::部屋たち => {}
             // 番号だけの行と、尋ねるだけの行。**中身が無いので検めるものが無い**
             Self::Read { .. } | Self::Status { .. } | Self::Status様子 => {}
         }
@@ -1322,6 +1403,41 @@ mod tests {
             部屋も聞く: false,
         };
         assert!(!聞かない.書く().contains("部屋も聞く"));
+    }
+
+    // 0.1.40・内部の Issue 026 —— 口から部屋を片付ける
+    #[test]
+    fn 部屋たち_抜ける_名前を付ける_が往復する() {
+        assert_eq!(
+            ToDesk::読む(&ToDesk::部屋たち.書く()).unwrap(),
+            ToDesk::部屋たち
+        );
+        let 抜ける = ToDesk::抜ける {
+            部屋: "4QNXPYQIHAYI".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&抜ける.書く()).unwrap(), 抜ける);
+        let 付ける = ToDesk::名前を付ける {
+            部屋: "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+            名前: "開発6台（全機）".to_owned(),
+        };
+        assert_eq!(ToDesk::読む(&付ける.書く()).unwrap(), 付ける);
+        assert!(ToDesk::読む(r#"{"型":"抜ける","部屋":""}"#).is_err());
+        assert!(ToDesk::読む(r#"{"型":"名前を付ける","部屋":"NBIW","名前":"  "}"#).is_err());
+        assert!(ToDesk::読む(r#"{"型":"名前を付ける","部屋":"NBIW","名前":"a\tb"}"#).is_err());
+        let 返り = FromDesk::部屋たち {
+            部屋: vec![部屋の行 {
+                id: "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+                名前: Some("開発6台（全機）".to_owned()),
+                人数: 5,
+                主催か: true,
+                見ているか: true,
+            }],
+        };
+        assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);
+        let 抜けた = FromDesk::抜けた {
+            部屋: "4QNXPYQIHAYIOV6OE2ZYEG4MXQ".to_owned(),
+        };
+        assert_eq!(FromDesk::読む(&抜けた.書く()).unwrap(), 抜けた);
     }
 
     #[test]

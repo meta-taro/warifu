@@ -272,6 +272,9 @@ fn 出している口を_数えて名前で押さえる() {
     // エージェントへ返さず、人が画面で承認してから相手の機械にだけ送る**ことである。
     // 0.1.30 に room_join を足した —— **札は別の room.join**。入ると、この機械の会話が
     // 相手に流れる。**鍵を出す（招く）とは向きが逆**なので、同じ札にしない。
+    // 0.1.40 に room_list / room_leave / room_rename を足した（内部の Issue 026）——
+    // 一覧は見るだけなので **chat.read**。抜ける・名前を付けるは部屋の形を変えるので
+    // **別の札 room.leave / room.rename**（1 回ごとに消える）。
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -298,6 +301,9 @@ fn 出している口を_数えて名前で押さえる() {
             "room_invite",
             "room_join",
             "room_key_give",
+            "room_leave",
+            "room_list",
+            "room_rename",
             "room_status",
             "rules_list",
             "voice_say",

@@ -572,6 +572,62 @@ impl Chat {
         }
     }
 
+    /// **棚にある部屋を並べてもらう**（0.1.40）。
+    ///
+    /// # Errors
+    /// この機械が返さないとき。
+    pub async fn 部屋たち(&self) -> Result<Vec<warifu_desk::部屋の行>, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::部屋たち, 部屋たちの返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::部屋たち { 部屋 } => Ok(部屋),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// **部屋を指定して抜ける**（0.1.40）。抜けた部屋の id を返す。
+    ///
+    /// # Errors
+    /// 居ない部屋・札が無い・この機械が返さないとき。
+    pub async fn 抜ける(&self, 部屋: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::抜ける {
+            部屋: 部屋.trim().to_owned(),
+        };
+        match self.頼んで待つ(行, 抜けるの返事, 返事を待つ秒).await? {
+            FromDesk::抜けた { 部屋 } => Ok(部屋),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// **部屋に名前を付ける**（0.1.40）。（部屋の id, 付けた名前）を返す。
+    ///
+    /// # Errors
+    /// 居ない部屋・札が無い・この機械が返さないとき。
+    pub async fn 名前を付ける(
+        &self,
+        部屋: &str,
+        名前: &str,
+    ) -> Result<(String, String), crate::ToolError> {
+        let 行 = ToDesk::名前を付ける {
+            部屋: 部屋.trim().to_owned(),
+            名前: 名前.trim().to_owned(),
+        };
+        match self.頼んで待つ(行, 付けるの返事, 返事を待つ秒).await? {
+            FromDesk::付けた { 部屋, 名前 } => Ok((部屋, 名前)),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。呼んだ相手の名前を返す。
     ///
     /// 繋ぎに行くので、ほかの頼みより長く待つ（[`呼ぶを待つ秒`]）。
@@ -1014,6 +1070,41 @@ fn 届き方の返事(中身: &FromDesk) -> bool {
 fn 名乗りの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Wrote { .. } | FromDesk::Denied { .. })
 }
+fn 部屋たちの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::部屋たち { .. } | FromDesk::Denied { .. })
+}
+fn 抜けるの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::抜けた { .. } | FromDesk::Denied { .. })
+}
+fn 付けるの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::付けた { .. } | FromDesk::Denied { .. })
+}
+
+/// `room_list` の返り（人とエージェントが読む 1 行ずつ）。
+#[must_use]
+pub fn 部屋の一覧の言い方(部屋: &[warifu_desk::部屋の行]) -> String {
+    if 部屋.is_empty() {
+        return "部屋はありません。".to_owned();
+    }
+    部屋
+        .iter()
+        .map(|r| {
+            format!(
+                "{}\t{}\t{} 人\t{}{}",
+                部屋の頭(&r.id),
+                r.名前.as_deref().unwrap_or("（名前なし）"),
+                r.人数,
+                if r.主催か { "主催" } else { "ゲスト" },
+                if r.見ているか {
+                    "\t見ている"
+                } else {
+                    ""
+                }
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 fn 声の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::声の返り { .. } | FromDesk::Denied { .. })
 }
@@ -1104,6 +1195,10 @@ fn 仕分ける(
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
+            // **部屋の一覧・抜けた・付けたも返事である**（0.1.40）。同じ穴に落とさない
+            | FromDesk::部屋たち { .. }
+            | FromDesk::抜けた { .. }
+            | FromDesk::付けた { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -1214,7 +1309,8 @@ fn 部屋の札(部屋: Option<&str>) -> String {
 }
 
 /// 会議 id の頭（人が見分ける分）。
-fn 部屋の頭(部屋: &str) -> String {
+#[must_use]
+pub fn 部屋の頭(部屋: &str) -> String {
     let 頭: String = 部屋.chars().take(12).collect();
     if 頭.len() < 部屋.len() {
         format!("{頭}…")
@@ -1340,7 +1436,11 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::足した { .. }
             | FromDesk::写し { .. }
             | FromDesk::書き出し { .. }
-            | FromDesk::手渡し { .. } => String::new(),
+            | FromDesk::手渡し { .. }
+            // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）
+            | FromDesk::部屋たち { .. }
+            | FromDesk::抜けた { .. }
+            | FromDesk::付けた { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
@@ -1459,6 +1559,31 @@ mod tests {
             古い.言い方(),
             "#12 を 3 人へ流しました: 画面・ルームの相手。読まれたかは chat_status で見られます。"
         );
+    }
+
+    #[test]
+    fn 部屋の一覧は_頭_名前_人数_主催か_見ているか_の順() {
+        let 行 = 部屋の一覧の言い方(&[
+            warifu_desk::部屋の行 {
+                id: "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+                名前: Some("開発6台（全機）".to_owned()),
+                人数: 5,
+                主催か: true,
+                見ているか: true,
+            },
+            warifu_desk::部屋の行 {
+                id: "4QNXPYQIHAYIOV6OE2ZYEG4MXQ".to_owned(),
+                名前: None,
+                人数: 1,
+                主催か: false,
+                見ているか: false,
+            },
+        ]);
+        assert_eq!(
+            行,
+            "NBIW3PA2TUQ5…\t開発6台（全機）\t5 人\t主催\t見ている\n4QNXPYQIHAYI…\t（名前なし）\t1 人\tゲスト"
+        );
+        assert_eq!(部屋の一覧の言い方(&[]), "部屋はありません。");
     }
 
     #[test]

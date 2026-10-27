@@ -248,3 +248,19 @@ mod 断り文の試験 {
         );
     }
 }
+
+/// [`crate::Warifu::room_leave`] の引数（0.1.40）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct RoomLeaveArgs {
+    /// 抜ける部屋の id（`room_list` の行の頭でよい）。
+    pub room: String,
+}
+
+/// [`crate::Warifu::room_rename`] の引数（0.1.40）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct RoomRenameArgs {
+    /// 名前を付ける部屋の id（`room_list` の行の頭でよい）。
+    pub room: String,
+    /// 付ける名前（64 文字まで）。誰が居て何のための部屋かが分かる名前にする。
+    pub name: String,
+}

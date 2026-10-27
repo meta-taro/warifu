@@ -702,6 +702,59 @@ impl Warifu {
         ))
     }
 
+    /// **棚にある部屋を並べる**（0.1.40・内部の Issue 026）。
+    #[tool(
+        description = "この機械の割符が居る部屋をすべて並べる（id の頭・名前・人数・主催か・見ているか）。\
+                       room_status は見ている部屋の分しか出さないので、片付ける部屋や返事を流す先はこれで見る。\
+                       札は chat.read。"
+    )]
+    pub async fn room_list(&self) -> Result<String, ErrorData> {
+        self.通るか("chat.read")?;
+        let この機械 = self.この機械().await?;
+        let 部屋 = この機械.部屋たち().await?;
+        Ok(crate::chat::部屋の一覧の言い方(&部屋))
+    }
+
+    /// **部屋を指定して抜ける**（0.1.40）。
+    #[tool(
+        description = "部屋を指定して抜ける（この機械の割符がその部屋を出る。主催なら畳む）。\
+                       画面の［このルームを抜ける］と同じ道で、居る人へ「抜けた」が告げられ、帰り道も消える。\
+                       **人に頼まれたときに使う。**この口には札（room.leave）が要り、1 回使うと消える。無ければ pass_ask で頼む。"
+    )]
+    pub async fn room_leave(
+        &self,
+        Parameters(args): Parameters<crate::tools::RoomLeaveArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("room.leave")?;
+        self.札を使い切る("room.leave");
+        let この機械 = self.この機械().await?;
+        let 部屋 = この機械.抜ける(&args.room).await?;
+        Ok(format!(
+            "部屋 {} を抜けました。",
+            crate::chat::部屋の頭(&部屋)
+        ))
+    }
+
+    /// **部屋に名前を付ける**（0.1.40）。
+    #[tool(
+        description = "部屋に人が読める名前を付ける（誰が居て何のための部屋か）。画面の［決める］と同じ道で、\
+                       居る人みんなに同じ名前が見える（誰が付け直しても新しいものが勝つ）。\
+                       この口には札（room.rename）が要り、1 回使うと消える。無ければ pass_ask で頼む。"
+    )]
+    pub async fn room_rename(
+        &self,
+        Parameters(args): Parameters<crate::tools::RoomRenameArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("room.rename")?;
+        self.札を使い切る("room.rename");
+        let この機械 = self.この機械().await?;
+        let (部屋, 名前) = この機械.名前を付ける(&args.room, &args.name).await?;
+        Ok(format!(
+            "部屋 {} に「{名前}」を付けました。居る人へ渡しました。",
+            crate::chat::部屋の頭(&部屋)
+        ))
+    }
+
     /// **覚えている相手を、ルームキーなしで呼ぶ**（2026-10-16）。
     #[tool(
         description = "覚えている相手（連絡先）を、ルームキーなしで呼ぶ。**呼ぶと、この機械が相手の主催しているルームへ招かれる**（相手をこちらのルームへ引き込むのではない）。\
