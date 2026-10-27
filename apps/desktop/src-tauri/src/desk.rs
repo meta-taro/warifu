@@ -992,20 +992,24 @@ const 名前の無い相手: &str = "（名前なし・ルームで会った相�
 ///
 /// 戸口にも載せるので、相手から鍵なしで呼べるようになる。**札は 1 回で消え、人に必ず知らせる**
 /// （`鍵で入る` と同じ構え）。連絡帳は名前のため、戸口は通すかの判断のため（2 つを 1 つにしない）。
+///
+/// **札を見るのは、足せると決まってから**（0.1.40・`contacts::札を使って足す`）。断られた足し方で
+/// 札を消さない。消す場所は `使い切りの札を受け取る` 1 か所のまま。
 async fn 住所で足す(app: &AppHandle, 住所: &str, 名前: &str, 誰: &str) -> FromDesk {
-    if !使い切りの札を受け取る("contacts.add") {
-        return FromDesk::Denied {
-            why: "札（contacts.add）を人が許していません（1 回使うと消えます。pass_ask で頼み直してください）"
-                .to_owned(),
-        };
-    }
     let bridge = app.state::<Bridge>();
     let 自分 = bridge.device.public_key();
     let 結果 = warifu_vault::Vault::default_location()
         .map_err(|e| format!("連絡先を読めませんでした: {e}"))
         .and_then(|v| {
             let mut 帳 = v.contacts().map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
-            let 相手 = crate::contacts::住所から足す(&mut 帳, 自分, 住所, 名前, crate::now_secs())?;
+            let 相手 = crate::contacts::札を使って足す(
+                &mut 帳,
+                自分,
+                住所,
+                名前,
+                crate::now_secs(),
+                || 使い切りの札を受け取る("contacts.add"),
+            )?;
             v.save_contacts(&帳)
                 .map_err(|e| format!("連絡先を書けませんでした: {e}"))?;
             Ok(相手)
