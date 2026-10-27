@@ -144,6 +144,12 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     }],
                 }),
                 ToDesk::抜ける { 部屋 } => Some(FromDesk::抜けた { 部屋 }),
+                ToDesk::相手に名前を付ける { 名前, .. } => {
+                    Some(FromDesk::名付けた {
+                        鍵: "PEERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+                        名前,
+                    })
+                }
                 ToDesk::名前を付ける { 部屋, 名前 } => {
                     Some(FromDesk::付けた { 部屋, 名前 })
                 }
@@ -353,6 +359,18 @@ async fn 口を全部_1回ずつ呼ぶ() {
         "2 回目の room_join が通った: {二度目:?}"
     );
 
+    // 0.1.40：相手に名前を付ける口
+    結果.push((
+        "contact_name",
+        format!(
+            "{:?}",
+            口.contact_name(Parameters(warifu_mcp::ContactNameArgs {
+                who: "PEERAAAA".to_owned(),
+                name: "試験の相手".to_owned(),
+            }))
+            .await
+        ),
+    ));
     // 0.1.40：部屋の片付けの 3 つの口
     結果.push(("room_list", format!("{:?}", 口.room_list().await)));
     結果.push((

@@ -702,6 +702,26 @@ impl Warifu {
         ))
     }
 
+    /// **相手（連絡先）に名前を付ける**（0.1.40・内部の Issue 016 の 26）。
+    #[tool(
+        description = "ルームで会った相手（contacts_list で「名前なし」と出る相手）や、覚えている相手に呼び名を付ける・付け直す。\
+                       画面の「名前を付ける」と同じ道で、知っている住所も一緒に書く（付けたあとも contact_call で呼べる）。\
+                       who は名前か鍵の頭。**人に頼まれたときに使う。**この口には札（contacts.add）が要り、1 回使うと消える。"
+    )]
+    pub async fn contact_name(
+        &self,
+        Parameters(args): Parameters<crate::tools::ContactNameArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("contacts.add")?;
+        self.札を使い切る("contacts.add");
+        let この機械 = self.この機械().await?;
+        let (鍵, 名前) = この機械.相手に名前を付ける(&args.who, &args.name).await?;
+        Ok(format!(
+            "{}… に「{名前}」と名前を付けました。",
+            鍵.chars().take(12).collect::<String>()
+        ))
+    }
+
     /// **棚にある部屋を並べる**（0.1.40・内部の Issue 026）。
     #[tool(
         description = "この機械の割符が居る部屋をすべて並べる（id の頭・名前・人数・主催か・見ているか）。\

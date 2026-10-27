@@ -606,6 +606,28 @@ impl Chat {
         }
     }
 
+    /// **相手（連絡先）に名前を付ける**（0.1.40）。（相手の鍵, 付けた名前）を返す。
+    ///
+    /// # Errors
+    /// 居ない相手・2 人に当たる・札が無い・この機械が返さないとき。
+    pub async fn 相手に名前を付ける(
+        &self,
+        相手: &str,
+        名前: &str,
+    ) -> Result<(String, String), crate::ToolError> {
+        let 行 = ToDesk::相手に名前を付ける {
+            相手: 相手.trim().to_owned(),
+            名前: 名前.trim().to_owned(),
+        };
+        match self.頼んで待つ(行, 名付けるの返事, 返事を待つ秒).await? {
+            FromDesk::名付けた { 鍵, 名前 } => Ok((鍵, 名前)),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **部屋に名前を付ける**（0.1.40）。（部屋の id, 付けた名前）を返す。
     ///
     /// # Errors
@@ -1079,6 +1101,9 @@ fn 抜けるの返事(中身: &FromDesk) -> bool {
 fn 付けるの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::付けた { .. } | FromDesk::Denied { .. })
 }
+fn 名付けるの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::名付けた { .. } | FromDesk::Denied { .. })
+}
 
 /// `room_list` の返り（人とエージェントが読む 1 行ずつ）。
 #[must_use]
@@ -1199,6 +1224,7 @@ fn 仕分ける(
             | FromDesk::部屋たち { .. }
             | FromDesk::抜けた { .. }
             | FromDesk::付けた { .. }
+            | FromDesk::名付けた { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -1440,7 +1466,8 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）
             | FromDesk::部屋たち { .. }
             | FromDesk::抜けた { .. }
-            | FromDesk::付けた { .. } => String::new(),
+            | FromDesk::付けた { .. }
+            | FromDesk::名付けた { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),

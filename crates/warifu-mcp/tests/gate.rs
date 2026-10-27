@@ -292,6 +292,7 @@ fn 出している口を_数えて名前で押さえる() {
             "chat_wait",
             "contact_add",
             "contact_call",
+            "contact_name",
             "contacts_list",
             "inbox_list",
             "inbox_open",

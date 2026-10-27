@@ -218,7 +218,9 @@ mod 届かなかったとき {
     #[tokio::test]
     async fn 当てにいった番地が_文面に出る() {
         // **相手のいまの番地と見比べられるように、そのまま出す**
-        let 宛先 = Address::from_ip_addrs(鍵(), [番("192.168.24.17:55698")]);
+        // 番地は文書用（TEST-NET-3）。家の網の番地にしていたら、2026-10-27 にその番地に
+        // 別の割符が居て握手が「知らない相手」で落ち、「届かない」の文が出なかった
+        let 宛先 = Address::from_ip_addrs(鍵(), [番("203.0.113.17:55698")]);
         let 私 = warifu_core::Seed::from_bytes([1u8; 32])
             .profile("Personal")
             .device("me");
@@ -234,7 +236,7 @@ mod 届かなかったとき {
             .await
             .expect_err("届かない");
         let 文 = 失敗.to_string();
-        assert!(文.contains("192.168.24.17:55698"), "{文}");
+        assert!(文.contains("203.0.113.17:55698"), "{文}");
         assert!(文.contains("番地が変わった"), "{文}");
     }
 }

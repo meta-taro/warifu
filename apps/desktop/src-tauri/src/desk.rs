@@ -679,6 +679,22 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+        // **相手に名前を付ける**（0.1.40）。画面の「名前を付ける」と同じ道
+        ToDesk::相手に名前を付ける { 相手, 名前 } => {
+            let 返事 = 相手に名前を付ける(app, &相手, &名前, &呼び方(名乗り.as_deref())).await;
+            記録!(
+                "相手に名前を付ける: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::名付けた { 鍵, 名前 } =>
+                        format!("{} に「{名前}」", crate::短く(鍵)),
+                    FromDesk::Denied { why } => format!("付けられませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         // **部屋に名前を付ける**（0.1.40）。画面の［決める］と同じ道
         ToDesk::名前を付ける { 部屋, 名前 } => {
             let 返事 = 部屋に名前を付ける(app, &部屋, &名前, &呼び方(名乗り.as_deref())).await;
@@ -1051,20 +1067,23 @@ fn 呼べる相手を並べる() -> Result<Vec<warifu_desk::連絡先の行>, St
     let 帳 = 置き場
         .contacts()
         .map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
-    let mut 行たち: Vec<warifu_desk::連絡先の行> = 帳
-        .iter()
-        .map(|c| warifu_desk::連絡先の行 {
-            名前: c.label().to_owned(),
-            鍵: c.key().to_string(),
-            住所あり: c.address().is_some(),
-        })
-        .collect();
     // **名前を付けていない相手も、ルームで会っていれば鍵の頭で呼べる**（0.1.32）。
     // 名前は付けない（知らない相手を、知っているように見せない・D46）
     let 会った = 置き場.met().unwrap_or_else(|e| {
         記録!("会った相手を読めませんでした（名前のある相手だけを並べます）: {e}");
         Vec::new()
     });
+    let mut 行たち: Vec<warifu_desk::連絡先の行> = 帳
+        .iter()
+        .map(|c| warifu_desk::連絡先の行 {
+            名前: c.label().to_owned(),
+            鍵: c.key().to_string(),
+            // **呼べるかは `住所を引く` と同じに決める**（0.1.40）：連絡帳に住所が無くても、
+            // ルームで会ったときの住所があれば呼べる。CLI の `contacts add` で名前だけ付けた相手が
+            // 「住所を知らない（呼べない）」と出ていたが、呼べていた（10-27 に実物で見た）
+            住所あり: 呼べるか(c, &会った),
+        })
+        .collect();
     行たち.extend(名前の無い会った相手(&行たち, 会った));
     Ok(行たち)
 }
@@ -1075,6 +1094,11 @@ fn 名前のある連絡先() -> Result<Vec<warifu_desk::連絡先の行>, Strin
         .into_iter()
         .filter(|r| r.名前 != 名前の無い相手)
         .collect())
+}
+
+/// 覚えている相手を呼べるか。連絡帳の住所か、ルームで会ったときの住所のどちらかがあればよい。
+fn 呼べるか(c: &warifu_vault::Contact, 会った: &[(warifu_core::PublicKey, String)]) -> bool {
+    c.address().is_some() || 会った.iter().any(|(k, _)| *k == c.key())
 }
 
 /// 会った相手のうち、**連絡帳に無い者だけ**を、名前の無い行にする。新しく会った順。
@@ -1179,6 +1203,69 @@ async fn 部屋を抜ける(app: &AppHandle, 指定: &str, 誰: &str) -> FromDes
         聞いた("割符", &format!("{誰} が部屋 {} を抜けました", crate::短く(&id))),
     );
     FromDesk::抜けた { 部屋: id }
+}
+
+/// **口から相手に名前を付ける**（0.1.40・内部の Issue 016 の 26）。
+///
+/// 画面の `remember` と同じ：呼び名を書き、いま知っている住所（線の相手の名乗り、無ければ
+/// ルームで会ったときの住所）も書く。居ない相手・2 人に当たる指し方は**札を見る前に**断る。
+async fn 相手に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str, 誰: &str) -> FromDesk {
+    let 帳 = match 呼べる相手を並べる() {
+        Ok(行たち) => 行たち,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    let 組: Vec<(String, String)> = 帳.into_iter().map(|r| (r.鍵, r.名前)).collect();
+    let 鍵 = match crate::contacts::呼ぶ相手を決める(&組, 指定) {
+        Ok(鍵) => 鍵,
+        Err(why) => return FromDesk::Denied { why },
+    };
+    let Ok(who) = 鍵.parse::<warifu_core::PublicKey>() else {
+        return FromDesk::Denied {
+            why: format!("鍵が読めません（{}）", crate::短く(&鍵)),
+        };
+    };
+    if !使い切りの札を受け取る("contacts.add") {
+        return FromDesk::Denied {
+            why: crate::contacts::札が無い.to_owned(),
+        };
+    }
+    let bridge = app.state::<Bridge>();
+    let 名前 = 名前.trim();
+    let 住所 = match bridge.addresses.lock().await.get(&who.to_bytes()).cloned() {
+        Some(住所) => Some(住所),
+        None => warifu_vault::Vault::default_location()
+            .and_then(|v| v.met())
+            .ok()
+            .and_then(|会った| 会った.into_iter().find(|(k, _)| *k == who).map(|(_, a)| a)),
+    };
+    let 結果 = warifu_vault::Vault::default_location()
+        .map_err(|e| format!("連絡先を読めませんでした: {e}"))
+        .and_then(|v| {
+            let mut list = v.contacts().map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
+            list.add(who, 名前, crate::now_secs())
+                .map_err(|e| format!("名前を付けられません: {e}"))?;
+            if let Some(住所) = &住所 {
+                let _ = list.note_address(who, 住所);
+            }
+            v.save_contacts(&list)
+                .map_err(|e| format!("連絡先を書けませんでした: {e}"))
+        });
+    if let Err(why) = 結果 {
+        return FromDesk::Denied { why };
+    }
+    // **画面に読み直させる**（名簿と連絡帳）。付けたのは口なので、画面は自分では気づけない
+    let _ = app.emit(crate::EVENT_LOOK, ());
+    配る(
+        &bridge,
+        聞いた(
+            "割符",
+            &format!("{誰} が {} に「{名前}」と名前を付けました", crate::短く(&鍵)),
+        ),
+    );
+    FromDesk::名付けた {
+        鍵,
+        名前: 名前.to_owned(),
+    }
 }
 
 /// **口から部屋に名前を付ける**（0.1.40）。居ない部屋は札を見る前に断る。
@@ -2158,6 +2245,26 @@ mod tests {
     }
 
     /// **名前の無い相手は、連絡帳に無い者だけ・新しく会った順に足す**（0.1.32）。
+    #[test]
+    fn 名前だけ付けた相手も_会った住所があれば呼べる() {
+        use super::呼べるか;
+        use warifu_core::Seed;
+        let 鍵 = |b: u8| {
+            Seed::from_bytes([b; 32])
+                .profile("Personal")
+                .device(warifu_core::端末の呼び名)
+                .public_key()
+        };
+        let mut 帳 = warifu_vault::Contacts::new();
+        帳.add(鍵(1), "相手A", 1).expect("足せる");
+        帳.add(鍵(2), "相手B", 1).expect("足せる");
+        let 会った = vec![(鍵(1), "住所1".to_owned())];
+        let a = 帳.find(鍵(1)).expect("在る");
+        let b = 帳.find(鍵(2)).expect("在る");
+        assert!(呼べるか(a, &会った), "連絡帳に住所が無くても、会った住所で呼べる");
+        assert!(!呼べるか(b, &会った), "どちらの住所も無ければ呼べない");
+    }
+
     #[test]
     fn 会った相手は_名前の無い行として連絡帳の後ろに並ぶ() {
         use super::{名前の無い会った相手, 名前の無い相手};

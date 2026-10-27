@@ -264,3 +264,12 @@ pub struct RoomRenameArgs {
     /// 付ける名前（64 文字まで）。誰が居て何のための部屋かが分かる名前にする。
     pub name: String,
 }
+
+/// [`crate::Warifu::contact_name`] の引数（0.1.40）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ContactNameArgs {
+    /// 誰に付けるか。`contacts_list` に出る名前か、鍵の頭（名前なしの相手は鍵の頭で）。
+    pub who: String,
+    /// 付ける呼び名（64 文字まで）。「担当プロダクト（デバイス名）」の形にそろえる。
+    pub name: String,
+}
