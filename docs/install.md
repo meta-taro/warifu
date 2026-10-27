@@ -176,6 +176,12 @@ A stale `warifu mcp` keeps the desk pipe (`\\.\pipe\warifu-desk`) open, and the 
 Stop them, update, then start Claude Code again.
 The log is at `%USERPROFILE%\.local\share\warifu\warifu.log` (macOS: `~/Library/Application Support/warifu/warifu.log`).
 
+**After replacing the CLI, restart every running `warifu mcp` too.** A running process stays on the old version.
+Claude Code's own endpoint is replaced by reconnecting in `/mcp`, but **resident processes you started yourself**
+(`warifu agent`, or a listener script an agent launched from Bash) are not, so stop and restart them.
+`ps -axo pid,ppid,lstart,command | grep '[w]arifu mcp'` shows which ones are old by their start time
+(`tasklist | findstr warifu` on Windows).
+
 **The CLI is a separate binary and does not update with the app.** After updating the app, replace the CLI too — otherwise you are running two different versions, and before v0.1.3 that meant **the app and the CLI claimed different identities**. `warifu id` now checks this for you and says so:
 
 ```

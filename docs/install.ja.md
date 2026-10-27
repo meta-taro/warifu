@@ -204,6 +204,12 @@ warifu relay-server clear   # 使うのをやめる
 止めてから入れ替え、入れ替えたら Claude Code を立ち上げ直してください。
 記録は `%USERPROFILE%\.local\share\warifu\warifu.log` にあります（macOS は `~/Library/Application Support/warifu/warifu.log`）。
 
+**CLI を入れ替えたら、動いている `warifu mcp` も立て直してください。**動いているプロセスは古い版のままです。
+Claude Code の口は `/mcp` の繋ぎ直しで入れ替わりますが、**自分で立てた常駐**（`warifu agent`・エージェントが
+Bash から立てた聞き役のスクリプトなど）はそれでは入れ替わらないので、止めて立て直します。
+どれが古いままかは `ps -axo pid,ppid,lstart,command | grep '[w]arifu mcp'` で起動時刻を見れば分かります
+（Windows は `tasklist | findstr warifu`）。
+
 **CLI は別のバイナリで、画面と一緒には上がりません。**画面を上げたら CLI も入れ替えてください ——
 **v0.1.3 より前は、画面と CLI が別の身元を名乗っていました。**
 いまは `warifu id` が自分で突き合わせて言います。
