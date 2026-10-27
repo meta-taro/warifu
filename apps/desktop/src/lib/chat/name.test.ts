@@ -18,6 +18,22 @@ describe('行の差出人名', () => {
     expect(行の差出人名(行({ who: 'PEERAAAAAAAA…', 顔の種: 'KEY9' }), {})).toBe('PEERAAAAAAAA…');
   });
 
+  it('**相手の機械のエージェント**は、名乗り（席）を先に、連絡先の名前（機械）を添える', () => {
+    // 2026-10-27（内部の Issue 026 の #49）。相手の機械のエージェントの行は
+    // `短く(鍵)（札）` で届くので、名簿を鍵で引けず **鍵の頭だけ** が出ていた。
+    // 連絡先に名前を付けていても、席が名乗っていても、人には誰の発言か分からなかった
+    const 名簿 = { O4FXQZLARCFBJRLEKLSYIH4NTNPRLEFQEZL7C2PU3Z464KG47DEQ: 'ZenBook' };
+    expect(
+      行の差出人名(行({ who: 'O4FXQZLARCFB…', 顔の種: 'O4FXQZLARCFB…（割符（ZenBook）（ZenBook））' }), 名簿),
+    ).toBe('割符（ZenBook）（ZenBook）・ZenBook');
+  });
+
+  it('相手の機械のエージェントで、機械に名前が無ければ、名乗りと鍵の頭', () => {
+    expect(
+      行の差出人名(行({ who: 'O4FXQZLARCFB…', 顔の種: 'O4FXQZLARCFB…（割符（ZenBook）（ZenBook））' }), {}),
+    ).toBe('割符（ZenBook）（ZenBook）・O4FXQZLARCFB…');
+  });
+
   it('顔の種が無い行（知らせなど）は、そのまま', () => {
     expect(行の差出人名(行({ who: '会議', system: true }), { KEY1: 'あ' })).toBe('会議');
   });

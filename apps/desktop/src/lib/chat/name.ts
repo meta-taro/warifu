@@ -25,8 +25,31 @@ import type { 会話行 } from '$lib/meeting/announce';
 export function 行の差出人名(行: 会話行, 名簿: Readonly<Record<string, string>>): string {
   const 種 = 行.顔の種;
   if (!種) return 行.who;
+  // **相手の機械のエージェント**は `短く(鍵)（札）` で届く（2026-10-27・内部の Issue 026 の #49）。
+  // 名簿は鍵の全桁で引くので、この形のままでは引けず**鍵の頭だけ**が出ていた ——
+  // 連絡先に名前を付けていても、席が名乗っていても、人には誰の発言か分からなかった。
+  // **名乗り（席）を先に、連絡先の名前（機械）を添える。**1 台に席が複数あっても見分けられる
+  const 分けた = 相手の機械の名札を分ける(種);
+  if (分けた) {
+    const 機械 = 鍵の頭から引く(名簿, 分けた.頭) ?? `${分けた.頭}…`;
+    return `${分けた.札}・${機械}`;
+  }
   const 引いた = 名簿[種];
   return 引いた && 引いた.length > 0 ? 引いた : 行.who;
+}
+
+/** 相手の機械のエージェントの名札（`短く(鍵)（札）`）を、鍵の頭と札に分ける。公開鍵は `（` を含まない。 */
+function 相手の機械の名札を分ける(種: string): { 頭: string; 札: string } | null {
+  const 位置 = 種.indexOf('（');
+  if (位置 <= 0 || !種.endsWith('）')) return null;
+  return { 頭: 種.slice(0, 位置).replace(/…$/, ''), 札: 種.slice(位置 + 1, -1) };
+}
+
+/** 鍵の頭から、名簿（鍵の全桁 → 名前）を引く。1 つに決まらなければ引かない。 */
+function 鍵の頭から引く(名簿: Readonly<Record<string, string>>, 頭: string): string | undefined {
+  if (頭 === '') return undefined;
+  const 当たり = Object.keys(名簿).filter((k) => k.startsWith(頭) && 名簿[k].length > 0);
+  return 当たり.length === 1 ? 名簿[当たり[0]] : undefined;
 }
 
 /** 机が組むエージェントの名札の後ろ（`desk.rs` の `{名} のエージェント`）。 */
