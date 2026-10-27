@@ -377,6 +377,8 @@ export const stopKnowing = (key: string) => invoke<boolean>('stop_knowing', { ke
  * 鍵なしでは入れない（一度通した相手だけが入れる）。
  */
 export const knownKeys = () => invoke<string[]>('known_keys');
+/** **ルームで会った相手の鍵**（`met.tsv`・0.1.40）。名前を付けていなくても連絡帳に残す。 */
+export const metKeys = () => invoke<string[]>('met_keys');
 
 /**
  * **同じ PC の AI に「止まれ」と言う。**

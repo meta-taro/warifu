@@ -126,7 +126,27 @@ describe('ルームの一覧', () => {
       ],
     });
     const 行たち = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
-    expect(行たち.map((r) => r.name)).toEqual(['room.nth:1:3', 'room.nth:2:1']);
+    // 自分が建てた部屋は「あなたの部屋」。主催を覚えていない部屋は数えて呼ぶ（0.1.40）
+    expect(行たち.map((r) => r.name)).toEqual(['room.own', 'room.nth:2:1']);
+  });
+
+  it('主催を覚えている部屋は「◯◯ の部屋」、会った相手は部屋を出ても名前なしで残る（0.1.40）', () => {
+    const 区画 = 連絡帳を組む({
+      自分: 'ME',
+      この機械のAIたち: [],
+      会議の相手: [],
+      覚えた: [{ key: 'HOSTKEYAAAAAAAAAAAAAAAA', label: 'ドスパラ', has_address: true }],
+      会った: ['HOSTKEYAAAAAAAAAAAAAAAA', 'METKEYBBBBBBBBBBBBBBBBB'],
+      ルームたち: [
+        { id: 'ROOM1AAAAAAAAAAAAAAAA', members: 3, host: false, host_key: 'HOSTKEYAAAAAAAAAAAAAAAA' },
+      ],
+    });
+    const ルーム = 区画.find((s) => s.title === 'contacts.rooms')?.行たち ?? [];
+    expect(ルーム[0].name).toBe('room.of:ドスパラ');
+    const 連絡先 = 区画.find((s) => s.title === 'contacts.saved')?.行たち ?? [];
+    // 会っただけの相手は、会議に居なくても名前なし（鍵の頭）で並ぶ。覚えている相手と重ねない（並びは名前順）
+    expect(連絡先.map((r) => r.key).sort()).toEqual(['HOSTKEYAAAAAAAAAAAAAAAA', 'METKEYBBBBBBBBBBBBBBBBB']);
+    expect(連絡先.find((r) => r.key === 'METKEYBBBBBBBBBBBBBBBBB')?.name).toBe('METKEYBBBBBB…');
   });
 
   it('名前を付けたルームは、その名前で呼ぶ', () => {
@@ -270,7 +290,7 @@ describe('ルームの名前', () => {
       ルームたち: [{ id: 'ROOMABCDEFGHIJKL', members: 1, host: true }],
     });
     const ルーム = 区画.find((s) => s.title === 'contacts.rooms');
-    expect(ルーム?.行たち[0].name).toBe('room.nth:1:1');
+    expect(ルーム?.行たち[0].name).toBe('room.own');
     expect(ルーム?.行たち[0].name).not.toContain('ROOM');
   });
 });
@@ -288,7 +308,7 @@ describe('数えて呼ぶ印は、人に見せない（2026-09-11 に実物で�
       ルームたち: [{ id: 'ROOM1AAAAAAAAAAAAAAAA', members: 2, host: true }],
     });
     const 行 = 区画.find((s) => s.title === 'contacts.rooms')?.行たち[0];
-    expect(行?.name).toMatch(/^room\.nth:\d+:\d+$/);
+    expect(行?.name).toMatch(/^(room\.nth:\d+:\d+|room\.own|room\.of:.+)$/);
   });
 });
 

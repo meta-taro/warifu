@@ -171,7 +171,6 @@
     noteScreen,
     relaySetting,
     setRelay,
-    roomName,
     roomNames,
     EVENT_ROOM_NAME,
     EVENT_LOOK,
@@ -190,6 +189,7 @@
     callContact,
     stopKnowing,
     knownKeys,
+    metKeys,
     stopAgent,
     currentRoom,
     myAddress,
@@ -384,18 +384,23 @@
    */
   /** いま題字に出ている文字。**画面の写し（0.1.34）でも同じものを使う** */
   function いまの題字(): string {
+    // **相手が居るかは、見ているルームの名簿で決める**（0.1.40）。線のある相手ぜんぶで決めると、
+    // 誰も居ない部屋を見ているのに「つながっています」と出た（10-27 に mac air で実測）
+    const 見ている部屋の人数 = ルームたち.find((r) => r.id === いまのルーム)?.members ?? 0;
+    // 部屋は在るが誰も居ない（起動直後の自分の部屋）なら「相手を待っています」。部屋が無いときだけ「まだ部屋に居ません」
+    if (状態 !== '会議中' && 状態 !== '待っている') {
+      return ルームたち.length > 0 ? t('meeting.status.waiting') : t('meeting.status.none');
+    }
     return 状態 === '会議中'
       ? t(
           つながりの言い方({
-            相手が居る: remotes.length > 0,
+            相手が居る: 見ている部屋の人数 > 1,
             受けている: 映像の流れ.受けている,
             送っている: 映像の流れ.送っている,
             掴んでいる: localStream !== null,
           }) as MessageKey,
         )
-      : 状態 === '待っている'
-        ? t('meeting.status.waiting')
-        : '';
+      : t('meeting.status.waiting');
   }
 
   $effect(() => {
@@ -509,6 +514,8 @@
   let 呼んでいる = $state<string | null>(null);
   /** 覚えている相手（住所を知っているかを含む）。 */
   let 覚えた = $state<ContactRow[]>([]);
+  /** ルームで会った相手の鍵（名前を付けていない相手も連絡帳に残す・0.1.40）。 */
+  let 会った = $state<string[]>([]);
   /** 自分の公開鍵。**連絡帳の「この PC」に出す。** */
   let 自分の鍵 = $state('');
   /**
@@ -879,6 +886,7 @@
     ルームの名前: ルームの名前たち,
     会議の相手: remotes.map((r) => r.key),
     覚えた,
+    会った,
     留守中に届いた,
   });
   /**
@@ -1146,6 +1154,7 @@
       名簿 = Object.fromEntries(rows.map((r) => [r.key, r.label]));
       覚えた = rows;
       鍵なしで入れる = (await knownKeys()) ?? [];
+      会った = (await metKeys().catch(() => [])) ?? [];
     } catch (e) {
       // **握り潰さない。**名前が出ないだけで会議は続けられる
       log(`名簿を読めなかった（${読める(e)}）`);
@@ -2163,17 +2172,20 @@
 
   // **ルームの名前を、置き場所から読む。**
   // 画面の中だけに持っていた頃は、閉じると消えていた（2026-09-11）。
-  // **入ったルームの名前も読む**（0.1.28）—— 前は主催しているルームの分だけだった
+  // **入ったルームの名前も読む**（0.1.28）—— 前は主催しているルームの分だけだった。
+  // **部屋の並びが変わるたびに読み直す**（0.1.40・内部の Issue 023）——
+  // 起動時の 1 回だけだと、置き場所に名前があるのに「ルーム 2」と番号で出たままになっていた
+  // （10-27・入れ替え直後の起動で実測。名前の保存と読む順が前後したと見られる）
   $effect(() => {
+    // 依存に入れる（読むだけ）。部屋が増減したら置き場所を読み直す
+    void ルームたち.length;
     void (async () => {
+      // **置き場所の控えだけを読む。**自分の部屋の名前も控え（room-names.tsv）に入っている。
+      // 前は「主催している部屋の名前」を**見ているルーム**の id に付けていたので、
+      // 他人の部屋を見ている瞬間に読み直すと、**その部屋に自分の部屋の名前が付いた**
+      // （2026-10-27 に試験用の画面で実測。2 室とも同じ名前で並んだ）
       const 控え = (await roomNames().catch(() => ({}))) ?? {};
-      const 名 = (await roomName()) ?? '';
-      const id = いまのルーム;
-      ルームの名前たち = {
-        ...控え,
-        ...(名 && id ? { [id]: 名 } : {}),
-        ...ルームの名前たち,
-      };
+      ルームの名前たち = { ...控え, ...ルームの名前たち };
     })();
   });
 
@@ -4539,8 +4551,49 @@
   /* **映像が無いなら、列は 1 本。**読みやすい幅で真ん中へ寄せる
      （2026-09-11 に実物で見た —— 右に大きな余白が空いていた） */
   .pane.meeting.文字だけ {
-    grid-template-columns: minmax(0, 760px);
+    grid-template-columns: minmax(0, 1120px);
     justify-content: center;
+  }
+  /*
+    **文字だけの部屋は、幅があれば 2 列にする**（0.1.40・2026-10-27・内部の Issue 023）。
+
+    1 列（760px）に名簿・届く先・チャット・投稿欄・映像・招く・設定を縦に積んでいたので、
+    1390×780 の窓では**チャットが 2 行分の高さに潰れ、名簿の札は上端で切れ、右に 250px 空いていた**
+    （Windows のノートで人が実測。試験用の画面でも同じ大きさで再現）。
+    **左に名簿と札、右にチャットを全高で置く。**狭い窓（860px 以下）は今までどおり 1 列。
+    子の並びは変えない（グリッドの置き場所だけで決める）。
+  */
+  @media (min-width: 861px) {
+    .pane.meeting.文字だけ > aside {
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+      /* 左の札は中身の高さ、最後の 1fr が余りを受ける。チャットは全部の行をまたぐ */
+      grid-template-rows: repeat(8, max-content) 1fr;
+      align-content: start;
+      column-gap: var(--space-3);
+      /* **行の隙間は置かない。**空の行にも隙間が付き、8 行ぶん（約 100px）で右の列が窓から溢れていた
+         （2026-10-27 に試験用の画面で実測）。左の札の間は、札の下の余白で空ける */
+      row-gap: 0;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    .pane.meeting.文字だけ > aside > :global(*) {
+      grid-column: 1;
+      min-width: 0;
+      margin-bottom: var(--space-3);
+    }
+    .pane.meeting.文字だけ > aside > :global(.card.chat) {
+      grid-column: 2;
+      grid-row: 1 / -1;
+      /* **高さは枠に任せる**（`height: 100%` だと札の余白と線のぶん、枠から溢れて投稿欄が切れた） */
+      min-height: 0;
+      align-self: stretch;
+      margin-bottom: 0;
+    }
+    /* 右の列の幅を引く仕切りは、1 列（映像あり）のためのもの。ここでは出さない */
+    .pane.meeting.文字だけ > aside > :global(.仕切り) {
+      display: none;
+    }
   }
   .stage {
     display: flex;

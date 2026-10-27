@@ -1638,6 +1638,16 @@ async fn known_keys(bridge: State<'_, Bridge>) -> Answer<Vec<String>> {
     Ok(door.known().map(str::to_owned).collect())
 }
 
+/// **ルームで会った相手の鍵**（`met.tsv`・0.1.40）。
+///
+/// 画面は、名前を付けていない相手も「名前なし」で連絡帳に残す。前は部屋に居る間だけ並べていたので、
+/// 抜けた瞬間に消え、口の `contacts_list` とも数が合わなかった（2026-10-27）。
+#[tauri::command]
+fn met_keys() -> Answer<Vec<String>> {
+    let vault = warifu_vault::Vault::default_location()?;
+    Ok(vault.met()?.into_iter().map(|(k, _)| k.to_string()).collect())
+}
+
 /// **相手を戸口から降ろす。**次からは割符が要る。
 ///
 /// 知り合いを保存した以上、**取り消す口が要る。**
@@ -3795,6 +3805,7 @@ pub fn run() {
             key_give::answer_handoff,
             stop_knowing,
             known_keys,
+            met_keys,
             note_path,
             link_answered,
             stop_agent,

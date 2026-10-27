@@ -327,6 +327,9 @@
     // **生の id は出さない。**名前が無いルームは「ルーム 1（3 人）」と数えて呼ぶ
     const 数えた = 数えたルーム.exec(行.name);
     if (数えた) return format(t('room.nth'), { n: 数えた[1], m: 数えた[2] });
+    // **自分の部屋・主催の名前で呼ぶ部屋**（0.1.40・`list.ts` の `名前の無いルームの呼び方`）
+    if (行.name === 'room.own') return t('room.own');
+    if (行.name.startsWith('room.of:')) return format(t('room.of'), { name: 行.name.slice('room.of:'.length) });
     // **名乗っているなら、その名前で呼ぶ**（この端末の人とエージェントだけ・2026-09-08）
     const 名乗り = 名乗りを引く(行)?.name;
     if (名乗り) return 名乗り;

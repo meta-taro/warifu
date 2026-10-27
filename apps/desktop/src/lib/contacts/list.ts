@@ -75,7 +75,13 @@ export interface 素材 {
    * **持てても見えなければ切り替えようがない**（2026-09-08）。
    * ルームを複数持てるようにした以上、一覧が要る。
    */
-  ルームたち?: readonly { id: string; members: number; host: boolean }[];
+  ルームたち?: readonly { id: string; members: number; host: boolean; host_key?: string }[];
+  /**
+   * **ルームで会った相手の鍵**（`met.tsv`・0.1.40）。名前を付けていなくても、会った相手は
+   * 連絡帳に「名前なし」で残す —— 部屋を抜けた瞬間に消えると、人は「連絡先が減った」と読む
+   * （2026-10-27 に 2 台で実測。口の `contacts_list` とも数が合っていなかった）。
+   */
+  会った?: readonly string[];
   /**
    * **いま映像と音が付いている部屋**（**#36**）。無ければ `null`。
    *
@@ -96,6 +102,24 @@ export interface 素材 {
    * 受け取っておいて出さないのは、黙って捨てるのと同じに見える。
    */
   留守中に届いた?: readonly string[];
+}
+
+/**
+ * **名前の無いルームの呼び方**（0.1.40・内部の Issue 026）。
+ *
+ * 「ルーム 2（5 人）」では、誰が居て何のための部屋かが人に分からなかった（10-27 の指摘）。
+ * 自分が建てた部屋は「あなたの部屋」、主催を覚えていれば「◯◯ の部屋」、
+ * どちらでもなければ今までどおり数えて呼ぶ。文言にするのは画面側（`room.own` / `room.of:<名>` / `room.nth:<番>:<人数>`）。
+ */
+function 名前の無いルームの呼び方(
+  r: { members: number; host: boolean; host_key?: string },
+  i: number,
+  名簿: Readonly<Record<string, string>>,
+): string {
+  if (r.host) return 'room.own';
+  const 主催の名 = r.host_key ? 名簿[r.host_key] : undefined;
+  if (主催の名 && 主催の名.trim() !== '') return `room.of:${主催の名}`;
+  return `room.nth:${i + 1}:${r.members}`;
 }
 
 /** この機械につながっている相手を指す、画面の中だけの印。**公開鍵ではない。** */
@@ -177,6 +201,8 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
   //
   // **代わりに、連絡先の 1 行が「いま居る」を持つ。**覚えていない相手も
   // **連絡先に出す** —— **居るのに見えない**のがいちばん困る。
+  // **会った相手も、覚えていなければ名前なしで並べる**（0.1.40）。部屋に居る間だけでなく、残す
+  const 会った = (素材.会った ?? []).filter((key) => !素材.覚えた.some((c) => c.key === key));
   const 覚えた: 行[] = [
     ...素材.覚えた.map((c) => ({
       key: c.key,
@@ -188,6 +214,7 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
     // 覚えていないのにルームに居る人（鍵の頭で出る）
     ...素材.会議の相手
       .filter((key) => !素材.覚えた.some((c) => c.key === key))
+      .concat(会った.filter((key) => !会議に居る.has(key)))
       .map((key) => ({
         key,
         name: 呼び名(名簿, key),
@@ -207,7 +234,7 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
     // **生の id を人に見せない**（DESIGN §10-A）。
     // 「HPXQEPXFKFMA…」では、どのルームか分からない。
     // 文言にするのは画面側（辞書を持たないこの層で組み立てない）
-    name: 素材.ルームの名前?.[r.id] ?? `room.nth:${i + 1}:${r.members}`,
+    name: 素材.ルームの名前?.[r.id] ?? 名前の無いルームの呼び方(r, i, 名簿),
     種類: 'ルーム' as const,
     住所を覚えている: false,
     いま会議に居る: r.members > 1,

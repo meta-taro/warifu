@@ -201,6 +201,8 @@ export type MessageKey =
   | 'contacts.note.hint'
   | 'room.name'
   | 'room.nth'
+  | 'room.of'
+  | 'room.own'
   | 'room.mine'
   | 'room.people'
   | 'room.people.host'
@@ -375,6 +377,7 @@ export type MessageKey =
   | 'roster.name.save'
   | 'roster.name.placeholder'
   | 'meeting.status.waiting'
+  | 'meeting.status.none'
   | 'meeting.status.live'
   | 'meeting.status.recvonly'
   | 'meeting.status.sendonly'
@@ -483,6 +486,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
+    'meeting.status.none': 'まだ部屋に居ません',
     'meeting.status.live': 'つながっています',
     'meeting.status.recvonly':
       'つながっています（相手の映像を受けています。あなたは送っていません —— ［映像と音を足す］を押すと送ります）',
@@ -646,6 +650,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
     'room.name': 'ルームの名前',
     'room.nth': 'ルーム {n}（{m} 人）',
+    'room.own': 'あなたの部屋',
+    'room.of': '{name} の部屋',
     'room.mine': 'あなたが建てた',
     'room.people': 'この部屋に居る（{n}）',
     'room.people.host': '主催',
@@ -884,6 +890,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
+    'meeting.status.none': 'Not in a room yet',
     'meeting.status.live': 'Connected',
     'meeting.status.recvonly':
       'Connected — you are receiving their video. You are not sending yours; press [Add video and sound] to send.',
@@ -1047,6 +1054,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
     'room.name': 'Room name',
     'room.nth': 'Room {n} (people: {m})',
+    'room.own': 'Your room',
+    'room.of': "{name}'s room",
     'room.mine': 'you set this up',
     'room.people': 'In this room ({n})',
     'room.people.host': 'host',
@@ -1285,6 +1294,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
+    'meeting.status.none': '尚未进入房间',
     'meeting.status.live': '已连接',
     'meeting.status.recvonly': '已连接（正在接收对方的视频。你没有发送自己的视频 —— 按［为这个房间加上影像］就会发送）',
     'meeting.status.sendonly': '已连接（你正在发送视频。对方的视频还没有到达）',
@@ -1446,6 +1456,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
     'room.name': '房间名',
     'room.nth': 'Room {n}（{m} 人）',
+    'room.own': '你的房间',
+    'room.of': '{name} 的房间',
     'room.mine': '你建的',
     'room.people': '在这个房间里（{n}）',
     'room.people.host': '主持',
@@ -1684,6 +1696,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',
+    'meeting.status.none': '아직 룸에 없습니다',
     'meeting.status.live': '연결되어 있습니다',
     'meeting.status.recvonly':
       '연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다 —— ［이 룸에 영상을 더하기］를 누르면 보냅니다)',
@@ -1849,6 +1862,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
     'room.name': '방 이름',
     'room.nth': '룸 {n}({m}명)',
+    'room.own': '내 룸',
+    'room.of': '{name}의 룸',
     'room.mine': '내가 만든 룸',
     'room.people': '이 룸에 있음 ({n})',
     'room.people.host': '주최',
