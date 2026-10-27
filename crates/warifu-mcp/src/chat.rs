@@ -46,6 +46,14 @@ const 手渡しを待つ秒: u64 = 30;
 pub struct Chat {
     送り: mpsc::Sender<ToDesk>,
     聞いた: Arc<Mutex<VecDeque<FromDesk>>>,
+    /// **最後に届いた発言の部屋**（0.1.40・内部の Issue 026）。
+    ///
+    /// 返事が声掛けの来た部屋へ戻らなかった —— `chat_send` が部屋を指さなければ、
+    /// 画面が見ているルームではなく**ここ**へ流す（呼ばれた所へ返す）。
+    最後に聞いた部屋: Arc<Mutex<Option<String>>>,
+    /// **机が部屋を付けてくれるか。**古い机は `部屋も聞く` の欄を断るので、そのときは偽に戻して
+    /// 名乗り直す（部屋を指す行も送らない）。
+    部屋を使える: Arc<std::sync::atomic::AtomicBool>,
     /// **何か届いたら起こす。**
     ///
     /// これが無いと、エージェントは `chat_read` を叩いたときにしか気づけない。
@@ -191,14 +199,26 @@ impl Chat {
         // **どこで動いているかを一緒に名乗る** —— 1 台の PC で
         // 複数のエージェントが同じこの機械につながるので、名乗らないと
         // どれが喋ったのか人に分からない（2026-09-08）
+        // **届いた行に部屋を付けてもらう**（0.1.40・内部の Issue 026）。古い机はこの欄を
+        // 「行の形が壊れています」と断るので、そのときは欄なしで名乗り直す（下の `名乗り直し`）
         口.送る(
             &ToDesk::Listen {
-                場所: 名乗り,
+                場所: 名乗り.clone(),
                 どこから,
+                部屋も聞く: true,
             }
             .書く(),
         )
         .await?;
+        let 部屋を使える = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let 使える写し = Arc::clone(&部屋を使える);
+        let 最後に聞いた部屋: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let 部屋の写し = Arc::clone(&最後に聞いた部屋);
+        let mut 名乗り直し = Some(ToDesk::Listen {
+            場所: 名乗り,
+            どこから,
+            部屋も聞く: false,
+        });
 
         let (送り, mut 受け) = mpsc::channel::<ToDesk>(送り待ちの数);
         let 聞いた = Arc::new(Mutex::new(VecDeque::new()));
@@ -225,6 +245,19 @@ impl Chat {
                     来た = 口.受ける() => {
                         match 来た {
                             Ok(Some(行)) => {
+                                // **古い机が「部屋も聞く」を断った**（着く前の「行の形が壊れています」）。
+                                // 欄なしで名乗り直し、部屋を指す行は送らない
+                                if let Some(名乗り直す) = 古い机に断られたら名乗り直す(&行, &つながった写し, &mut 名乗り直し) {
+                                    使える写し.store(false, std::sync::atomic::Ordering::Relaxed);
+                                    if 口.送る(&名乗り直す.書く()).await.is_err() {
+                                        break;
+                                    }
+                                    continue;
+                                }
+                                // **どの部屋から来たかを覚える**（返事をそこへ返すため）
+                                if let Ok(FromDesk::Heard { room: Some(部屋), .. }) = FromDesk::読む(&行) {
+                                    *部屋の写し.lock().expect("毒されていない") = Some(部屋);
+                                }
                                 // **鈴が鳴る前に積む** —— 起きた側が見たときに在るように
                                 知らせに積む(&知らせ先, &行);
                                 仕分ける(&溜め先, &返し先, &起こす, &つながった写し, &行);
@@ -252,6 +285,8 @@ impl Chat {
             印の道,
             知らせ待ち,
             呼ばれる名,
+            最後に聞いた部屋,
+            部屋を使える,
         })
     }
 
@@ -260,7 +295,33 @@ impl Chat {
     /// **返事を待つ。**待たずに「流しました」と返すのは、
     /// 押しても何も起きないボタンと同じである（**D49**）。
     pub async fn 言う(&self, body: &str) -> Result<(usize, u64, Vec<String>), crate::ToolError> {
-        let 行 = ToDesk::say(body).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        self.部屋へ言う(body, None).await
+    }
+
+    /// **部屋を指して**会話へ 1 行流す（0.1.40・内部の Issue 026）。
+    ///
+    /// 指さなければ**最後に届いた発言の部屋**へ、それも無ければ画面が見ているルームへ。
+    /// 古い机（部屋を知らない）には、部屋の欄を付けずに今までどおり流す。
+    ///
+    /// # Errors
+    /// `言う` と同じ。指した部屋に居ないときは机が断る。
+    pub async fn 部屋へ言う(
+        &self,
+        body: &str,
+        部屋: Option<&str>,
+    ) -> Result<(usize, u64, Vec<String>), crate::ToolError> {
+        let 最後 = self
+            .最後に聞いた部屋
+            .lock()
+            .expect("毒されていない")
+            .clone();
+        let 部屋 = 流す部屋(
+            部屋,
+            最後.as_deref(),
+            self.部屋を使える.load(std::sync::atomic::Ordering::Relaxed),
+        );
+        let 行 =
+            ToDesk::say_in(body, 部屋).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
         *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
             返す,
@@ -1059,6 +1120,60 @@ fn 知らせに積む(待ち: &Arc<Mutex<VecDeque<FromDesk>>>, 行: &str) {
 }
 
 /// 行の末尾に付ける「あなた宛て」の印。宛てでなければ空。
+/// **どの部屋へ流すか**（0.1.40・内部の Issue 026）。指した部屋 → 最後に聞いた部屋 → 無し（画面が見ているルーム）。
+/// 机が部屋を知らない（古い）なら、常に無し。
+#[must_use]
+pub fn 流す部屋(
+    指定: Option<&str>,
+    最後に聞いた: Option<&str>,
+    使える: bool,
+) -> Option<String> {
+    if !使える {
+        return None;
+    }
+    指定
+        .map(|s| s.trim().trim_end_matches('…'))
+        .filter(|s| !s.is_empty())
+        .or(最後に聞いた)
+        .map(str::to_owned)
+}
+
+/// **古い机に名乗りを断られたら、欄なしの名乗りを返す**（1 回だけ）。
+///
+/// 着く前（`Seated` がまだ）に「行の形が壊れています」が来た、が古い机の断り方。
+/// 着いたあとの `Denied` は呼びの返事なので触らない。
+fn 古い机に断られたら名乗り直す(
+    行: &str,
+    つながった: &Arc<Mutex<Option<String>>>,
+    名乗り直し: &mut Option<ToDesk>,
+) -> Option<ToDesk> {
+    if つながった.lock().expect("毒されていない").is_some() {
+        return None;
+    }
+    let Ok(FromDesk::Denied { why }) = FromDesk::読む(行) else {
+        return None;
+    };
+    if why != warifu_desk::Error::Malformed.to_string() {
+        return None;
+    }
+    名乗り直し.take()
+}
+
+/// 行に付ける部屋の札。部屋が無ければ空。
+fn 部屋の札(部屋: Option<&str>) -> String {
+    部屋.map_or_else(String::new, |r| format!("\t部屋 {}", 部屋の頭(r)))
+}
+
+/// 会議 id の頭（人が見分ける分）。
+fn 部屋の頭(部屋: &str) -> String {
+    let 頭: String = 部屋.chars().take(12).collect();
+    if 頭.len() < 部屋.len() {
+        format!("{頭}…")
+    } else {
+        頭
+    }
+}
+
 fn 宛ての印(本文: &str, 名前たち: &[String]) -> &'static str {
     if crate::push::宛てられたか(本文, 名前たち) {
         "\t（あなた宛て）"
@@ -1119,11 +1234,32 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             // **番号も出す。**あとで「その発言は読まれたか」を尋ねられる（**D76**）
             // **番号の無い発言（古いこの機械）には番号を出さない。**
             // 出すと、尋ねられる番号があるように見える
-            FromDesk::Heard { id, from, body, at } if *id > 0 => {
-                format!("{at}\t{from}\t{body}\t#{id}{}", 宛ての印(body, 名前たち))
+            // **どの部屋かも出す**（0.1.40）。返事はその部屋へ（`chat_send` の `room`）
+            FromDesk::Heard {
+                id,
+                from,
+                body,
+                at,
+                room,
+            } if *id > 0 => {
+                format!(
+                    "{at}\t{from}\t{body}\t#{id}{}{}",
+                    部屋の札(room.as_deref()),
+                    宛ての印(body, 名前たち)
+                )
             }
-            FromDesk::Heard { from, body, at, .. } => {
-                format!("{at}\t{from}\t{body}{}", 宛ての印(body, 名前たち))
+            FromDesk::Heard {
+                from,
+                body,
+                at,
+                room,
+                ..
+            } => {
+                format!(
+                    "{at}\t{from}\t{body}{}{}",
+                    部屋の札(room.as_deref()),
+                    宛ての印(body, 名前たち)
+                )
             }
             FromDesk::Joined { who } => format!("\t{who}\t（入室）"),
             FromDesk::Left { who } => format!("\t{who}\t（退室）"),
@@ -1193,6 +1329,7 @@ mod tests {
                 from: "人A".to_owned(),
                 body: "@docs 見て".to_owned(),
                 at: "10:00".to_owned(),
+                room: None,
             }],
             &["docs".to_owned()],
         );
@@ -1206,6 +1343,7 @@ mod tests {
             from: "ABCDEFGH…".to_owned(),
             body: "直しました".to_owned(),
             at: "09:05".to_owned(),
+            room: None,
         }]);
         // **番号も出す。**あとで「その発言は読まれたか」を尋ねられる（**D76**）
         assert_eq!(行, "09:05\tABCDEFGH…\t直しました\t#1");
@@ -1219,8 +1357,80 @@ mod tests {
             from: "ABCDEFGH…".to_owned(),
             body: "むかしのこの機械から".to_owned(),
             at: "09:05".to_owned(),
+            room: None,
         }]);
         assert_eq!(行, "09:05\tABCDEFGH…\tむかしのこの機械から");
+    }
+
+    // 026 —— 返事が声掛けの部屋へ戻らない（2026-10-27）
+    #[test]
+    fn 部屋の付いた発言は_部屋の頭も出る() {
+        let 行 = 並べる(&[FromDesk::Heard {
+            id: 8,
+            from: "PdM".to_owned(),
+            body: "点呼".to_owned(),
+            at: "09:05".to_owned(),
+            room: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+        }]);
+        assert_eq!(行, "09:05\tPdM\t点呼\t#8\t部屋 NBIW3PA2TUQ5…");
+    }
+
+    #[test]
+    fn 流す部屋は_指した部屋_最後に聞いた部屋_無しの順() {
+        assert_eq!(
+            流す部屋(Some("4QNX…"), Some("NBIW"), true).as_deref(),
+            Some("4QNX")
+        );
+        assert_eq!(流す部屋(None, Some("NBIW"), true).as_deref(), Some("NBIW"));
+        assert_eq!(
+            流す部屋(Some("  "), Some("NBIW"), true).as_deref(),
+            Some("NBIW")
+        );
+        assert_eq!(流す部屋(None, None, true), None);
+        // 古い机には部屋を指さない（指すと行ごと断られる）
+        assert_eq!(流す部屋(Some("4QNX"), Some("NBIW"), false), None);
+    }
+
+    #[test]
+    fn 古い机の断りには_欄なしで名乗り直す_着いたあとの断りは触らない() {
+        let 欄なし = ToDesk::Listen {
+            場所: Some("docs".to_owned()),
+            どこから: None,
+            部屋も聞く: false,
+        };
+        let 断り = FromDesk::Denied {
+            why: warifu_desk::Error::Malformed.to_string(),
+        }
+        .書く();
+        let まだ = Arc::new(Mutex::new(None));
+        let mut 控え = Some(欄なし.clone());
+        assert_eq!(
+            古い机に断られたら名乗り直す(&断り, &まだ, &mut 控え),
+            Some(欄なし)
+        );
+        assert_eq!(
+            古い机に断られたら名乗り直す(&断り, &まだ, &mut 控え),
+            None,
+            "1 回だけ"
+        );
+        let 着いた = Arc::new(Mutex::new(Some("09:00".to_owned())));
+        let mut 控え = Some(ToDesk::Listen {
+            場所: None,
+            どこから: None,
+            部屋も聞く: false,
+        });
+        assert_eq!(
+            古い机に断られたら名乗り直す(&断り, &着いた, &mut 控え),
+            None
+        );
+        let 別の断り = FromDesk::Denied {
+            why: "札がありません".to_owned(),
+        }
+        .書く();
+        assert_eq!(
+            古い机に断られたら名乗り直す(&別の断り, &まだ, &mut 控え),
+            None
+        );
     }
 
     #[test]

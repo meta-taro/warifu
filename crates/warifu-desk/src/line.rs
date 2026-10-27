@@ -18,6 +18,13 @@ pub enum ToDesk {
     Say {
         /// 本文。空は送れない。[`本文の上限`] を超えたら受けない。
         body: String,
+        /// **どの部屋へ流すか**（0.1.40・内部の Issue 026）。`None` なら画面が見ているルーム。
+        ///
+        /// 返事が声掛けの来た部屋へ戻らなかった —— 呼ばれた側は返したつもりでも、
+        /// 画面が別の部屋を見ていると呼んだ側に届かない。届いた行の `room` をそのまま返す。
+        /// **古い机は知らない欄を断る**ので、指さないときは欄そのものを書かない。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
     },
     /// **ルームキーを出す**（**#32 の段 2**・2026-09-21）。
     ///
@@ -66,6 +73,13 @@ pub enum ToDesk {
         /// **古いエージェントは書いてこない。**書いてこなければ `None`（今までと同じ）。
         #[serde(default)]
         どこから: Option<u64>,
+        /// **届いた行に部屋を付けてほしい**（0.1.40・内部の Issue 026）。
+        ///
+        /// 届いた行は `deny_unknown_fields` で読むので、**古い口に部屋の欄を付けると 1 行も読めなくなる。**
+        /// 新しい口だけが名乗り、机は名乗った口にだけ `room` を付ける。
+        /// 名乗らないなら欄を書かない（古い机に断られない）。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        部屋も聞く: bool,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -345,6 +359,9 @@ pub enum 声の結果 {
 /// **画面の 1 行に収まる長さに切る。**長いものを通すと、連絡帳の並びが崩れる。
 pub const 名乗りの上限: usize = 32;
 
+/// 部屋の指し方（会議 id かその頭）の上限（バイト）。会議 id は 26 字。
+pub const 部屋の指し方の上限: usize = 64;
+
 /// **一度に出せるルームキーの本数**（**#32 の段 2**・2026-09-21）。
 ///
 /// **1 本＝1 人**（**D12**）なので、部屋の定員と同じでよい。
@@ -422,6 +439,11 @@ pub enum FromDesk {
         body: String,
         /// いつ（`HH:MM`）。**無いと、あとから読み返せない**
         at: String,
+        /// **どの部屋で**（会議 id の全文・0.1.40・内部の Issue 026）。この機械の中の知らせは `None`。
+        ///
+        /// `Listen` で `部屋も聞く` と名乗った口にだけ付ける。付けないときは欄を書かない。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
     },
     /// 誰かが入った。
     Joined {
@@ -685,9 +707,24 @@ fn 訳を検める(訳: &str) -> Result<(), Error> {
 impl ToDesk {
     /// 本文から [`ToDesk::Say`] を作る。**ここで長さと空を弾く。**
     pub fn say(body: impl Into<String>) -> Result<Self, Error> {
+        Self::say_in(body, None)
+    }
+
+    /// 部屋を指して [`ToDesk::Say`] を作る（0.1.40）。部屋の指し方も検める（行を壊す字は受けない）。
+    ///
+    /// # Errors
+    /// 本文が空・長すぎる、または部屋の指し方が行を壊すとき。
+    pub fn say_in(body: impl Into<String>, room: Option<String>) -> Result<Self, Error> {
         let body = body.into();
         検める(&body)?;
-        Ok(Self::Say { body })
+        if let Some(r) = &room
+            && (r.is_empty()
+                || r.len() > 部屋の指し方の上限
+                || r.chars().any(|c| c.is_control() || c.is_whitespace()))
+        {
+            return Err(Error::Malformed);
+        }
+        Ok(Self::Say { body, room })
     }
 
     /// 1 行の JSON を読む。
@@ -696,7 +733,16 @@ impl ToDesk {
     pub fn 読む(行: &str) -> Result<Self, Error> {
         let 中身: Self = serde_json::from_str(行.trim()).map_err(|_| Error::Malformed)?;
         match &中身 {
-            Self::Say { body } => 検める(body)?,
+            Self::Say { body, room } => {
+                検める(body)?;
+                if let Some(r) = room
+                    && (r.is_empty()
+                        || r.len() > 部屋の指し方の上限
+                        || r.chars().any(|c| c.is_control() || c.is_whitespace()))
+                {
+                    return Err(Error::Malformed);
+                }
+            }
             Self::Listen {
                 場所: Some(名), ..
             } => 名乗りを検める(名)?,
@@ -1106,7 +1152,7 @@ mod tests {
         // **行で区切る口なので、ここが割れると別の発言に見える**
         let 行 = ToDesk::say("1 行目\n2 行目").unwrap().書く();
         assert!(!行.contains('\n'));
-        let ToDesk::Say { body } = ToDesk::読む(&行).unwrap() else {
+        let ToDesk::Say { body, .. } = ToDesk::読む(&行).unwrap() else {
             panic!("say のはず");
         };
         assert_eq!(body, "1 行目\n2 行目");
@@ -1117,6 +1163,7 @@ mod tests {
         let 元 = ToDesk::Listen {
             場所: None,
             どこから: None,
+            部屋も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1129,6 +1176,7 @@ mod tests {
         let 元 = ToDesk::Listen {
             場所: Some("docs".to_owned()),
             どこから: None,
+            部屋も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1140,7 +1188,8 @@ mod tests {
             ToDesk::読む(r#"{"型":"listen","場所":null}"#).unwrap(),
             ToDesk::Listen {
                 場所: None,
-                どこから: None
+                どこから: None,
+                部屋も聞く: false,
             }
         );
     }
@@ -1151,6 +1200,7 @@ mod tests {
             let 行 = ToDesk::Listen {
                 場所: Some(壊す.to_owned()),
                 どこから: None,
+                部屋も聞く: false,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -1163,6 +1213,7 @@ mod tests {
         let 行 = ToDesk::Listen {
             場所: Some(長い),
             どこから: None,
+            部屋も聞く: false,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
@@ -1178,7 +1229,8 @@ mod tests {
             ToDesk::読む(行).expect("読める"),
             ToDesk::Listen {
                 場所: Some("docs".to_owned()),
-                どこから: None
+                どこから: None,
+                部屋も聞く: false,
             }
         );
     }
@@ -1188,8 +1240,82 @@ mod tests {
         let 元 = ToDesk::Listen {
             場所: Some("docs".to_owned()),
             どこから: Some(42),
+            部屋も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
+    }
+
+    // 026 —— **返事が、声掛けの来た部屋へ戻らない**（2026-10-27）。
+    // 届いた行に部屋が無く、言う行にも部屋が無いので、口は画面が見ているルームへしか流せなかった。
+    #[test]
+    fn 届いた行に_どの部屋かを載せられる_無い行も読める() {
+        let 元 = FromDesk::Heard {
+            id: 1,
+            from: "ABCDEFGH…".to_owned(),
+            body: "点呼".to_owned(),
+            at: "09:05".to_owned(),
+            room: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+        };
+        assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
+        // **古い机の行（部屋なし）もそのまま読める。**部屋の欄は書かない（古い口が読めなくなる）
+        let 古い = r#"{"型":"heard","id":1,"from":"A","body":"b","at":"09:05"}"#;
+        let 読んだ = FromDesk::読む(古い).expect("読める");
+        assert!(matches!(&読んだ, FromDesk::Heard { room: None, .. }));
+        let 部屋なし = FromDesk::Heard {
+            id: 1,
+            from: "A".to_owned(),
+            body: "b".to_owned(),
+            at: "09:05".to_owned(),
+            room: None,
+        };
+        assert!(
+            !部屋なし.書く().contains("room"),
+            "部屋が無いなら欄も書かない"
+        );
+    }
+
+    #[test]
+    fn 部屋を指して言える_指さない行は今までどおり() {
+        let 元 = ToDesk::say_in("返事", Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned())).unwrap();
+        assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
+        let ToDesk::Say { room, .. } = 元 else {
+            panic!("say のはず");
+        };
+        assert_eq!(room.as_deref(), Some("NBIW3PA2TUQ52DTJNVXSQOL3G4"));
+        // 部屋を指さない行は、古い机でも読める形（欄を書かない）
+        let 行 = ToDesk::say("返事").unwrap().書く();
+        assert!(!行.contains("room"));
+        assert_eq!(
+            ToDesk::読む(r#"{"型":"say","body":"返事"}"#).unwrap(),
+            ToDesk::say("返事").unwrap()
+        );
+        // 部屋の指し方も検める（改行や制御文字で行を壊させない）
+        assert!(ToDesk::say_in("返事", Some("壊す\n".to_owned())).is_err());
+    }
+
+    #[test]
+    fn 部屋も聞くと名乗れる_名乗らない古い口はそのまま() {
+        let 元 = ToDesk::Listen {
+            場所: Some("docs".to_owned()),
+            どこから: None,
+            部屋も聞く: true,
+        };
+        assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
+        let 行 = r#"{"型":"listen","場所":"docs"}"#;
+        assert!(matches!(
+            ToDesk::読む(行).expect("読める"),
+            ToDesk::Listen {
+                部屋も聞く: false,
+                ..
+            }
+        ));
+        // 聞かないなら欄を書かない（古い机に断られない）
+        let 聞かない = ToDesk::Listen {
+            場所: Some("docs".to_owned()),
+            どこから: None,
+            部屋も聞く: false,
+        };
+        assert!(!聞かない.書く().contains("部屋も聞く"));
     }
 
     #[test]
@@ -1199,6 +1325,7 @@ mod tests {
             from: "ABCDEFGH…".to_owned(),
             body: "見ています".to_owned(),
             at: "09:05".to_owned(),
+            room: None,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
     }

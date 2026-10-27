@@ -197,7 +197,7 @@ pub async fn 言う(app: &AppHandle, 本文: &str, 出所: u64, 呼び方: Strin
             let 行 = 行.clone();
             let 呼び方 = 呼び方.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(訳) = crate::desk::流す(&app, &行, 出所, 呼び方).await {
+                if let Err(訳) = crate::desk::流す(&app, &行, 出所, 呼び方, None).await {
                     記録!("声: 会話へ流せませんでした: {訳}");
                 }
             });

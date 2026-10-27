@@ -182,7 +182,7 @@ fn 通り道を書き置く(session: &warifu_net::Session) {
     session.通り道を見張る(move |出来事| 記録!("{出来事}（文字・{誰}）"));
 }
 
-fn 短く(s: &str) -> String {
+pub(crate) fn 短く(s: &str) -> String {
     s.chars().take(12).collect::<String>() + "…"
 }
 
@@ -2107,7 +2107,11 @@ fn 汲む(
                         // 見せないと、人にだけ見えている話に AI が返事をすることになる
                         // **誰が言ったかは、画面と同じ名で渡す**（2026-10-16）。
                         // 鍵だけだと、相手の人と相手のエージェントが見分けられない
-                        desk::配る(&app.state::<Bridge>(), desk::聞いた(&名, body));
+                        // **どの部屋で聞いたかも渡す**（0.1.40・内部の Issue 026）。口はその部屋へ返事を返す
+                        desk::配る(
+                            &app.state::<Bridge>(),
+                            desk::聞いた_部屋で(&名, body, Some(meeting.to_string())),
+                        );
                         // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
                         //
                         // 三者会議は星形である —— 参加者どうしは繋がっていないので、
@@ -2150,7 +2154,10 @@ fn 汲む(
                         );
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **エージェントには絵を渡さない。**画像が来たことだけを 1 行で見せる
-                        desk::配る(&app.state::<Bridge>(), desk::聞いた(&名, &画像の札(中身.len())));
+                        desk::配る(
+                            &app.state::<Bridge>(),
+                            desk::聞いた_部屋で(&名, &画像の札(中身.len()), Some(meeting.to_string())),
+                        );
                         let 主催 = conferences.lock().await.contains_key(&notice.meeting())
                             && roster_sync::主催か(部屋の主催.as_ref(), &me);
                         if 主催 {
@@ -3067,7 +3074,13 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
     //
     // **2026-09-07 に実物で踏んだ。**画面は「この機械 1 人」でボタンを押せるのに、
     // ここが会議の相手だけを見ていたので「まだ誰も居ません」と断っていた。
-    let 話 = desk::聞いた(&key_to_string(bridge.device.public_key()), &body);
+    // **人が打った部屋も載せる**（0.1.40）。口はそこへ返事を返す
+    let 見ている = いま見ているルーム(&bridge.いまのルーム).await;
+    let 話 = desk::聞いた_部屋で(
+        &key_to_string(bridge.device.public_key()),
+        &body,
+        見ている.map(|m| m.to_string()),
+    );
 
     // **宛先が決まっていれば、そのエージェントにだけ渡して終わる。**
     // 3 つも 4 つもこの機械につながっていると、1 人だけに聞きたくても全員に飛ぶ ——
@@ -3088,8 +3101,7 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
         desk::配る(&bridge, 話);
     }
 
-    let meeting = いま見ているルーム(&bridge.いまのルーム).await;
-    let Some(meeting) = meeting else {
+    let Some(meeting) = 見ている else {
         // この機械に居るなら、届いている。**届いたものを失敗にしない**
         if この機械に居る {
             記録!(

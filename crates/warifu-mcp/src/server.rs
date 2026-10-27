@@ -478,14 +478,18 @@ impl Warifu {
     }
 
     /// 会話へ 1 行流す。**人の画面にも同じ行が出る。**
-    #[tool(description = "会話へ 1 行流す。同じ PC の人の画面と、繋がっている相手にも届く。")]
+    #[tool(
+        description = "会話へ 1 行流す。同じ PC の人の画面と、繋がっている相手にも届く。`room` を省くと、最後に届いた発言の部屋へ流す（呼ばれた所へ返す）。別の部屋へ流すときだけ `room` に部屋の id（chat_read の行の末尾）を書く。"
+    )]
     pub async fn chat_send(
         &self,
         Parameters(args): Parameters<SayArgs>,
     ) -> Result<String, ErrorData> {
         self.通るか("chat.send")?;
         let この機械 = self.この機械().await?;
-        let (人数, id, 届いた) = この機械.言う(&args.body).await?;
+        let (人数, id, 届いた) = この機械
+            .部屋へ言う(&args.body, args.room.as_deref())
+            .await?;
         // **何人へ流したかまで言う**（D49）。「流しました」だけでは 0 人と区別が付かない。
         // **誰に届いたかと、通し番号も言う**（`issues/4` / **D76**）——
         // 「3 人」だけでは誰に届いたか分からず、番号が無いと既読を尋ねられない

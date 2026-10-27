@@ -25,7 +25,7 @@ async fn エージェントが言ったことが_この機械に届き_返事が
         let 一本 = 待ち.受ける().await.expect("1 本受けること");
         let mut 口 = 口::新しく(一本);
         let 行 = 口.受ける().await.unwrap().expect("行が来ること");
-        let ToDesk::Say { body } = ToDesk::読む(&行).unwrap() else {
+        let ToDesk::Say { body, .. } = ToDesk::読む(&行).unwrap() else {
             panic!("say のはず");
         };
         // **この機械が差出人を刻む。**言ってきた側は名乗っていない
@@ -34,6 +34,7 @@ async fn エージェントが言ったことが_この機械に届き_返事が
             from: "mcp:local-agent".to_owned(),
             body,
             at: "09:05".to_owned(),
+            room: None,
         };
         口.送る(&返し.書く()).await.unwrap();
     });

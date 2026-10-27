@@ -171,6 +171,8 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         &ToDesk::Listen {
             場所: 設.名乗り.clone(),
             どこから: 最後に聞いた,
+            // 常駐は部屋を指して返さない（届いた文字を命令へ渡すだけ）。古い机にも繋げる形のまま
+            部屋も聞く: false,
         }
         .書く(),
     )
@@ -211,6 +213,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                         &ToDesk::Listen {
                             場所: 設.名乗り.clone(),
                             どこから: 最後に聞いた,
+                            部屋も聞く: false,
                         }
                         .書く(),
                     )
@@ -245,7 +248,9 @@ async fn 一巡(
 ) -> Result<降りる, Box<dyn std::error::Error>> {
     while let Some(行) = 口.受ける().await? {
         let (from, body, at) = match FromDesk::読む(&行) {
-            Ok(FromDesk::Heard { id, from, body, at }) => {
+            Ok(FromDesk::Heard {
+                id, from, body, at, ..
+            }) => {
                 // **どこまで聞いたかを覚える。**繋ぎ直したときにここから続ける。
                 // **番号が無い（0）机とも繋がる** —— そのときは覚えない
                 if id > 0 {
@@ -357,6 +362,7 @@ mod tests {
             from: "だれか".to_owned(),
             body: "やあ".to_owned(),
             at: "18:00".to_owned(),
+            room: None,
         }
         .書く();
         // **相手側を書いて閉じる。**閉じないと `一巡` が待ち続ける

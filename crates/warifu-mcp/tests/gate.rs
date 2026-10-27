@@ -374,6 +374,7 @@ fn 声の札があっても_ほかの口は開かない() {
         .block_on(口.chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "やあ".to_owned(),
+                room: None,
             },
         )));
     let 文 = format!("{:?}", 出た.expect_err("chat.send の札が無い"));
@@ -498,6 +499,7 @@ async fn 札が無ければ_会話へ流せない() {
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "流れてはいけない".to_owned(),
+                room: None,
             },
         ))
         .await;
@@ -555,6 +557,7 @@ async fn 札があっても_この機械が無ければ流せない() {
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "やあ".to_owned(),
+                room: None,
             },
         ))
         .await;
@@ -599,7 +602,9 @@ async fn この機械につなげば_流した行がこの機械に届く() {
             ToDesk::読む(&挨拶).unwrap(),
             ToDesk::Listen {
                 場所: None,
-                どこから: Some(0)
+                どこから: Some(0),
+                // **新しい口は、届いた行に部屋を付けてほしいと名乗る**（0.1.40・内部の Issue 026）
+                部屋も聞く: true,
             }
         );
         let 行 = 行の口.受ける().await.unwrap().unwrap();
@@ -626,6 +631,7 @@ async fn この機械につなげば_流した行がこの機械に届く() {
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "直しました".to_owned(),
+                room: None,
             },
         ))
         .await
@@ -637,7 +643,8 @@ async fn この機械につなげば_流した行がこの機械に届く() {
     assert_eq!(
         届いた,
         ToDesk::Say {
-            body: "直しました".to_owned()
+            body: "直しました".to_owned(),
+            room: None,
         }
     );
 }
@@ -657,6 +664,7 @@ async fn 画面が後から開いても_会話は使える() {
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "まだ誰も居ない".to_owned(),
+                room: None,
             },
         ))
         .await;
@@ -685,6 +693,7 @@ async fn 画面が後から開いても_会話は使える() {
     口.chat_send(rmcp::handler::server::wrapper::Parameters(
         warifu_mcp::SayArgs {
             body: "いま繋がりました".to_owned(),
+            room: None,
         },
     ))
     .await
@@ -693,7 +702,8 @@ async fn 画面が後から開いても_会話は使える() {
     assert_eq!(
         この機械.await.unwrap(),
         ToDesk::Say {
-            body: "いま繋がりました".to_owned()
+            body: "いま繋がりました".to_owned(),
+            room: None,
         }
     );
 }
@@ -722,6 +732,7 @@ async fn 誰も居ないとき_流せたことにしない() {
         .chat_send(rmcp::handler::server::wrapper::Parameters(
             warifu_mcp::SayArgs {
                 body: "誰も居ない所へ".to_owned(),
+                room: None,
             },
         ))
         .await;
@@ -767,6 +778,7 @@ async fn 待っている間に届いたものを受け取る() {
                     from: "持ち主".to_owned(),
                     body: "気づきますか".to_owned(),
                     at: "12:00".to_owned(),
+                    room: None,
                 }
                 .書く(),
             )
@@ -893,6 +905,7 @@ async fn 待っている最中にこの機械が閉じたら_繋ぎ直して待�
                 from: "佐藤".to_owned(),
                 body: "つなぎ直したあとの発言".to_owned(),
                 at: "09:11".to_owned(),
+                room: None,
             }
             .書く(),
         )

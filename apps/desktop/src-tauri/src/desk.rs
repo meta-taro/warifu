@@ -24,6 +24,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::broadcast;
 use warifu_desk::{FromDesk, ToDesk, 受け口, 口, この機械の場所};
+use warifu_meeting::MeetingId;
 
 use crate::{Bridge, EVENT_DESK, EVENT_DESK_SEATS};
 
@@ -285,6 +286,9 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
         let 自分 = 次の番号.fetch_add(1, Ordering::Relaxed);
         // **どこで動いているか。**`Listen` で名乗ってくるまでは分からない
         let mut 名乗り: Option<String> = None;
+        // **届いた行に部屋を付けてよいか**（0.1.40・内部の Issue 026）。古い口は知らない欄を断るので、
+        // `Listen` で名乗った口にだけ付ける
+        let mut 部屋も聞く = false;
         let mut 口 = 口::新しく(一本);
         let mut 聞く = app.state::<Bridge>().desk.subscribe();
         // **人数が変わったことを画面へ伝える。**伝えないと、
@@ -299,7 +303,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             tokio::select! {
                 来た = 口.受ける() => {
                     let Ok(Some(行)) = 来た else { break };
-                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り)
+                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 部屋も聞く)
                         .await
                         .is_err()
                     {
@@ -313,6 +317,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
                         // 宛先つきなら、**そのエージェントだけが受ける**
                         Ok((出所, _)) if !自分あてか(出所, 自分) => continue,
                         Ok((_, 一つ)) => {
+                            let 一つ = 部屋を落とすか(一つ, 部屋も聞く);
                             if 口.送る(&一つ.書く()).await.is_err() {
                                 break;
                             }
@@ -366,6 +371,7 @@ async fn 応じる(
     口: &mut 口<impl warifu_desk::一本>,
     自分: u64,
     名乗り: &mut Option<String>,
+    部屋も聞く: &mut bool,
 ) -> Result<(), ()> {
     let 中身 = match ToDesk::読む(行) {
         Ok(中身) => 中身,
@@ -381,7 +387,12 @@ async fn 応じる(
         // 「聞く」は名乗りだけ。**過去は残していない**ので、返すものが無い（`issues/010`）。
         // **どこで動いているかを覚える** —— 1 台の PC で複数のエージェントが
         // 同じこの機械につながるので、覚えないとどれが喋ったのか人に分からない（2026-09-08）
-        ToDesk::Listen { 場所, どこから } => {
+        ToDesk::Listen {
+            場所,
+            どこから,
+            部屋も聞く: 聞く,
+        } => {
+            *部屋も聞く = 聞く;
             let Some(名) = 場所 else {
                 // **名乗らない相手はエージェントに着けない。**どうすればつながれるかは言う ——
                 // ここは「断る理由を相手に返さない」（D31）とは別で、
@@ -737,9 +748,34 @@ async fn 応じる(
                 .await;
             Ok(())
         }
-        ToDesk::Say { body } => {
+        ToDesk::Say { body, room } => {
+            // **部屋を指されたら、その部屋へ**（0.1.40・内部の Issue 026）。
+            // 指されなければ画面が見ているルーム（今までどおり）
+            let 部屋 = match room.as_deref() {
+                Some(指定) => {
+                    let 候補: Vec<String> = app
+                        .state::<Bridge>()
+                        .conferences
+                        .lock()
+                        .await
+                        .keys()
+                        .map(ToString::to_string)
+                        .collect();
+                    match 部屋を引く(&候補, 指定).and_then(|id| {
+                        id.parse::<MeetingId>()
+                            .map_err(|_| format!("部屋の id が読めません（{id}）"))
+                    }) {
+                        Ok(m) => Some(m),
+                        Err(why) => {
+                            let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                            return Ok(());
+                        }
+                    }
+                }
+                None => None,
+            };
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
-            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref())).await {
+            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋).await {
                 Ok((id, 届いた)) => FromDesk::Sent {
                     to: 届いた.len(),
                     id,
@@ -789,22 +825,40 @@ const 誰も居ない: &str = "まだ誰も居ません";
 /// 会議の相手だけを数えていたので、**この PC の人には出ているのに
 /// エージェントには「誰にも届いていません」と返っていた**
 /// （2026-09-08 に実物で踏んだ）。返された側は言い直すか、諦める。
+///
+/// # どの部屋へ（0.1.40・内部の Issue 026）
+///
+/// `部屋` を指されたらそこへ。指されなければ**画面が見ているルーム**へ（今までどおり）。
+/// 返事が声掛けの来た部屋へ戻らなかった —— 口は届いた行の部屋をそのまま指してくる。
 pub(crate) async fn 流す(
     app: &AppHandle,
     body: &str,
     出所: u64,
     呼び方: String,
+    部屋: Option<MeetingId>,
 ) -> Result<(u64, Vec<String>), String> {
     let bridge = app.state::<Bridge>();
     let 自分 = bridge.device.public_key();
+    let 見ている = crate::いま見ているルーム(&bridge.いまのルーム).await;
+    let 流す先 = 部屋.or(見ている);
+    if let Some(m) = 部屋
+        && !bridge.conferences.lock().await.contains_key(&m)
+    {
+        return Err(format!("その部屋に居ません（{}）", crate::短く(&m.to_string())));
+    }
 
     // **会話に出す名前は、名簿と同じ決め方を通す**（2026-09-09）。
     // 通さないと、名簿では「かくにん係」、会話では「kakunin のエージェント」と
     // **同じエージェントが 2 つの名前で出る** —— 人はそれを 2 人だと読む。
     let 名札 = crate::profile::エージェントの名札(&呼び方);
 
-    // **先に人の画面へ出す。**会議が無くても、この PC の人には見える
-    let _ = app.emit(EVENT_DESK, (名札.clone(), body.to_owned(), いま時刻()));
+    // **先に人の画面へ出す。**会議が無くても、この PC の人には見える。
+    // **どの部屋へかも渡す**（0.1.40）。渡さないと画面はその瞬間に見ているルームへ積む
+    let 部屋の札 = 流す先.map(|m| m.to_string()).unwrap_or_default();
+    let _ = app.emit(
+        EVENT_DESK,
+        (名札.clone(), body.to_owned(), いま時刻(), 部屋の札.clone()),
+    );
     // **同じエージェントの AI が喋ったことにも気づけるようにする。**
     // 窓が前に居るときは鳴らないので、うるさくならない
     crate::notify::届いたと知らせる(app, &名札);
@@ -816,6 +870,7 @@ pub(crate) async fn 流す(
         from: 名札.clone(),
         body: body.to_owned(),
         at: いま時刻(),
+        room: 流す先.map(|m| m.to_string()),
     };
     // **エージェントの発言も控える**（2026-10-16）。控えないと、書き出した議事録から
     // この PC のエージェントが言ったことだけが抜ける
@@ -825,7 +880,7 @@ pub(crate) async fn 流す(
     // **誰に届いたか。**規則は `届いた先を並べる` に 1 か所だけ置く
     let mut 届いた = 届いた先を並べる(出所);
 
-    let Some(meeting) = crate::いま見ているルーム(&bridge.いまのルーム).await else {
+    let Some(meeting) = 流す先 else {
         // 会議が無くても、**この PC の人には届いている。**失敗にしない
         届けた(id, 届いた.clone());
         return Ok((id, 名札で並べる(&届いた)));
@@ -923,7 +978,9 @@ fn 会話を書き出す(自分: &str) -> Vec<warifu_desk::書き出しの行> {
     let 棚 = 直近の発言.lock().expect("毒されていない");
     棚.iter()
         .filter_map(|(_, 行)| match 行 {
-            FromDesk::Heard { id, from, body, at } => Some(warifu_desk::書き出しの行 {
+            FromDesk::Heard {
+                id, from, body, at, ..
+            } => Some(warifu_desk::書き出しの行 {
                 番号: *id,
                 誰: crate::contacts::書き出しの名(&帳, 自分, from),
                 時刻: at.clone(),
@@ -1256,14 +1313,65 @@ const fn 自分あてか(出所: u64, 自分: u64) -> bool {
 /// 会話に出た文字を、この機械へ配る形にする。
 #[must_use]
 pub fn 聞いた(from: &str, body: &str) -> FromDesk {
+    聞いた_部屋で(from, body, None)
+}
+
+/// **どの部屋で聞いたかも載せて**行にする（0.1.40・内部の Issue 026）。
+/// 口はこの部屋を指して返事を返す。この機械の中の知らせは `None`。
+pub fn 聞いた_部屋で(from: &str, body: &str, 部屋: Option<String>) -> FromDesk {
     let 行 = FromDesk::Heard {
         id: 番号を振る(),
         from: from.to_owned(),
         body: body.to_owned(),
         at: いま時刻(),
+        room: 部屋,
     };
     控える(&行);
     行
+}
+
+/// **部屋を知らない口には、部屋の欄を落として渡す。**古い口は知らない欄で 1 行も読めなくなる。
+fn 部屋を落とすか(行: FromDesk, 部屋も聞く: bool) -> FromDesk {
+    match 行 {
+        FromDesk::Heard {
+            id,
+            from,
+            body,
+            at,
+            room: Some(_),
+        } if !部屋も聞く => FromDesk::Heard {
+            id,
+            from,
+            body,
+            at,
+            room: None,
+        },
+        他 => 他,
+    }
+}
+
+/// **指された部屋を、居る部屋の中から引く。**id の全文か、頭（`…` 付きでも）で 1 つに決まるもの。
+///
+/// # Errors
+/// 居ない・2 つ以上に当たる。人が読む訳。
+pub fn 部屋を引く(候補: &[String], 指定: &str) -> Result<String, String> {
+    let 指定 = 指定.trim().trim_end_matches('…');
+    if 指定.is_empty() {
+        return Err("部屋が指されていません".to_owned());
+    }
+    if let Some(そのもの) = 候補.iter().find(|c| c.as_str() == 指定) {
+        return Ok(そのもの.clone());
+    }
+    let 当たり: Vec<&String> = 候補.iter().filter(|c| c.starts_with(指定)).collect();
+    match 当たり.as_slice() {
+        [一つ] => Ok((*一つ).clone()),
+        [] => Err(format!("その部屋に居ません（{}）", crate::短く(指定))),
+        多い => Err(format!(
+            "「{}」は {} 部屋に当たります。もっと長く書いてください",
+            crate::短く(指定),
+            多い.len()
+        )),
+    }
 }
 
 /// **直近の発言として控える。**繋ぎ直した相手へ渡すため（`issues/019`）。
@@ -1589,6 +1697,7 @@ mod tests {
             from: "だれか".to_owned(),
             body: body.to_owned(),
             at: "18:00".to_owned(),
+            room: None,
         }
     }
 
@@ -1788,6 +1897,40 @@ mod tests {
             .get(&エージェント)
             .cloned()
             .unwrap_or_default()
+    }
+
+    // 026 —— 返事が声掛けの部屋へ戻らない（2026-10-27）
+    #[test]
+    fn 指された部屋は_全文か頭で_1_つに引く() {
+        let 候補 = vec![
+            "NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned(),
+            "NBIWAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+            "4QNXPYQIHAYIAAAAAAAAAAAAAA".to_owned(),
+        ];
+        assert_eq!(部屋を引く(&候補, "4QNX…").as_deref(), Ok("4QNXPYQIHAYIAAAAAAAAAAAAAA"));
+        assert_eq!(
+            部屋を引く(&候補, "NBIW3PA2TUQ52DTJNVXSQOL3G4").as_deref(),
+            Ok("NBIW3PA2TUQ52DTJNVXSQOL3G4")
+        );
+        assert!(部屋を引く(&候補, "NBIW").is_err(), "2 つに当たる");
+        assert!(部屋を引く(&候補, "ZZZZ").is_err(), "居ない");
+        assert!(部屋を引く(&候補, " ").is_err());
+    }
+
+    #[test]
+    fn 部屋を知らない口には_部屋の欄を落とす() {
+        let 行 = FromDesk::Heard {
+            id: 1,
+            from: "A".to_owned(),
+            body: "b".to_owned(),
+            at: "09:00".to_owned(),
+            room: Some("NBIW".to_owned()),
+        };
+        assert!(matches!(
+            部屋を落とすか(行.clone(), false),
+            FromDesk::Heard { room: None, .. }
+        ));
+        assert_eq!(部屋を落とすか(行.clone(), true), 行);
     }
 
     #[test]

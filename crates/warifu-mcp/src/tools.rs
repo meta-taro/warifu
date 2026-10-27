@@ -131,6 +131,10 @@ pub struct JoinArgs {
 pub struct SayArgs {
     /// 流す本文。空は流せない。長すぎるものは受けない。
     pub body: String,
+    /// どの部屋へ流すか（chat_read の行の末尾「部屋 NBIW…」の id か、その頭）。
+    /// **省くと、最後に届いた発言の部屋へ**（呼ばれた所へ返す）。それも無ければ画面が見ているルームへ。
+    #[serde(default)]
+    pub room: Option<String>,
 }
 
 /// [`crate::Warifu::voice_say`] の引数（#50）。

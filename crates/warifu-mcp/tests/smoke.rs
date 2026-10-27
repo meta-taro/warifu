@@ -222,7 +222,8 @@ async fn 口を全部_1回ずつ呼ぶ() {
         format!(
             "{:?}",
             口.chat_send(Parameters(SayArgs {
-                body: "煙の確かめ".to_owned()
+                body: "煙の確かめ".to_owned(),
+                room: None,
             }))
             .await
         ),

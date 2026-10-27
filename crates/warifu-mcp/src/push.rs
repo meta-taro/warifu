@@ -219,6 +219,7 @@ mod tests {
             from: from.to_owned(),
             body: "届いた中身".to_owned(),
             at: "13:07".to_owned(),
+            room: None,
         }
     }
 
@@ -234,6 +235,7 @@ mod tests {
             from: "人A".to_owned(),
             body: body.to_owned(),
             at: "13:07".to_owned(),
+            room: None,
         }
     }
 

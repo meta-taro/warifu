@@ -47,6 +47,7 @@ fn 喋る机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<()> {
                         from: "ABCDEFGH…".to_owned(),
                         body: body.to_owned(),
                         at: "13:07".to_owned(),
+                        room: None,
                     };
                     if 口.送る(&発言.書く()).await.is_err() {
                         return;
