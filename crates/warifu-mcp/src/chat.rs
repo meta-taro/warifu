@@ -295,7 +295,8 @@ impl Chat {
     /// **返事を待つ。**待たずに「流しました」と返すのは、
     /// 押しても何も起きないボタンと同じである（**D49**）。
     pub async fn 言う(&self, body: &str) -> Result<(usize, u64, Vec<String>), crate::ToolError> {
-        self.部屋へ言う(body, None).await
+        let 流した = self.部屋へ言う(body, None).await?;
+        Ok((流した.人数, 流した.id, 流した.届いた))
     }
 
     /// **部屋を指して**会話へ 1 行流す（0.1.40・内部の Issue 026）。
@@ -309,7 +310,7 @@ impl Chat {
         &self,
         body: &str,
         部屋: Option<&str>,
-    ) -> Result<(usize, u64, Vec<String>), crate::ToolError> {
+    ) -> Result<流した, crate::ToolError> {
         let 最後 = self
             .最後に聞いた部屋
             .lock()
@@ -340,7 +341,17 @@ impl Chat {
 
         match 返事 {
             // **通し番号と届いたエージェントも返す。**あとで「誰が読んだか」を尋ねられる（**D76**）
-            FromDesk::Sent { to, id, 届いた } => Ok((to, id, 届いた)),
+            FromDesk::Sent {
+                to,
+                id,
+                届いた,
+                room,
+            } => Ok(流した {
+                人数: to,
+                id,
+                届いた,
+                部屋: room,
+            }),
             // **画面には出ている。**同じエージェントの人は読んでいるので、そこまで言う。
             // 「届かなかった」だけだと、言い直しを促すことになる
             FromDesk::Nobody => Err(crate::ToolError::Unavailable(
@@ -1120,6 +1131,44 @@ fn 知らせに積む(待ち: &Arc<Mutex<VecDeque<FromDesk>>>, 行: &str) {
 }
 
 /// 行の末尾に付ける「あなた宛て」の印。宛てでなければ空。
+/// `chat_send` の返り。**どの部屋へ流したか**まで持つ（0.1.40・内部の Issue 026）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 流した {
+    /// 何人へ（画面を含む）。
+    pub 人数: usize,
+    /// この機械が振った通し番号（**機械ごと**の番号。部屋ごとでも全機共通でもない）。
+    pub id: u64,
+    /// 誰に届いたか（画面・この機械のエージェント・「ルームの相手」）。
+    pub 届いた: Vec<String>,
+    /// 流した先の部屋（会議 id）。古い机なら `None`。
+    pub 部屋: Option<String>,
+}
+
+impl 流した {
+    /// エージェントへ返す 1 行。**どの部屋へ流したかと、相手が居なかったことを言う**（026）。
+    ///
+    /// 「1 人へ流しました: 画面」だけでは、別の部屋へ落ちても「届いた」と読める。
+    #[must_use]
+    pub fn 言い方(&self) -> String {
+        let 部屋 = self
+            .部屋
+            .as_deref()
+            .map_or_else(String::new, |r| format!("（部屋 {}）", 部屋の頭(r)));
+        let 相手 = if self.届いた.iter().any(|d| d == "ルームの相手") {
+            String::new()
+        } else {
+            "。**この部屋に相手は居ません**（この PC の画面とエージェントにだけ出ました）"
+                .to_owned()
+        };
+        format!(
+            "#{} を {} 人へ流しました{部屋}: {}{相手}。読まれたかは chat_status で見られます。",
+            self.id,
+            self.人数,
+            self.届いた.join("・")
+        )
+    }
+}
+
 /// **どの部屋へ流すか**（0.1.40・内部の Issue 026）。指した部屋 → 最後に聞いた部屋 → 無し（画面が見ているルーム）。
 /// 机が部屋を知らない（古い）なら、常に無し。
 #[must_use]
@@ -1263,7 +1312,9 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             }
             FromDesk::Joined { who } => format!("\t{who}\t（入室）"),
             FromDesk::Left { who } => format!("\t{who}\t（退室）"),
-            FromDesk::Sent { to, id, 届いた } => {
+            FromDesk::Sent {
+                to, id, 届いた, ..
+            } => {
                 format!(
                     "\t\t（#{id} を {to} 人へ流しました: {}）",
                     届いた.join("・")
@@ -1373,6 +1424,41 @@ mod tests {
             room: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
         }]);
         assert_eq!(行, "09:05\tPdM\t点呼\t#8\t部屋 NBIW3PA2TUQ5…");
+    }
+
+    #[test]
+    fn 流した返りは_部屋と相手の有無を言う() {
+        let 届いた = 流した {
+            人数: 2,
+            id: 8,
+            届いた: vec!["画面".to_owned(), "ルームの相手".to_owned()],
+            部屋: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+        };
+        assert_eq!(
+            届いた.言い方(),
+            "#8 を 2 人へ流しました（部屋 NBIW3PA2TUQ5…）: 画面・ルームの相手。読まれたかは chat_status で見られます。"
+        );
+        let 独り = 流した {
+            人数: 1,
+            id: 9,
+            届いた: vec!["画面".to_owned()],
+            部屋: Some("AFUF2T4ECVKMAAAAAAAAAAAAAA".to_owned()),
+        };
+        assert!(
+            独り.言い方().contains("この部屋に相手は居ません"),
+            "{}",
+            独り.言い方()
+        );
+        let 古い = 流した {
+            人数: 3,
+            id: 12,
+            届いた: vec!["画面".to_owned(), "ルームの相手".to_owned()],
+            部屋: None,
+        };
+        assert_eq!(
+            古い.言い方(),
+            "#12 を 3 人へ流しました: 画面・ルームの相手。読まれたかは chat_status で見られます。"
+        );
     }
 
     #[test]
@@ -1500,6 +1586,7 @@ mod tests {
                 to: 2,
                 id: 1,
                 届いた: vec!["画面".to_owned()],
+                room: None,
             }
             .書く(),
         );
@@ -1510,7 +1597,8 @@ mod tests {
             FromDesk::Sent {
                 to: 2,
                 id: 1,
-                届いた: vec!["画面".to_owned()]
+                届いた: vec!["画面".to_owned()],
+                room: None,
             }
         );
     }

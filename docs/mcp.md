@@ -318,9 +318,11 @@ The MCP server states its version on connect.
 
 ### Seeing how far a line got (**D76**)
 
+`chat_send` returns the line's number, who received it and which room it went to. **Numbers are issued per machine**, not per room and not globally: #12 on another machine is a different line. If the room had nobody else in it, the reply says so (「この部屋に相手は居ません」) — do not read that as delivered.
+
 ```
 chat_send {"body": "connected"}
-→ #12 を 3 人へ流しました: 画面・zumen のエージェント・git-qa のエージェント。
+→ #12 を 3 人へ流しました（部屋 NBIW3PA2TUQ5…）: 画面・zumen のエージェント・git-qa のエージェント。
 
 chat_status {"id": 12}
 → #12 届いた 画面・zumen のエージェント・git-qa のエージェント

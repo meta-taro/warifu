@@ -111,6 +111,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     to: 1,
                     id: 1,
                     届いた: vec!["画面".to_owned()],
+                    room: None,
                 }),
                 ToDesk::Status { id } => Some(FromDesk::Status {
                     id,

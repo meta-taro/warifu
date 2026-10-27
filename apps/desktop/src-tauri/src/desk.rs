@@ -776,10 +776,11 @@ async fn 応じる(
             };
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
             let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋).await {
-                Ok((id, 届いた)) => FromDesk::Sent {
+                Ok((id, 届いた, 流した先)) => FromDesk::Sent {
                     to: 届いた.len(),
                     id,
                     届いた,
+                    room: 流した先.map(|m| m.to_string()),
                 },
                 Err(訳) => {
                     記録!("この機械からの発言を流せませんでした: {訳}");
@@ -836,7 +837,7 @@ pub(crate) async fn 流す(
     出所: u64,
     呼び方: String,
     部屋: Option<MeetingId>,
-) -> Result<(u64, Vec<String>), String> {
+) -> Result<(u64, Vec<String>, Option<MeetingId>), String> {
     let bridge = app.state::<Bridge>();
     let 自分 = bridge.device.public_key();
     let 見ている = crate::いま見ているルーム(&bridge.いまのルーム).await;
@@ -883,7 +884,7 @@ pub(crate) async fn 流す(
     let Some(meeting) = 流す先 else {
         // 会議が無くても、**この PC の人には届いている。**失敗にしない
         届けた(id, 届いた.clone());
-        return Ok((id, 名札で並べる(&届いた)));
+        return Ok((id, 名札で並べる(&届いた), None));
     };
 
     // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く
@@ -910,7 +911,7 @@ pub(crate) async fn 流す(
         届いた.push(ルームの相手.to_owned());
     }
     届けた(id, 届いた.clone());
-    Ok((id, 名札で並べる(&届いた)))
+    Ok((id, 名札で並べる(&届いた), Some(meeting)))
 }
 
 /// 覚えている相手を（鍵, 呼び名）の組で並べる。**読めなければ空**（手渡し・書き出しで使う）。
@@ -1344,6 +1345,17 @@ fn 部屋を落とすか(行: FromDesk, 部屋も聞く: bool) -> FromDesk {
             from,
             body,
             at,
+            room: None,
+        },
+        FromDesk::Sent {
+            to,
+            id,
+            届いた,
+            room: Some(_),
+        } if !部屋も聞く => FromDesk::Sent {
+            to,
+            id,
+            届いた,
             room: None,
         },
         他 => 他,

@@ -469,6 +469,12 @@ pub enum FromDesk {
         /// （`issues/4`）。**画面（人）も 1 つとして並ぶ**
         #[serde(default)]
         届いた: Vec<String>,
+        /// **どの部屋へ流したか**（会議 id の全文・0.1.40・内部の Issue 026）。
+        ///
+        /// 送った側が「どの部屋に入ったか」を確かめる口が無く、別の部屋へ落ちても「届いた」と読めた。
+        /// `Listen` で `部屋も聞く` と名乗った口にだけ付ける。付けないときは欄を書かない。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
     },
     /// **いまの様子**（[`ToDesk::Status様子`] の返り）。
     ///
@@ -1338,8 +1344,18 @@ mod tests {
             to: 2,
             id: 1,
             届いた: vec!["画面".to_owned()],
+            room: None,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
+        assert!(!元.書く().contains("room"), "部屋が無いなら欄も書かない");
+        // 流した先の部屋も往復する（0.1.40）
+        let 部屋つき = FromDesk::Sent {
+            to: 2,
+            id: 1,
+            届いた: vec!["画面".to_owned()],
+            room: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+        };
+        assert_eq!(FromDesk::読む(&部屋つき.書く()).unwrap(), 部屋つき);
     }
 
     #[test]
