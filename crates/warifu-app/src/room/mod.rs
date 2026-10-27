@@ -637,6 +637,7 @@ pub const fn 知らせの名(知らせ: &Notice) -> &'static str {
     }
 }
 
+pub mod dedupe;
 pub mod roster;
 
 #[cfg(test)]

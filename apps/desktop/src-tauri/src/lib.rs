@@ -1975,6 +1975,20 @@ async fn 部屋の証しを確かめる(
 }
 
 /// 今の時刻（秒）。**割符の期限と戸口の窓に使う。**
+/// **同じ発言が 2 本の道で届いたときの控え**（0.1.40・内部の Issue 026・`room::dedupe`）。
+/// 直接の線と主催の配り直しの両方で届く発言を、受け手で 1 本にする。窓は 10 秒。
+static 重複の控え: std::sync::LazyLock<
+    std::sync::Mutex<warifu_app::room::dedupe::重複の控え<(PublicKey, MeetingId)>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(warifu_app::room::dedupe::重複の控え::new(10)));
+
+/// 2 本の道で届いた同じ発言か。**初めてなら控えて偽。**
+fn 二本目か(from: PublicKey, meeting: MeetingId, 本文: &[u8]) -> bool {
+    重複の控え
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .重複か((from, meeting), 本文, now_secs())
+}
+
 pub(crate) fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -2071,6 +2085,12 @@ fn 汲む(
                             記録!("受信: 差出人が経路の相手と違う。捨てた");
                             continue;
                         }
+                        // **直接の線と主催の配り直しの両方で届いた 2 本目は落とす**（0.1.40・026）。
+                        // 紹介でゲストどうしが直接つながると、同じ発言が 2 回ずつ画面に並んでいた
+                        if 二本目か(*from, *meeting, body.as_bytes()) {
+                            記録!("受信: 同じ発言が 2 本の道で届いた（直接と主催経由）。2 本目を捨てた");
+                            continue;
+                        }
                         // **名簿に居ない相手の発言が届いたら、食い違いとして人とエージェントに言う**（0.1.39）。
                         // 見出しの人数にも届く先にも出ない相手から発言が来る、がこの形
                         {
@@ -2141,6 +2161,10 @@ fn 汲む(
                         let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
                         if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
                             記録!("受信: 画像の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if 二本目か(*from, *meeting, 中身) {
+                            記録!("受信: 同じ画像が 2 本の道で届いた。2 本目を捨てた");
                             continue;
                         }
                         let 名 = match 話し手 {
