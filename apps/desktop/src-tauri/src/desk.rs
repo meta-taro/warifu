@@ -664,6 +664,13 @@ async fn 応じる(
             let _ = 口.送る(&FromDesk::部屋たち { 部屋 }.書く()).await;
             Ok(())
         }
+        // **向こうに新しい版があるか尋ねる**（0.1.41・内部の Issue 027）。入れ替えは人が押す
+        ToDesk::更新を確かめる => {
+            let 返事 = 更新を確かめる(app).await;
+            記録!("{} が更新を確かめました: {返事:?}", 呼び方(名乗り.as_deref()));
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         // **部屋を指定して抜ける**（0.1.40）。画面の［このルームを抜ける］と同じ道
         ToDesk::抜ける { 部屋 } => {
             let 返事 = 部屋を抜ける(app, &部屋, &呼び方(名乗り.as_deref())).await;
@@ -1164,6 +1171,48 @@ async fn 住所で足す(app: &AppHandle, 住所: &str, 名前: &str, 誰: &str)
     );
     FromDesk::足した {
         名前: 名前.trim().to_owned(),
+    }
+}
+
+/// **向こうに新しい版があるか尋ねる**（0.1.41・内部の Issue 027）。
+///
+/// 確かめるだけで、**落として入れ替えるのは人が画面で押す**。新しい版があれば、
+/// メニューの「更新を確認…」と同じ出来事を画面へ出して、更新の帯を見せる。
+/// `.app` の外で動いているときは確かめない（`bundle.rs` の決まり。置き場所が消える）。
+async fn 更新を確かめる(app: &AppHandle) -> FromDesk {
+    use tauri_plugin_updater::UpdaterExt;
+    let いまの版 = env!("CARGO_PKG_VERSION").to_owned();
+    let 返す = |新しい版: Option<String>, 何が変わったか: Option<String>, 確かめられない: Option<String>| {
+        FromDesk::更新 {
+            いまの版: いまの版.clone(),
+            新しい版,
+            何が変わったか,
+            確かめられない,
+        }
+    };
+    if !crate::bundle::can_update() {
+        return 返す(
+            None,
+            None,
+            Some(".app の外で動いているので、更新は確かめません".to_owned()),
+        );
+    }
+    let 向こう = match app.updater() {
+        Ok(更新) => 更新.check().await,
+        Err(e) => Err(e),
+    };
+    match 向こう {
+        Ok(Some(新しい)) => {
+            // **画面に帯を出す**（人が押す所）。確かめるのは画面の側（`+page.svelte` の `更新を確かめる`）
+            let _ = app.emit(crate::EVENT_CHECK_UPDATE, ());
+            返す(Some(新しい.version), 新しい.body, None)
+        }
+        Ok(None) => 返す(None, None, None),
+        Err(e) => 返す(
+            None,
+            None,
+            Some(format!("向こうに尋ねられませんでした（{e}）")),
+        ),
     }
 }
 

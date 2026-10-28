@@ -4043,6 +4043,8 @@
         止める={(呼び方) => void AIを止める(呼び方)}
         {鍵なしで入れる}
         預かり所がある={!!預かり所}
+        {版}
+        更新を確かめる={() => void 更新を確かめる()}
         プロフィール={名乗りたち}
         顔の画={顔の画たち}
         顔を差し替える={(who, 場所) => void 顔を差し替える(who, 場所)}
@@ -4614,6 +4616,9 @@
       row-gap: 0;
       min-height: 0;
       overflow-y: auto;
+      /* **チャットの高さを「見えている高さ」で測るための容れ物**（`100cqh`）。
+         高さは上の grid が決めているので、中身で伸び縮みしない */
+      container-type: size;
     }
     .pane.meeting.文字だけ > aside > :global(*) {
       grid-column: 1;
@@ -4623,9 +4628,21 @@
     .pane.meeting.文字だけ > aside > :global(.card.chat) {
       grid-column: 2;
       grid-row: 1 / -1;
-      /* **高さは枠に任せる**（`height: 100%` だと札の余白と線のぶん、枠から溢れて投稿欄が切れた） */
+      /*
+        **チャットは、見えている高さに留める**（0.1.41・内部の Issue 023・10-28）。
+        左の列（名簿〜設定の 8 枚）が窓より長いと `aside` ぜんたいが巻物になり、
+        全行をまたぐチャットも同じ高さに伸びて**投稿欄が窓の下へ逃げた**
+        （Windows 1116×729 で 13px、人が UIA で実測）。
+        `100cqh` は `aside` の見えている高さ。sticky で上に留め、巻くのは左の列だけ。
+        `height: 100%` は枠（全行）の高さなので使えない。
+      */
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100cqh;
+      /* 枠線と余白も `100cqh` の中に入れる。入れないと 26px だけ溢れて、送るボタンの下が切れる（10-28 に dev で実測） */
+      box-sizing: border-box;
       min-height: 0;
-      align-self: stretch;
       margin-bottom: 0;
     }
     /* 右の列の幅を引く仕切りは、1 列（映像あり）のためのもの。ここでは出さない */

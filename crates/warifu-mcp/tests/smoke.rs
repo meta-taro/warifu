@@ -144,6 +144,13 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     }],
                 }),
                 ToDesk::抜ける { 部屋 } => Some(FromDesk::抜けた { 部屋 }),
+                // 0.1.41：更新の口
+                ToDesk::更新を確かめる => Some(FromDesk::更新 {
+                    いまの版: "0.1.41".to_owned(),
+                    新しい版: Some("0.1.42".to_owned()),
+                    何が変わったか: Some("試験の直し".to_owned()),
+                    確かめられない: None,
+                }),
                 ToDesk::相手に名前を付ける { 名前, .. } => {
                     Some(FromDesk::名付けた {
                         鍵: "PEERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
@@ -373,6 +380,14 @@ async fn 口を全部_1回ずつ呼ぶ() {
     ));
     // 0.1.40：部屋の片付けの 3 つの口
     結果.push(("room_list", format!("{:?}", 口.room_list().await)));
+    // 0.1.41：更新の口（返りの中身まで見る）
+    let 更新 = 口.update_check().await;
+    結果.push(("update_check", format!("{更新:?}")));
+    let 更新の文 = 更新.as_deref().unwrap_or("");
+    assert!(
+        更新の文.contains("新しい版: 0.1.42") && 更新の文.contains("入れ替えは人が押します"),
+        "update_check が偽の机の返りをそのまま言い直していない: {更新の文}"
+    );
     結果.push((
         "room_rename",
         format!(

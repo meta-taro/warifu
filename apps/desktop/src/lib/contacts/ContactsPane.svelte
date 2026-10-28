@@ -63,6 +63,13 @@
      */
     預かり所がある?: boolean;
     /**
+     * **いま動いている版**（0.1.41・内部の Issue 027）。「いまの様子」に出す。
+     * Windows の人が「更新を確認する所が無い」と探した —— メニューにしか無かった。
+     */
+    版?: string;
+    /** ［更新を確認する］を押した。メニューの「更新を確認…」と同じ道。 */
+    更新を確かめる?: () => void;
+    /**
      * この端末のプロフィール（**人と、マイ PC エージェント**）。
      *
      * **書き換えられるのはこの端末の持ち主だけ。**AI 自身の口には無い ——
@@ -140,6 +147,8 @@
     止める,
     鍵なしで入れる,
     預かり所がある = false,
+    版 = '',
+    更新を確かめる = () => {},
     プロフィール = [],
     名乗りを書く = () => {},
     名乗られたもの = {},
@@ -611,6 +620,14 @@
           <div>
             <dt>{t('home.postbox')}</dt>
             <dd>{様子.預かり所 ? t('home.postbox.on') : t('home.postbox.off')}</dd>
+          </div>
+          <!-- **版と、更新を確かめる押し所**（0.1.41）。メニューにしか無く、Windows の人が見つけられなかった -->
+          <div>
+            <dt>{t('home.version')}</dt>
+            <dd class="version">
+              <span>{版}</span>
+              <button type="button" class="quiet" onclick={更新を確かめる}>{t('update.check')}</button>
+            </dd>
           </div>
         </dl>
       </section>
@@ -1549,6 +1566,13 @@
     font-size: var(--text-md-size);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+  }
+  /* 版の横に、更新を確かめる押し所。数字と同じ行に置く */
+  .now dd.version {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
   }
 
   /* できることの札。**枠線 1 本を共有して並べる**（1 枚ずつ影を付けない） */

@@ -307,6 +307,7 @@ fn 出している口を_数えて名前で押さえる() {
             "room_rename",
             "room_status",
             "rules_list",
+            "update_check",
             "voice_say",
         ],
         "口が増えたら、札の種類を決めてからここを直す"

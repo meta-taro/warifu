@@ -148,6 +148,7 @@ home.people	{n}	{n} 人	{n} 人	{n}명
 home.postbox	Receiving while away	留守中の受け取り	不在时的接收	부재 중 수신				
 home.postbox.off	Not set up	未設定	未设置	설정 안 됨				
 home.postbox.on	Set up	設定済み	已设置	설정됨				
+home.version	Version	いまの版	当前版本	현재 버전				
 home.rooms	Rooms you are in	ルーム	所在的 room	들어가 있는 룸				
 home.rooms.n	{n} (people: {m})	{n} 室（{m} 人）	{n} 间（{m} 人）	{n}개({m}명)				
 home.seats	Agents on this computer	この PC のエージェント	这台电脑的智能体	이 PC의 에이전트				

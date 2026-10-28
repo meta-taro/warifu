@@ -124,6 +124,7 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | (same as `chat.read`) | **`room_list`** | **Every room this machine's warifu is in** (id prefix, name, people, host or guest, which one is on screen). `room_status` only covers the room on screen |
 | `room.leave` | **`room_leave`** | **Leave a given room** (a host closes it; same path as the on-screen button. **Use when a person asks. The permission is consumed each time**) |
 | `room.rename` | **`room_rename`** | **Give a room a human-readable name** (everyone in the room sees the same name. **The permission is consumed each time**) |
+| (no ticket) | **`update_check`** | **Ask this computer's warifu app whether a newer version exists** (current version, newer version, what changed). If there is one, the app shows its update band (download, replace, restart), so ask the person to press it. **Replacing is the person's action** (0.1.41+; older apps have no such line) |
 
 **`about` and `changes` need no permission** (**D82**). The gate protects **things that belong to a person** — inbox, conversation, calendar. Those two describe *this executable*, and contain nothing of anyone's. Gating them would also invert the order: you would need a permission in order to find out what permissions exist.
 

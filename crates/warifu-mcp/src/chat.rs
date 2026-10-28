@@ -589,6 +589,38 @@ impl Chat {
         }
     }
 
+    /// **向こうに新しい版があるか、この機械の画面に尋ねる**（0.1.41）。
+    ///
+    /// # Errors
+    /// 古い画面（この行を知らない）・この機械が返さないとき。
+    pub async fn 更新を確かめる(&self) -> Result<更新の様子, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::更新を確かめる, 更新の返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::更新 {
+                いまの版,
+                新しい版,
+                何が変わったか,
+                確かめられない,
+            } => Ok(更新の様子 {
+                いまの版,
+                新しい版,
+                何が変わったか,
+                確かめられない,
+            }),
+            // **古い画面はこの行を読めず「壊れている」と断る**。版の話だと分かる言い方にする
+            FromDesk::Denied { why } if why.contains("行の形") => Err(crate::ToolError::Unavailable(
+                "この画面の版には更新の口がありません（0.1.41 から）。人に画面を入れ替えてもらってください"
+                    .to_owned(),
+            )),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **部屋を指定して抜ける**（0.1.40）。抜けた部屋の id を返す。
     ///
     /// # Errors
@@ -1095,6 +1127,9 @@ fn 名乗りの返事(中身: &FromDesk) -> bool {
 fn 部屋たちの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::部屋たち { .. } | FromDesk::Denied { .. })
 }
+fn 更新の返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::更新 { .. } | FromDesk::Denied { .. })
+}
 fn 抜けるの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::抜けた { .. } | FromDesk::Denied { .. })
 }
@@ -1103,6 +1138,48 @@ fn 付けるの返事(中身: &FromDesk) -> bool {
 }
 fn 名付けるの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::名付けた { .. } | FromDesk::Denied { .. })
+}
+
+/// **更新の様子**（`update_check` の返り・0.1.41）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 更新の様子 {
+    /// いま動いている画面の版。
+    pub いまの版: String,
+    /// 向こうにある新しい版。無ければ `None`。
+    pub 新しい版: Option<String>,
+    /// 新しい版で何が変わったか。
+    pub 何が変わったか: Option<String>,
+    /// 確かめられなかった理由。
+    pub 確かめられない: Option<String>,
+}
+
+/// 更新の様子を、エージェントが人へそのまま伝えられる言い方にする。
+///
+/// **入れ替えは人が押す**ので、新しい版があるときは「画面の帯を押してもらう」と言う。
+#[must_use]
+pub fn 更新の言い方(様子: &更新の様子) -> String {
+    let mut 文 = format!("いまの版: {}\n", 様子.いまの版);
+    if let Some(訳) = &様子.確かめられない {
+        文.push_str(&format!("確かめられませんでした: {訳}\n"));
+        return 文;
+    }
+    match &様子.新しい版 {
+        Some(新しい) => {
+            文.push_str(&format!(
+                "新しい版: {新しい} —— 同じ PC の画面に更新の帯（落として入れ替える・再起動）を出しました。\
+                 **入れ替えは人が押します。**人へ「割符の画面の更新の帯を押してください」と頼んでください。\n"
+            ));
+            match &様子.何が変わったか {
+                Some(中身) if !中身.trim().is_empty() => {
+                    文.push_str(&format!("何が変わったか:\n{}\n", 中身.trim()));
+                }
+                _ => 文
+                    .push_str("何が変わったかは書かれていません（changes で版を指して読めます）\n"),
+            }
+        }
+        None => 文.push_str("新しい版はありません（いまが最新です）\n"),
+    }
+    文
 }
 
 /// `room_list` の返り（人とエージェントが読む 1 行ずつ）。
@@ -1225,6 +1302,8 @@ fn 仕分ける(
             | FromDesk::抜けた { .. }
             | FromDesk::付けた { .. }
             | FromDesk::名付けた { .. }
+            // **更新の様子も返事である**（0.1.41）
+            | FromDesk::更新 { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -1467,7 +1546,9 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::部屋たち { .. }
             | FromDesk::抜けた { .. }
             | FromDesk::付けた { .. }
-            | FromDesk::名付けた { .. } => String::new(),
+            | FromDesk::名付けた { .. }
+            // **更新の様子も会話の行ではない**（0.1.41）
+            | FromDesk::更新 { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
@@ -1488,6 +1569,35 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 更新の言い方_新しい版_最新_確かめられない() {
+        let 新しい = super::更新の様子 {
+            いまの版: "0.1.40".to_owned(),
+            新しい版: Some("0.1.41".to_owned()),
+            何が変わったか: Some("持続の札\n".to_owned()),
+            確かめられない: None,
+        };
+        let 文 = super::更新の言い方(&新しい);
+        assert!(文.contains("いまの版: 0.1.40"));
+        assert!(文.contains("新しい版: 0.1.41"));
+        assert!(文.contains("入れ替えは人が押します"));
+        assert!(文.contains("持続の札"));
+        let 最新 = super::更新の様子 {
+            いまの版: "0.1.41".to_owned(),
+            新しい版: None,
+            何が変わったか: None,
+            確かめられない: None,
+        };
+        assert!(super::更新の言い方(&最新).contains("いまが最新"));
+        let 駄目 = super::更新の様子 {
+            確かめられない: Some("向こうに繋がらない".to_owned()),
+            ..最新
+        };
+        let 文 = super::更新の言い方(&駄目);
+        assert!(文.contains("確かめられませんでした: 向こうに繋がらない"));
+        assert!(!文.contains("最新"));
+    }
+
     use super::*;
 
     #[test]

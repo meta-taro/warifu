@@ -128,6 +128,7 @@ export type MessageKey =
   | 'home.contacts'
   | 'home.postbox'
   | 'home.postbox.on'
+  | 'home.version'
   | 'home.postbox.off'
   | 'home.chat'
   | 'home.group'
@@ -581,6 +582,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.contacts': '連絡先',
     'home.postbox': '留守中の受け取り',
     'home.postbox.on': '設定済み',
+    'home.version': 'いまの版',
     'home.postbox.off': '未設定',
     'home.chat': '相手を選ぶと、その人とだけの会話になります。',
     'home.group': 'この相手にルームキーを渡します。1 本につき 1 人です。押すと、ルームキーを出す所へ移ります。',
@@ -989,6 +991,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.contacts': 'Contacts',
     'home.postbox': 'Receiving while away',
     'home.postbox.on': 'Set up',
+    'home.version': 'Version',
     'home.postbox.off': 'Not set up',
     'home.chat': 'Pick someone and the conversation is with that person only.',
     'home.group': 'Hands this person a room key. One key, one person. Pressing this takes you to where keys are issued.',
@@ -1395,6 +1398,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.contacts': '联系人',
     'home.postbox': '不在时的接收',
     'home.postbox.on': '已设置',
+    'home.version': '当前版本',
     'home.postbox.off': '未设置',
     'home.chat': '选择一位对象，就变成只和那个人的会话。',
     'home.group': '把一把 room key 交给这位对象。一把对一个人。按下后会转到发 room key 的地方。',
@@ -1805,6 +1809,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'home.contacts': '연락처',
     'home.postbox': '부재 중 수신',
     'home.postbox.on': '설정됨',
+    'home.version': '현재 버전',
     'home.postbox.off': '설정 안 됨',
     'home.chat': '상대를 고르면 그 사람과만 하는 대화가 됩니다.',
     'home.group': '이 상대에게 룸 키를 건넵니다. 한 개에 한 사람입니다. 누르면 룸 키를 발급하는 곳으로 이동합니다.',
