@@ -80,6 +80,11 @@ pub enum ToDesk {
         /// 名乗らないなら欄を書かない（古い机に断られない）。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         部屋も聞く: bool,
+        /// **様子に「食い違い」を付けてほしい**（0.1.41・spec 04 S04-8）。
+        ///
+        /// 同じ理由で opt-in。名乗った口にだけ机は `食い違い` の欄を付ける（空なら欄を書かない）。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        点検も聞く: bool,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -593,6 +598,10 @@ pub enum FromDesk {
         /// **だから札ではなく、出ている文字をそのまま渡す。**
         #[serde(default)]
         題字: Option<String>,
+        /// **いまの食い違い**（spec 04 S04-8・0.1.41）。本体が画面の写しと見比べた結果。空なら合っている。
+        /// 古いこの機械は空で返す（`serde(default)`）。
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        食い違い: Vec<String>,
     },
     /// **出したルームキー**（[`ToDesk::招く`] の返り）。
     ///
@@ -1132,6 +1141,7 @@ mod 様子の試験 {
     #[test]
     fn 様子の返りは_経路と名簿と待っているリンクを持つ() {
         let 元 = FromDesk::様子 {
+            食い違い: Vec::new(),
             ルーム: Some("ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned()),
             名簿: vec!["PEERCAAAAAAA…".to_owned()],
             経路: Some("direct".to_owned()),
@@ -1159,6 +1169,7 @@ mod 様子の試験 {
         assert_eq!(
             出た,
             FromDesk::様子 {
+                食い違い: Vec::new(),
                 ルーム: None,
                 名簿: vec![],
                 経路: None,
@@ -1203,6 +1214,7 @@ mod 様子の試験 {
         // **題字は札ではなく、出ている文字そのもの**（#32）——
         // `経路` は在るが、画面の文言と一致する保証が無い
         let 元 = FromDesk::様子 {
+            食い違い: Vec::new(),
             ルーム: None,
             名簿: vec![],
             経路: None,
@@ -1225,6 +1237,7 @@ mod 様子の試験 {
     fn ルームに居なくても様子は返る() {
         // **「まだ居ない」も様子である。**黙るのは答えではない
         let 元 = FromDesk::様子 {
+            食い違い: Vec::new(),
             ルーム: None,
             名簿: vec![],
             経路: None,
@@ -1295,6 +1308,7 @@ mod tests {
             場所: None,
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1308,6 +1322,7 @@ mod tests {
             場所: Some("docs".to_owned()),
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1321,6 +1336,7 @@ mod tests {
                 場所: None,
                 どこから: None,
                 部屋も聞く: false,
+                点検も聞く: false,
             }
         );
     }
@@ -1332,6 +1348,7 @@ mod tests {
                 場所: Some(壊す.to_owned()),
                 どこから: None,
                 部屋も聞く: false,
+                点検も聞く: false,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -1345,6 +1362,7 @@ mod tests {
             場所: Some(長い),
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
@@ -1362,6 +1380,7 @@ mod tests {
                 場所: Some("docs".to_owned()),
                 どこから: None,
                 部屋も聞く: false,
+                点検も聞く: false,
             }
         );
     }
@@ -1372,6 +1391,7 @@ mod tests {
             場所: Some("docs".to_owned()),
             どこから: Some(42),
             部屋も聞く: false,
+            点検も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
     }
@@ -1430,6 +1450,7 @@ mod tests {
             場所: Some("docs".to_owned()),
             どこから: None,
             部屋も聞く: true,
+            点検も聞く: true,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
         let 行 = r#"{"型":"listen","場所":"docs"}"#;
@@ -1437,6 +1458,7 @@ mod tests {
             ToDesk::読む(行).expect("読める"),
             ToDesk::Listen {
                 部屋も聞く: false,
+                点検も聞く: false,
                 ..
             }
         ));
@@ -1445,8 +1467,10 @@ mod tests {
             場所: Some("docs".to_owned()),
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         };
         assert!(!聞かない.書く().contains("部屋も聞く"));
+        assert!(!聞かない.書く().contains("点検も聞く"));
     }
 
     // 0.1.40・内部の Issue 026 —— 口から部屋を片付ける

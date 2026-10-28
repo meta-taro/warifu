@@ -314,6 +314,8 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
         // **届いた行に部屋を付けてよいか**（0.1.40・内部の Issue 026）。古い口は知らない欄を断るので、
         // `Listen` で名乗った口にだけ付ける
         let mut 部屋も聞く = false;
+        // **様子に食い違いを付けてよい口か**（0.1.41）。古い口には付けない（読めなくなる）
+        let mut 点検も聞く = false;
         let mut 口 = 口::新しく(一本);
         let mut 聞く = app.state::<Bridge>().desk.subscribe();
         // **人数が変わったことを画面へ伝える。**伝えないと、
@@ -328,7 +330,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             tokio::select! {
                 来た = 口.受ける() => {
                     let Ok(Some(行)) = 来た else { break };
-                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 部屋も聞く)
+                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 部屋も聞く, &mut 点検も聞く)
                         .await
                         .is_err()
                     {
@@ -401,6 +403,7 @@ async fn 応じる(
     自分: u64,
     名乗り: &mut Option<String>,
     部屋も聞く: &mut bool,
+    点検も聞く: &mut bool,
 ) -> Result<(), ()> {
     let 中身 = match ToDesk::読む(行) {
         Ok(中身) => 中身,
@@ -420,8 +423,10 @@ async fn 応じる(
             場所,
             どこから,
             部屋も聞く: 聞く,
+            点検も聞く: 点検,
         } => {
             *部屋も聞く = 聞く;
+            *点検も聞く = 点検;
             let Some(名) = 場所 else {
                 // **名乗らない相手はエージェントに着けない。**どうすればつながれるかは言う ——
                 // ここは「断る理由を相手に返さない」（D31）とは別で、
@@ -813,6 +818,12 @@ async fn 応じる(
                         受けている: 映り.as_ref().map(|m| m.受けている),
                         掴んでいる: 映り.as_ref().map(|m| m.掴んでいる),
                         題字: 映り.as_ref().map(|m| m.題字.clone()),
+                        // **本体が見比べた食い違い**（spec 04 S04-8）。名乗った口にだけ付ける（古い口は読めない）
+                        食い違い: if *点検も聞く {
+                            bridge.いまの食い違い.lock().await.clone()
+                        } else {
+                            Vec::new()
+                        },
                     }
                     .書く(),
                 )

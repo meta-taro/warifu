@@ -871,6 +871,7 @@ impl Warifu {
             受けている,
             掴んでいる,
             題字,
+            食い違い,
         } = 様子
         else {
             return Err(crate::ToolError::Unavailable("様子が返りませんでした".to_owned()).into());
@@ -932,6 +933,14 @@ impl Warifu {
         if let Some(文) = 題字 {
             // **札ではなく、出ている文字そのもの**（画面と食い違わないように）
             行たち.push(format!("画面の題字: {文}"));
+        }
+        // **本体が見比べた食い違い**（spec 04 S04-8・0.1.41）。空なら空と分かる形で
+        if 食い違い.is_empty() {
+            行たち.push("食い違い: なし（画面と本体は合っています）".to_owned());
+        } else {
+            for 文 in &食い違い {
+                行たち.push(format!("食い違い: {文}"));
+            }
         }
         Ok(行たち.join("\n"))
     }

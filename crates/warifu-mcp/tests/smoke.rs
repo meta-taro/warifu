@@ -119,6 +119,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     読んだ: vec![],
                 }),
                 ToDesk::Status様子 => Some(FromDesk::様子 {
+                    食い違い: Vec::new(),
                     ルーム: Some("ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned()),
                     名簿: vec![],
                     経路: Some("direct".to_owned()),

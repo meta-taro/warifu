@@ -656,6 +656,26 @@ export const noteScreen = (
   title: string,
 ) => invoke<void>('note_screen', { sending, receiving, holding, title });
 
+/** **画面が見せているものを、構造のある形で置く**（計画 1-D・spec 04 §2）。 */
+export interface 画面の写し {
+  /** 見ているルームの id。無ければ `null`。 */
+  見ている: string | null;
+  /** 左の一覧に出しているルーム。 */
+  部屋ごと: {
+    id: string;
+    /** 届く先に出している相手の鍵（全桁）。出していないルームは `null`。 */
+    届く先: string[] | null;
+    /** 「あなたが建てた」と出しているか。 */
+    建てたと出している: boolean;
+  }[];
+}
+
+/**
+ * **画面が見せているものを本体へ置く。**本体が 2 秒後と 30 秒ごとに自分の棚と見比べ、
+ * 食い違いを机（エージェント）と記録へ出す。`room_status` の「食い違い」がこれ。
+ */
+export const noteView = (view: 画面の写し) => invoke<void>('note_view', { view });
+
 /**
  * **この実行ファイルの通信が、ファイアウォールで塞がれていないか**（PR #16）。
  *

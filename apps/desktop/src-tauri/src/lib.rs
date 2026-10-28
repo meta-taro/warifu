@@ -111,6 +111,7 @@ mod roster_sync;
 #[cfg(test)]
 mod room_sim;
 mod schedule;
+mod self_check;
 mod snapshot;
 mod voice;
 mod window_place;
@@ -328,6 +329,12 @@ pub struct Bridge {
     /// **知っているのは画面だけ**なので、画面が置きに来る（`経路` と同じ形）。
     /// **置きに来ていなければ `None`** ——「出ていない」ではない（原則 7）。
     画面に映っているもの: Arc<Mutex<Option<画面の映り>>>,
+    /// **画面が見せているものの写し**（計画 1-D・spec 04 §2・0.1.41）。`note_view` で画面が置く
+    画面の写し: Arc<Mutex<Option<self_check::画面の写し>>>,
+    /// いまの食い違い（S04-8）。空なら合っている
+    いまの食い違い: Arc<Mutex<Vec<String>>>,
+    /// 食い違いごとに、最後に机へ言った時刻（S04-7・同じ食い違いは 10 分に 1 回）
+    食い違いを言った: Arc<Mutex<HashMap<String, u64>>>,
 }
 
 /// いま居るルームたち。**複数持てる**（`issues/015`）。
@@ -481,6 +488,9 @@ impl Bridge {
             desk: tokio::sync::broadcast::Sender::new(desk::配る溜め),
             経路: Arc::new(Mutex::new(HashMap::new())),
             画面に映っているもの: Arc::new(Mutex::new(None)),
+            画面の写し: Arc::new(Mutex::new(None)),
+            いまの食い違い: Arc::new(Mutex::new(Vec::new())),
+            食い違いを言った: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1617,6 +1627,72 @@ async fn note_screen(
         題字: title,
     });
     Ok(())
+}
+
+/// **画面が見せているものを、構造のある形で置く**（計画 1-D・spec 04 §2・0.1.41）。
+///
+/// 10-22 に届いた文字が別のルームの欄に積まれ、10-23 に網を越えた相手が見出しにも届く先にも出なかった。
+/// **人が見てすぐ分かるおかしさを、エージェントは見られなかった。**置かれたら 2 秒後に見比べる
+/// （続けて置かれたら最後の 1 回だけ）。30 秒ごとにも見比べる（`setup`）。
+#[tauri::command]
+async fn note_view(
+    app: AppHandle,
+    bridge: State<'_, Bridge>,
+    view: self_check::画面の写し,
+) -> Answer<()> {
+    *bridge.画面の写し.lock().await = Some(view);
+    let 番 = 写しの番.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        if 写しの番.load(std::sync::atomic::Ordering::SeqCst) == 番 {
+            自己点検(&app).await;
+        }
+    });
+    Ok(())
+}
+
+/// 置かれた写しの通し番号。**最後に置かれた分だけ見比べる**（S04-6「まとめて 2 秒以内」）
+static 写しの番: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// **自己点検** —— 画面の写しと本体を見比べ、食い違いを机と記録へ出す（S04-6〜S04-8）。
+///
+/// 同じ食い違いは 10 分に 1 回だけ言う（S04-7）。`room_status` はいまの食い違いを返す（S04-8）。
+pub(crate) async fn 自己点検(app: &AppHandle) {
+    let bridge = app.state::<Bridge>();
+    let Some(画面) = bridge.画面の写し.lock().await.clone() else {
+        return;
+    };
+    let 並び = ルームの並び(&bridge).await;
+    let 本体 = self_check::本体の写し {
+        自分: key_to_string(bridge.device.public_key()),
+        見ている: いま見ているルーム(&bridge.いまのルーム)
+            .await
+            .map(|m| m.to_string()),
+        部屋ごと: 並び
+            .into_iter()
+            .map(|r| self_check::本体の部屋 {
+                id: r.id,
+                面々: r.member_keys,
+                主催か: r.host,
+            })
+            .collect(),
+    };
+    let 出 = self_check::見比べる(&本体, &画面);
+    *bridge.いまの食い違い.lock().await = 出.clone();
+    let 今 = now_secs();
+    let mut 控え = bridge.食い違いを言った.lock().await;
+    for 文 in 出 {
+        let 言う = 控え
+            .get(&文)
+            .is_none_or(|前| 今.saturating_sub(*前) >= 600);
+        if 言う {
+            控え.insert(文.clone(), 今);
+            記録!("食い違い: {文}");
+            desk::配る(&bridge, desk::聞いた("割符", &format!("食い違い: {文}")));
+        }
+    }
+    // 消えた食い違いの控えは、1 時間で忘れる（また出たら言う）
+    控え.retain(|_, 前| 今.saturating_sub(*前) < 3600);
 }
 
 /// **経路の札を置く**（画面から）。
@@ -3795,6 +3871,16 @@ pub fn run() {
             desk::開く(app.handle().clone());
             // **主催と切れたら、自分から戻る**（0.1.28）。押す人が画面の前に居るとは限らない
             tauri::async_runtime::spawn(come_back::見張る(app.handle().clone()));
+            // **30 秒ごとに自己点検**（spec 04 S04-6）。写しが来たときも 2 秒後に見比べる（`note_view`）
+            tauri::async_runtime::spawn({
+                let app = app.handle().clone();
+                async move {
+                    loop {
+                        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                        自己点検(&app).await;
+                    }
+                }
+            });
             // **切れたまま戻らない人を知らせる**（0.1.28）
             tauri::async_runtime::spawn(absence::見張る(app.handle().clone()));
 
@@ -3852,6 +3938,7 @@ pub fn run() {
             rejoin_room,
             invite_window,
             note_screen,
+            note_view,
             relay_setting,
             set_relay,
             pending_passes,

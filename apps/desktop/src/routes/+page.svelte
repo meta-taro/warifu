@@ -171,6 +171,7 @@
     nameRoom,
     notePath,
     noteScreen,
+    noteView,
     relaySetting,
     setRelay,
     roomNames,
@@ -404,6 +405,23 @@
         )
       : t('meeting.status.waiting');
   }
+
+  /**
+   * **画面が見せているものを本体へ置く**（計画 1-D・spec 04 §2・0.1.41）。
+   *
+   * 届く先は、画面が自分で持っている名簿（`members`・入退室の出来事で動く）から出す ——
+   * 本体の棚と別の状態なので、ずれたら本体が「食い違い」として机へ出す。
+   */
+  $effect(() => {
+    const 見ている部屋 = いまのルーム ?? null;
+    const 面々 = members.map((m) => m.key).filter((k) => k !== 自分の鍵);
+    const 部屋ごと = ルームたち.map((r) => ({
+      id: r.id,
+      届く先: r.id === 見ている部屋 ? 面々 : null,
+      建てたと出している: r.host,
+    }));
+    void noteView({ 見ている: 見ている部屋, 部屋ごと }).catch(() => {});
+  });
 
   $effect(() => {
     const 題字 = いまの題字();

@@ -206,6 +206,7 @@ impl Chat {
                 場所: 名乗り.clone(),
                 どこから,
                 部屋も聞く: true,
+                点検も聞く: true,
             }
             .書く(),
         )
@@ -218,6 +219,7 @@ impl Chat {
             場所: 名乗り,
             どこから,
             部屋も聞く: false,
+            点検も聞く: false,
         });
 
         let (送り, mut 受け) = mpsc::channel::<ToDesk>(送り待ちの数);
@@ -1745,6 +1747,7 @@ mod tests {
             場所: Some("docs".to_owned()),
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         };
         let 断り = FromDesk::Denied {
             why: warifu_desk::Error::Malformed.to_string(),
@@ -1766,6 +1769,7 @@ mod tests {
             場所: None,
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         });
         assert_eq!(
             古い机に断られたら名乗り直す(&断り, &着いた, &mut 控え),

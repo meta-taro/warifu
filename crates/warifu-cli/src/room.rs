@@ -109,6 +109,7 @@ pub async fn 口(
             場所: Some("warifu room".to_owned()),
             どこから: None,
             部屋も聞く: false,
+            点検も聞く: false,
         }
         .書く(),
     )
