@@ -41,6 +41,7 @@ mod mcp;
 mod post;
 mod relay;
 mod relay_server;
+mod room;
 mod setup;
 
 /// 会議キーの既定の有効期間（秒）。**24 時間。**画面側と揃えてある。
@@ -111,6 +112,9 @@ fn 使い方() -> ExitCode {
          \x20 warifu contacts                       覚えた相手を並べる\n\
          \x20 warifu contacts add <公開鍵> <呼び名>  覚える\n\
          \x20 warifu contacts forget <呼び名|公開鍵> 忘れる\n\
+         \x20 warifu room [list]                   この PC の割符が居る部屋を並べる（画面が開いていること）\n\
+         \x20 warifu room leave <部屋>              部屋を抜ける（主催なら畳む。札 room.leave が要る）\n\
+         \x20 warifu room rename <部屋> <名前>      部屋に名前を付ける（札 room.rename が要る）\n\
          \x20 warifu relay-server set <URL>         自前の中継を控える（トークンは標準入力から）\n\
          \x20 warifu relay-server [show|clear]      控えを見る（トークンは出さない）／消す\n\
          \n\
@@ -389,6 +393,8 @@ async fn 本体() -> ExitCode {
         }
         Some("id") => 名乗る(),
         Some("contacts") => 名簿の口(&mut args),
+        // **端末から部屋を片付ける**（0.1.41）。口の room_list / room_leave / room_rename と同じ行
+        Some("room") => room::口(&mut args).await,
         _ => return 使い方(),
     };
     match result {
