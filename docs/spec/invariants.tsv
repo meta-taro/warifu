@@ -32,7 +32,7 @@ S01-11	ゲストは配らない	L1	crates/warifu-app/src/room/tests.rs 主催ご
 S01-13	1 つの発言はほかの全員にちょうど 1 回届き、自分には届かない	L1	crates/warifu-app/src/room/tests.rs 言う_ゲストは主催へだけ_主催は面々へ／主催は_別の部屋の線には配らない	一部（机上の網での「ちょうど 1 回」は未）
 S01-15	主催が上がり直して別の用で先に繋がっても、ゲストは置き去りにならない	L1	apps/desktop/src-tauri/src/room_sim.rs 主催が上がり直してすぐ別の用事で繋ぎ直しても_取り残されない	済
 S01-16	主催が居なくなったルームは見切って増やさない	L1	apps/desktop/src-tauri/src/room_sim.rs 主催の居ない部屋は_見切って叩き合いをやめ_部屋を増やさない	済
-S01-17a	ゲストが帰り道で戻るときは戻りたい部屋を主催へ伝える。主催はその部屋を主催していなければ「もう無い」と 1 度返して部屋を建てず、言われたゲストは 1 回で帰り道を消す	L0	crates/warifu-app/src/knock.rs 部屋を添えた叩きは_部屋が読める_部屋なしや他の塊は読めない／apps/desktop/src-tauri/src/call.rs 添えられた部屋を主催していればそこへ_していなければもう無い_添えが無ければ選ぶ／apps/desktop/src-tauri/src/come_back.rs もう無いと言われた返りだけを見分ける	済
+S01-17a	ゲストが帰り道で戻るときは戻りたい部屋を主催へ伝える。主催はその部屋を主催していなければ「もう無い」と 1 度返して部屋を建てず、言われたゲストは 1 回で帰り道を消す	L0・L1	crates/warifu-app/src/knock.rs 部屋を添えた叩きは_部屋が読める_部屋なしや他の塊は読めない／apps/desktop/src-tauri/src/call.rs 添えられた部屋を主催していればそこへ_していなければもう無い_添えが無ければ選ぶ／apps/desktop/src-tauri/src/come_back.rs もう無いと言われた返りだけを見分ける／crates/warifu-app/tests/room_sim.rs 戻るときは戻りたい部屋を添えるので_主催が別の部屋を見ていてもその部屋へ招かれる・主催がもう主催していない部屋へ戻ろうとしたら_1_回で帰り道が消え_部屋は増えない	済
 S01-17	ゲストが落ちたら主催は外して配り直し、残りの名簿も揃う	L1	crates/warifu-app/src/room/tests.rs 客の線が切れたら_主催は外して名簿を配り直す	済（純粋な部品。皮の配線は 0.1.41）
 S01-19	エージェントが入るルームは人が見ているルームを奪わない	L1	apps/desktop/src-tauri/src/room_sim.rs 客として他人の部屋を見ていても_呼ばれたら自分の部屋へ招く	済
 S02-6	届き札は 渡した／預けた／届かない の 3 つ。既読は作らない	L0	apps/desktop/src/lib/chat/delivery.test.ts	済

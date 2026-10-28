@@ -225,28 +225,9 @@ fn もう無い(部屋: warifu_meeting::MeetingId) -> Failure {
     }
 }
 
-/// **戻りたい部屋を添えて叩かれたとき、主催がどうするか**（0.1.41）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum 招く先<T> {
-    /// 添えられた部屋を主催している。そこへ招く
-    その部屋(T),
-    /// 添えられた部屋を主催していない。「もう無い」と返して、部屋を建てない
-    もう無い(T),
-    /// 部屋が添えられていない（古い戻り方・覚えた相手を呼んだ）。今までどおり選ぶか建てる
-    選ぶ,
-}
-
-/// 添えられた部屋と、主催している部屋から、招く先を決める。
-///
-/// **主催していない部屋には招かず、建てもしない** —— 戻りたい部屋でないならゲストは抜けるので、
-/// 建てても一時の部屋が増えるだけだった（10-27 に 3 台で見た）。
-pub fn 招く先を決める<T: Copy + PartialEq>(望み: Option<T>, 主催している部屋: &[T]) -> 招く先<T> {
-    match 望み {
-        Some(id) if 主催している部屋.contains(&id) => 招く先::その部屋(id),
-        Some(id) => 招く先::もう無い(id),
-        None => 招く先::選ぶ,
-    }
-}
+// **招く先の決め方は warifu-app にある**（計画 1-B・0.1.41）。机上の網（`crates/warifu-app/tests/room_sim.rs`）が
+// 同じ関数を動かすので、ここに写しを持たない
+pub use warifu_app::room::{招く先, 招く先を決める, 招く部屋を選ぶ};
 
 /// 迎える側が、割符なしで通した相手へ**会議を教える**。
 ///
@@ -254,7 +235,9 @@ pub fn 招く先を決める<T: Copy + PartialEq>(望み: Option<T>, 主催し�
 /// 割符つきで来た相手には送らない —— そちらは会議キーに id が入っている。
 ///
 /// 招く部屋は [`招く部屋を選ぶ`] で決めてから渡す。
-pub fn 招く(conferences: &crate::ルームたち, id: warifu_meeting::MeetingId) -> Option<Notice> {
+pub fn 招く(
+    conferences: &crate::ルームたち, id: warifu_meeting::MeetingId
+) -> Option<Notice> {
     let 棚 = conferences.try_lock().ok()?;
     let c = 棚.get(&id)?;
     let mut roster = Roster::with_capacity(c.me(), c.capacity()).ok()?;
@@ -269,23 +252,6 @@ pub fn 招く(conferences: &crate::ルームたち, id: warifu_meeting::MeetingI
     })
 }
 
-/// **鍵なしで来た相手を、どの部屋へ招くか**（0.1.35）。`None` なら新しく建てる。
-///
-/// **自分が主催している部屋にだけ招く。**前は「いま見ている部屋」へ招いていたので、
-/// ゲストとして他人の部屋を見ているときに呼ばれると、その部屋の主催の知らない所で
-/// **同じ id の部屋が 2 つに割れた**（呼んだ側はゲストの名簿にしか載らず、
-/// 主催にもほかのゲストにも見えなかった・10-22 に 3 台で確かめた）。
-///
-/// 見ている部屋を主催していればそこ、でなければ主催している部屋のどれか（並びの先頭）。
-pub fn 招く部屋を選ぶ<T: Copy + PartialEq>(
-    見ている: Option<T>,
-    主催している部屋: &[T],
-) -> Option<T> {
-    match 見ている {
-        Some(id) if 主催している部屋.contains(&id) => Some(id),
-        _ => 主催している部屋.first().copied(),
-    }
-}
 
 /// **部屋の合言葉の証しを見せて、同じ部屋のゲストを呼ぶ**（**D118** / **#28**）。
 ///
