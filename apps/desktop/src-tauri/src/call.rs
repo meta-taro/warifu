@@ -20,7 +20,7 @@
 use std::str::FromStr as _;
 
 use tauri::AppHandle;
-use warifu_app::{Conference, KNOCK_WITHOUT_TALLY};
+use warifu_app::{Conference, KNOCK_WITHOUT_TALLY, knock_for_room};
 use warifu_core::{PublicKey, Revocations};
 use warifu_intent::Channel;
 use warifu_meeting::{Notice, Roster};
@@ -45,7 +45,7 @@ fn 居ません() -> Failure {
 pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answer<()> {
     // **住所を知らないなら、繋ぎに行かずにすぐ返す。**押した人を待たせない（D49）
     let 住所 = contacts::住所を引く(相手)?;
-    住所へ呼ぶ(app, bridge, 相手, &住所).await
+    住所へ呼ぶ(app, bridge, 相手, &住所, None).await
 }
 
 /// **住所を手に持っているときに呼ぶ。**
@@ -54,11 +54,15 @@ pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answ
 /// （**#21** / **#13**・2026-09-18）——
 /// **割符は 24 時間で切れるが、戸口の「知り合い」は消えない。**
 /// **切れた鍵でも、前に通してもらった部屋へは戻れるべきである。**
+///
+/// **戻るときは、戻りたい部屋を添えて叩く**（0.1.41）。主催はその部屋を主催していればそこへ招き、
+/// していなければ「もう無い」と返して部屋を建てない（[`招く先を決める`]）。
 pub async fn 住所へ呼ぶ(
     app: &AppHandle,
     bridge: &Bridge,
     相手: PublicKey,
     住所: &str,
+    戻りたい: Option<warifu_meeting::MeetingId>,
 ) -> Answer<()> {
     let 住所 = 住所.to_owned();
     記録!(
@@ -79,12 +83,17 @@ pub async fn 住所へ呼ぶ(
         return Err(居ません());
     }
 
-    // **「割符は持っていない」と名乗る。**何も送らないと、相手は 10 秒待ってから諦める
-    session
-        .send(KNOCK_WITHOUT_TALLY)
-        .await
-        .map_err(|_| 居ません())?;
-    記録!("呼ぶ: 割符なしで叩いた");
+    // **「割符は持っていない」と名乗る。**何も送らないと、相手は 10 秒待ってから諦める。
+    // 戻るときは戻りたい部屋も添える（古い主催は添え物を見ずに今までどおり扱う）
+    let 叩き = match 戻りたい {
+        Some(部屋) => knock_for_room(&部屋.to_string()),
+        None => KNOCK_WITHOUT_TALLY.to_vec(),
+    };
+    session.send(&叩き).await.map_err(|_| 居ません())?;
+    match 戻りたい {
+        Some(部屋) => 記録!("呼ぶ: 割符なしで叩いた（戻りたい部屋 {}）", crate::短く(&部屋.to_string())),
+        None => 記録!("呼ぶ: 割符なしで叩いた"),
+    }
 
     // **呼んだ相手は、こちらの戸口にも迎える。**
     // そうしないと、時間をおいて相手から呼ばれたときに**無言で断る**
@@ -199,8 +208,43 @@ async fn 招待を待つ(channel: &mut Channel) -> Answer<(warifu_meeting::Meeti
     };
     match Notice::from_intent(&intent) {
         Ok(Notice::Invite { meeting, roster }) => Ok((meeting, roster)),
+        // **「その部屋はもう無い」**（0.1.41）。戻りたい部屋を添えて叩いたのに、主催がその部屋を主催していない
+        Ok(Notice::Leave { meeting }) => Err(もう無い(meeting)),
         // 招待以外が来た。**知らせの種類を勝手に読み替えない**
         _ => Err(居ません()),
+    }
+}
+
+/// 主催に「その部屋はもう無い」と言われた。**戻る側は 1 回で帰り道を消す**（叩き続けない）。
+pub const もう無いの印: &str = "room.gone";
+
+fn もう無い(部屋: warifu_meeting::MeetingId) -> Failure {
+    Failure {
+        message: format!("部屋 {} は、主催がもう主催していません", crate::短く(&部屋.to_string())),
+        code: Some(もう無いの印.into()),
+    }
+}
+
+/// **戻りたい部屋を添えて叩かれたとき、主催がどうするか**（0.1.41）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 招く先<T> {
+    /// 添えられた部屋を主催している。そこへ招く
+    その部屋(T),
+    /// 添えられた部屋を主催していない。「もう無い」と返して、部屋を建てない
+    もう無い(T),
+    /// 部屋が添えられていない（古い戻り方・覚えた相手を呼んだ）。今までどおり選ぶか建てる
+    選ぶ,
+}
+
+/// 添えられた部屋と、主催している部屋から、招く先を決める。
+///
+/// **主催していない部屋には招かず、建てもしない** —— 戻りたい部屋でないならゲストは抜けるので、
+/// 建てても一時の部屋が増えるだけだった（10-27 に 3 台で見た）。
+pub fn 招く先を決める<T: Copy + PartialEq>(望み: Option<T>, 主催している部屋: &[T]) -> 招く先<T> {
+    match 望み {
+        Some(id) if 主催している部屋.contains(&id) => 招く先::その部屋(id),
+        Some(id) => 招く先::もう無い(id),
+        None => 招く先::選ぶ,
     }
 }
 
@@ -381,6 +425,14 @@ async fn 部屋へ足す(
 
 #[cfg(test)]
 mod 試験 {
+    #[test]
+    fn 添えられた部屋を主催していればそこへ_していなければもう無い_添えが無ければ選ぶ() {
+        assert_eq!(super::招く先を決める(Some(1), &[1, 2]), super::招く先::その部屋(1));
+        assert_eq!(super::招く先を決める(Some(3), &[1, 2]), super::招く先::もう無い(3));
+        assert_eq!(super::招く先を決める(Some(3), &[]), super::招く先::もう無い(3));
+        assert_eq!(super::招く先を決める::<u8>(None, &[1]), super::招く先::選ぶ);
+    }
+
     use super::*;
 
     fn 鍵(n: u8) -> PublicKey {

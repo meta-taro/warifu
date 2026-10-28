@@ -92,12 +92,16 @@ pub fn 次に待つ秒(しくじった: u32) -> u64 {
 /// **戻る。**人の［戻る］も、見張りも、ここを通る。
 ///
 /// 戻っている最中なら、**何もせずに返す**（同じ相手を 2 度叩かない）。
-pub async fn 戻る(app: AppHandle, 鍵: String) -> crate::Answer<()> {
+pub async fn 戻る(
+    app: AppHandle,
+    部屋: Option<warifu_meeting::MeetingId>,
+    鍵: String,
+) -> crate::Answer<()> {
     if 戻っている.swap(true, Ordering::SeqCst) {
         記録!("戻る: もう戻っている最中です（重ねて叩きません）");
         return Ok(());
     }
-    let 結果 = crate::前のルームへ戻る(app.clone(), app.state::<Bridge>(), 鍵).await;
+    let 結果 = crate::前のルームへ戻る(app.clone(), app.state::<Bridge>(), 部屋, 鍵).await;
     戻っている.store(false, Ordering::SeqCst);
     結果
 }
@@ -105,6 +109,11 @@ pub async fn 戻る(app: AppHandle, 鍵: String) -> crate::Answer<()> {
 /// ルームごとの、しくじった回数と、次に叩いてよい時刻。
 /// しくじった回数・次に叩いてよい時刻・**主催に繋がったのに別の部屋を教えられた回数**（続けて）。
 type 控え = HashMap<String, (u32, Instant, u32)>;
+
+/// 主催に「その部屋はもう無い」と言われた返りか（0.1.41・`call::もう無いの印`）。
+pub(crate) fn もう無いと言われたか(結果: &crate::Answer<()>) -> bool {
+    matches!(結果, Err(e) if e.code.as_deref() == Some(crate::call::もう無いの印))
+}
 
 /// **主催が「その部屋は知らない」と続けて言ったら、見切る回数**（0.1.36）。
 const 見切る回数: u32 = 3;
@@ -167,7 +176,7 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     let bridge = app.state::<Bridge>();
     let 前 = crate::いま見ているルーム(&bridge.いまのルーム).await;
     let 前の部屋: Vec<_> = bridge.conferences.lock().await.keys().copied().collect();
-    let 結果 = 戻る(app.clone(), 鍵).await;
+    let 結果 = 戻る(app.clone(), id.parse().ok(), 鍵).await;
     {
         let 在る = match 前 {
             Some(前) => bridge.conferences.lock().await.contains_key(&前),
@@ -190,6 +199,12 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
         記録!("戻る: 頼んでいない部屋 {} へ招かれたので抜けます", crate::短く(&部屋.to_string()));
         crate::部屋を畳む(&bridge, 部屋).await;
     }
+    // **主催が「その部屋はもう無い」と言った**（0.1.41）。3 回叩いて見切るのを待たず、1 回で帰り道を消す
+    if もう無いと言われたか(&結果) {
+        見切る(app, &id, "主催が「その部屋はもう無い」と言った").await;
+        控え.remove(&id);
+        return;
+    }
     // **繋がっても、戻る先とは別のルームへ招かれることがある**
     // （割符なしで叩くと、主催がいま見ているルームへ招かれる）。戻れたかは見直して決める
     let まだ = いま戻る先(app).await.iter().any(|(部屋, _)| *部屋 == id);
@@ -203,7 +218,7 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     // 繋がれなかった回は数えない（主催が落ちているだけかもしれない）
     let 違った = if 結果.is_ok() { 前の違い.saturating_add(1) } else { 0 };
     if 見切るか(違った) {
-        見切る(app, &id).await;
+        見切る(app, &id, &format!("主催が別の部屋を {見切る回数} 回続けて教えた")).await;
         控え.remove(&id);
         return;
     }
@@ -221,9 +236,9 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
 }
 
 /// **主催の居ない部屋を見切る。**帰り道を忘れ、自分のほかに誰も居なければ部屋も畳む。
-async fn 見切る(app: &AppHandle, id: &str) {
+async fn 見切る(app: &AppHandle, id: &str, 訳: &str) {
     let 頭 = crate::短く(id);
-    記録!("戻る: 主催がルーム {頭} を知らないと {見切る回数} 回続けて言ったので、もう戻りません");
+    記録!("戻る: {訳}ので、ルーム {頭} へはもう戻りません");
     let bridge = app.state::<Bridge>();
     let 部屋たち = crate::ルームの並び(&bridge).await;
     let 誰も居ない = 部屋たち
@@ -282,6 +297,21 @@ async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod 試験 {
+    #[test]
+    fn もう無いと言われた返りだけを見分ける() {
+        let もう無い: crate::Answer<()> = Err(crate::Failure {
+            message: "x".into(),
+            code: Some(crate::call::もう無いの印.into()),
+        });
+        assert!(super::もう無いと言われたか(&もう無い));
+        let 居ない: crate::Answer<()> = Err(crate::Failure {
+            message: "x".into(),
+            code: Some("contact.unreachable".into()),
+        });
+        assert!(!super::もう無いと言われたか(&居ない));
+        assert!(!super::もう無いと言われたか(&Ok(())));
+    }
+
 
     #[test]
     fn 見張りが戻っても_前に見ていたルームを奪わない() {

@@ -17,7 +17,9 @@ mod knock;
 pub mod room;
 
 pub use invite::{InviteError, format_invite, is_own_invite, parse_invite};
-pub use knock::{KNOCK_WITHOUT_TALLY, is_knock_without_tally};
+pub use knock::{
+    KNOCK_FOR_ROOM, KNOCK_WITHOUT_TALLY, is_knock_without_tally, knock_for_room, room_of_knock,
+};
 
 use warifu_core::PublicKey;
 use warifu_meeting::{Error as MeetingError, MeetingId, Notice, Roster, Signal, Step};

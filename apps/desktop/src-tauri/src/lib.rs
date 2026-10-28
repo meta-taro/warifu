@@ -1481,19 +1481,20 @@ fn invite_window(invite: String) -> Answer<String> {
 #[tauri::command]
 async fn rejoin_room(app: AppHandle) -> Answer<()> {
     let vault = warifu_vault::Vault::default_location()?;
-    let Some((_部屋, 鍵)) = vault.rejoin()? else {
+    let Some((部屋, 鍵)) = vault.rejoin()? else {
         return Err(Failure {
             message: "戻る先を覚えていません".into(),
             code: Some("room.back.none".into()),
         });
     };
-    come_back::戻る(app, 鍵).await
+    come_back::戻る(app, 部屋.parse().ok(), 鍵).await
 }
 
 /// 帰り道から戻る中身。**直に呼ばない** —— [`come_back::戻る`] が重ねて叩かないよう見張っている。
 pub(crate) async fn 前のルームへ戻る(
     app: AppHandle,
     bridge: State<'_, Bridge>,
+    部屋: Option<MeetingId>,
     鍵: String,
 ) -> Answer<()> {
     // **鍵なしで入った部屋の帰り道は、住所だけである**（0.1.35）。
@@ -1502,7 +1503,7 @@ pub(crate) async fn 前のルームへ戻る(
         let 相手 = 宛先.public_key();
         let 住所 = contacts::住所を引く(相手).unwrap_or(鍵);
         記録!("戻る: 鍵なしで入った部屋なので、住所へ割符なしで叩きます");
-        return call::住所へ呼ぶ(&app, &bridge, 相手, &住所).await;
+        return call::住所へ呼ぶ(&app, &bridge, 相手, &住所, 部屋).await;
     }
     let (address, token, _meeting) = parse_invite(&鍵)?;
     // **窓の中なら、いつもの道。**割符を持っているほうが強い（名簿にも載る）
@@ -1512,7 +1513,7 @@ pub(crate) async fn 前のルームへ戻る(
     // **窓の外。**割符なしで叩く —— 通すかは相手の戸口が決める
     記録!("戻る: 鍵の窓は過ぎている。割符なしで叩きます");
     let 宛先 = Address::from_str(&address)?;
-    call::住所へ呼ぶ(&app, &bridge, 宛先.public_key(), &address).await
+    call::住所へ呼ぶ(&app, &bridge, 宛先.public_key(), &address, 部屋).await
 }
 
 /// **同じ部屋のゲストを、部屋の合言葉の証しで呼ぶ**（**D118** / **#28**）。
@@ -1715,7 +1716,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // **割符を先に確かめる。**会議の話をする前に、通してよいかを決める（D31）
             記録!("待受: 誰かが来た（{}）", 短く(&key_to_string(peer)));
             通り道を書き置く(&session);
-            let 中身 =
+            let (中身, 望み) =
                 割符を確かめる(&mut session, &tally, &合言葉たち, me, &subject).await;
             let 割符が合った = 中身 == 叩きの中身::割符が合った;
             // **使った印を控えへ写す**（**#38**）——
@@ -1788,7 +1789,24 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // **招いた部屋**（鍵なしの相手だけ）。名乗りもこの部屋あてに送る
             let mut 招いた部屋: Option<MeetingId> = None;
             if 中身 == 叩きの中身::どちらでもない {
-                let Some(id) = 招く部屋を用意する(&app.state::<Bridge>()).await else {
+                // **戻りたい部屋が添えてあれば、その部屋へ**（0.1.41）。主催していなければ「もう無い」と返して建てない
+                let bridge = app.state::<Bridge>();
+                let 招く先 = match call::招く先を決める(望み, &主催している部屋たち(&bridge).await) {
+                    call::招く先::その部屋(id) => Some(id),
+                    call::招く先::もう無い(id) => {
+                        if let Ok(intent) = (Notice::Leave { meeting: id }).to_intent() {
+                            let _ = channel.send(&intent).await;
+                        }
+                        記録!(
+                            "待受: {} が戻りたい部屋 {} は主催していないので「もう無い」と告げた（建てない）",
+                            短く(&key_to_string(peer)),
+                            短く(&id.to_string())
+                        );
+                        continue;
+                    }
+                    call::招く先::選ぶ => 招く部屋を用意する(&bridge).await,
+                };
+                let Some(id) = 招く先 else {
                     continue;
                 };
                 if let Some(招待) = call::招く(&conferences, id)
@@ -1855,23 +1873,26 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
 /// 鍵を出すときも同じ部屋を選ぶ（0.1.37・`鍵を出す`）。
 ///
 /// 建てた部屋は**見る部屋を奪わない** —— 人は別の部屋を見て話しているかもしれない。
+/// **自分が主催している部屋**（並びは id の文字順で固定。`HashMap` の順は読むたびに変わる）。
+async fn 主催している部屋たち(bridge: &Bridge) -> Vec<MeetingId> {
+    let me = bridge.device.public_key();
+    let 主催たち = bridge.主催たち.lock().await;
+    let 棚 = bridge.conferences.lock().await;
+    let mut 並び: Vec<MeetingId> = 棚
+        .keys()
+        .filter(|id| 主催たち.get(id).is_none_or(|主催| *主催 == me))
+        .copied()
+        .collect();
+    並び.sort_by_key(ToString::to_string);
+    並び
+}
+
 async fn 招く部屋を用意する(bridge: &Bridge) -> Option<MeetingId> {
     let me = bridge.device.public_key();
     let (conferences, いまのルーム, 主催たち) =
         (&bridge.conferences, &bridge.いまのルーム, &bridge.主催たち);
     let 見ている = いま見ているルーム(いまのルーム).await;
-    let 主催している: Vec<MeetingId> = {
-        let 主催たち = 主催たち.lock().await;
-        let 棚 = conferences.lock().await;
-        let mut 並び: Vec<MeetingId> = 棚
-            .keys()
-            .filter(|id| 主催たち.get(id).is_none_or(|主催| *主催 == me))
-            .copied()
-            .collect();
-        // **並びを固定する。**`HashMap` の順は読むたびに変わる
-        並び.sort_by_key(ToString::to_string);
-        並び
-    };
+    let 主催している = 主催している部屋たち(bridge).await;
     if let Some(id) = call::招く部屋を選ぶ(見ている, &主催している) {
         return Some(id);
     }
@@ -1911,24 +1932,38 @@ async fn 割符を確かめる(
     合言葉たち: &Arc<Mutex<HashMap<MeetingId, warifu_core::合言葉>>>,
     me: PublicKey,
     _subject: &Subject,
-) -> 叩きの中身 {
+) -> (叩きの中身, Option<MeetingId>) {
     let Ok(Ok(bytes)) =
         tokio::time::timeout(std::time::Duration::from_secs(10), session.recv()).await
     else {
-        return 叩きの中身::どちらでもない;
+        return (叩きの中身::どちらでもない, None);
     };
     // **部屋の証しかどうかを先に見る**（**D118**）。
     // 種別が別なので、**割符として読もうとして壊れることはない**
     if let Ok(叩き) = warifu_core::部屋の叩き::from_bytes(&bytes) {
-        return 部屋の証しを確かめる(&叩き, 合言葉たち, session.peer(), me).await;
+        return (
+            部屋の証しを確かめる(&叩き, 合言葉たち, session.peer(), me).await,
+            None,
+        );
     }
     let Ok(acceptance) = Acceptance::from_bytes(&bytes) else {
-        return 叩きの中身::どちらでもない;
+        // **割符なしの叩き。**戻りたい部屋が添えてあれば読む（0.1.41）。無ければ今までどおり
+        let 望み = warifu_app::room_of_knock(&bytes).and_then(|s| s.parse().ok());
+        return (叩きの中身::どちらでもない, 望み);
     };
+    (割符を照らす(&acceptance, session.peer(), tally).await, None)
+}
+
+/// 割符の片割れを、手元の割符と照らす。
+async fn 割符を照らす(
+    acceptance: &Acceptance,
+    peer: PublicKey,
+    tally: &Arc<Mutex<Vec<Tally>>>,
+) -> 叩きの中身 {
     // **署名した本人と、経路で確定した相手が同じか。**
     // `Acceptance` は本人の鍵で署名されているが、**どこで署名されたかまでは言っていない。**
     // 突き合わせないと、写し取った片割れを別の経路で出せてしまう
-    if acceptance.accepter() != session.peer() {
+    if acceptance.accepter() != peer {
         return 叩きの中身::どちらでもない;
     }
     let mut list = tally.lock().await;
@@ -1942,9 +1977,9 @@ async fn 割符を確かめる(
     let now = now_secs();
     let 名簿 = Revocations::new();
     let 合った = if t.used_by().is_none() {
-        t.match_half(&acceptance, now, &名簿).is_ok()
+        t.match_half(acceptance, now, &名簿).is_ok()
     } else {
-        t.rematch_half(&acceptance, now, &名簿).is_ok()
+        t.rematch_half(acceptance, now, &名簿).is_ok()
     };
     if 合った {
         叩きの中身::割符が合った
