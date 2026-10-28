@@ -17,4 +17,4 @@ warifu-net.workspace = true
 # **層をまたいだ通し試験だけで使う**（D118 —— 合言葉で証しを作り、戸口が受けるまで）。
 # **本体は戸口を知らないまま**にしておく（baseline §9）
 warifu-door = { path = "../warifu-door" }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "sync"] }
