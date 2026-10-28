@@ -151,6 +151,10 @@ export type MessageKey =
   | 'pass.allowed'
   | 'pass.refused'
   | 'pass.who'
+  | 'pass.allow.standing'
+  | 'pass.allowed.standing'
+  | 'pass.standing'
+  | 'pass.revoke'
   | 'handoff.asked'
   | 'handoff.who'
   | 'handoff.hint'
@@ -600,6 +604,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。',
     'pass.refused': '通しませんでした。{who} は {what} を使えません。',
     'pass.who': '{who} が {what} を使いたい',
+    'pass.allow.standing': '24 時間聞かない',
+    'pass.allowed.standing': '通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。',
+    'pass.standing': '{what} は、あと {hours} 時間は聞かずに通します',
+    'pass.revoke': '取り消す',
     'handoff.asked': 'エージェントが、ルームキーを相手の機械へ渡してよいか聞いています',
     'handoff.who': '{who} が、{to} の機械へ、いま見ているルームのキーを渡そうとしています',
     'handoff.hint': '渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。',
@@ -1004,6 +1012,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': 'Allowed. {who} can now use {what} (you can revoke it later).',
     'pass.refused': 'Not allowed. {who} cannot use {what}.',
     'pass.who': '{who} wants to use {what}',
+    'pass.allow.standing': 'Allow for 24 hours',
+    'pass.allowed.standing': 'Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).',
+    'pass.standing': '{what} passes without asking for {hours} more hours',
+    'pass.revoke': 'Revoke',
     'handoff.asked': 'An agent is asking whether it may hand a room key to another machine',
     'handoff.who': '{who} wants to hand {to}\'s machine a key to the room you are viewing',
     'handoff.hint': 'If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.',
@@ -1406,6 +1418,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '已放行。{who} 现在可以使用 {what}（之后可以撤销）。',
     'pass.refused': '没有放行。{who} 不能使用 {what}。',
     'pass.who': '{who} 想使用 {what}',
+    'pass.allow.standing': '24 小时内不再询问',
+    'pass.allowed.standing': '已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。',
+    'pass.standing': '{what} 在接下来 {hours} 小时内无需询问即可通过',
+    'pass.revoke': '撤销',
     'handoff.asked': '有代理在询问能否把房间钥匙交给对方的机器',
     'handoff.who': '{who} 想把你正在看的房间的钥匙交给 {to} 的机器',
     'handoff.hint': '交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。',
@@ -1812,6 +1828,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.',
     'pass.refused': '통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.',
     'pass.who': '{who} 이(가) {what} 을(를) 쓰고 싶어 합니다',
+    'pass.allow.standing': '24시간 동안 묻지 않음',
+    'pass.allowed.standing': '통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.',
+    'pass.standing': '{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다',
+    'pass.revoke': '취소',
     'handoff.asked': '에이전트가 룸 키를 상대 기기에 건네도 되는지 묻고 있습니다',
     'handoff.who': '{who} 이(가) 지금 보고 있는 방의 키를 {to} 의 기기에 건네려 합니다',
     'handoff.hint': '건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.',

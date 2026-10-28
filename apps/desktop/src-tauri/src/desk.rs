@@ -1361,13 +1361,10 @@ static 札の控えの錠: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn 使い切りの札を受け取る(動作: &str) -> bool {
     let _錠 = 札の控えの錠.lock().expect("毒されていない");
     let 結果 = warifu_vault::Vault::default_location().and_then(|v| {
-        let 一覧 = v.passes()?;
-        if !一覧.iter().any(|(a, 許した)| a == 動作 && *許した) {
-            return Ok(false);
-        }
-        let 残す: Vec<(String, bool)> = 一覧.into_iter().filter(|(a, _)| a != 動作).collect();
-        v.save_passes(&残す)?;
-        Ok(true)
+        let 一覧 = v.passes_with_until()?;
+        let (通す, 残す) = 札を受け取る(一覧, 動作, crate::now_secs());
+        v.save_passes_with_until(&残す)?;
+        Ok(通す)
     });
     match 結果 {
         Ok(受け取れた) => 受け取れた,
@@ -1377,6 +1374,65 @@ fn 使い切りの札を受け取る(動作: &str) -> bool {
             false
         }
     }
+}
+
+/// **札を 1 つ受け取る**（純粋・0.1.41・D129）。（通すか, 残す一覧）を返す。
+///
+/// - 期限の無い札（人が［通す］を押した分）は、受け取ったら消える（今までどおり・10-21 の審査）
+/// - **期限のある札（［24 時間聞かない］）は、期限内なら消さずに通す。**期限を過ぎていれば消して通さない
+/// - 無い・断っている札は通さない
+pub fn 札を受け取る(
+    一覧: Vec<(String, bool, Option<u64>)>,
+    動作: &str,
+    今: u64,
+) -> (bool, Vec<(String, bool, Option<u64>)>) {
+    let 通す = 一覧
+        .iter()
+        .any(|(a, 許した, まで)| a == 動作 && *許した && まで.is_none_or(|t| t > 今));
+    let 残す = 一覧
+        .into_iter()
+        .filter(|(a, _, まで)| {
+            if a != 動作 {
+                return true;
+            }
+            // 期限内の持続の札だけ残す。使い切りと期限切れは消す
+            まで.is_some_and(|t| t > 今)
+        })
+        .collect();
+    (通す, 残す)
+}
+
+/// **人が前もって出している札**（期限内のもの・0.1.41）。画面が一覧に出し、取り消せる。
+#[must_use]
+pub fn 持続の札() -> Vec<(String, u64)> {
+    let 今 = crate::now_secs();
+    warifu_vault::Vault::default_location()
+        .and_then(|v| v.passes_with_until())
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(a, 許した, まで)| match まで {
+            Some(t) if 許した && t > 今 => Some((a, t)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// **人が札を取り消す**（0.1.41）。持続の札も使い切りの札も、その動作の行を消す。
+///
+/// # Errors
+/// 控えへ書けないとき。
+pub fn 札を取り消す(動作: &str) -> Result<(), String> {
+    let _錠 = 札の控えの錠.lock().expect("毒されていない");
+    let vault = warifu_vault::Vault::default_location().map_err(|e| e.to_string())?;
+    let 残す: Vec<(String, bool, Option<u64>)> = vault
+        .passes_with_until()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(a, _, _)| a != 動作)
+        .collect();
+    vault.save_passes_with_until(&残す).map_err(|e| e.to_string())?;
+    記録!("札: 取り消した（{動作}）");
+    Ok(())
 }
 
 /// **名前（か鍵の頭）から相手を決めて、画面の［ルームに呼ぶ］と同じ道で呼ぶ**（2026-10-16）。
@@ -1818,10 +1874,17 @@ impl warifu_capability::札の控え for 控え {
 
 /// 人が答えた札を、置き場所から読む。**読めなくても止めない**（空で始める）。
 fn 札の控え() -> 控え {
+    let 今 = crate::now_secs();
     let 棚 = warifu_vault::Vault::default_location()
-        .and_then(|v| v.passes())
+        .and_then(|v| v.passes_with_until())
         .unwrap_or_default();
-    控え(棚.into_iter().collect())
+    // **期限切れの札は答えとして数えない**（人にもう一度聞く）
+    控え(
+        棚.into_iter()
+            .filter(|(_, _, まで)| まで.is_none_or(|t| t > 今))
+            .map(|(a, 許した, _)| (a, 許した))
+            .collect(),
+    )
 }
 
 /// **人の答えを待っている札**を並べる（画面が読む）。
@@ -1836,17 +1899,18 @@ pub fn 待っている札() -> Vec<待ち> {
 ///
 /// # Errors
 /// 控えへ書けないとき。
-pub fn 人が答えた(動作: &str, 許した: bool) -> Result<(), String> {
+pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Result<(), String> {
     let _錠 = 札の控えの錠.lock().expect("毒されていない");
     let vault = warifu_vault::Vault::default_location().map_err(|e| e.to_string())?;
-    let mut 一覧 = vault.passes().unwrap_or_default();
-    // **同じ動作は 1 行だけ。**書き換える
-    if let Some(在る) = 一覧.iter_mut().find(|(名, _)| 名 == 動作) {
+    let mut 一覧 = vault.passes_with_until().unwrap_or_default();
+    // **同じ動作は 1 行だけ。**書き換える（期限も書き換える）
+    if let Some(在る) = 一覧.iter_mut().find(|(名, _, _)| 名 == 動作) {
         在る.1 = 許した;
+        在る.2 = まで;
     } else {
-        一覧.push((動作.to_owned(), 許した));
+        一覧.push((動作.to_owned(), 許した, まで));
     }
-    vault.save_passes(&一覧).map_err(|e| e.to_string())?;
+    vault.save_passes_with_until(&一覧).map_err(|e| e.to_string())?;
     待っている頼み
         .lock()
         .expect("毒されていない")
@@ -2124,6 +2188,31 @@ mod tests {
             .get(&エージェント)
             .cloned()
             .unwrap_or_default()
+    }
+
+    // D129 —— 持続の札（2026-10-28）
+    #[test]
+    fn 使い切りの札は受け取ると消え_持続の札は期限内なら残る_期限切れは消して通さない() {
+        use super::札を受け取る;
+        let 一覧 = vec![
+            ("contacts.add".to_owned(), true, None),
+            ("room.join".to_owned(), true, Some(2_000)),
+            ("room.leave".to_owned(), true, Some(500)),
+            ("voice.say".to_owned(), false, None),
+        ];
+        let (通す, 残す) = 札を受け取る(一覧.clone(), "contacts.add", 1_000);
+        assert!(通す);
+        assert!(!残す.iter().any(|(a, _, _)| a == "contacts.add"), "使い切りは消える");
+        let (通す, 残す) = 札を受け取る(一覧.clone(), "room.join", 1_000);
+        assert!(通す);
+        assert!(残す.iter().any(|(a, _, _)| a == "room.join"), "期限内の持続の札は残る");
+        let (通す, 残す) = 札を受け取る(一覧.clone(), "room.leave", 1_000);
+        assert!(!通す, "期限切れは通さない");
+        assert!(!残す.iter().any(|(a, _, _)| a == "room.leave"), "期限切れは消す");
+        let (通す, _) = 札を受け取る(一覧.clone(), "voice.say", 1_000);
+        assert!(!通す, "断っている札は通さない");
+        let (通す, _) = 札を受け取る(一覧, "room.rename", 1_000);
+        assert!(!通す, "無い札は通さない");
     }
 
     // 026 —— 返事が声掛けの部屋へ戻らない（2026-10-27）

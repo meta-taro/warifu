@@ -1152,6 +1152,82 @@ impl Vault {
         self.write_private(&self.pass_path(), &out, "札の答えを控える")
     }
 
+    /// **期限つきで控える**（0.1.41・D129・持続の札）。
+    ///
+    /// 3 つ目の欄に `まで:<秒>` を書く。無ければ今までどおり（1 回で消える札）。
+    /// 古い読み手は 3 つ目の欄を見ないので、行はそのまま読める。
+    ///
+    /// # Errors
+    /// 書けないとき。
+    pub fn save_passes_with_until(
+        &self,
+        一覧: &[(String, bool, Option<u64>)],
+    ) -> Result<(), Error> {
+        let mut out = String::from(PASS_HEADER);
+        out.push('\n');
+        for (動作, 許した, まで) in 一覧 {
+            let 削る: String = 動作
+                .chars()
+                .filter(|c| *c != '\t' && *c != '\n' && *c != '\r')
+                .collect();
+            if 削る.is_empty() {
+                continue;
+            }
+            out.push_str(&削る);
+            out.push('\t');
+            out.push_str(if *許した { "許した" } else { "断った" });
+            if let Some(秒) = まで {
+                out.push('\t');
+                out.push_str(&format!("まで:{秒}"));
+            }
+            out.push('\n');
+        }
+        self.write_private(&self.pass_path(), &out, "札の答えを控える")
+    }
+
+    /// 控えた答えを、期限ごと読む（0.1.41）。期限の無い札は `None`。
+    ///
+    /// # Errors
+    /// [`Vault::passes`] と同じ。
+    pub fn passes_with_until(&self) -> Result<Vec<(String, bool, Option<u64>)>, Error> {
+        let path = self.pass_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(Error::io(&path, "札の答えを読む")(e)),
+        };
+        let mut 行たち = text.lines();
+        let Some(header) = 行たち.next() else {
+            return Ok(Vec::new());
+        };
+        if header.trim() != PASS_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{PASS_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(行たち
+            .filter_map(|行| {
+                let mut 欄 = 行.split('\t');
+                let 動作 = 欄.next()?.trim();
+                let 許した = match 欄.next()?.trim() {
+                    "許した" => true,
+                    "断った" => false,
+                    _ => return None,
+                };
+                if 動作.is_empty() {
+                    return None;
+                }
+                // **読めない期限は「期限なし」ではなく、その行を捨てる**（長く効く札を取り違えない）
+                let まで = match 欄.next().map(str::trim) {
+                    None | Some("") => None,
+                    Some(残り) => Some(残り.strip_prefix("まで:")?.parse::<u64>().ok()?),
+                };
+                Some((動作.to_owned(), 許した, まで))
+            })
+            .collect())
+    }
+
     /// 控えた答えを読む。**無ければ空**。
     ///
     /// **読めない行は、その行だけ捨てる** ——
@@ -1709,5 +1785,64 @@ mod 家の試験 {
     #[test]
     fn 空が両方なら_決めない() {
         assert_eq!(家を決める(Some(OsStr::new("")), Some(OsStr::new(""))), None);
+    }
+}
+
+#[cfg(test)]
+mod 札の期限の試験 {
+    use super::*;
+
+    fn 仮の置き場() -> Vault {
+        let dir = std::env::temp_dir().join(format!(
+            "warifu-vault-pass-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("作れる");
+        Vault::at(dir)
+    }
+
+    #[test]
+    fn 期限つきの札が往復し_期限の無い札は今までどおり読める() {
+        // 0.1.41・D129 —— 人が前もって「24 時間聞かない」を出せる
+        let v = 仮の置き場();
+        v.save_passes_with_until(&[
+            ("contacts.add".to_owned(), true, Some(1_800_000_000)),
+            ("room.join".to_owned(), true, None),
+            ("voice.say".to_owned(), false, None),
+        ])
+        .expect("書ける");
+        assert_eq!(
+            v.passes_with_until().expect("読める"),
+            vec![
+                ("contacts.add".to_owned(), true, Some(1_800_000_000)),
+                ("room.join".to_owned(), true, None),
+                ("voice.say".to_owned(), false, None),
+            ]
+        );
+        // **古い読み手（期限を知らない）も同じ行を読める**
+        assert_eq!(
+            v.passes().expect("読める"),
+            vec![
+                ("contacts.add".to_owned(), true),
+                ("room.join".to_owned(), true),
+                ("voice.say".to_owned(), false),
+            ]
+        );
+    }
+
+    #[test]
+    fn 読めない期限の行は_その行だけ捨てる() {
+        let v = 仮の置き場();
+        fs::write(
+            v.pass_path(),
+            "warifu-pass-v1\ncontacts.add\t許した\tまで:いつか\nroom.join\t許した\n",
+        )
+        .expect("書ける");
+        assert_eq!(
+            v.passes_with_until().expect("読める"),
+            vec![("room.join".to_owned(), true, None)]
+        );
     }
 }

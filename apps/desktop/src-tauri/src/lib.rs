@@ -1553,8 +1553,28 @@ fn pending_passes() -> Vec<desk::待ち> {
 /// **ここが札を出す唯一の所である**（**D56** ——「札を出すのは人である」）。
 /// **エージェントはこの口を呼べない** —— 机（`desk.sock`）には無い。
 #[tauri::command]
-fn answer_pass(動作: String, 許す: bool) -> Answer<()> {
-    desk::人が答えた(&動作, 許す).map_err(|message| Failure {
+fn answer_pass(動作: String, 許す: bool, 持続: Option<bool>) -> Answer<()> {
+    // **［24 時間聞かない］**（0.1.41・D129）。期限つきで控え、期限内は消さずに通す
+    let まで = (許す && 持続.unwrap_or(false)).then(|| now_secs() + 持続の札の秒);
+    desk::人が答えた(&動作, 許す, まで).map_err(|message| Failure {
+        message,
+        code: None,
+    })
+}
+
+/// **人が前もって出している札の効き目**（秒・24 時間・D129）。
+const 持続の札の秒: u64 = 24 * 60 * 60;
+
+/// **人が前もって出している札**（動作と期限）。画面が並べ、取り消せる（0.1.41）。
+#[tauri::command]
+fn standing_passes() -> Vec<(String, u64)> {
+    desk::持続の札()
+}
+
+/// **人が札を取り消す**（0.1.41）。
+#[tauri::command]
+fn revoke_pass(動作: String) -> Answer<()> {
+    desk::札を取り消す(&動作).map_err(|message| Failure {
         message,
         code: None,
     })
@@ -3801,6 +3821,8 @@ pub fn run() {
             set_relay,
             pending_passes,
             answer_pass,
+            standing_passes,
+            revoke_pass,
             key_give::pending_handoffs,
             key_give::answer_handoff,
             stop_knowing,

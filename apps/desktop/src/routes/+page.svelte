@@ -160,6 +160,8 @@
     reportAgentVoice,
     roomLink,
     answerPass,
+    standingPasses,
+    revokePass,
     answerHandoff,
     pendingHandoffs,
     linkAnswered,
@@ -1155,6 +1157,7 @@
       覚えた = rows;
       鍵なしで入れる = (await knownKeys()) ?? [];
       会った = (await metKeys().catch(() => [])) ?? [];
+      await 持続の札を読む();
     } catch (e) {
       // **握り潰さない。**名前が出ないだけで会議は続けられる
       log(`名簿を読めなかった（${読める(e)}）`);
@@ -1365,19 +1368,38 @@
     return エージェントの名を言い換える(名札, (n) => format(t('chat.agentOf'), { name: n }));
   }
 
-  async function 札に答える(動作: string, 許す: boolean) {
+  /** **人が前もって出している札**（動作, 期限の秒）。期限内は聞かずに通す（0.1.41・D129）。 */
+  let 持続の札たち = $state<[string, number][]>([]);
+  async function 持続の札を読む() {
+    if (!inTauri()) return;
+    持続の札たち = (await standingPasses().catch(() => [])) ?? [];
+  }
+  /** 期限までの残り時間（時間・切り上げ）。 */
+  // 切り上げだと出した直後に「25 時間」と出る（時計は 1 分おき）。四捨五入で「24 時間」
+  const 残り時間 = (まで: number) => Math.max(1, Math.round((まで - いま秒) / 3600));
+  async function 札を取り消す(動作: string) {
+    try {
+      await revokePass(動作);
+      await 持続の札を読む();
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
+  async function 札に答える(動作: string, 許す: boolean, 持続 = false) {
     // **誰に答えたのかを、消す前に取っておく**（消したあとでは言えない）
     const 相手 = エージェントの名(待っている札たち.find((待ち) => 待ち.動作 === 動作)?.頼んだ人 ?? '');
     try {
-      await answerPass(動作, 許す);
+      await answerPass(動作, 許す, 持続);
       待っている札たち = 待っている札たち.filter((待ち) => 待ち.動作 !== 動作);
+      if (持続) await 持続の札を読む();
       // **押した人に、何が起きたかを返す**（2026-09-24）。
       //
       // 帯が消えるだけでは、押したあと何が起きたのかが人に分からない。
       //
       // **押すと帯が消えるだけだった。**——**通ったのか、届いたのか、何も出なかった。**
       // **同意を求めておいて、同意した結果を見せないのは、押させただけである。**
-      notice = format(t(許す ? 'pass.allowed' : 'pass.refused'), {
+      notice = format(t(持続 ? 'pass.allowed.standing' : 許す ? 'pass.allowed' : 'pass.refused'), {
         who: 相手,
         what: 動作,
       });
@@ -3187,8 +3209,24 @@
       <button type="button" onclick={() => void 札に答える(待ち.動作, true)}>
         {t('pass.allow')}
       </button>
+      <!-- **人が前もって出す札**（0.1.41・D129）。24 時間、同じ動作をこの機械の席に聞かない。取り消せる -->
+      <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, true, true)}>
+        {t('pass.allow.standing')}
+      </button>
       <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, false)}>
         {t('pass.refuse')}
+      </button>
+    </div>
+  </div>
+{/each}
+
+<!-- **出している持続の札**（0.1.41・D129）。何を誰に任せているかが見え、いつでも取り消せる -->
+{#each 持続の札たち as [動作, まで] (動作)}
+  <div class="invited standing" role="status">
+    <p class="hint">{format(t('pass.standing'), { what: 動作, hours: 残り時間(まで) })}</p>
+    <div class="tail">
+      <button type="button" class="quiet" onclick={() => void 札を取り消す(動作)}>
+        {t('pass.revoke')}
       </button>
     </div>
   </div>

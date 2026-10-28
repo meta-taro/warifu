@@ -194,8 +194,12 @@ export const pendingPasses = () => invoke<待っている札[]>('pending_passes'
  * **ここが札を出す唯一の所である**（**D56** ——「札を出すのは人である」）。
  * **エージェントはこの口を呼べない** —— 机（`desk.sock`）には無い。
  */
-export const answerPass = (動作: string, 許す: boolean) =>
-  invoke<void>('answer_pass', { 動作, 許す });
+export const answerPass = (動作: string, 許す: boolean, 持続 = false) =>
+  invoke<void>('answer_pass', { 動作, 許す, 持続 });
+/** **人が前もって出している札**（動作, 期限の秒）。期限内は聞かずに通す（0.1.41・D129）。 */
+export const standingPasses = () => invoke<[string, number][]>('standing_passes');
+/** 持続の札を取り消す。 */
+export const revokePass = (動作: string) => invoke<void>('revoke_pass', { 動作 });
 
 /** **ルームキーの手渡しの頼み**（2026-10-20）。**鍵はまだ出していない**（人が押してから出す）。 */
 export type 手渡しの頼み = {

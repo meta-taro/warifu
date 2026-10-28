@@ -240,6 +240,10 @@ pass.asked.hint	If you allow it, this agent can use that action. You can revoke 
 pass.refuse	Don't allow	通さない	不允许	허용하지 않음				
 pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は {what} を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
 pass.who	{who} wants to use {what}	{who} が {what} を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
+pass.allow.standing	Allow for 24 hours	24 時間聞かない	24 小时内不再询问	24시간 동안 묻지 않음				
+pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
+pass.revoke	Revoke	取り消す	撤销	취소				
+pass.standing	{what} passes without asking for {hours} more hours	{what} は、あと {hours} 時間は聞かずに通します	{what} 在接下来 {hours} 小时内无需询问即可通过	{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다				
 postbox.clear	Remove	外す	取消	해제				
 postbox.cleared	Mailbox removed.	留守中の受け取りを外しました。	已移除寄存处。	보관소를 내렸습니다.				
 postbox.hint	A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.	あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。	在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。	당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.				
