@@ -179,6 +179,31 @@ fn エージェントにつながれる(エージェント: u64, 呼び方: &str
     棚.insert(エージェント, format!("{呼び方}（{エージェント}）"));
 }
 
+/// **古い口が抜けたら、番号付きの名を元に戻す**（0.1.41・内部の Issue 023）。
+///
+/// Claude Code の `/mcp` の繋ぎ直しは古い `warifu mcp` を閉じないことがあり、
+/// 新しい口は「〜のエージェント 2」で着く。古い方を止めても「2」のまま残り、
+/// 人には口が入れ替わったように見えなかった（2026-10-28 に mac mini で見た）。
+/// **元の名が空いたら、その名に戻す。**
+fn 番号を外す(棚: &mut BTreeMap<u64, String>) {
+    let 番号付き: Vec<(u64, String)> = 棚
+        .iter()
+        .filter_map(|(番, 名)| 元の名(名).map(|元| (*番, 元.to_owned())))
+        .collect();
+    for (番, 元) in 番号付き {
+        if !棚.values().any(|名| *名 == 元) {
+            棚.insert(番, 元);
+        }
+    }
+}
+
+/// 「◯◯ のエージェント 2」の元の名。番号が付いていなければ `None`。
+fn 元の名(名: &str) -> Option<&str> {
+    let (元, 番号) = 名.rsplit_once(' ')?;
+    let 番号か = !番号.is_empty() && 番号.bytes().all(|b| b.is_ascii_digit());
+    (番号か && 元.ends_with("エージェント")).then_some(元)
+}
+
 /// エージェントごとの呼び方。**誰がつながっているかを画面へ出すため。**
 ///
 /// 1 行にまとめると、**どれが喋ったのか分からない**だけでなく、
@@ -330,7 +355,11 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             }
         }
         記録!("この機械から 1 人抜けました");
-        エージェントたち.lock().expect("毒されていない").remove(&自分);
+        {
+            let mut 棚 = エージェントたち.lock().expect("毒されていない");
+            棚.remove(&自分);
+            番号を外す(&mut 棚);
+        }
         // subscribe を落としてから数える。**落とす前だと自分を数えてしまう**
         drop(聞く);
         エージェントの数を伝える(&app);
@@ -1993,6 +2022,25 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 古い口が抜けたら_番号付きの名は元に戻る() {
+        let mut 棚 = BTreeMap::new();
+        棚.insert(1, "git-qa のエージェント".to_owned());
+        棚.insert(2, "git-qa のエージェント 2".to_owned());
+        棚.insert(3, "zumen のエージェント".to_owned());
+        // 両方生きている間は番号のまま
+        super::番号を外す(&mut 棚);
+        assert_eq!(棚[&2], "git-qa のエージェント 2");
+        // 古い口（1）が抜けたら、2 が元の名に戻る
+        棚.remove(&1);
+        super::番号を外す(&mut 棚);
+        assert_eq!(棚[&2], "git-qa のエージェント");
+        assert_eq!(棚[&3], "zumen のエージェント");
+        // 名乗りが数字で終わっていても、「エージェント」で終わらなければ触らない
+        assert_eq!(super::元の名("席 2 のエージェント"), None);
+        assert_eq!(super::元の名("席 のエージェント 10"), Some("席 のエージェント"));
+    }
+
     #[test]
     fn 版が上がったときだけ_初めては告げない() {
         assert!(super::版が上がった知らせ(None, "0.1.39").is_none());

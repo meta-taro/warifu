@@ -179,6 +179,11 @@ The log is at `%USERPROFILE%\.local\share\warifu\warifu.log` (macOS: `~/Library/
 **After replacing the CLI, restart every running `warifu mcp` too.** A running process stays on the old version.
 Claude Code's own endpoint is replaced by reconnecting in `/mcp`, but **resident processes you started yourself**
 (`warifu agent`, or a listener script an agent launched from Bash) are not, so stop and restart them.
+
+**Reconnecting in `/mcp` can also leave the old `warifu mcp` running** (seen on macOS on 2026-10-28: the old endpoint stays
+as a child of the same parent, and the app's "This computer" list shows the same seat twice, the new one as "… agent 2").
+If so, count them with `pgrep -fl 'warifu mcp'` (`tasklist | findstr warifu` on Windows) and stop the old one.
+From 0.1.41 the "2" goes back to the plain name once the old endpoint leaves.
 `ps -axo pid,ppid,lstart,command | grep '[w]arifu mcp'` shows which ones are old by their start time
 (`tasklist | findstr warifu` on Windows).
 

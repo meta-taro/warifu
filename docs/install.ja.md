@@ -207,6 +207,10 @@ warifu relay-server clear   # 使うのをやめる
 **CLI を入れ替えたら、動いている `warifu mcp` も立て直してください。**動いているプロセスは古い版のままです。
 Claude Code の口は `/mcp` の繋ぎ直しで入れ替わりますが、**自分で立てた常駐**（`warifu agent`・エージェントが
 Bash から立てた聞き役のスクリプトなど）はそれでは入れ替わらないので、止めて立て直します。
+
+**`/mcp` の繋ぎ直しでも、古い `warifu mcp` が残ることがあります**（2026-10-28 に macOS で見ました。古い口が同じ親の子として残り、
+画面の「この PC」に同じ席が「〜のエージェント 2」と二重に出ます）。残っていたら、`pgrep -fl 'warifu mcp'`（Windows は
+`tasklist | findstr warifu`）で数えて、古いほうを止めてください。0.1.41 からは、古い口が抜けると「2」は元の名に戻ります。
 どれが古いままかは `ps -axo pid,ppid,lstart,command | grep '[w]arifu mcp'` で起動時刻を見れば分かります
 （Windows は `tasklist | findstr warifu`）。
 
