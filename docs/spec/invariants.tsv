@@ -11,10 +11,10 @@ S00-15	いちばん落ちない機械が常設のルームを主催し、ほか�
 S00-16	常設のルームで会った相手は主催の名簿で戸口を通る。連絡帳に控える住所は直接つながった相手の分だけ（紹介の住所は落とさない）	L0	apps/desktop/src-tauri/src/contacts.rs 主催でない相手の紹介は_戸口で通さない／apps/desktop/src-tauri/src/desk.rs 会った相手は_名前の無い行として連絡帳の後ろに並ぶ	担保
 S00-17	頼みごとは常設のルームで @当番名。1 対 1 の長い用事は別のルームで行い、済んだら畳む	L5		未担保
 S00-18	各機械の room_status で、版が同じ・見ているルームが常設のルーム・届く先 ＝ ほかの全機械	L5		未担保
-S04-1	room_status の相手の集合 ＝ app_view の届く先の集合	L0	apps/desktop/src-tauri/src/self_check.rs 見出しの人数と届く先が名簿と違えば_どちらも言う	済
-S04-2	app_view の見出しの人数 ＝ room_status の相手の数 ＋ 1	L0	apps/desktop/src-tauri/src/self_check.rs 見出しの人数と届く先が名簿と違えば_どちらも言う	済（画面はまだ人数を置かない。届く先で代える）
+S04-1	room_status の相手の集合 ＝ app_view の届く先の集合	L0・L4	apps/desktop/src-tauri/src/self_check.rs 見出しの人数と届く先が名簿と違えば_どちらも言う／apps/desktop/src/lib/chat/Reach.svelte.test.ts 届く先は渡した順に_1_人ずつ出て_全文が_title_に入る	済
+S04-2	app_view の見出しの人数 ＝ room_status の相手の数 ＋ 1	L0・L4	apps/desktop/src-tauri/src/self_check.rs 見出しの人数と届く先が名簿と違えば_どちらも言う／apps/desktop/src/lib/meeting/Roster.svelte.test.ts 見出しの人数は名簿の長さで_定員と並ぶ	済（画面はまだ人数を置かない。届く先で代える）
 S04-3	app_view の見ているルーム ＝ room_status のルーム	L0	apps/desktop/src-tauri/src/self_check.rs 見ている部屋が違えば言う	済
-S04-4	「あなたが建てた」⇔ 本体がそのルームの主催	L0	apps/desktop/src-tauri/src/self_check.rs 部屋の一覧の増減と_題字の主催を言う	済
+S04-4	「あなたが建てた」⇔ 本体がそのルームの主催	L0・L4	apps/desktop/src-tauri/src/self_check.rs 部屋の一覧の増減と_題字の主催を言う／apps/desktop/src/lib/chat/Participants.svelte.test.ts 自分の行に「あなた」_主催の行に「主催」が付き_エージェントは名札で並ぶ	済
 S04-6	本体は写しのたび（2 秒）と 30 秒ごとに見比べる	L0	apps/desktop/src-tauri/src/lib.rs note_view・自己点検（試験なし）	済
 S04-7	同じ食い違いは 10 分に 1 回、机へ 1 行	L0	apps/desktop/src-tauri/src/lib.rs 自己点検（試験なし）	済
 S04-9	名簿に居ない相手の発言は食い違いとして知らせる	L0	apps/desktop/src-tauri/src/lib.rs（2 か所・試験なし）	未
