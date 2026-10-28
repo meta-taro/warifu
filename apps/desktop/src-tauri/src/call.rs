@@ -113,6 +113,8 @@ pub async fn 住所へ呼ぶ(
         crate::短く(&meeting.to_string())
     );
 
+    // 影へ流す分を先に写しておく（名簿は部屋へ渡して手放す）
+    let (影の名簿, 影の定員) = (roster.members().to_vec(), roster.capacity());
     let events = {
         crate::ルームを足す(
             &bridge.conferences,
@@ -125,6 +127,17 @@ pub async fn 住所へ呼ぶ(
         // **帰り道の見張りが「自分の部屋」とみなし、次に主催が落ちても戻らない**
         // （2026-10-21・割符なしで戻った機械で実測）
         bridge.主催たち.lock().await.insert(meeting, peer);
+        crate::影へ(
+            bridge,
+            warifu_app::room::入り口::入った {
+                部屋: meeting,
+                主催: peer,
+                名簿: 影の名簿,
+                定員: 影の定員,
+                見る: false,
+            },
+        )
+        .await;
         vec![warifu_app::Event::Joined(peer)]
     };
     // **鍵なしで入った部屋にも、帰り道を書き置く**（0.1.35）。

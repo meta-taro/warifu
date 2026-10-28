@@ -184,6 +184,11 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
         };
         let mut いま = bridge.いまのルーム.lock().await;
         *いま = 見張りのあとに見るルーム(前, *いま, 在る);
+        let 見る = *いま;
+        drop(いま);
+        if let Some(部屋) = 見る {
+            crate::影へ(&bridge, warifu_app::room::入り口::見る { 部屋 }).await;
+        }
     }
     // **画面にも読み直させる。**戻った瞬間に画面は戻った先を読んでいる
     let _ = app.emit(crate::EVENT_LOOK, ());
