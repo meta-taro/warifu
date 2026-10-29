@@ -319,6 +319,8 @@ export type MessageKey =
   | 'meeting.key.own'
   | 'video.start'
   | 'video.stop'
+  | 'video.stop.short'
+  | 'video.agentVoice.short'
   | 'video.agentVoice'
   | 'video.agentVoice.hint'
   | 'video.title'
@@ -770,6 +772,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': '通話の入切。支度の確認とは別で、いま送っているものを止めます。',
     'video.start': '映像と音を足す',
     'video.stop': '映像と音をやめる（ルームは抜けません）',
+    'video.stop.short': '映像を止める',
+    'video.agentVoice.short': '声を流す',
     'video.agentVoice': 'この機械のエージェントの声を流す',
     'video.agentVoice.hint':
       '入れている間だけ、この PC のエージェントが読み上げの声でこのルームに話せます。声は会話にも「（エージェントの声）」として出ます。ルームを抜けると切に戻ります。',
@@ -1179,6 +1183,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': 'Turn the call on and off. Separate from checking your gear — this stops what you are sending now.',
     'video.start': 'Add video and sound',
     'video.stop': 'Stop video and sound (you stay in the room)',
+    'video.stop.short': 'Stop video',
+    'video.agentVoice.short': 'Agent voice',
     'video.agentVoice': 'Let this machine\'s agent speak',
     'video.agentVoice.hint':
       'Only while this is on can an agent on this PC speak in this room with a synthesized voice. What it says also appears in the chat, marked as the agent\'s voice. It turns off when you leave the room.',
@@ -1586,6 +1592,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': '通话的开关。与设备确认不同，这会停止你现在正在发送的内容。',
     'video.start': '加上影像和声音',
     'video.stop': '停止影像和声音（不退出房间）',
+    'video.stop.short': '停止影像',
+    'video.agentVoice.short': '智能体发声',
     'video.agentVoice': '让这台电脑的智能体发声',
     'video.agentVoice.hint':
       '只有打开时，这台电脑上的智能体才能用合成的声音在这个房间说话。说的内容也会作为智能体的声音出现在聊天里。退出房间后会自动关闭。',
@@ -1997,6 +2005,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'call.controls': '통화 켜고 끄기. 기기 확인과는 다르며, 지금 보내고 있는 것을 멈춥니다.',
     'video.start': '영상과 소리를 더하기',
     'video.stop': '영상과 소리를 멈추기（룸에서 나가지 않습니다）',
+    'video.stop.short': '영상 멈추기',
+    'video.agentVoice.short': '에이전트 목소리',
     'video.agentVoice': '이 기기의 에이전트 목소리 내보내기',
     'video.agentVoice.hint':
       '켜 둔 동안에만 이 PC의 에이전트가 합성 음성으로 이 룸에서 말할 수 있습니다. 말한 내용은 대화에도 에이전트 목소리로 표시됩니다. 룸에서 나가면 꺼집니다.',

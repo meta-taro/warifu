@@ -16,7 +16,7 @@
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
-  import { tick, untrack } from 'svelte';
+  import { tick, untrack, type Snippet } from 'svelte';
   import { 画像を拾う } from './image';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
   import { 吹き出しの形 } from './bubble';
@@ -108,6 +108,13 @@
      */
     宛先?: 見出し | null;
     /**
+     * **見出しの右に置く押し所**（#101-1・0.1.41）。
+     *
+     * 題字が「いま文字だけです」と言うのに、映像と音を足す所が畳まれた札の中にあって見つからなかった。
+     * 人が「文字だけ」と読んだ場所の隣に置く。渡されなければ何も出さない。
+     */
+    見出しの右?: Snippet;
+    /**
      * **この端末の人が `@` で呼ばれる名前**（0.1.35・メンション）。
      * 呼ばれた行に印を付ける。渡されなければ印は付かない
      */
@@ -138,6 +145,7 @@
     宛先 = null,
     自分の呼ばれる名 = [],
     届く先を出す = true,
+    見出しの右,
   }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
@@ -321,7 +329,10 @@
   <!-- **宛先を見出しにする**（**D107**）。
        「文字で話す」は**何をする所か**を言っているが、
        **誰に届くか**を言っていない —— 人が迷っていたのはそこである。 -->
-  <h2><Icon name="chat" size={18} />{見出しの文}</h2>
+  <div class="見出しの行">
+    <h2><Icon name="chat" size={18} />{見出しの文}</h2>
+    {#if 見出しの右}<div class="見出しの右">{@render 見出しの右()}</div>{/if}
+  </div>
   <!-- **注意書きは出さない**（見出しが宛先を名乗るので要らない）。
        **ただし宛先を渡されていない呼び出しでは、これまでどおり出す** ——
        見出しが「文字で話す」のままなら、打ち消しが無いと
@@ -610,6 +621,20 @@
     min-height: 240px;
     /* **はみ出させない。**中身が高くても、次の札に重ねない（2026-09-24） */
     overflow: hidden;
+  }
+  /* 見出しと、その右の押し所（#101-1）。狭ければ押し所は次の行へ回る */
+  .見出しの行 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .見出しの右 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
   }
   h2 {
     display: flex;

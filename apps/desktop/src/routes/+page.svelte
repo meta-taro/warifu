@@ -3510,9 +3510,33 @@
       {この機械のAIたち}
     />
 
+    <!--
+      **見出しの右の押し所**（#101-1・0.1.41）。題字が「いま文字だけです」と言う隣に置く。
+      会議になったら、同じ場所が［声を流す］と［映像を止める］に変わる。下の札の押し所はそのまま残す。
+    -->
+    {#snippet 映像の押し所()}
+      {#if 映像を使う && 映像がある部屋 === 見ている}
+        <label class="row 押し所">
+          <input
+            type="checkbox"
+            checked={声が入っている}
+            onchange={(e) => 声を入切する(e.currentTarget.checked)}
+          />
+          <Icon name="mic" size={16} />{t('video.agentVoice.short')}
+        </label>
+        <button type="button" class="quiet 押し所" onclick={() => void ビデオ会議をやめる()}>
+          <Icon name="camera-off" size={16} />{t('video.stop.short')}
+        </button>
+      {:else}
+        <button type="button" class="quiet 押し所" onclick={() => void ビデオ会議を始める()}>
+          <Icon name="camera" size={16} />{t('video.start')}
+        </button>
+      {/if}
+    {/snippet}
     <ChatPanel {画面での名簿}
       自分の呼ばれる名={自分の呼ばれる名}
       部屋={見ている}
+      見出しの右={見ている ? 映像の押し所 : undefined}
       {locale}
       {会話}
       {届く先がある}
@@ -4886,7 +4910,12 @@
   }
 
   .切り替え button {
-    flex: 1;
+    /* **幅は等分し、縮める**（0.1.41）。縮めないと 2 つ目の札が溝の外へはみ出し、
+       会議中の右の列（約 320px）に横スクロールが出ていた（10-29 に dev 1116×729 で見た）。
+       収まらなければ字を折り返す */
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4899,7 +4928,11 @@
     font-size: var(--text-sm-size);
     line-height: var(--text-sm-line);
     font-weight: 400;
-    white-space: nowrap;
+    /* 収まらなければ折り返す（縮めた札から字がはみ出さないように） */
+    white-space: normal;
+  }
+  .切り替え button > :global(svg) {
+    flex-shrink: 0;
   }
 
   /* **触れたときは、選んだときより弱く。**同じ見た目にすると、どちらか分からない */

@@ -384,6 +384,7 @@ update.notes	What changed	何が変わったか	有哪些变化	무엇이 달라
 update.notes.none	Nothing written.	書かれていません。	没有写。	쓰여 있지 않습니다.				
 video.agentVoice	Let this machine\'s agent speak	この機械のエージェントの声を流す	让这台电脑的智能体发声	이 기기의 에이전트 목소리 내보내기				
 video.agentVoice.hint	Only while this is on can an agent on this PC speak in this room with a synthesized voice. What it says also appears in the chat, marked as the agent\'s voice. It turns off when you leave the room.	入れている間だけ、この PC のエージェントが読み上げの声でこのルームに話せます。声は会話にも「（エージェントの声）」として出ます。ルームを抜けると切に戻ります。	只有打开时，这台电脑上的智能体才能用合成的声音在这个房间说话。说的内容也会作为智能体的声音出现在聊天里。退出房间后会自动关闭。	켜 둔 동안에만 이 PC의 에이전트가 합성 음성으로 이 룸에서 말할 수 있습니다. 말한 내용은 대화에도 에이전트 목소리로 표시됩니다. 룸에서 나가면 꺼집니다.				
+video.agentVoice.short	Agent voice	声を流す	智能体发声	에이전트 목소리				
 video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
 video.move.ask	Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?	いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？	影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？	지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?				
 video.move.no	Leave them there	そのままにする	留在那边	그대로 두기				
@@ -393,6 +394,7 @@ video.off.held	Your camera and microphone are on, but nothing is being sent. You
 video.off.hint	This room is text only right now. Neither camera nor microphone is in use.	このルームは、いま文字だけです。カメラもマイクも使っていません。	这个 room 现在只有文字。没有使用摄像头，也没有使用麦克风。	이 룸은 지금 문자만 씁니다. 카메라도 마이크도 쓰지 않습니다.				
 video.start	Add video and sound	映像と音を足す	加上影像和声音	영상과 소리를 더하기				
 video.stop	Stop video and sound (you stay in the room)	映像と音をやめる（ルームは抜けません）	停止影像和声音（不退出房间）	영상과 소리를 멈추기（룸에서 나가지 않습니다）				
+video.stop.short	Stop video	映像を止める	停止影像	영상 멈추기				
 video.title	Add video to this room	このルームに映像を足す	为这个房间加上影像	이 룸에 영상을 더하기				
 window.close	Close	閉じる	关闭	닫기				
 window.maximize	Maximize	最大化	最大化	최대화				
