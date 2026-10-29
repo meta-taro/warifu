@@ -302,6 +302,7 @@ room.leave	Leave this room	このルームを抜ける	退出这个 room	이 룸
 room.leave.confirm	Leave this room?	このルームを抜けますか？	要退出这个 room 吗？	이 룸에서 나갈까요?				
 room.leave.do	Leave	抜ける	退出	나가기				
 room.leave.hint	Everyone in the room is told you left. The conversation here is not kept. To come back you need a room key again.	抜けたことは、このルームの全員に伝わります。ここの会話は残りません。入り直すには、ルームキーをもう一度もらってください。	room 里的所有人都会知道你退出了。这里的会话不会保留。要再进来需要重新拿到room key。	나간 것은 이 룸의 모두에게 전해집니다. 여기의 대화는 남지 않습니다. 다시 들어오려면 룸 키를 다시 받아야 합니다.				
+room.manage	This room (invite, name, leave)	このルーム（人を呼ぶ・名前・抜ける）	这个房间（邀请・名称・退出）	이 룸（초대・이름・나가기）				
 room.members.some	People are here.	人が入っています。	有人在。	사람이 있습니다.				
 room.mine	you set this up	あなたが建てた	你建的	내가 만든 룸				
 room.people	In this room ({n})	この部屋に居る（{n}）	在这个房间里（{n}）	이 룸에 있음 ({n})				

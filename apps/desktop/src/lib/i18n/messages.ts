@@ -222,6 +222,7 @@ export type MessageKey =
   | 'room.back'
   | 'room.back.hint'
   | 'room.leave'
+  | 'room.manage'
   | 'room.leave.confirm'
   | 'room.leave.hint'
   | 'room.leave.do'
@@ -691,6 +692,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.back': '前のルームに戻る',
     'room.back.hint': '前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。',
     'room.leave': 'このルームを抜ける',
+    'room.manage': 'このルーム（人を呼ぶ・名前・抜ける）',
     'room.leave.confirm': 'このルームを抜けますか？',
     'room.leave.hint': '抜けたことは、このルームの全員に伝わります。ここの会話は残りません。入り直すには、ルームキーをもう一度もらってください。',
     'room.leave.do': '抜ける',
@@ -1112,6 +1114,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.back': 'Back to the last room',
     'room.back.hint': 'Rejoins the room you were in. You do not need a new key — even after the key\'s 24 hours are up, you can return if they still let you in.',
     'room.leave': 'Leave this room',
+    'room.manage': 'This room (invite, name, leave)',
     'room.leave.confirm': 'Leave this room?',
     'room.leave.hint': 'Everyone in the room is told you left. The conversation here is not kept. To come back you need a room key again.',
     'room.leave.do': 'Leave',
@@ -1531,6 +1534,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.back': '回到上一个房间',
     'room.back.hint': '重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。',
     'room.leave': '退出这个 room',
+    'room.manage': '这个房间（邀请・名称・退出）',
     'room.leave.confirm': '要退出这个 room 吗？',
     'room.leave.hint': 'room 里的所有人都会知道你退出了。这里的会话不会保留。要再进来需要重新拿到room key。',
     'room.leave.do': '退出',
@@ -1954,6 +1958,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.back': '이전 룸으로 돌아가기',
     'room.back.hint': '이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.',
     'room.leave': '이 룸에서 나가기',
+    'room.manage': '이 룸（초대・이름・나가기）',
     'room.leave.confirm': '이 룸에서 나갈까요?',
     'room.leave.hint': '나간 것은 이 룸의 모두에게 전해집니다. 여기의 대화는 남지 않습니다. 다시 들어오려면 룸 키를 다시 받아야 합니다.',
     'room.leave.do': '나가기',

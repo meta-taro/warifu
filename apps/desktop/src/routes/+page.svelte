@@ -2695,6 +2695,18 @@
     覚え書き: '',
   });
 
+  /**
+   * **会議の面は、会議（映像と音）の間だけ出す**（0.1.41・#18・案 B）。
+   * チャットは連絡帳でする。連絡帳とルームの面に同じことが並び、どこで話すのか分からなかった（10-29・人が報告）。
+   */
+  const 会議の面を出す = $derived(映像を使う || 一人で確かめる);
+  // **会議でないのに会議の面に居たら、連絡帳の同じルームへ戻す**（入室した直後・会議を終えた直後）
+  $effect(() => {
+    if (面 !== '会議' || 会議の面を出す) return;
+    面 = '連絡帳';
+    if (見ている) 選んだ相手 = `room:${見ている}`;
+  });
+
   // **予定の面を開いたとき、日が過ぎていれば今日に寄せる**（0.1.41）。
   // 下書きは画面を立ち上げたときに作るので、立ち上げたまま日をまたぐと初期値が昨日のままだった（10-29・人が報告）
   $effect(() => {
@@ -3437,6 +3449,60 @@
 <svelte:window onkeydown={幕を閉じる} />
 
 <main>
+  <!-- **入退の札**（もらったルームキーで入る／ルームをつくる）。0.1.41 から連絡帳でも使うので一番外に置く -->
+    {#snippet 入退の札()}
+    <div class="card">
+      <div class="切り替え" role="tablist" aria-label={t('meeting.join.title')}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={入退 === '入る'}
+          class:選んでいる={入退 === '入る'}
+          onclick={() => (入退 = '入る')}
+        >
+          <Icon name="enter" size={16} />{t('meeting.join.title')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={入退 === 'つくる'}
+          class:選んでいる={入退 === 'つくる'}
+          onclick={() => (入退 = 'つくる')}
+        >
+          <Icon name="people" size={16} />{t('meeting.start.title')}
+        </button>
+      </div>
+
+      {#if 入退 === '入る'}
+        <p class="hint">{t('meeting.join.hint')}</p>
+        <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
+        <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
+          <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
+        </button>
+      {:else}
+        <p class="hint">{t('meeting.key.hint')}</p>
+        <!--
+          **最初から人数ぶん出せる**（**D84**）。1 人なら 1 本で、
+          10 人なら 10 本 —— **1 本につき 1 人**なので、そこは足せない
+        -->
+        <div class="issue">
+          <label for="howmany-start">{t('meeting.key.howmany')}</label>
+          <div class="行">
+            <input
+              id="howmany-start"
+              type="number"
+              min="1"
+              max={出せる本数}
+              bind:value={何人ぶん}
+            />
+            <button type="button" onclick={() => void はじめる(何人ぶん)}>
+              <Icon name="people" />{t('meeting.start.action')}
+            </button>
+          </div>
+        </div>
+      {/if}
+    </div>
+    {/snippet}
   <!--
     **見出しの右の押し所**（#101-1・0.1.41）。題字が「いま文字だけです」と言う隣に置く。
     会議になったら、同じ場所が［声を流す］と［映像を止める］に変わる。下の札の押し所はそのまま残す。
@@ -3465,6 +3531,7 @@
     いまの面={面}
     {状態}
     選ぶ={(次) => (面 = 次)}
+    会議を出す={会議の面を出す}
     知らせの数={知らせの記録.length}
     知らせを開く={() => (知らせを見ている = true)}
   />
@@ -3934,59 +4001,6 @@
       </fieldset>
     {/snippet}
 
-    {#snippet 入退の札()}
-    <div class="card">
-      <div class="切り替え" role="tablist" aria-label={t('meeting.join.title')}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={入退 === '入る'}
-          class:選んでいる={入退 === '入る'}
-          onclick={() => (入退 = '入る')}
-        >
-          <Icon name="enter" size={16} />{t('meeting.join.title')}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={入退 === 'つくる'}
-          class:選んでいる={入退 === 'つくる'}
-          onclick={() => (入退 = 'つくる')}
-        >
-          <Icon name="people" size={16} />{t('meeting.start.title')}
-        </button>
-      </div>
-
-      {#if 入退 === '入る'}
-        <p class="hint">{t('meeting.join.hint')}</p>
-        <textarea bind:value={received} rows="4" placeholder="WARIFU1-…#…"></textarea>
-        <button type="button" onclick={入室する} disabled={入室中 || !received.trim()}>
-          <Icon name="enter" />{入室中 ? t('meeting.join.working') : t('meeting.join.action')}
-        </button>
-      {:else}
-        <p class="hint">{t('meeting.key.hint')}</p>
-        <!--
-          **最初から人数ぶん出せる**（**D84**）。1 人なら 1 本で、
-          10 人なら 10 本 —— **1 本につき 1 人**なので、そこは足せない
-        -->
-        <div class="issue">
-          <label for="howmany-start">{t('meeting.key.howmany')}</label>
-          <div class="行">
-            <input
-              id="howmany-start"
-              type="number"
-              min="1"
-              max={出せる本数}
-              bind:value={何人ぶん}
-            />
-            <button type="button" onclick={() => void はじめる(何人ぶん)}>
-              <Icon name="people" />{t('meeting.start.action')}
-            </button>
-          </div>
-        </div>
-      {/if}
-    </div>
-    {/snippet}
 
     <!--
       **預かり所は任意である**（D71 / `docs/relay.md`）。
@@ -4177,6 +4191,7 @@
       style:--右の幅={連絡帳の右の幅 === null ? null : `${連絡帳の右の幅}px`}
     >
       <ContactsPane
+        入り口={入退の札}
         {locale}
         素材={連絡帳の素材}
         選んでいる={選んだ相手}

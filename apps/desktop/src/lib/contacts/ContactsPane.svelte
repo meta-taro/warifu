@@ -128,6 +128,8 @@
     届く先の欄?: Snippet;
     /** ルームを選んでいるとき、その部屋に誰が居るか（まんなかの欄の下・0.1.38）。 */
     参加者の欄?: Snippet;
+    /** **入退の札**（もらったルームキーで入る／ルームをつくる・0.1.41）。何も選んでいないときの面に出す */
+    入り口?: Snippet;
     /**
      * この PC の住所を読む（自分の面に出す・0.1.38）。
      * 画面のどこにも出ておらず、相手の席が contact_add で足すための住所を、人も席も取り出せなかった
@@ -163,6 +165,7 @@
     未読 = () => 0,
     届く先の欄,
     参加者の欄,
+    入り口,
     住所を読む,
   }: Props = $props();
 
@@ -600,6 +603,8 @@
       -->
       <h2 class="home"><span class="who">{t('home.title')}</span></h2>
       <p class="hint">{t('home.lead')}</p>
+      <!-- **ルームに入る・つくる**（0.1.41・#18）。ルームの面は会議の間だけになったので、入り口はここ -->
+      {#if 入り口}<div class="入り口">{@render 入り口()}</div>{/if}
 
       <!-- **いまの様子。**数えているだけで、判断はしていない -->
       <section class="now">
@@ -911,6 +916,9 @@
         <!-- **その場で呼べる。**鍵を出す口を、ルームの面まで探しに行かせない。
              **主催している部屋にだけ出す**（0.1.37）。鍵は主催している部屋の分しか出ないので、
              ゲストで入っている部屋に出すと、押したら別の部屋の鍵が出る -->
+        <!-- **このルームの手入れは畳む**（0.1.41・#18）。ふだんはチャットだけを見る -->
+        <details class="このルーム">
+        <summary>{t('room.manage')}</summary>
         {#if 相手.主催か}
         <div class="tail">
           <button
@@ -952,6 +960,7 @@
             {t('room.leave')}
           </button>
         </div>
+        </details>
         {#if 参加者の欄}{@render 参加者の欄()}{/if}
       {/if}
       {#if 相手.種類 === '人'}
@@ -1779,5 +1788,17 @@
     color: var(--on-accent);
     background: var(--accent);
     border-radius: var(--radius-full);
+  }
+  /* このルームの手入れ（畳んだ札）と、入り口の札（0.1.41・#18） */
+  details.このルーム {
+    margin: var(--space-2) 0;
+  }
+  details.このルーム > summary {
+    cursor: pointer;
+    font-size: var(--text-sm-size);
+    color: var(--text-secondary);
+  }
+  .入り口 {
+    margin: var(--space-3) 0;
   }
 </style>

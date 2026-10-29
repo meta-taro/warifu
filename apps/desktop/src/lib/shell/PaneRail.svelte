@@ -18,8 +18,12 @@
     知らせの数?: number;
     /** 知らせの一覧を開く（0.1.36）。 */
     知らせを開く?: () => void;
+    /** 会議の面を並べるか（会議の間だけ・0.1.41）。 */
+    会議を出す?: boolean;
   }
-  const { locale, いまの面, 状態, 選ぶ, 知らせの数 = 0, 知らせを開く }: Props = $props();
+  const { locale, いまの面, 状態, 選ぶ, 知らせの数 = 0, 知らせを開く, 会議を出す = true }: Props = $props();
+  /** **会議の面は会議の間だけ並べる**（0.1.41・#18）。チャットは連絡帳でする */
+  const 並び = $derived(面の並び.filter((一つ) => 一つ !== '会議' || 会議を出す));
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
 
@@ -39,7 +43,7 @@
 
 <div class="rail">
 <div class="tabs" role="tablist" aria-orientation="vertical">
-  {#each 面の並び as 一つ (一つ)}
+  {#each 並び as 一つ (一つ)}
     {@const 印 = 面の印(一つ, 状態)}
     <!--
       **見出しと状態を、1 つの名前に混ぜない**（`issues/3`）。
