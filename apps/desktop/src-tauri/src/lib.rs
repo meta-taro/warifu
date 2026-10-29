@@ -1760,9 +1760,10 @@ pub(crate) async fn 自己点検(app: &AppHandle) {
     控え.retain(|_, 前| 今.saturating_sub(*前) < 3600);
 }
 
-/// **影へ同じ出来事を流す**（計画 A2 の段 1）。返る手配は使わない —— 決めるのはまだ今までどおりの錠。
-pub(crate) async fn 影へ(bridge: &Bridge, 入り: warifu_app::room::入り口) {
-    let _ = bridge.影.lock().await.受ける(入り);
+/// **影へ同じ出来事を流す**（計画 A2 の段 1）。決めるのはまだ今までどおりの錠。
+/// 返る手配は、**預かった分を渡す所だけ**本体が使う（`汲む`・Issue #1）。
+pub(crate) async fn 影へ(bridge: &Bridge, 入り: warifu_app::room::入り口) -> Vec<warifu_app::room::手配> {
+    bridge.影.lock().await.受ける(入り)
 }
 
 /// **影と本物を見比べる**（計画 A2 の段 1）。ずれは記録だけに出す（人とエージェントには言わない）。
@@ -2342,8 +2343,8 @@ fn 汲む(
                         // 会議のものでない口は、経路としては通る。**会議は受け取らない**
                         continue;
                     };
-                    // **影にも同じ知らせを流す**（A2 の段 1）。影の手配は使わない
-                    影へ(
+                    // **影にも同じ知らせを流す**（A2 の段 1）
+                    let 影の手配 = 影へ(
                         &app.state::<Bridge>(),
                         warifu_app::room::入り口::届いた {
                             線の相手: peer,
@@ -2351,6 +2352,43 @@ fn 汲む(
                         },
                     )
                     .await;
+                    // **留守の間に預かった文字を、入り直した相手へ渡す**（Issue #1・0.1.41）。
+                    // 主催が、線の切れた面々あての文字を影（本物の状態機械）で預かっている。
+                    // 影の手配のうち、この相手への文字だけをこの線でそのまま送る（決めるのは影の規則）
+                    if matches!(notice, Notice::Join { .. }) {
+                        記録!(
+                            "預かり: {} が入り直した（部屋 {}・影の手配 {} 件・影が預かっている {} 件）",
+                            短く(&key_to_string(peer)),
+                            短く(&notice.meeting().to_string()),
+                            影の手配.len(),
+                            app.state::<Bridge>().影.lock().await.預かっている数(notice.meeting())
+                        );
+                        let 渡す: Vec<Notice> = 影の手配
+                            .into_iter()
+                            .filter_map(|h| match h {
+                                warifu_app::room::手配::送る { 宛先, 知らせ: 文 @ Notice::Text { .. } }
+                                    if 宛先 == peer =>
+                                {
+                                    Some(文)
+                                }
+                                _ => None,
+                            })
+                            .collect();
+                        if !渡す.is_empty() {
+                            記録!(
+                                "預かり: {} へ留守の間の文字を {} 件渡します",
+                                短く(&key_to_string(peer)),
+                                渡す.len()
+                            );
+                        }
+                        for 文 in 渡す {
+                            if let Ok(intent) = 文.to_intent()
+                                && channel.send(&intent).await.is_err()
+                            {
+                                break;
+                            }
+                        }
+                    }
                     // **文字は名簿を動かさない。**そのまま画面へ渡す
                     if let Notice::Text {
                         meeting,
@@ -3427,6 +3465,16 @@ async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) 
             code: None,
         });
     };
+    // **影にも言う**（Issue #1）。主催なら、線の切れた面々の分を預かる
+    影へ(
+        &bridge,
+        warifu_app::room::入り口::言う {
+            部屋: meeting,
+            本文: body.clone(),
+            話し手: None,
+        },
+    )
+    .await;
     // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く
     let 送り先 = そのルームの相手(
         &bridge.conferences,

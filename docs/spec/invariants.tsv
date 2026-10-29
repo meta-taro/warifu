@@ -55,5 +55,5 @@ S05-14	形を変える版は CHANGELOG に「互換」を書く	L0	scripts/relea
 S05-15	新しい欄は名乗った相手にだけ付け、古い相手に断られたら欄なしで名乗り直す	L0	crates/warifu-desk/src/line.rs 部屋も聞くと名乗れる_名乗らない古い口はそのまま／crates/warifu-mcp/src/chat.rs 古い机に断られたら名乗り直す	済
 S05-17	古い版の相手と混ざっても繋がらなくはならない	L1	crates/warifu-app/tests/room_sim.rs 戻るときは戻りたい部屋を添えるので_主催が別の部屋を見ていてもその部屋へ招かれる（対照：部屋を添えない古い叩き）	済（部屋 id の叩きのみ）
 S05-20	出す前に release-gate.sh を通す	人	scripts/release-gate.sh	
-S02-20	主催は線の切れた面々あての文字を預かり、入り直したら順に 1 回ずつ渡して消す	L0・L1	crates/warifu-app/src/room/tests.rs 主催は_線の切れた客あての文字を預かり_上限を超えたら古い分から落とす／crates/warifu-app/tests/room_sim.rs 客が落ちている間の発言は_主催が預かり_戻ったときに_1_回だけ届く	済（純粋な部品。本体の配線は A2 の段 2・0.1.42）
+S02-20	主催は線の切れた面々あての文字を預かり、入り直したら順に 1 回ずつ渡して消す	L0・L1	crates/warifu-app/src/room/tests.rs 主催は_線の切れた客あての文字を預かり_上限を超えたら古い分から落とす／crates/warifu-app/tests/room_sim.rs 客が落ちている間の発言は_主催が預かり_戻ったときに_1_回だけ届く	済（本体は影の手配で渡す・0.1.41。主催が線の切れに気づく前の分は未）
 S02-21	自分で抜けた人・畳んだ部屋の分は預からない。文字だけ・1 人 200 件まで	L0・L1	crates/warifu-app/src/room/tests.rs 線のある客と差出人には預けない_畳んだら預かりも消える／crates/warifu-app/tests/room_sim.rs 自分で抜けた客の分は預からない	済（純粋な部品）

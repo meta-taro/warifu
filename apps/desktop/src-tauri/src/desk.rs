@@ -1008,6 +1008,16 @@ pub(crate) async fn 流す(
         return Ok((id, 名札で並べる(&届いた), None));
     };
 
+    // **影にも言う**（Issue #1）。主催なら、線の切れた面々の分を預かる
+    crate::影へ(
+        &bridge,
+        warifu_app::room::入り口::言う {
+            部屋: meeting,
+            本文: body.to_owned(),
+            話し手: Some(名札.clone()),
+        },
+    )
+    .await;
     // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く
     let 送り先 = crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
     for tx in &送り先 {
