@@ -162,6 +162,7 @@
     answerPass,
     standingPasses,
     revokePass,
+    allowUntilRevoked,
     answerHandoff,
     pendingHandoffs,
     linkAnswered,
@@ -1943,6 +1944,13 @@
           // **相手の機械から鍵が届いた**（2026-10-20）。**ここでは入らない**（D79 と同じ）
           誘われた鍵 = 鍵;
           誘いの送り主 = 誰から;
+          // **人が［今後は聞かずに入る］を出していれば、聞かずに入る**（0.1.41）。
+          // 手渡しは線のある相手（知っている機械）からしか届かない
+          if (持続の札たち.some(([動作]) => 動作 === 'room.autojoin')) {
+            log(`鍵が手渡されました（${誰から}）。前もって許されているので、聞かずに入ります`);
+            void 誘いに乗る();
+            return;
+          }
           誘いの期限 = null;
           void inviteWindow(鍵)
             .then((まで) => (誘いの期限 = まで))
@@ -3237,6 +3245,19 @@
     {/if}
     <div class="tail">
       <button type="button" onclick={() => void 誘いに乗る()}>{t('link.invited.enter')}</button>
+      {#if 誘いの送り主}
+        <!-- **今後は聞かずに入る**（0.1.41）。線のある相手から手渡された鍵だけ。取り消しは帯の下の一覧から -->
+        <button
+          type="button"
+          class="quiet"
+          onclick={() => {
+            void allowUntilRevoked('room.autojoin')
+              .then(() => 持続の札を読む())
+              .catch((e: unknown) => (notice = 読める(e)));
+            void 誘いに乗る();
+          }}>{t('link.gift.always')}</button
+        >
+      {/if}
       <button
         type="button"
         class="quiet"

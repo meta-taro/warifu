@@ -1618,6 +1618,25 @@ fn answer_pass(動作: String, 許す: bool, 持続: Option<bool>) -> Answer<()>
 /// **人が前もって出している札の効き目**（秒・24 時間・D129）。
 const 持続の札の秒: u64 = 24 * 60 * 60;
 
+/// **「取り消すまで聞かない」札を出せる動作**（0.1.41）。ここに無い動作は、この口では出せない。
+const 取り消すまで出せる札: [&str; 1] = ["room.autojoin"];
+
+/// **人が「今後は聞かない」を押した**（0.1.41）。取り消すまで効く札を控える。
+#[tauri::command]
+fn allow_until_revoked(動作: String) -> Answer<()> {
+    if !取り消すまで出せる札.contains(&動作.as_str()) {
+        return Err(Failure {
+            message: format!("{動作} は取り消すまでの札にできません"),
+            code: None,
+        });
+    }
+    let まで = now_secs().saturating_add(key_give::取り消すまでの秒);
+    desk::人が答えた(&動作, true, Some(まで)).map_err(|message| Failure {
+        message,
+        code: None,
+    })
+}
+
 /// **人が前もって出している札**（動作と期限）。画面が並べ、取り消せる（0.1.41）。
 #[tauri::command]
 fn standing_passes() -> Vec<(String, u64)> {
@@ -4075,6 +4094,7 @@ pub fn run() {
             answer_pass,
             standing_passes,
             revoke_pass,
+            allow_until_revoked,
             key_give::pending_handoffs,
             key_give::answer_handoff,
             stop_knowing,

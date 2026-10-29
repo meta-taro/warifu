@@ -200,6 +200,8 @@ export const answerPass = (動作: string, 許す: boolean, 持続 = false) =>
 export const standingPasses = () => invoke<[string, number][]>('standing_passes');
 /** 持続の札を取り消す。 */
 export const revokePass = (動作: string) => invoke<void>('revoke_pass', { 動作 });
+/** **「今後は聞かない」**（0.1.41）。取り消すまで効く札を控える（決まった動作だけ）。 */
+export const allowUntilRevoked = (動作: string) => invoke<void>('allow_until_revoked', { 動作 });
 
 /** **ルームキーの手渡しの頼み**（2026-10-20）。**鍵はまだ出していない**（人が押してから出す）。 */
 export type 手渡しの頼み = {

@@ -174,6 +174,7 @@ export type MessageKey =
   | 'link.invited.hint'
   | 'link.invited.enter'
   | 'link.invited.no'
+  | 'link.gift.always'
   | 'link.invited.until'
   | 'link.declined'
   | 'contacts.me.key.what'
@@ -642,6 +643,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.invited.hint': 'このリンクは誰でも作れます。心当たりのない誘いには入らないでください。',
     'link.invited.enter': '入る',
     'link.invited.no': '入らない',
+    'link.gift.always': '今後は聞かずに入る',
     'link.invited.until': 'このルームキーは {until} まで使えます。入らなくても、それまでは使えます。',
     'link.declined': '入りませんでした。このルームキーは {until} まで使えます —— 入るときは、もう一度リンクを開いてください。',
     'contacts.me.key.what': '公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、受け取り先の名簿に書いてもらうときに渡します。',
@@ -1062,6 +1064,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.invited.hint': 'Anyone can make such a link. Do not enter an invitation you were not expecting.',
     'link.invited.enter': 'Enter',
     'link.invited.no': 'Do not enter',
+    'link.gift.always': 'Always enter without asking',
     'link.invited.until': 'This room key works until {until}. Declining does not use it up.',
     'link.declined': 'You did not enter. This room key works until {until} — open the link again when you want to enter.',
     'contacts.me.key.what': 'The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.',
@@ -1480,6 +1483,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.invited.hint': '这样的链接谁都能做。没有印象的邀请，请不要进入。',
     'link.invited.enter': '进入',
     'link.invited.no': '不进入',
+    'link.gift.always': '今后不询问直接进入',
     'link.invited.until': '这把 room key 到 {until} 之前都能用。不进去也不会用掉它。',
     'link.declined': '没有进去。这把 room key 到 {until} 之前都能用 —— 想进去的时候，再打开一次链接。',
     'contacts.me.key.what': '公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。',
@@ -1902,6 +1906,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.invited.hint': '이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.',
     'link.invited.enter': '들어간다',
     'link.invited.no': '들어가지 않는다',
+    'link.gift.always': '앞으로 묻지 않고 들어가기',
     'link.invited.until': '이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.',
     'link.declined': '들어가지 않았습니다. 이 룸 키는 {until} 까지 쓸 수 있습니다 —— 들어갈 때는 링크를 다시 열어 주세요.',
     'contacts.me.key.what': '공개키(내 ID)는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.',
