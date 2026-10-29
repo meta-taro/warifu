@@ -34,6 +34,17 @@ use warifu_meeting::Notice;
 
 use crate::{Answer, Bridge, Failure, key_to_string, 短く};
 
+/// **前もって「聞かずに渡す」と決めておく札の名**（0.1.41）。持続の札（D129）と同じ控えに置く。
+///
+/// 人が帯の［今後は聞かずに渡す］を押すと、この PC では以後、人に聞かずに渡す。
+/// 受け取る側の人が「入る」を押す所は変えない。取り消しは帯の下の一覧から。
+/// **名は小文字・数字・点だけ**（`warifu-capability` の Action の決まり）。`room.key_give` にしたら
+/// 口（`warifu mcp`）が控えを読むときに落ちた（10-29 に dev で踏んだ）。
+pub const 聞かずに渡す札: &str = "room.handoff";
+
+/// 「取り消すまで」の札の期限（秒）。持続の札の形（期限つき）のまま、実質ずっと効く。
+pub const 取り消すまでの秒: u64 = 100 * 365 * 24 * 60 * 60;
+
 /// 承認を待っている頼みが変わった（画面が帯を出し直す）。
 pub const EVENT_HANDOFF: &str = "warifu://handoff";
 
@@ -170,6 +181,18 @@ pub async fn 頼む(
         .find(|(k, _)| *k == 鍵)
         .map_or_else(|| 短く(&鍵), |(_, 名)| 名.clone());
     let 番号 = 次の番号.fetch_add(1, Ordering::Relaxed);
+    // **人が前もって「聞かずに渡す」と決めていれば、聞かずに渡す**（0.1.41）
+    if crate::desk::持続の札().iter().any(|(a, _)| a == 聞かずに渡す札) {
+        記録!("手渡し: 人が前もって許しているので、聞かずに渡します（{相手} へ・頼んだのは {頼んだ人}）");
+        let 頼 = 頼み {
+            番号,
+            相手,
+            訳: 訳.trim().to_owned(),
+            頼んだ人: 頼んだ人.to_owned(),
+            相手の鍵: Some(相手の鍵),
+        };
+        return 送る(&bridge, &頼).await;
+    }
     頼みの棚.lock().expect("毒されていない").push(頼み {
         番号,
         相手: 相手.clone(),
@@ -200,7 +223,15 @@ pub async fn answer_handoff(
     bridge: State<'_, Bridge>,
     番号: u64,
     渡す: bool,
+    今後も: Option<bool>,
 ) -> Answer<String> {
+    // **［今後は聞かずに渡す］**（0.1.41）。この PC では以後、人に聞かずに渡す
+    if 渡す && 今後も.unwrap_or(false) {
+        let まで = crate::now_secs().saturating_add(取り消すまでの秒);
+        if let Err(e) = crate::desk::人が答えた(聞かずに渡す札, true, Some(まで)) {
+            記録!("手渡し: 「今後は聞かずに渡す」を控えられませんでした: {e}");
+        }
+    }
     let 取った = {
         let mut 棚 = 頼みの棚.lock().expect("毒されていない");
         let 位置 = 棚.iter().position(|頼| 頼.番号 == 番号);
@@ -294,6 +325,14 @@ pub fn 受け取った(app: &AppHandle, 鍵: &str, 誰から: &str) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 聞かずに渡す札の名は_口が読める形() {
+        // 口（warifu mcp）は控えの札の名を「小文字・数字・点」で読む。外れると読めない
+        let 名 = super::聞かずに渡す札;
+        assert!(!名.is_empty() && !名.starts_with('.') && !名.ends_with('.') && !名.contains(".."));
+        assert!(名.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.'));
+    }
+
     use super::*;
 
     #[test]

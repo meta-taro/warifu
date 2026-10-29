@@ -1431,10 +1431,11 @@
    * **人が鍵の手渡しに答えた**（2026-10-20）。渡すなら、ここで初めて鍵を出して送る。
    * **押したあとは帯を畳み、何が起きたかを返す**（札と同じ —— 畳むだけでは結果が分からない）。
    */
-  async function 手渡しに答える(番号: number, 渡す: boolean) {
+  async function 手渡しに答える(番号: number, 渡す: boolean, 今後も = false) {
     try {
-      const 言い方 = await answerHandoff(番号, 渡す);
+      const 言い方 = await answerHandoff(番号, 渡す, 今後も);
       notice = 言い方 ?? '';
+      if (今後も) void 持続の札を読む();
     } catch (e) {
       notice = 読める(e);
     } finally {
@@ -3241,7 +3242,11 @@
 <!-- **出している持続の札**（0.1.41・D129）。何を誰に任せているかが見え、いつでも取り消せる -->
 {#each 持続の札たち as [動作, まで] (動作)}
   <div class="invited standing" role="status">
-    <p class="hint">{format(t('pass.standing'), { what: 動作, hours: 残り時間(まで) })}</p>
+    <p class="hint">
+      {まで - いま秒 > 365 * 24 * 3600
+        ? format(t('pass.standing.untilRevoked'), { what: 動作 })
+        : format(t('pass.standing'), { what: 動作, hours: 残り時間(まで) })}
+    </p>
     <div class="tail">
       <button type="button" class="quiet" onclick={() => void 札を取り消す(動作)}>
         {t('pass.revoke')}
@@ -3266,6 +3271,10 @@
     <div class="tail">
       <button type="button" onclick={() => void 手渡しに答える(頼み.番号, true)}>
         {t('handoff.give')}
+      </button>
+      <!-- **今後は聞かずに渡す**（0.1.41）。受け取る側が「入る」を押す所は変えない -->
+      <button type="button" class="quiet" onclick={() => void 手渡しに答える(頼み.番号, true, true)}>
+        {t('handoff.give.always')}
       </button>
       <button type="button" class="quiet" onclick={() => void 手渡しに答える(頼み.番号, false)}>
         {t('handoff.keep')}

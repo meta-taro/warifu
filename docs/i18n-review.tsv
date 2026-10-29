@@ -126,6 +126,7 @@ face.clear.do	Go back	戻す	恢复	되돌리기
 handoff.asked	An agent is asking whether it may hand a room key to another machine	エージェントが、ルームキーを相手の機械へ渡してよいか聞いています	有代理在询问能否把房间钥匙交给对方的机器	에이전트가 룸 키를 상대 기기에 건네도 되는지 묻고 있습니다				
 handoff.give	Hand it over	渡す	交出	건넨다				
 handoff.hint	If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.	渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。	交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。	건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.	★	「相手の機械にだけ」「チャットやメールを通らない」を落とさないこと —— 鍵が外に出ないことが、押す理由である。		
+handoff.give.always	Always hand it over without asking	今後は聞かずに渡す	今后不询问直接交出	앞으로 묻지 않고 건네기				
 handoff.keep	Don't hand it over	渡さない	不交出	건네지 않는다				
 handoff.who	{who} wants to hand {to}'s machine a key to the room you are viewing	{who} が、{to} の機械へ、いま見ているルームのキーを渡そうとしています	{who} 想把你正在看的房间的钥匙交给 {to} 的机器	{who} 이(가) 지금 보고 있는 방의 키를 {to} 의 기기에 건네려 합니다				
 help.close	Close	閉じる	关闭	닫기				
@@ -245,6 +246,7 @@ pass.allow.standing	Allow for 24 hours	24 時間聞かない	24 小时内不再�
 pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
 pass.revoke	Revoke	取り消す	撤销	취소				
 pass.standing	{what} passes without asking for {hours} more hours	{what} は、あと {hours} 時間は聞かずに通します	{what} 在接下来 {hours} 小时内无需询问即可通过	{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다				
+pass.standing.untilRevoked	{what} passes without asking until you revoke it	{what} は、取り消すまで聞かずに通します	{what} 在撤销之前无需询问即可通过	{what} 은(는) 취소할 때까지 묻지 않고 통과합니다				
 postbox.clear	Remove	外す	取消	해제				
 postbox.cleared	Mailbox removed.	留守中の受け取りを外しました。	已移除寄存处。	보관소를 내렸습니다.				
 postbox.hint	A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.	あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。	在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。	당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.				

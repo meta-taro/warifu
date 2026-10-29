@@ -226,8 +226,8 @@ export const pendingHandoffs = () => invoke<手渡しの頼み[]>('pending_hando
  * **エージェントはこの口を呼べない** —— 机（`desk.sock`）には無い。
  * 返りは人に見せる一文（渡した・渡さなかった・渡せなかった）。
  */
-export const answerHandoff = (番号: number, 渡す: boolean) =>
-  invoke<string>('answer_handoff', { 番号, 渡す });
+export const answerHandoff = (番号: number, 渡す: boolean, 今後も = false) =>
+  invoke<string>('answer_handoff', { 番号, 渡す, 今後も });
 
 export const connectInRoom = (key: string, address: string, meeting: string) =>
   invoke<void>('connect_in_room', { key, address, meeting });

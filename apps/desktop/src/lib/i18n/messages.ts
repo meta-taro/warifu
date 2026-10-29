@@ -161,6 +161,8 @@ export type MessageKey =
   | 'handoff.hint'
   | 'handoff.give'
   | 'handoff.keep'
+  | 'handoff.give.always'
+  | 'pass.standing.untilRevoked'
   | 'link.gift'
   | 'link.gift.hint'
   | 'link.gift.declined'
@@ -617,6 +619,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'handoff.hint': '渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。',
     'handoff.give': '渡す',
     'handoff.keep': '渡さない',
+    'handoff.give.always': '今後は聞かずに渡す',
+    'pass.standing.untilRevoked': '{what} は、取り消すまで聞かずに通します',
     'link.gift': '{from} からルームキーが届きました。入りますか？',
     'link.gift.hint': '割符の線で、相手の機械から直接届きました。心当たりがなければ入らないでください。',
     'link.gift.declined': '入りませんでした。入るときは、相手にもう一度渡してもらってください。',
@@ -1028,6 +1032,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'handoff.hint': 'If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.',
     'handoff.give': 'Hand it over',
     'handoff.keep': 'Don\'t hand it over',
+    'handoff.give.always': 'Always hand it over without asking',
+    'pass.standing.untilRevoked': '{what} passes without asking until you revoke it',
     'link.gift': '{from} handed you a room key. Enter?',
     'link.gift.hint': 'It came directly from their machine over the warifu link. If you were not expecting it, do not enter.',
     'link.gift.declined': 'You did not enter. To enter later, ask them to hand you a key again.',
@@ -1437,6 +1443,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'handoff.hint': '交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。',
     'handoff.give': '交出',
     'handoff.keep': '不交出',
+    'handoff.give.always': '今后不询问直接交出',
+    'pass.standing.untilRevoked': '{what} 在撤销之前无需询问即可通过',
     'link.gift': '{from} 交给你一把房间钥匙。要进入吗？',
     'link.gift.hint': '它是通过 warifu 的线路从对方的机器直接送来的。如果没有印象，请不要进入。',
     'link.gift.declined': '没有进去。想进去的时候，请对方再交给你一次钥匙。',
@@ -1850,6 +1858,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'handoff.hint': '건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.',
     'handoff.give': '건넨다',
     'handoff.keep': '건네지 않는다',
+    'handoff.give.always': '앞으로 묻지 않고 건네기',
+    'pass.standing.untilRevoked': '{what} 은(는) 취소할 때까지 묻지 않고 통과합니다',
     'link.gift': '{from} 에게서 룸 키가 왔습니다. 들어가시겠습니까?',
     'link.gift.hint': 'warifu 회선으로 상대 기기에서 직접 왔습니다. 짐작 가지 않으면 들어가지 마세요.',
     'link.gift.declined': '들어가지 않았습니다. 들어가려면 상대에게 키를 다시 건네 달라고 하세요.',
