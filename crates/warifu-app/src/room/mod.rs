@@ -129,7 +129,15 @@ pub struct 部屋たち {
     見ている: Option<MeetingId>,
     /// 線のある相手。
     線たち: Vec<PublicKey>,
+    /// **主催が預かっている文字**（Issue #1・0.1.42）。部屋ごと・相手ごと。
+    ///
+    /// 線が切れた（抜けたのではない）相手あての発言を、主催が預かり、その相手が入り直したら渡す。
+    /// 自分で抜けた相手・部屋を畳んだら捨てる。相手ごとに [`預かる上限`] 件まで（古い分から落とす）。
+    預かり: HashMap<(MeetingId, PublicKey), std::collections::VecDeque<Notice>>,
 }
+
+/// 1 人ぶんに預かる上限（件）。超えたら古い分から落とす。
+pub const 預かる上限: usize = 200;
 
 impl 部屋たち {
     #[must_use]
@@ -140,7 +148,50 @@ impl 部屋たち {
             主催たち: HashMap::new(),
             見ている: None,
             線たち: Vec::new(),
+            預かり: HashMap::new(),
         }
+    }
+
+    /// その部屋で預かっている件数（全員ぶん）。
+    #[must_use]
+    pub fn 預かっている数(&self, 部屋: MeetingId) -> usize {
+        self.預かり
+            .iter()
+            .filter(|((r, _), _)| *r == 部屋)
+            .map(|(_, v)| v.len())
+            .sum()
+    }
+
+    /// 主催が、線の切れた（留守の）面々あての知らせを預かる。差出人・線のある相手には預けない。
+    fn 留守の分を預かる(
+        &mut self, 部屋: MeetingId, 差出人: PublicKey, 知らせ: &Notice
+    ) {
+        let 留守: Vec<PublicKey> = self
+            .預かり
+            .keys()
+            .filter(|(r, k)| *r == 部屋 && *k != 差出人 && !self.線たち.contains(k))
+            .map(|(_, k)| *k)
+            .collect();
+        for k in 留守 {
+            if let Some(箱) = self.預かり.get_mut(&(部屋, k)) {
+                箱.push_back(知らせ.clone());
+                while 箱.len() > 預かる上限 {
+                    箱.pop_front();
+                }
+            }
+        }
+    }
+
+    /// 入り直した相手へ、預かった分を順に渡す。渡したら消す。
+    fn 預かりを渡す(&mut self, 部屋: MeetingId, 相手: PublicKey) -> Vec<手配> {
+        self.預かり
+            .remove(&(部屋, 相手))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|知らせ| 手配::送る {
+                宛先: 相手, 知らせ
+            })
+            .collect()
     }
 
     #[must_use]
@@ -300,6 +351,7 @@ impl 部屋たち {
         }
         self.棚.remove(&部屋);
         self.主催たち.remove(&部屋);
+        self.預かり.retain(|(r, _), _| *r != 部屋);
         if self.見ている == Some(部屋) {
             self.見ている = self.棚.keys().next().copied();
         }
@@ -323,6 +375,8 @@ impl 部屋たち {
             body: 本文,
         };
         if self.主催か(部屋) {
+            let me = self.me;
+            self.留守の分を預かる(部屋, me, &知らせ);
             return self
                 .線のある面々(部屋)
                 .into_iter()
@@ -360,6 +414,8 @@ impl 部屋たち {
             }
             居た = true;
             if 主催か {
+                // **切れた相手は留守として預かり始める**（Issue #1）。抜けたのではないので、戻ったら渡す
+                self.預かり.entry((部屋, 相手)).or_default();
                 let events = c
                     .on_notice(相手, &Notice::Leave { meeting: 部屋 })
                     .unwrap_or_default();
@@ -513,6 +569,10 @@ impl 部屋たち {
         出.push(中身.手配に(部屋, 差出人));
         // 主催は、その部屋のほかの面々へそのまま配る（差出人は書き換えない・D48）
         if self.主催か(部屋) {
+            // **文字だけ預かる**（画像は大きいので預からない・Issue #1）
+            if matches!(知らせ, Notice::Text { .. }) {
+                self.留守の分を預かる(部屋, 差出人, &知らせ);
+            }
             for k in self.線のある面々(部屋) {
                 if k != 線の相手 && k != 差出人 {
                     出.push(手配::送る {
@@ -554,6 +614,17 @@ impl 部屋たち {
                 // 名簿が動いたら、主催はいまの名簿を配る（画面へ出した後）
                 if roster::名簿を配るか(主催か, &events) {
                     出.extend(self.名簿を配る(部屋, Some(線の相手)));
+                }
+                if 主催か {
+                    match 知らせ {
+                        // **入り直した相手へ、預かった分を渡す**（名簿を配った後・Issue #1）
+                        Notice::Join { .. } => 出.extend(self.預かりを渡す(部屋, 線の相手)),
+                        // 自分で抜けた相手の分は捨てる
+                        Notice::Leave { .. } => {
+                            self.預かり.remove(&(部屋, 線の相手));
+                        }
+                        _ => {}
+                    }
                 }
                 出
             }
