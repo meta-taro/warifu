@@ -157,7 +157,8 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
   const この機械: 行[] = [
     {
       key: 素材.自分,
-      name: 'contacts.me',
+      // **連絡帳の行は「この PC の人」と添える**（0.1.41）。「あなた」だけでは誰か分からなかった
+      name: 'contacts.me.row',
       種類: '自分',
       住所を覚えている: false,
       いま会議に居る: true,

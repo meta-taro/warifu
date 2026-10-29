@@ -31,8 +31,9 @@
 
   const 印の文言: Record<画面の状態, MessageKey | null> = {
     会議前: null,
-    会議中: 'meeting.status.live',
-    待っている: 'meeting.status.waiting',
+    // **縦の帯には短い言葉で**（0.1.41）。「つながっています」が 92px に入らず「つながっていま／す」と割れた
+    会議中: 'rail.status.live',
+    待っている: 'rail.status.waiting',
   };
 </script>
 
@@ -114,6 +115,7 @@
   .mark {
     font-size: var(--text-2xs-size);
     color: var(--accent);
+    white-space: nowrap;
   }
   /* 狭いときは横に寝かせる。**縦のままだと会話が痩せる** */
   @media (max-width: 860px) {

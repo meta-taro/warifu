@@ -360,7 +360,9 @@ impl Node {
             let _ = tokio::time::timeout(待つ, futures::future::select(片方, 他方)).await;
         }
         let 外 = *頼んだ.borrow();
-        外.or(*自前.borrow())
+        // **内と同じ番号で借りた自前の口を先に出す**（0.1.41）。借り直しても番号が変わらないので、
+        // 鍵や帰り道に焼いた宛先が生き残る
+        (*自前.borrow()).or(外)
     }
 
     /// **ルーターが口開けに応じるか**（UPnP / PCP / NAT-PMP）を調べる。`doctor` が人へ見せる。
@@ -953,10 +955,13 @@ async fn 口を渡されるまで頼み直す(係: std::sync::Weak<口開けの�
         } else {
             口開けを頼み直す間
         };
-        if 係.頼む.watch_external_address().borrow().is_some() {
-            continue;
+        // **iroh の係が口を借りていても、自前でも借りる**（0.1.41）。
+        // iroh の係は外の口を毎回違う番号で借りる。ルーターが借りを忘れて借り直すと番号が変わり、
+        // 前の番号を帰り道に覚えた外の相手は、二度と戻れなかった（10-28 13:07 から約 23 時間、外の機械 1 台）。
+        // 自前の係は**内と同じ番号**で借りるので、借り直しても番号が変わらない
+        if 係.頼む.watch_external_address().borrow().is_none() {
+            係.頼む.procure_mapping();
         }
-        係.頼む.procure_mapping();
         let Some(内の番地) = crate::upnp::外へ出る番地() else {
             continue;
         };

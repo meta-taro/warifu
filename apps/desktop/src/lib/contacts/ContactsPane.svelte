@@ -569,7 +569,8 @@
           <!-- **まだ見ていない相手の行の数**（案 A・2026-09-11）。
                0 のときは出さない —— 0 を出すと、何も無いことが目に入り続ける -->
           {#if 未読(行) > 0}
-            <span class="unread">{未読(行)}</span>
+            <!-- **数字の意味を言う**（0.1.41）。「2・7・1」が何の数か分からなかった（10-29・人が報告） -->
+            <span class="unread" title={format(t('contacts.unread'), { n: 未読(行) })} aria-label={format(t('contacts.unread'), { n: 未読(行) })}>{未読(行)}</span>
           {/if}
           <!--
             **名乗りとエージェントの両方を出す**（**D75**）。
@@ -1312,7 +1313,15 @@
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    /* **2 行まで折り返す**（0.1.41）。1 行で切ると「docs-site の…」「受付係…」と
+       誰か分からなかった（10-29・Windows で人が報告）。それでも入らなければ切り、全文は title に */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    text-align: left;
   }
   .howto {
     margin-top: 1rem;

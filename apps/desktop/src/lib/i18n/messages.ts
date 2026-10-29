@@ -40,6 +40,8 @@ export type MessageKey =
   | 'tile.me.cameraOff'
   | 'tile.me.agentVoice'
   | 'tile.peer'
+  | 'tile.peer.noVideo'
+  | 'tile.agent'
   | 'meeting.start.title'
   | 'meeting.key.hint'
   | 'meeting.key.label'
@@ -103,6 +105,8 @@ export type MessageKey =
   | 'pane.schedule'
   | 'contacts.this'
   | 'contacts.me'
+  | 'contacts.unread'
+  | 'contacts.me.row'
   | 'contacts.desk'
   | 'contacts.desk.none'
   | 'contacts.saved'
@@ -388,6 +392,9 @@ export type MessageKey =
   | 'meeting.status.waiting'
   | 'meeting.status.none'
   | 'meeting.status.live'
+  | 'meeting.end'
+  | 'rail.status.live'
+  | 'rail.status.waiting'
   | 'meeting.status.recvonly'
   | 'meeting.status.sendonly'
   | 'meeting.status.both'
@@ -446,6 +453,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.me.cameraOff': 'カメラは切ってあります。下の［カメラ］で映ります',
     'tile.me.agentVoice': 'エージェントの声',
     'tile.peer': '相手',
+    'tile.peer.noVideo': '映像はまだ届いていません',
+    'tile.agent': 'エージェント（映像はありません）',
     'meeting.start.title': 'ルームをつくる',
     'meeting.key.label': 'ルームキー',
     'meeting.key.count': '{n} 本出しました',
@@ -477,7 +486,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.blocked.notit': '経路が付きません。この PC の通信の許可はあるので、ふさがりが原因ではなさそうです。相手の側か、網の途中かもしれません。',
     'link.blocked.unknown': '経路が付きません。この PC の通信の許可を調べられませんでした（{why}）。許可の有無は分かっていないので、足す前に相手の側も見てください。',
     'link.relay.missing':
-      '経路が付きません。この PC の中の映像の中継の口から、候補が出ていません（ファイアウォールの話ではありません）。アプリを立ち上げ直してください。直らなければ、記録（warifu.log）の「映像の道」の行を知らせてください。',
+      '相手へ映像と音を届けられていません。割符の画面を立ち上げ直してください（文字のやりとりはそのまま届いています）。直らなければ、記録（warifu.log）の「映像の道」の行を知らせてください。',
     'link.blocked':
       'この PC から相手へ経路が付きません。ファイアウォールが割符の画面の通信を止めていることがあります（文字は届くのに映像だけ乗らない、という形で出ます）。Windows では、初めて開くときに管理者が通信の許可を足す必要があります。',
     'browser.only': 'ブラウザで開いています。ルームは warifu の窓でだけ動きます。',
@@ -497,6 +506,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.waiting': '相手を待っています',
     'meeting.status.none': 'まだ部屋に居ません',
     'meeting.status.live': 'つながっています',
+    'meeting.end': '会議を終える（チャットに戻る）',
+    'rail.status.live': '接続中',
+    'rail.status.waiting': '待機中',
     'meeting.status.recvonly':
       'つながっています（相手の映像を受けています。あなたは送っていません —— ［映像と音を足す］を押すと送ります）',
     'meeting.status.sendonly':
@@ -561,6 +573,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.schedule': '予定',
     'contacts.this': 'この PC',
     'contacts.me': 'あなた',
+    'contacts.me.row': 'あなた（この PC の人）',
+    'contacts.unread': 'まだ読んでいない発言 {n} 件',
     'contacts.desk': 'マイ PC エージェント',
     'contacts.desk.none': 'このエージェントは、いま繋がっていません。',
     'contacts.saved': '連絡先',
@@ -859,6 +873,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.me.cameraOff': 'Your camera is off. Turn on [Camera] below to see yourself',
     'tile.me.agentVoice': 'Agent voice',
     'tile.peer': 'Them',
+    'tile.peer.noVideo': 'Video has not arrived yet',
+    'tile.agent': 'Agent (no video)',
     'meeting.start.title': 'Make a room',
     'meeting.key.label': 'Room key',
     'meeting.key.count': '{n} issued',
@@ -890,7 +906,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'link.blocked.notit': 'No route. This PC is allowed to communicate, so the firewall is probably not the cause — it may be their side or the network in between.',
     'link.blocked.unknown': 'No route. Could not check whether this PC is allowed to communicate ({why}). Since that is unknown, look at their side too before adding rules.',
     'link.relay.missing':
-      'No route. The video relay port inside this PC is not offering any candidate (this is not a firewall issue). Restart the app. If it persists, share the "映像の道" (video path) lines in warifu.log.',
+      'Video and sound are not reaching the other side. Restart the warifu app (text messages still get through). If that does not help, send the "media path" lines from warifu.log.',
     'link.blocked':
       'No route to them from this PC. A firewall may be blocking warifu (text arrives, but video never starts). On Windows an administrator has to allow the app on first run.',
     'browser.only': 'This is open in a browser. Rooms only work in the warifu window.',
@@ -910,6 +926,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.waiting': 'Waiting for the other person',
     'meeting.status.none': 'Not in a room yet',
     'meeting.status.live': 'Connected',
+    'meeting.end': 'End the call (back to chat)',
+    'rail.status.live': 'Live',
+    'rail.status.waiting': 'Waiting',
     'meeting.status.recvonly':
       'Connected — you are receiving their video. You are not sending yours; press [Add video and sound] to send.',
     'meeting.status.sendonly':
@@ -974,6 +993,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.schedule': 'Schedule',
     'contacts.this': 'This computer',
     'contacts.me': 'You',
+    'contacts.me.row': 'You (the person at this PC)',
+    'contacts.unread': '{n} unread messages',
     'contacts.desk': 'My PC agents',
     'contacts.desk.none': 'No agent on this computer is connected. Connect one with `warifu mcp` and it appears here.',
     'contacts.saved': 'Contacts',
@@ -1272,6 +1293,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.me.cameraOff': '摄像头已关闭。点下方的［摄像头］即可看到自己',
     'tile.me.agentVoice': '智能体的声音',
     'tile.peer': '对方',
+    'tile.peer.noVideo': '影像尚未送达',
+    'tile.agent': '智能体（没有影像）',
     'meeting.start.title': '建一个房间',
     'meeting.key.label': '房间密钥',
     'meeting.key.count': '已发 {n} 把',
@@ -1323,6 +1346,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.waiting': '正在等待对方',
     'meeting.status.none': '尚未进入房间',
     'meeting.status.live': '已连接',
+    'meeting.end': '结束会议（回到聊天）',
+    'rail.status.live': '已连接',
+    'rail.status.waiting': '等待中',
     'meeting.status.recvonly': '已连接（正在接收对方的视频。你没有发送自己的视频 —— 按［为这个房间加上影像］就会发送）',
     'meeting.status.sendonly': '已连接（你正在发送视频。对方的视频还没有到达）',
     'meeting.status.both': '已连接（视频和声音，双向）',
@@ -1385,6 +1411,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.schedule': '日程',
     'contacts.this': '这台电脑',
     'contacts.me': '你',
+    'contacts.me.row': '你（这台电脑的人）',
+    'contacts.unread': '未读消息 {n} 条',
     'contacts.desk': '我的电脑代理',
     'contacts.desk.none': '这台电脑还没有连上智能体。用 `warifu mcp` 连接后会出现在这里。',
     'contacts.saved': '联系人',
@@ -1683,6 +1711,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'tile.me.cameraOff': '카메라가 꺼져 있습니다. 아래 [카메라]를 누르면 보입니다',
     'tile.me.agentVoice': '에이전트 목소리',
     'tile.peer': '상대',
+    'tile.peer.noVideo': '영상이 아직 오지 않았습니다',
+    'tile.agent': '에이전트（영상 없음）',
     'meeting.start.title': '방 만들기',
     'meeting.key.label': '방 열쇠',
     'meeting.key.count': '{n} 개 냈습니다',
@@ -1734,6 +1764,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.waiting': '상대방을 기다리는 중',
     'meeting.status.none': '아직 룸에 없습니다',
     'meeting.status.live': '연결되어 있습니다',
+    'meeting.end': '회의 끝내기（채팅으로 돌아가기）',
+    'rail.status.live': '연결됨',
+    'rail.status.waiting': '대기 중',
     'meeting.status.recvonly':
       '연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다 —— ［이 룸에 영상을 더하기］를 누르면 보냅니다)',
     'meeting.status.sendonly':
@@ -1800,6 +1833,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.schedule': '일정',
     'contacts.this': '이 PC',
     'contacts.me': '당신',
+    'contacts.me.row': '당신（이 PC 의 사람）',
+    'contacts.unread': '읽지 않은 메시지 {n}건',
     'contacts.desk': '내 PC 에이전트',
     'contacts.desk.none': '이 PC에 연결된 에이전트가 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.',
     'contacts.saved': '연락처',

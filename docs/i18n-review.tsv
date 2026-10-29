@@ -99,6 +99,7 @@ contacts.me.address.what	The address is not a key; on its own it lets no one in.
 contacts.me.copy	Copy public key	公開鍵（あなたの ID）をコピー	复制公钥	공개키(내 ID) 복사				
 contacts.me.key.what	The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.	公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、受け取り先の名簿に書いてもらうときに渡します。	公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。	공개키(내 ID)는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.				
 contacts.me.name	The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.	ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。	你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。	여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				
+contacts.me.row	You (the person at this PC)	あなた（この PC の人）	你（这台电脑的人）	당신（이 PC 의 사람）				
 contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a room key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るにはルームキーが要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。	이 공개키(내 ID)는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).				
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
 contacts.note	Your note	覚え書き	备注	메모				
@@ -108,6 +109,7 @@ contacts.presence.none	There is no way to tell whether they are running right no
 contacts.rooms	Rooms you are in	ルーム	你所在的房间	지금 있는 방				
 contacts.saved	Contacts	連絡先	联系人	연락처				
 contacts.this	This computer	この PC	这台电脑	이 PC				
+contacts.unread	{n} unread messages	まだ読んでいない発言 {n} 件	未读消息 {n} 条	읽지 않은 메시지 {n}건				
 contacts.where	To talk to them, type in the conversation box.	話しかけるときは、会話の欄に打ちます。	要跟对方说话，请在会话框里输入。	말을 걸 때는 대화 칸에 입력합니다.				
 crop.apply	Use this	これにする	就用这个	이걸로 한다				
 crop.hint	Drag to move and change the size. What is inside the circle becomes the face.	つまんで動かし、大きさを変えられます。丸の中が顔になります。	可以拖动移动、调整大小。圆圈内的部分会成为头像。	끌어서 움직이고 크기를 바꿀 수 있습니다. 원 안이 얼굴이 됩니다.				
@@ -183,7 +185,7 @@ link.invited.no	Do not enter	入らない	不进入	들어가지 않는다
 link.invited.until	This room key works until {until}. Declining does not use it up.	このルームキーは {until} まで使えます。入らなくても、それまでは使えます。	这把 room key 到 {until} 之前都能用。不进去也不会用掉它。	이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.				
 link.lost	The route to them broke. They can come back with the same key — waiting. 	相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. 	★	**2026-09-24 に括弧を足した。**「同じルームキーで戻ってこられます」だけだと、**この機械の番地が変わった場合に嘘になる** —— 鍵は `WARIFU1-<宛先>#<割符>#<ルーム>` で、**宛先（番地と口）が中に入っている。**実際に番地が `192.168.24.17` から `.16` へ変わり、相手が同じ 1 本を貼り直して「宛先に届きませんでした」になった。**括弧は条件付きである** —— 既定では戻れるので、「作り直してください」とは読ませないこと（D44）。**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
 link.lost.host	The route to the host broke. Once the host is back up, use [Back to the last room] to rejoin (no new key needed).	主催との経路が切れました。主催が立ち上げ直したら、［前のルームに戻る］で入り直せます（ルームキーはもらい直さなくて構いません）。	与主持人的连接断了。主持人重新启动后，按［回到上一个房间］就能重新进入（不需要再要 room key）。	주최자와의 경로가 끊겼습니다. 주최자가 다시 켜지면 [이전 룸으로 돌아가기]를 눌러 다시 들어갈 수 있습니다(룸 키를 다시 받을 필요는 없습니다).				
-link.relay.missing	No route. The video relay port inside this PC is not offering any candidate (this is not a firewall issue). Restart the app. If it persists, share the "映像の道" (video path) lines in warifu.log.	経路が付きません。この PC の中の映像の中継の口から、候補が出ていません（ファイアウォールの話ではありません）。アプリを立ち上げ直してください。直らなければ、記録（warifu.log）の「映像の道」の行を知らせてください。	连不上。这台电脑内部的视频中继端口没有给出候选（与防火墙无关）。请重新启动应用。如果仍然不行，请提供日志（warifu.log）中“映像の道”的行。	경로가 생기지 않습니다. 이 PC 안의 영상 중계 포트가 후보를 내지 않고 있습니다(방화벽 문제가 아닙니다). 앱을 다시 실행해 주세요. 그래도 안 되면 기록(warifu.log)의 "映像の道" 줄을 알려 주세요.				
+link.relay.missing	Video and sound are not reaching the other side. Restart the warifu app (text messages still get through). If that does not help, send the "media path" lines from warifu.log.	相手へ映像と音を届けられていません。割符の画面を立ち上げ直してください（文字のやりとりはそのまま届いています）。直らなければ、記録（warifu.log）の「映像の道」の行を知らせてください。	连不上。这台电脑内部的视频中继端口没有给出候选（与防火墙无关）。请重新启动应用。如果仍然不行，请提供日志（warifu.log）中“映像の道”的行。	경로가 생기지 않습니다. 이 PC 안의 영상 중계 포트가 후보를 내지 않고 있습니다(방화벽 문제가 아닙니다). 앱을 다시 실행해 주세요. 그래도 안 되면 기록(warifu.log)의 "映像の道" 줄을 알려 주세요.				
 link.relayed	Relayed	中継	中继	중계				
 link.screenless	They joined without a screen (text only). Video and audio are not available.	相手は画面なしで入っています（文字だけ）。映像と音は使えません。	对方是以无界面方式加入的（仅文字）。无法使用视频和音频。	상대는 화면 없이 들어와 있습니다(문자만). 영상과 음성은 사용할 수 없습니다.				
 link.unknown	Unknown	不明	未知	알 수 없음				
@@ -194,6 +196,7 @@ mark.none.hint	There was no route and no poste restante, so it is kept nowhere.	
 mark.sent	Sent	送信済み	已发送	보냄	★	**渡したのは相手の機械までである。**「既読」「読みました」と読める訳にしないこと。割符には既読を集める機械が無い。**読んだかどうかは、こちらには分からない。**		
 mark.sent.hint	Handed to their machine. Whether they read it is unknown (there is no machine collecting read receipts).	相手の機械まで届きました。読んだかどうかは分かりません（既読を集める機械が無いためです）。	已交到对方的机器。是否读过无法知道（没有收集已读的机器）。	상대의 기기로 전달했습니다. 읽었는지는 알 수 없습니다(읽음을 모으는 기계가 없습니다).				
 meeting.copy.which	Normally hand over the link — they just press it. When a link will not work (CLI, paper, chats that strip links), copy the room key text instead.	ふだんは「リンクをコピー」で渡します。相手が押すだけで入れます。リンクが使えない相手（CLI・紙・リンクを剥がすチャット）には、「ルームキーをコピー」で文字を渡してください。	平时用「复制链接」交给对方，对方按一下就能进来。链接不可用时（CLI、纸面、会剥掉链接的聊天），请用「复制 room key」交出文字。	보통은 「링크 복사」로 건넵니다. 상대가 누르기만 하면 들어옵니다. 링크를 쓸 수 없는 상대(CLI·종이·링크를 없애는 채팅)에는 「룸 키 복사」로 문자를 건네주세요.				
+meeting.end	End the call (back to chat)	会議を終える（チャットに戻る）	结束会议（回到聊天）	회의 끝내기（채팅으로 돌아가기）				
 meeting.howling	Audio is going both ways with someone on your network. If they are nearby, echo cancellation cannot fix it. Use headphones, or mute one of the microphones.	同じ網の相手と音が往復しています。近くで鳴っていると、エコー除去では消せません。ヘッドフォンを使うか、片方のマイクを切ってください。	正在与同一网络上的对方双向传输声音。如果对方就在附近，回声消除无法解决。请使用耳机，或关掉其中一边的麦克风。	같은 네트워크의 상대와 소리가 오가고 있습니다. 가까이 있으면 에코 제거로 막을 수 없습니다. 헤드폰을 쓰거나 한쪽 마이크를 끄세요.				
 meeting.join.action	Come in	ルームに入る	进入房间	방에 들어가기				
 meeting.join.hint	The one who was given the room key comes in. The one who gave it just waits.	もらった側が入ります。渡した側は待つだけです。	拿到密钥的一方进来。交出去的一方只需等待。	받은 쪽이 들어갑니다. 건넨 쪽은 기다리기만 하면 됩니다.				
@@ -271,6 +274,8 @@ profile.face.drop	Drag and drop an image onto the avatar to crop it and replace 
 profile.name	Name	名前	名字	이름				
 profile.none	Nothing written yet.	まだ書いていません。	还没有填写。	아직 쓰지 않았습니다.				
 profile.save	Save	決める	保存	정하기				
+rail.status.live	Live	接続中	已连接	연결됨				
+rail.status.waiting	Waiting	待機中	等待中	대기 중				
 relay.next	This takes effect the next time you start warifu.	この設定は次の起動から効きます。	这个设置从下次启动开始生效。	이 설정은 다음 실행부터 적용됩니다.				
 relay.title	Connect across networks (relay)	網を越えてつなぐ（中継）	跨网络连接（中继）	망을 넘어 연결하기（중계）				
 relay.use	Use a relay	中継を使う	使用中继	중계를 사용				
@@ -368,10 +373,12 @@ setup.solo.start	Check	確かめる	检查	확인
 setup.solo.stop	Done (release the camera)	確かめ終わる（カメラを放す）	检查完毕（释放摄像头）	확인 끝내기（카메라 해제）				
 setup.solo.title	Check your camera and background	カメラと背景を確かめる	检查摄像头和背景	카메라와 배경 확인				
 setup.title	Before you come in	入る前のしたく	进来之前的准备	들어가기 전 준비				
+tile.agent	Agent (no video)	エージェント（映像はありません）	智能体（没有影像）	에이전트（영상 없음）				
 tile.me	You	自分	自己	나				
 tile.me.agentVoice	Agent voice	エージェントの声	智能体的声音	에이전트 목소리				
 tile.me.cameraOff	Your camera is off. Turn on [Camera] below to see yourself	カメラは切ってあります。下の［カメラ］で映ります	摄像头已关闭。点下方的［摄像头］即可看到自己	카메라가 꺼져 있습니다. 아래 [카메라]를 누르면 보입니다				
 tile.peer	Them	相手	对方	상대				
+tile.peer.noVideo	Video has not arrived yet	映像はまだ届いていません	影像尚未送达	영상이 아직 오지 않았습니다				
 unread.count	{n} unseen	まだ見ていない {n} 件	{n} 条未看	안 본 {n}건				
 update.apply	Restart and update	再起動して更新する	重启并更新	다시 시작하고 업데이트				
 update.available	Update available — {version}	更新あり — {version}	有可用更新 — {version}	업데이트 있음 — {version}				

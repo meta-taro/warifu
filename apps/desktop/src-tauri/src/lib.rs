@@ -593,6 +593,21 @@ impl Bridge {
                 let いまの番地: Vec<String> = 宛先.ip_addrs().map(|a| a.to_string()).collect();
                 配った鍵の宛先を見比べる(&いまの番地);
             }
+            // **外への口が変わったら言う**（0.1.41）。10-28 13:07 に外の相手だけ戻れなくなったとき、
+            // 外への口がいつ・何に変わったかが記録に無く、切り分けられなかった
+            let mut 前 = 写し.外への口(std::time::Duration::ZERO).await;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                let いま = 写し.外への口(std::time::Duration::ZERO).await;
+                if いま != 前 {
+                    記録!(
+                        "ルーター: 外への口が変わりました（前 {} ／ いま {}）",
+                        前.map_or("なし".to_owned(), |a| a.port().to_string()),
+                        いま.map_or("なし".to_owned(), |a| a.port().to_string())
+                    );
+                    前 = いま;
+                }
+            }
         });
         *slot = Some(Arc::clone(&node));
         Ok(node)

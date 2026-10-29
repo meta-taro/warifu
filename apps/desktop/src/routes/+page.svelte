@@ -836,9 +836,21 @@
     );
   });
   /** **名簿の「主催」の札は、部屋の主催の鍵で付ける**（起動時の決め打ちを使わない）。 */
-  const 名簿の人 = $derived(
-    主催の札を付ける(members, ルームたち.find((r) => r.id === 見ている)?.host_key ?? null),
-  );
+  const 名簿の人 = $derived.by(() => {
+    // **名簿の欄も、本体が数えた見ているルームの顔ぶれで並べる**（0.1.41）。
+    // 画面が入退室の出来事で数えた `members` は部屋を区別しないので、部屋が複数あると
+    // 名簿は「4 / 12」・見出しは「5 人」と食い違った（10-29・Windows で人が報告）
+    const 部屋 = ルームたち.find((r) => r.id === 見ている);
+    if (!部屋) return 主催の札を付ける(members, null);
+    const 経路 = new Map(members.map((m) => [m.key, m.path]));
+    const 並び = [...部屋.member_keys].sort((a, b) => Number(b === 自分の鍵) - Number(a === 自分の鍵));
+    return 並び.map((key) => ({
+      key,
+      me: key === 自分の鍵,
+      host: key === 部屋.host_key,
+      path: 経路.get(key) ?? ('unknown' as LinkPath),
+    }));
+  });
 
   /**
    * **前に入ったルームへの帰り道**（`gh issue 13`）。`[ルーム id, ルームキー]`。
@@ -1356,6 +1368,9 @@
    */
   async function ビデオ会議をやめる() {
     映像を使う = false;
+    // **映像の経路の知らせは、映像をやめたら畳む**（0.1.41）。文字だけに戻っても
+    // 「経路が付きません…中継の口から候補が…」が残り続けていた（10-29・Windows で人が報告）
+    if (経路の知らせか(notice)) notice = '';
     映像がある部屋 = null;
     if (localStream) log('支度: 放します（やめるを押した）');
     // **先に黙らせる。**機器を放す前に止めないと、放すまでの間だけ流れ続ける
@@ -1441,6 +1456,13 @@
     } finally {
       手渡しの頼みたち = 手渡しの頼みたち.filter((頼み) => 頼み.番号 !== 番号);
     }
+  }
+
+  /** 映像の経路についての知らせか（映像をやめたら畳むもの）。 */
+  function 経路の知らせか(文: string): boolean {
+    if (!文) return false;
+    const 鍵たち: MessageKey[] = ['link.relay.missing', 'link.blocked', 'link.blocked.notit', 'link.blocked.unknown'];
+    return 鍵たち.some((k) => 文.startsWith(t(k).slice(0, 12)));
   }
 
   /** 選んだ機器を、その段の制約へ重ねる。 */
@@ -2175,7 +2197,29 @@
    * **10 人以上をひとまとめにする。**`data-count` を人数ぶん書くと、
    * 外枠（16）まで CSS が伸びる。**そこまで細かく分ける意味は無い**（4 列で足りる）。
    */
-  const タイルの数 = $derived(remotes.length + 1 >= 10 ? 'many' : String(remotes.length + 1));
+  const タイルの数 = $derived.by(() => {
+    const n = 1 + 映像の届いていない人.length + remotes.length + 映像の無いエージェント.length;
+    return n >= 10 ? 'many' : String(n);
+  });
+  /**
+   * **部屋に居るのに、映像の線がまだ張れていない人**（0.1.41）。
+   *
+   * 枠を「映像の通話が張れた相手」だけに出していたので、星形の部屋で客どうしの線が張れない相手には
+   * 枠が出ず、6 台の部屋でも 4 つで止まった（10-29・人が報告）。**居る人には全員、枠を出す。**
+   */
+  const 映像の届いていない人 = $derived.by(() => {
+    const 張れた = new Set(remotes.map((r) => r.key));
+    return この部屋の参加者.filter((p) => !p.自分 && !張れた.has(p.key)).map((p) => p.key);
+  });
+  /**
+   * **エージェントの枠**（0.1.41）。エージェントには映像が無いので、それと分かる枠にする。
+   * この PC のエージェントと、相手の機械で話したエージェント。
+   */
+  const 映像の無いエージェント = $derived(
+    この部屋の参加者.flatMap((p) =>
+      p.エージェントたち.map((札) => ({ 札, 機械: p.key, 自分の機械: p.自分 })),
+    ),
+  );
 
   /**
    * 預かり所を**ときどき見に行く**間隔（ミリ秒）。
@@ -2639,6 +2683,16 @@
     分: 60,
     題: '',
     覚え書き: '',
+  });
+
+  // **予定の面を開いたとき、日が過ぎていれば今日に寄せる**（0.1.41）。
+  // 下書きは画面を立ち上げたときに作るので、立ち上げたまま日をまたぐと初期値が昨日のままだった（10-29・人が報告）
+  $effect(() => {
+    if (面 !== '予定') return;
+    const 今日 = 日にする(Math.floor(Date.now() / 1000));
+    if (予定の下書き.日 < 今日 && !予定の下書き.題.trim()) {
+      予定の下書き = { ...予定の下書き, 日: 今日, 始まり: 次の区切り() };
+    }
   });
 
   /** 次の 30 分の区切り（`HH:MM`）。 */
@@ -3360,6 +3414,29 @@
 <svelte:window onkeydown={幕を閉じる} />
 
 <main>
+  <!--
+    **見出しの右の押し所**（#101-1・0.1.41）。題字が「いま文字だけです」と言う隣に置く。
+    会議になったら、同じ場所が［声を流す］と［映像を止める］に変わる。下の札の押し所はそのまま残す。
+  -->
+  {#snippet 映像の押し所()}
+    {#if 映像を使う && 映像がある部屋 === 見ている}
+      <label class="row 押し所">
+        <input
+          type="checkbox"
+          checked={声が入っている}
+          onchange={(e) => 声を入切する(e.currentTarget.checked)}
+        />
+        <Icon name="mic" size={16} />{t('video.agentVoice.short')}
+      </label>
+      <button type="button" class="quiet 押し所" onclick={() => void ビデオ会議をやめる()}>
+        <Icon name="camera-off" size={16} />{t('video.stop.short')}
+      </button>
+    {:else}
+      <button type="button" class="quiet 押し所" onclick={() => void ビデオ会議を始める()}>
+        <Icon name="camera" size={16} />{t('video.start')}
+      </button>
+    {/if}
+  {/snippet}
   <PaneRail
     {locale}
     いまの面={面}
@@ -3431,6 +3508,22 @@
           <span class="cap">{呼び名(名簿, r.key)} <LinkBadge {locale} path={r.path} /></span>
         </div>
       {/each}
+      <!-- **居るのに映像の線がまだ張れていない人**（0.1.41）。枠を出し、なぜ映っていないかを言う -->
+      {#each 映像の届いていない人 as key (key)}
+        <div class="tile 映像なし">
+          <div class="映像の代わり"><Icon name="camera-off" size={28} /><p>{t('tile.peer.noVideo')}</p></div>
+          <span class="cap" title={呼び名(名簿, key)}>{呼び名(名簿, key)}</span>
+        </div>
+      {/each}
+      <!-- **エージェントの枠**（0.1.41）。映像は無いので、それと分かる形にする -->
+      {#each 映像の無いエージェント as a (a.機械 + a.札)}
+        <div class="tile 映像なし エージェント">
+          <div class="映像の代わり"><Icon name="desk" size={28} /><p>{t('tile.agent')}</p></div>
+          <span class="cap" title={a.自分の機械 ? エージェントの名札(a.札, エージェントの名前たち[a.札]) : a.札}>
+            {a.自分の機械 ? エージェントの名札(a.札, エージェントの名前たち[a.札]) : a.札}
+          </span>
+        </div>
+      {/each}
     </div>
     {#if 会議中 || 機器を持っている}
       <!--
@@ -3472,11 +3565,14 @@
           抜ける手は連絡帳の奥にしか無く、会議の最中に見つけられなかった
           （画面版を閉じて抜けるしかなかった）。会議の道具は、入切と抜けるが並ぶのが普通である。
         -->
-        {#if 見ている}
-          <button type="button" class="leave" onclick={() => { if (見ている) void ルームを抜ける(見ている); }}>
-            <Icon name="leave" />{t('room.leave.do')}
-          </button>
-        {/if}
+        <!--
+          **会議の帯の押し所は「会議を終える」**（0.1.41）。ここに［抜ける］（ルームを抜ける）を置いていたので、
+          会議だけ終えるつもりで押した人がルームごと抜けた（10-29・2 台の映像の試験で人が踏んだ）。
+          押すと映像と音をやめ、同じルームのチャットに戻る。ルームを抜けるのは連絡帳のルームの行から
+        -->
+        <button type="button" class="leave" onclick={() => void ビデオ会議をやめる()}>
+          <Icon name="camera-off" />{t('meeting.end')}
+        </button>
       </div>
     {/if}
   </section>
@@ -3516,32 +3612,10 @@
       capacity={DEFAULT_CAPACITY}
       names={名簿に出す名}
       onRename={(key, label) => void 名前を付ける(key, label)}
-      {この機械のAIたち}
+      この機械のAIたち={この機械のAIたち.map((名) => エージェントの名札(名, エージェントの名前たち[名]))}
+      経路を出す={映像の場を出す}
     />
 
-    <!--
-      **見出しの右の押し所**（#101-1・0.1.41）。題字が「いま文字だけです」と言う隣に置く。
-      会議になったら、同じ場所が［声を流す］と［映像を止める］に変わる。下の札の押し所はそのまま残す。
-    -->
-    {#snippet 映像の押し所()}
-      {#if 映像を使う && 映像がある部屋 === 見ている}
-        <label class="row 押し所">
-          <input
-            type="checkbox"
-            checked={声が入っている}
-            onchange={(e) => 声を入切する(e.currentTarget.checked)}
-          />
-          <Icon name="mic" size={16} />{t('video.agentVoice.short')}
-        </label>
-        <button type="button" class="quiet 押し所" onclick={() => void ビデオ会議をやめる()}>
-          <Icon name="camera-off" size={16} />{t('video.stop.short')}
-        </button>
-      {:else}
-        <button type="button" class="quiet 押し所" onclick={() => void ビデオ会議を始める()}>
-          <Icon name="camera" size={16} />{t('video.start')}
-        </button>
-      {/if}
-    {/snippet}
     <ChatPanel {画面での名簿}
       自分の呼ばれる名={自分の呼ばれる名}
       部屋={見ている}
@@ -3573,8 +3647,12 @@
       並べておくと、**入ろうとしている人の前に、要らない札が 1 枚立つ。**
     -->
     {#if 会議中 || 機器を持っている}
-    <div class="card">
-      <h2><Icon name="camera" size={18} />{t('video.title')}</h2>
+    <!--
+      **会議中は畳む**（0.1.41）。開いたまま右の列に積むと、チャットに高さが残らず［送る］が会話に重なった
+      （10-29・人が報告）。会議の入切と終えるは映像の下の帯とチャットの見出しにあるので、ここは設定だけ
+    -->
+    <details class="card 設定" open={!映像を使う}>
+      <summary><Icon name="camera" size={16} />{t('video.title')}</summary>
       <!--
         **黙って 2 つ目を始めない**（**D112** / **#36**）。
 
@@ -3645,7 +3723,7 @@
           <Icon name="camera" />{t('video.start')}
         </button>
       {/if}
-    </div>
+    </details>
     {/if}
 
     <!--
@@ -4169,6 +4247,7 @@
           据え置いている={!!据え置き}
           新しい宛先へ移る={() => (据え置き = null)}
           届く先を出す={false}
+          見出しの右={送り方.種類 === 'ルーム' ? 映像の押し所 : undefined}
         />
       {/if}
     </div>
@@ -4612,7 +4691,7 @@
   }
   .pane.meeting {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto min(var(--右の幅, 340px), max(260px, calc(100% - 420px)));
+    grid-template-columns: minmax(0, 1fr) auto min(var(--右の幅, 400px), max(260px, calc(100% - 420px)));
     column-gap: 0;
     /* **窓ごと動かさない。**動いてよいのは右の列の中だけである。
        ここを `overflow-y: auto` にしていたため、右の列が 1101px まで伸びて
@@ -4644,6 +4723,19 @@
   .pane.meeting.文字だけ {
     grid-template-columns: minmax(0, 1120px);
     justify-content: center;
+  }
+  /*
+    **会議中は、右の列の先頭にチャットを置く**（0.1.41）。映像の枠が誰が居るかを見せているので、
+    名簿・入り口・設定の札はチャットの下でよい。先頭に札が積まれて、チャットに高さが残らず［送る］が会話に
+    重なっていた（10-29・人が報告）。チャットは見えている高さの 6 割以上を取る
+  */
+  .pane.meeting:not(.文字だけ) > aside {
+    container-type: size;
+  }
+  .pane.meeting:not(.文字だけ) > aside > :global(.card.chat) {
+    order: -1;
+    flex: none;
+    height: max(360px, 70cqh);
   }
   /*
     **文字だけの部屋は、幅があれば 2 列にする**（0.1.40・2026-10-27・内部の Issue 023）。
@@ -4742,6 +4834,29 @@
   }
   .tiles[data-count='many'] {
     grid-template-columns: repeat(4, 1fr);
+  }
+  /* **映像の無い枠**（0.1.41）。映像の枠と同じ大きさで、何も映らない理由を中に書く */
+  .映像の代わり {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-sunken);
+    color: var(--text-secondary);
+    text-align: center;
+  }
+  .映像の代わり p {
+    margin: 0;
+    font-size: var(--text-xs-size);
+  }
+  .tile.エージェント .映像の代わり {
+    border-style: solid;
+    color: var(--accent);
   }
   .tile {
     display: flex;

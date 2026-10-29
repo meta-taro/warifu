@@ -19,5 +19,7 @@ const エージェントの印 = ' のエージェント';
 export function エージェントの名札(呼び方: string, 名前: string | undefined): string {
   if (!名前) return 呼び方;
   const 場所 = 呼び方.endsWith(エージェントの印) ? 呼び方.slice(0, -エージェントの印.length) : 呼び方;
+  // **名乗りに場所がもう入っていれば、重ねて付けない**（0.1.41・Rust の `名札にする` と同じ）
+  if (名前.includes(場所)) return 名前;
   return `${名前}（${場所}）`;
 }

@@ -224,7 +224,7 @@ describe('この PC のエージェント', () => {
       覚えた: [],
     });
     const この機械 = 区画.find((s) => s.title === 'contacts.this');
-    expect(この機械?.行たち.map((r) => r.name)).toEqual(['contacts.me', 'alpha のエージェント', 'beta のエージェント']);
+    expect(この機械?.行たち.map((r) => r.name)).toEqual(['contacts.me.row', 'alpha のエージェント', 'beta のエージェント']);
   });
 
   it('立ち上げていないエージェントも、名乗りがあれば残る', () => {
@@ -237,7 +237,7 @@ describe('この PC のエージェント', () => {
       覚えた: [],
     });
     const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
-    expect(行たち.map((r) => r.name)).toEqual(['contacts.me', 'alpha のエージェント', 'beta のエージェント']);
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me.row', 'alpha のエージェント', 'beta のエージェント']);
     // **つながっているかどうかは分ける**
     expect(行たち.find((r) => r.name === 'alpha のエージェント')?.いま会議に居る).toBe(true);
     expect(行たち.find((r) => r.name === 'beta のエージェント')?.いま会議に居る).toBe(false);
@@ -260,7 +260,7 @@ describe('この PC のエージェント', () => {
     // 行にすると、それが 1 人に見える（2026-09-08）
     const 区画 = 連絡帳を組む({ 自分: 'ME', この機械のAIたち: [], 会議の相手: [], 覚えた: [] });
     const 行たち = 区画.find((s) => s.title === 'contacts.this')?.行たち ?? [];
-    expect(行たち.map((r) => r.name)).toEqual(['contacts.me']);
+    expect(行たち.map((r) => r.name)).toEqual(['contacts.me.row']);
   });
 });
 

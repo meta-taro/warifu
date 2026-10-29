@@ -414,6 +414,9 @@ pub fn 人の呼ばれる名() -> Vec<String> {
 pub fn 名札にする(呼び方: &str, 名前: Option<&str>) -> String {
     let 場所 = 呼び方.strip_suffix(" のエージェント").unwrap_or(呼び方);
     match 名前 {
+        // **名乗りに場所がもう入っていれば、重ねて付けない**（0.1.41）。
+        // 「資料くん（docs-site）」と名乗った席が「資料くん（docs-site）（docs-site）」と出ていた
+        Some(名前) if !名前.is_empty() && 名前.contains(場所) => 名前.to_owned(),
         Some(名前) if !名前.is_empty() => format!("{名前}（{場所}）"),
         _ => 呼び方.to_owned(),
     }
@@ -422,6 +425,17 @@ pub fn 名札にする(呼び方: &str, 名前: Option<&str>) -> String {
 #[cfg(test)]
 mod tests {
     use super::名札にする;
+
+    #[test]
+    fn 名乗りに場所が入っていれば_重ねて付けない() {
+        assert_eq!(
+            名札にする(
+                "docs-site のエージェント",
+                Some("資料くん（docs-site）")
+            ),
+            "資料くん（docs-site）"
+        );
+    }
 
     #[test]
     fn 名乗っていれば名前とどこのエージェントかを並べる() {

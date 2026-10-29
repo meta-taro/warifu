@@ -43,8 +43,13 @@
      * 数に入れると、**割符 1 本 = 1 人**（D12）とずれる。
      */
     この機械のAIたち?: readonly string[];
+    /**
+     * **経路の札を出すか**（0.1.41）。文字だけの部屋では映像の経路を張らないので、札は「不明」ばかりになり、
+     * 状態がほぼ不明と読まれた（10-29・人が報告）。映像を使っているときだけ出す。自分の行には出さない
+     */
+    経路を出す?: boolean;
   }
-  let { locale, members, capacity, names = {}, onRename, この機械のAIたち = [] }: Props = $props();
+  let { locale, members, capacity, names = {}, onRename, この機械のAIたち = [], 経路を出す = true }: Props = $props();
 
   const t = (key: keyof (typeof MESSAGES)[Locale]) => MESSAGES[locale][key];
 
@@ -110,7 +115,7 @@
           <Avatar 種={m.key} 大きさ={18} 名="" />
           <span class="name" title={`${呼び名(names, m.key)}${m.me ? `（${t('tile.me')}）` : ''}`}>{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
           {#if m.host}<span class="host">{t('roster.host')}</span>{/if}
-          <LinkBadge {locale} path={m.path} />
+          {#if 経路を出す && !m.me}<LinkBadge {locale} path={m.path} />{/if}
           {#if onRename && !m.me}
             <!-- **鍵の頭では、人もエージェントも見分けが付かない。**呼び名を付けられるようにする -->
             <button
