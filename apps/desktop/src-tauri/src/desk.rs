@@ -270,6 +270,12 @@ fn いま時刻() -> String {
     chrono::Local::now().format("%H:%M").to_string()
 }
 
+/// **届いた発言の時刻は月日つき**（0.1.41）。口が読むのは後になることがあり、
+/// 「19:02」だけでは昨日か今日か分からなかった。今日の分は口が月日を落として出す
+fn 日付つき時刻() -> String {
+    chrono::Local::now().format("%m-%d %H:%M").to_string()
+}
+
 /// この機械を開く。**開けなくても画面は止めない。**
 ///
 /// この機械が無くても人どうしの会話は成り立つ。
@@ -985,7 +991,7 @@ pub(crate) async fn 流す(
         id,
         from: 名札.clone(),
         body: body.to_owned(),
-        at: いま時刻(),
+        at: 日付つき時刻(),
         room: 流す先.map(|m| m.to_string()),
     };
     // **エージェントの発言も控える**（2026-10-16）。控えないと、書き出した議事録から
@@ -1684,7 +1690,7 @@ pub fn 聞いた_部屋で(from: &str, body: &str, 部屋: Option<String>) -> Fr
         id: 番号を振る(),
         from: from.to_owned(),
         body: body.to_owned(),
-        at: いま時刻(),
+        at: 日付つき時刻(),
         room: 部屋,
     };
     控える(&行);

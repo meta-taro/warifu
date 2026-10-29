@@ -4167,6 +4167,7 @@ version = "0.1.40"
 name = "warifu-mcp"
 version = "0.1.40"
 dependencies = [
+ "chrono",
  "rmcp",
  "schemars",
  "serde",

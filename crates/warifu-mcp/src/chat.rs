@@ -1184,6 +1184,21 @@ pub fn 更新の言い方(様子: &更新の様子) -> String {
     文
 }
 
+/// 今日の月日（`MM-DD`・この PC の時刻）。
+fn 今日の月日() -> String {
+    chrono::Local::now().format("%m-%d").to_string()
+}
+
+/// **今日の発言なら月日を落とす**（0.1.41）。机は `MM-DD HH:MM` で刻む。昨日以前の分だけ月日が残る。
+/// 古い机（`HH:MM` だけ）はそのまま出す。
+#[must_use]
+pub fn 今日なら月日を落とす<'a>(at: &'a str, 今日: &str) -> &'a str {
+    match at.split_once(' ') {
+        Some((月日, 時刻)) if 月日 == 今日 => 時刻,
+        _ => at,
+    }
+}
+
 /// `room_list` の返り（人とエージェントが読む 1 行ずつ）。
 #[must_use]
 pub fn 部屋の一覧の言い方(部屋: &[warifu_desk::部屋の行]) -> String {
@@ -1494,6 +1509,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
                 at,
                 room,
             } if *id > 0 => {
+                let at = 今日なら月日を落とす(at, &今日の月日());
                 format!(
                     "{at}\t{from}\t{body}\t#{id}{}{}",
                     部屋の札(room.as_deref()),
@@ -1571,6 +1587,16 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 今日の発言は時刻だけ_昨日の発言は月日つき_古い机はそのまま() {
+        assert_eq!(super::今日なら月日を落とす("10-29 11:16", "10-29"), "11:16");
+        assert_eq!(
+            super::今日なら月日を落とす("10-28 19:02", "10-29"),
+            "10-28 19:02"
+        );
+        assert_eq!(super::今日なら月日を落とす("19:02", "10-29"), "19:02");
+    }
+
     #[test]
     fn 更新の言い方_新しい版_最新_確かめられない() {
         let 新しい = super::更新の様子 {
