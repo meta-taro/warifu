@@ -2,7 +2,7 @@
 
 > 日本語版: [install.ja.md](install.ja.md)
 
-Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.40**.
+Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.41**.
 
 **Read [`SECURITY.md`](../SECURITY.md) first if you are planning to rely on this for anything.** It is an alpha.
 
@@ -38,7 +38,7 @@ The `.dmg` contains **the app only**. The mailbox (`warifu relay`), agent endpoi
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.40+<commit>
+./warifu version          # → warifu 0.1.41+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # if ~/bin is on your PATH
 ```
 
@@ -71,8 +71,8 @@ pnpm tauri build --bundles app
 
 | File | |
 |---|---|
-| **`warifu_0.1.40_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
-| `warifu_0.1.40_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
+| **`warifu_0.1.41_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
+| `warifu_0.1.41_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
 | `warifu.exe` | The CLI. Runs from wherever you put it |
 
 ### SmartScreen will warn
@@ -88,8 +88,8 @@ Windows によって PC が保護されました
 **How you download it changes this** (measured 2026-09-16): a browser marks the file with `Zone.Identifier`, which is what triggers SmartScreen. `gh release download` does not mark it, so **the warning never appears** — the file is still unsigned either way.
 
 ```powershell
-gh release download v0.1.40 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.40_x64-setup.exe -Stream Zone.Identifier   # → not found
+gh release download v0.1.41 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.41_x64-setup.exe -Stream Zone.Identifier   # → not found
 ```
 
 ### **First run needs a firewall rule** (this one bites)
@@ -172,7 +172,7 @@ The app checks on startup, and every hour while running, and offers the update i
 
 **On Windows, stop every Claude Code session (`warifu mcp`) before updating.**
 A stale `warifu mcp` keeps the desk pipe (`\\.\pipe\warifu-desk`) open, and the new app then fails with
-"この機械を開けませんでした: アクセスが拒否されました (os error 5)" (seen on 0.1.40).
+"この機械を開けませんでした: アクセスが拒否されました (os error 5)" (seen on 0.1.41).
 Stop them, update, then start Claude Code again.
 The log is at `%USERPROFILE%\.local\share\warifu\warifu.log` (macOS: `~/Library/Application Support/warifu/warifu.log`).
 
