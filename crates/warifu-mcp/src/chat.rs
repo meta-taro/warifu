@@ -303,7 +303,8 @@ impl Chat {
 
     /// **部屋を指して**会話へ 1 行流す（0.1.40・内部の Issue 026）。
     ///
-    /// 指さなければ**最後に届いた発言の部屋**へ、それも無ければ画面が見ているルームへ。
+    /// 指さないとき：居る部屋が 1 つならそこへ。**2 つ以上なら送らずに候補を返す**（0.1.42）。
+    /// まだ何も届いていなければ、画面が見ているルームへ（机に任せる）。
     /// 古い机（部屋を知らない）には、部屋の欄を付けずに今までどおり流す。
     ///
     /// # Errors
@@ -318,11 +319,25 @@ impl Chat {
             .lock()
             .expect("毒されていない")
             .clone();
-        let 部屋 = 流す部屋(
-            部屋,
-            最後.as_deref(),
-            self.部屋を使える.load(std::sync::atomic::Ordering::Relaxed),
-        );
+        let 使える = self.部屋を使える.load(std::sync::atomic::Ordering::Relaxed);
+        // **部屋を指さず、居る部屋が 2 つ以上なら送らない**（0.1.42）。
+        // 前は「最後に届いた発言の部屋」へ黙って流していて、横の部屋に誰かが書くたびに送り先が変わり、
+        // 見ている部屋のつもりの発言が別の部屋へ 3 回続けて流れた（10-30・同じ機械の席で）
+        let 指した = 部屋
+            .map(|s| s.trim().trim_end_matches('…'))
+            .filter(|s| !s.is_empty());
+        // 最後に届いた発言の部屋を覚えていないなら、机が「見ている部屋」へ流す（別の部屋へ黙って行かない）
+        let 部屋 = if 指した.is_none() && 使える && 最後.is_some() {
+            match self.部屋たち().await {
+                Ok(並び) => {
+                    指さない送り先(&並び, 最後.as_deref()).map_err(crate::ToolError::BadArgs)?
+                }
+                // 部屋を並べられない古い机には、今までどおり机に任せる
+                Err(_) => None,
+            }
+        } else {
+            流す部屋(指した, 最後.as_deref(), 使える)
+        };
         let 行 =
             ToDesk::say_in(body, 部屋).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
@@ -1404,6 +1419,43 @@ pub fn 流す部屋(
         .map(str::to_owned)
 }
 
+/// **部屋を指さないときの送り先**（0.1.42）。居る部屋が 1 つならそこ、0 なら机に任せる（`None`）。
+/// **2 つ以上なら送らず、候補を並べて部屋を指すよう返す**（黙って別の部屋へ流さない）。
+///
+/// # Errors
+/// 部屋が 2 つ以上あるとき（人とエージェントが読む 1 文）。
+pub fn 指さない送り先(
+    部屋: &[warifu_desk::部屋の行],
+    最後に聞いた: Option<&str>,
+) -> Result<Option<String>, String> {
+    match 部屋 {
+        [] => Ok(None),
+        [一つ] => Ok(Some(一つ.id.clone())),
+        多い => {
+            let 候補: Vec<String> = 多い
+                .iter()
+                .map(|r| {
+                    let 名 = r.名前.clone().unwrap_or_else(|| "名前なし".to_owned());
+                    let 印 = if r.見ているか {
+                        "・見ている"
+                    } else {
+                        ""
+                    };
+                    format!("{名}（{}{印}）", 部屋の頭(&r.id))
+                })
+                .collect();
+            let 最後 = 最後に聞いた
+                .map(|id| format!("最後に届いた発言は部屋 {} から。", 部屋の頭(id)))
+                .unwrap_or_default();
+            Err(format!(
+                "この機械は {} つの部屋に居ます。送らずに止めました —— room に部屋の id の頭を付けて送り直してください（候補：{}）。{最後}",
+                多い.len(),
+                候補.join("・")
+            ))
+        }
+    }
+}
+
 /// **古い机に名乗りを断られたら、欄なしの名乗りを返す**（1 回だけ）。
 ///
 /// 着く前（`Seated` がまだ）に「行の形が壊れています」が来た、が古い机の断り方。
@@ -1587,6 +1639,34 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 部屋を指さないとき_1_つならそこ_無ければ机に任せ_2_つ以上なら止めて候補を言う() {
+        let 行 = |id: &str, 名: Option<&str>, 見る: bool| warifu_desk::部屋の行 {
+            id: id.to_owned(),
+            名前: 名.map(str::to_owned),
+            人数: 2,
+            主催か: false,
+            見ているか: 見る,
+        };
+        assert_eq!(super::指さない送り先(&[], None), Ok(None));
+        assert_eq!(
+            super::指さない送り先(&[行("NBIWAAAAAAAAAAAA", Some("開発"), true)], None),
+            Ok(Some("NBIWAAAAAAAAAAAA".to_owned()))
+        );
+        let 文 = super::指さない送り先(
+            &[
+                行("NBIWAAAAAAAAAAAA", Some("開発"), true),
+                行("DDUYAAAAAAAAAAAA", None, false),
+            ],
+            Some("DDUYAAAAAAAAAAAA"),
+        )
+        .unwrap_err();
+        assert!(文.contains("2 つの部屋"));
+        assert!(文.contains("開発（NBIWAAAAAAAA…・見ている）"));
+        assert!(文.contains("名前なし（DDUYAAAAAAAA…）"));
+        assert!(文.contains("最後に届いた発言は部屋 DDUYAAAAAAAA… から"));
+    }
+
     #[test]
     fn 今日の発言は時刻だけ_昨日の発言は月日つき_古い机はそのまま() {
         assert_eq!(super::今日なら月日を落とす("10-29 11:16", "10-29"), "11:16");
