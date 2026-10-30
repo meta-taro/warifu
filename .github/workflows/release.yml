@@ -196,6 +196,9 @@ jobs:
       #   failed codesign application: failed to import keychain certificate
       #
       # **渡さなければ adhoc で建つ**（手元で確認済み: Signature=adhoc, linker-signed）。
+      # **束の中に CLI を入れる**（内部の Issue 021・`tauri.cli.conf.json`）。
+      # 画面が、古い warifu コマンドを押し所 1 つで同じ版に入れ替えられるようにする。
+      # 入れるのは上の段で署名・公証した `target/release/warifu` そのもの（**CLI を建てる段が先**）
       - name: 配布物を作る（署名あり）
         if: steps.creds.outputs.ready == 'true'
         env:
@@ -207,14 +210,14 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.conf.json
 
       - name: 配布物を作る（署名なし）
         if: steps.creds.outputs.ready != 'true'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.conf.json
 
       # **署名されたかを実物で確かめる。**「署名したつもり」で配らない。
       #
@@ -259,6 +262,16 @@ jobs:
               || { echo "::error::署名なしのはずが adhoc ではありません"; hdiutil detach /tmp/verify -quiet; exit 1; }
             echo "::warning::署名なしの .dmg です（受け取った人の Mac では開けません）"
           fi
+
+          # **束の中に CLI が入っていること**（内部の Issue 021）。入っていないと、
+          # 画面の「コマンドも上げる」が出ないまま、古いコマンドが残る
+          echo "── 束の中の CLI ──"
+          if [ ! -x "$app/Contents/Resources/warifu" ]; then
+            echo "::error::束に warifu コマンドが入っていません（tauri.cli.conf.json）"
+            hdiutil detach /tmp/verify -quiet
+            exit 1
+          fi
+          "$app/Contents/Resources/warifu" version
 
           hdiutil detach /tmp/verify -quiet
 

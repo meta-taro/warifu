@@ -602,6 +602,10 @@ export type CLIの様子 =
 	| { 読めない: { 場所: string; 出たもの: string } };
 
 export const cliState = () => invoke<CLIの様子>('cli_state');
+/** **この画面の束に warifu コマンドが入っているか**（入れ替えられるか・内部の Issue 021）。 */
+export const cliBundled = () => invoke<boolean>('cli_bundled');
+/** **warifu コマンドを画面と同じ版に入れ替える**（人が押したときだけ）。入れ替えた後の様子を返す。 */
+export const cliReplace = () => invoke<CLIの様子>('cli_replace');
 /**
  * **更新を入れ替えてよい置き方か。**macOS で `.app` の外から動かしていると、
  * 入れ替えが置き場所のフォルダを丸ごと上書きする（`bundle.rs`）。

@@ -215,6 +215,8 @@
     sendToContact,
     postbox,
     cliState,
+    cliBundled,
+    cliReplace,
     canUpdate,
     firewallState,
     rejoinKey,
@@ -472,6 +474,10 @@
   let 直し方を写した = $state(false);
   /** 同じ PC の warifu コマンドについての知らせ。**言うことが無ければ `null`。** */
   let cliの知らせ = $state<ReturnType<typeof CLIの知らせ>>(null);
+  /** **この画面の束に warifu コマンドが入っているか**（入れ替えられるか・内部の Issue 021）。 */
+  let cliを置ける = $state(false);
+  /** 入れ替えている最中（押し所を 2 度押させない）。 */
+  let cliを置いている = $state(false);
   /**
    * **上の帯の知らせを閉じられるようにする**（0.1.36）。消す口が無く、2 段取ったまま画面を狭めていた。
    * 閉じた分も、左の「知らせ」からあとで見られる（`$lib/ui/notices`）
@@ -479,6 +485,25 @@
   let 知らせの記録 = $state<知らせの行[]>([]);
   let 閉じた知らせ = $state<Set<string>>(new Set());
   let 知らせを見ている = $state(false);
+  /**
+   * **warifu コマンドを、画面と同じ版に入れ替える**（内部の Issue 021）。**人が押したときだけ。**
+   * PATH の中の実行ファイルを黙って差し替えない（baseline §13）。
+   */
+  async function コマンドを入れ替える() {
+    if (cliを置いている) return;
+    cliを置いている = true;
+    try {
+      const 後 = (await cliReplace()) ?? '無い';
+      cliの知らせ = CLIの知らせ(後, cliを置ける);
+      if (typeof 後 === 'object' && '同じ' in 後) {
+        notice = format(t('cli.replaced'), { ver: 後.同じ.版, path: 後.同じ.場所 });
+      }
+    } catch (e) {
+      notice = format(t('cli.replaceFailed'), { why: 読める(e) });
+    } finally {
+      cliを置いている = false;
+    }
+  }
   const cliの文 = $derived(
     cliの知らせ ? format(t(cliの知らせ.鍵), { ver: cliの知らせ.版, path: cliの知らせ.場所 }) : '',
   );
@@ -1732,7 +1757,8 @@
       // **同じ PC の warifu コマンドも見る**（内部の Issue 017）。
       // 画面だけ上げても、コマンドは上がらない —— 症状は「繋がらない」だけなので、
       // **言われなければ気づけない。**繋がらなくても起動を止めない
-      cliの知らせ = CLIの知らせ((await cliState().catch(() => '無い' as const)) ?? '無い');
+      cliを置ける = (await cliBundled().catch(() => false)) ?? false;
+      cliの知らせ = CLIの知らせ((await cliState().catch(() => '無い' as const)) ?? '無い', cliを置ける);
       // **前に入ったルームへの帰り道**（`gh issue 13`）。
       // 更新は再起動を伴うので、**鍵をもらい直さずに戻れる**ようにする
       帰り道 = (await rejoinKey().catch(() => null)) ?? null;
@@ -2259,7 +2285,7 @@
     const 札 = setInterval(() => {
       void 更新を確かめる(true);
       void (async () => {
-        cliの知らせ = CLIの知らせ((await cliState().catch(() => '無い' as const)) ?? '無い');
+        cliの知らせ = CLIの知らせ((await cliState().catch(() => '無い' as const)) ?? '無い', cliを置ける);
       })();
     }, 更新を見る間隔);
     return () => clearInterval(札);
@@ -3413,6 +3439,11 @@
 {#if 出すか(cliの文, 閉じた知らせ)}
   <p class="notice top closable">
     <span>{cliの文}</span>
+    {#if cliの知らせ?.置ける}
+      <button type="button" class="quiet" disabled={cliを置いている} onclick={() => void コマンドを入れ替える()}>
+        {t('cli.replace')}
+      </button>
+    {/if}
     <button
       type="button"
       class="dismiss"

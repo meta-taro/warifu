@@ -80,9 +80,123 @@ pub fn 探す場所(home: &Path) -> Vec<PathBuf> {
     ]
 }
 
+/// **入れ替えてよい場所。**画面より古いときだけ（内部の Issue 021）。
+///
+/// 同じ・新しい（画面を上げ忘れている）・読めない CLI は触らない。**決めつけて差し替えない。**
+#[must_use]
+pub fn 置き換える場所(様子: &CLIの様子) -> Option<&Path> {
+    match 様子 {
+        CLIの様子::古い { 場所, .. } => Some(Path::new(場所)),
+        _ => None,
+    }
+}
+
+/// **束の中の CLI を、見つかった場所へ置く**（内部の Issue 021）。
+///
+/// **上書きしない。消してから置く** —— macOS は実行ファイルの署名を覚えていて、
+/// 上書きしたものは `Killed: 9` で黙って死ぬ。
+/// 束の中に無いときは、**元の CLI を消す前に**止める（消したまま置けない形を作らない）。
+///
+/// # Errors
+/// 束の中に無いとき、消せない・置けないとき（権限の無い場所など）。
+pub fn 置く(束の中: &Path, 置き場所: &Path) -> std::io::Result<()> {
+    if !束の中.is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("{} がありません", 束の中.display()),
+        ));
+    }
+    match std::fs::remove_file(置き場所) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e),
+    }
+    std::fs::copy(束の中, 置き場所)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(置き場所, std::fs::Permissions::from_mode(0o755))?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 試験ごとに別の置き場所（並んで走っても混ざらない）。
+    fn 試しの場所(名: &str) -> PathBuf {
+        let 場所 = std::env::temp_dir().join(format!("warifu-cli-{}-{名}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&場所);
+        std::fs::create_dir_all(&場所).expect("作れる");
+        場所
+    }
+
+    #[test]
+    fn 置くときは_消してから置き_実行できる形にする() {
+        let 場所 = 試しの場所("置く");
+        let 束の中 = 場所.join("束の warifu");
+        let 置き場所 = 場所.join("warifu");
+        std::fs::write(&束の中, "新しい").expect("書ける");
+        std::fs::write(&置き場所, "古い").expect("書ける");
+        #[cfg(unix)]
+        let 前の番号 = {
+            use std::os::unix::fs::MetadataExt;
+            std::fs::metadata(&置き場所).expect("在る").ino()
+        };
+
+        置く(&束の中, &置き場所).expect("置ける");
+
+        assert_eq!(
+            std::fs::read_to_string(&置き場所).expect("読める"),
+            "新しい"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::{MetadataExt, PermissionsExt};
+            let 後 = std::fs::metadata(&置き場所).expect("在る");
+            // **上書きではなく、別のファイルとして置き直した**（macOS は上書きした実行ファイルを殺す）
+            assert_ne!(後.ino(), 前の番号);
+            assert_eq!(後.permissions().mode() & 0o777, 0o755);
+        }
+        let _ = std::fs::remove_dir_all(&場所);
+    }
+
+    #[test]
+    fn 束の中に無ければ_元の_cli_を消さない() {
+        let 場所 = 試しの場所("無い");
+        let 置き場所 = 場所.join("warifu");
+        std::fs::write(&置き場所, "古い").expect("書ける");
+        assert!(置く(&場所.join("無い warifu"), &置き場所).is_err());
+        assert_eq!(std::fs::read_to_string(&置き場所).expect("読める"), "古い");
+        let _ = std::fs::remove_dir_all(&場所);
+    }
+
+    #[test]
+    fn 置き換えてよいのは_古いときだけ() {
+        let 古い = CLIの様子::古い {
+            場所: "/x/warifu".to_owned(),
+            版: "0.1.40".to_owned(),
+        };
+        assert_eq!(置き換える場所(&古い), Some(Path::new("/x/warifu")));
+        for 他 in [
+            CLIの様子::無い,
+            CLIの様子::同じ {
+                場所: "/x/warifu".to_owned(),
+                版: "0.1.42".to_owned(),
+            },
+            CLIの様子::新しい {
+                場所: "/x/warifu".to_owned(),
+                版: "0.1.43".to_owned(),
+            },
+            CLIの様子::読めない {
+                場所: "/x/warifu".to_owned(),
+                出たもの: "?".to_owned(),
+            },
+        ] {
+            assert_eq!(置き換える場所(&他), None, "{他:?}");
+        }
+    }
 
     #[test]
     fn 版の行から数を拾う() {

@@ -52,6 +52,8 @@ mkdir -p ~/bin && mv ./warifu ~/bin/     # if ~/bin is on your PATH
 rm -f ~/bin/warifu && cp ./warifu ~/bin/warifu && chmod +x ~/bin/warifu
 ```
 
+**From 0.1.42 (macOS) the app can do this for you.** Every hour the app compares the version of the `warifu` command on this PC (looked up in `~/.local/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, in that order). If it is older, the banner shows 「コマンドも上げる」 (Update the command too). Pressing it deletes the old command and puts the same-version command that ships inside the app in its place. Nothing is downloaded, and nothing is replaced without that press. Restart any running `warifu mcp` afterwards.
+
 ### Intel Macs
 
 Build on the machine:

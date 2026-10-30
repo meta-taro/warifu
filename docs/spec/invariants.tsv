@@ -50,9 +50,10 @@ S05-6	連絡帳の「いまの様子」に［更新を確認する］がある	L
 S05-7	update_check は いまの版・新しい版・何が変わったか を返し、新しい版があれば画面に帯を出す。入れ替えは人が押す	L3	crates/warifu-mcp/tests/smoke.rs update_check／crates/warifu-mcp/src/chat.rs 更新の言い方_新しい版_最新_確かめられない	済
 S05-8	.app の外で動いている画面は更新を確かめない	L0	apps/desktop/src-tauri/src/bundle.rs 素の実行ファイルなら入れ替えない	済
 S05-10	画面は 1 時間ごとに同じ機械のコマンドの版を見比べ、古ければ名指しで言う	L0	apps/desktop/src-tauri/src/cli.rs 版を読む（試験あり）／見比べる	済
+S05-23	macOS の画面は束の中の warifu コマンドで、古いコマンドだけを人が押したら消してから置く。束に無い画面は言うだけ	L0	apps/desktop/src-tauri/src/cli.rs 置くときは_消してから置き_実行できる形にする・束の中に無ければ_元の_cli_を消さない・置き換えてよいのは_古いときだけ／apps/desktop/src/lib/update/cli.test.ts 束に CLI が入っている画面は…／.github/workflows/release.yml 束の中の CLI（配布物を検める段）	済（実機は debug の束で）
 S05-13	版が上がって最初の立ち上げで 1 度だけ点検を頼む	L0	apps/desktop/src-tauri/src/desk.rs 版が上がったときだけ_初めては告げない	済
 S05-14	形を変える版は CHANGELOG に「互換」を書く	L0	scripts/release-gate.sh（線の形の変化と CHANGELOG の「互換」）	済
-S05-15	新しい欄は名乗った相手にだけ付け、古い相手に断られたら欄なしで名乗り直す	L0	crates/warifu-desk/src/line.rs 部屋も聞くと名乗れる_名乗らない古い口はそのまま／crates/warifu-mcp/src/chat.rs 古い机に断られたら名乗り直す	済
+S05-15	新しい欄は名乗った相手にだけ付け、古い相手に断られたら 1 つ前の版の形から 1 段ずつ名乗り直す	L0	crates/warifu-desk/src/line.rs 部屋も聞くと名乗れる_名乗らない古い口はそのまま／crates/warifu-mcp/src/chat.rs 古い机の断りには_1_つ前の版の形から順に名乗り直す_着いたあとの断りは触らない	済
 S05-17	古い版の相手と混ざっても繋がらなくはならない	L1	crates/warifu-app/tests/room_sim.rs 戻るときは戻りたい部屋を添えるので_主催が別の部屋を見ていてもその部屋へ招かれる（対照：部屋を添えない古い叩き）	済（部屋 id の叩きのみ）
 S05-20	出す前に release-gate.sh を通す	人	scripts/release-gate.sh	
 S02-20	主催は線の切れた面々あての文字を預かり、入り直したら順に 1 回ずつ渡して消す	L0・L1	crates/warifu-app/src/room/tests.rs 主催は_線の切れた客あての文字を預かり_上限を超えたら古い分から落とす／crates/warifu-app/tests/room_sim.rs 客が落ちている間の発言は_主催が預かり_戻ったときに_1_回だけ届く	済（本体は影の手配で渡す・0.1.41。主催が線の切れに気づく前の分は S02-22）

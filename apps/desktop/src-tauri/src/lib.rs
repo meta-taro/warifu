@@ -1131,6 +1131,53 @@ pub(crate) async fn 鍵を出す(
 ///
 /// 画面側が `navigator.languages` から決めた答えをそのまま渡す。
 /// ここで OS へ聞き直すと、**2 か所が別の答えを出しうる。**
+/// **束の中の CLI**（内部の Issue 021）。macOS の配布物にだけ入っている（`tauri.cli.conf.json`）。
+///
+/// `WARIFU_CLI_BUNDLE` は試験用（dev には束が無いので、入れ替えの押し所を出して確かめるため）。
+fn 束の中のcli(app: &AppHandle) -> Option<std::path::PathBuf> {
+    if let Some(場所) = std::env::var_os("WARIFU_CLI_BUNDLE") {
+        return Some(std::path::PathBuf::from(場所)).filter(|p| p.is_file());
+    }
+    let 名 = if cfg!(windows) {
+        "warifu.exe"
+    } else {
+        "warifu"
+    };
+    app.path()
+        .resource_dir()
+        .ok()
+        .map(|d| d.join(名))
+        .filter(|p| p.is_file())
+}
+
+/// **この画面が、warifu コマンドを入れ替えられるか**（束の中に CLI があるか・内部の Issue 021）。
+#[tauri::command]
+fn cli_bundled(app: AppHandle) -> bool {
+    束の中のcli(&app).is_some()
+}
+
+/// **warifu コマンドを、画面と同じ版に入れ替える**（内部の Issue 021）。**人が押したときだけ。**
+///
+/// 見つかった場所の CLI が画面より古いときだけ、束の中の CLI を置く（消してから置く）。
+/// 置いたら版を聞き直して返す。**置けなければ、場所を名指しで言う。**
+#[tauri::command]
+fn cli_replace(app: AppHandle) -> Answer<cli::CLIの様子> {
+    let いま = cli_state();
+    let Some(場所) = cli::置き換える場所(&いま) else {
+        return Err("warifu コマンドは古くないので、入れ替えません".into());
+    };
+    let Some(束) = 束の中のcli(&app) else {
+        return Err("この画面には warifu コマンドが入っていません".into());
+    };
+    cli::置く(&束, 場所).map_err(|e| format!("{} に置けませんでした: {e}", 場所.display()))?;
+    let 後 = cli_state();
+    記録!(
+        "warifu コマンドを入れ替えました: {} → {後:?}",
+        場所.display()
+    );
+    Ok(後)
+}
+
 /// **同じ機械の CLI が、画面と同じ版か。**
 ///
 /// 画面だけ上げた人は「直ったつもりで直っていない」（内部の Issue 017）——
@@ -4357,6 +4404,8 @@ pub fn run() {
             look_at_room,
             set_menu_locale,
             cli_state,
+            cli_bundled,
+            cli_replace,
             bundle::can_update,
             rejoin_key,
             room_name::room_names,

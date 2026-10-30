@@ -13,6 +13,23 @@ describe('CLIの知らせ', () => {
     });
   });
 
+  it('**束に CLI が入っている画面は、古い CLI を入れ替えられると言う**（内部の Issue 021）', () => {
+    expect(CLIの知らせ({ 古い: { 場所: '/Users/x/.local/bin/warifu', 版: '0.1.2' } }, true)).toEqual({
+      鍵: 'cli.oldReplaceable',
+      場所: '/Users/x/.local/bin/warifu',
+      版: '0.1.2',
+      置ける: true,
+    });
+  });
+
+  it('入れ替えられても、新しい CLI は入れ替えない（画面を上げてもらう）', () => {
+    expect(CLIの知らせ({ 新しい: { 場所: '/usr/local/bin/warifu', 版: '0.1.5' } }, true)).toEqual({
+      鍵: 'cli.ahead',
+      場所: '/usr/local/bin/warifu',
+      版: '0.1.5',
+    });
+  });
+
   it('画面のほうが古いときも言う（画面を上げ忘れている）', () => {
     expect(CLIの知らせ({ 新しい: { 場所: '/usr/local/bin/warifu', 版: '0.1.5' } })).toEqual({
       鍵: 'cli.ahead',
