@@ -146,6 +146,15 @@ static 読んだところ: Mutex<BTreeMap<u64, u64>> = Mutex::new(BTreeMap::new(
 /// 覚えておく発言の数。**画面に出す既読を数えるのに要るだけ持つ。**
 const 覚える発言: usize = 200;
 
+/// 発言ごとに、**ルームの名簿に居るのに、まだ渡せていない相手**（0.1.42）。
+///
+/// 主催から見て線が切れている相手（鍵・名）。入り直したときに主催が預かり分を渡せば、
+/// ここから消えて [`届いた先`] へ移る（[`預かりを渡した`]）。古いものから捨てる
+static まだの先: Mutex<BTreeMap<u64, (MeetingId, Vec<鍵と名>)>> = Mutex::new(BTreeMap::new());
+
+/// 相手の鍵（字）と、画面での呼び名。
+type 鍵と名 = (String, String);
+
 /// **直近の発言そのもの**（番号つき）。
 ///
 /// **繋ぎ直したエージェントへ、切れている間の言葉を渡すために持つ**
@@ -315,17 +324,25 @@ pub fn 開く(app: AppHandle) {
     });
 }
 
+/// **その口が `Listen` で名乗った聞き方。**古い口は知らない欄を断るので、名乗った口にだけ付ける。
+#[derive(Debug, Clone, Copy, Default)]
+struct 聞き方 {
+    /// 届いた行に部屋を付けてよいか（0.1.40・内部の Issue 026）。
+    部屋: bool,
+    /// 様子に食い違いを付けてよいか（0.1.41）。
+    点検: bool,
+    /// 届き方に「まだ届いていない相手」を付けてよいか（0.1.42）。
+    届かない先: bool,
+}
+
 /// この機械につながった 1 人の面倒を見る。
 fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
     tauri::async_runtime::spawn(async move {
         let 自分 = 次の番号.fetch_add(1, Ordering::Relaxed);
         // **どこで動いているか。**`Listen` で名乗ってくるまでは分からない
         let mut 名乗り: Option<String> = None;
-        // **届いた行に部屋を付けてよいか**（0.1.40・内部の Issue 026）。古い口は知らない欄を断るので、
-        // `Listen` で名乗った口にだけ付ける
-        let mut 部屋も聞く = false;
-        // **様子に食い違いを付けてよい口か**（0.1.41）。古い口には付けない（読めなくなる）
-        let mut 点検も聞く = false;
+        // **古い口が知らない欄を、名乗った口にだけ付ける**（`聞き方`）
+        let mut 聞き方 = 聞き方::default();
         let mut 口 = 口::新しく(一本);
         let mut 聞く = app.state::<Bridge>().desk.subscribe();
         // **人数が変わったことを画面へ伝える。**伝えないと、
@@ -340,7 +357,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             tokio::select! {
                 来た = 口.受ける() => {
                     let Ok(Some(行)) = 来た else { break };
-                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 部屋も聞く, &mut 点検も聞く)
+                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 聞き方)
                         .await
                         .is_err()
                     {
@@ -354,7 +371,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
                         // 宛先つきなら、**そのエージェントだけが受ける**
                         Ok((出所, _)) if !自分あてか(出所, 自分) => continue,
                         Ok((_, 一つ)) => {
-                            let 一つ = 部屋を落とすか(一つ, 部屋も聞く);
+                            let 一つ = 部屋を落とすか(一つ, 聞き方.部屋);
                             if 口.送る(&一つ.書く()).await.is_err() {
                                 break;
                             }
@@ -412,8 +429,7 @@ async fn 応じる(
     口: &mut 口<impl warifu_desk::一本>,
     自分: u64,
     名乗り: &mut Option<String>,
-    部屋も聞く: &mut bool,
-    点検も聞く: &mut bool,
+    聞き方: &mut 聞き方,
 ) -> Result<(), ()> {
     let 中身 = match ToDesk::読む(行) {
         Ok(中身) => 中身,
@@ -432,11 +448,15 @@ async fn 応じる(
         ToDesk::Listen {
             場所,
             どこから,
-            部屋も聞く: 聞く,
-            点検も聞く: 点検,
+            部屋も聞く,
+            点検も聞く,
+            届かない先も聞く,
         } => {
-            *部屋も聞く = 聞く;
-            *点検も聞く = 点検;
+            *聞き方 = 聞き方 {
+                部屋: 部屋も聞く,
+                点検: 点検も聞く,
+                届かない先: 届かない先も聞く,
+            };
             let Some(名) = 場所 else {
                 // **名乗らない相手はエージェントに着けない。**どうすればつながれるかは言う ——
                 // ここは「断る理由を相手に返さない」（D31）とは別で、
@@ -785,11 +805,19 @@ async fn 応じる(
         }
         // **その発言の届き方を尋ねる**（**D76**）
         ToDesk::Status { id } => {
-            let (届いた, 読んだ) = 届き方(id);
+            let (届いた, 読んだ, まだ) = 届き方(id);
             let _ = 口
                 .送る(
                     &FromDesk::Status {
-                        id, 届いた, 読んだ
+                        id,
+                        届いた,
+                        読んだ,
+                        // 古い口は知らない欄で 1 行も読めなくなる。名乗った口にだけ付ける
+                        まだ: if 聞き方.届かない先 {
+                            まだ
+                        } else {
+                            Vec::new()
+                        },
                     }
                     .書く(),
                 )
@@ -847,7 +875,7 @@ async fn 応じる(
                         掴んでいる: 映り.as_ref().map(|m| m.掴んでいる),
                         題字: 映り.as_ref().map(|m| m.題字.clone()),
                         // **本体が見比べた食い違い**（spec 04 S04-8）。名乗った口にだけ付ける（古い口は読めない）
-                        食い違い: if *点検も聞く {
+                        食い違い: if 聞き方.点検 {
                             bridge.いまの食い違い.lock().await.clone()
                         } else {
                             Vec::new()
@@ -1044,12 +1072,18 @@ pub(crate) async fn 流す(
         },
     )
     .await;
-    // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く
-    let 送り先 =
-        crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
-    for tx in &送り先 {
+    // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く。
+    // **線の無い相手も並べる**（0.1.42）—— 黙って数えないと、渡せていないことが誰にも見えない
+    let 面々 =
+        crate::そのルームの面々(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
+    let mut 渡せたか = Vec::with_capacity(面々.len());
+    for (鍵, 線) in 面々 {
+        let Some(tx) = 線 else {
+            渡せたか.push((鍵, false));
+            continue;
+        };
         // 届かない相手が居ても止めない。**送る側を待たせない**
-        let _ = tx
+        let 渡せた = tx
             .send(warifu_meeting::Notice::Text {
                 meeting,
                 // **エージェントの持ち主は自分**（D48）。AI は自分のエージェントから喋っている
@@ -1061,14 +1095,45 @@ pub(crate) async fn 流す(
                 話し手: Some(名札.clone()),
                 body: body.to_owned(),
             })
-            .await;
+            .await
+            .is_ok();
+        渡せたか.push((鍵, 渡せた));
     }
-    // ルームの相手は**名前を持たない**（呼び名は画面の側にある）ので、人数だけを足す。
-    // **持っていないものを名乗らない**
-    for _ in 0..送り先.len() {
-        届いた.push(ルームの相手.to_owned());
+    let 部屋の主催 = bridge.主催たち.lock().await.get(&meeting).copied();
+    let 主催だ = crate::roster_sync::主催か(部屋の主催.as_ref(), &自分);
+    let 主催へ渡せた = 渡せたか
+        .iter()
+        .any(|(鍵, 渡せた)| *渡せた && Some(*鍵) == 部屋の主催);
+    // **返り（`chat_send`）は今までの形のまま、控え（`chat_status`）には名前で入れる**
+    let mut 名で控える = 届いた.clone();
+    let mut まだ = Vec::new();
+    for (鍵, 渡せた) in 渡せたか {
+        let 字 = crate::key_to_string(鍵);
+        let 名 = 名を引く(&bridge, &字);
+        match 渡し方を決める(渡せた, 主催だ, Some(鍵) == 部屋の主催, 主催へ渡せた)
+        {
+            渡し方::渡した => {
+                届いた.push(ルームの相手.to_owned());
+                名で控える.push(名);
+            }
+            渡し方::主催ごし => 名で控える.push(format!("{名}（主催ごし）")),
+            渡し方::まだ => まだ.push((字, 名)),
+        }
     }
-    届けた(id, 届いた.clone());
+    // **名簿から外れた留守の相手も「まだ」に並べる**（0.1.42）。主催は線が切れた相手を名簿から外す
+    // （D83）が、影がその分を預かっていて、入り直したら渡す
+    if 主催だ {
+        let 留守 = bridge.影.lock().await.留守の相手(meeting);
+        for 鍵 in 留守 {
+            let 字 = crate::key_to_string(鍵);
+            if !まだ.iter().any(|(k, _)| *k == 字) {
+                let 名 = 名を引く(&bridge, &字);
+                まだ.push((字, 名));
+            }
+        }
+    }
+    届けた(id, 名で控える);
+    まだを控える(id, meeting, まだ);
     Ok((id, 名札で並べる(&届いた), Some(meeting)))
 }
 
@@ -1646,7 +1711,8 @@ fn 名札で並べる(名たち: &[String]) -> Vec<String> {
 
 /// 画面（この PC の人）の呼び方。**エージェントではないが、届いた先ではある。**
 const 画面: &str = "画面";
-/// ルームの相手の呼び方。**名前は画面の側にあるので、ここでは数えるだけ。**
+/// `chat_send` の返りでの、ルームの相手の呼び方。**口はこの字で「相手が居たか」を読む**
+/// （古い口も読むので、名前に変えない。名前は `chat_status` の控えにだけ入れる・0.1.42）
 const ルームの相手: &str = "ルームの相手";
 
 /// **その行が誰に届くか**を並べる。
@@ -1880,8 +1946,8 @@ fn 読んだ(エージェント: u64, まで: u64) {
     }
 }
 
-/// その発言の**届き方**を返す（届いたエージェント・読んだエージェント）。
-fn 届き方(id: u64) -> (Vec<String>, Vec<String>) {
+/// その発言の**届き方**を返す（届いた先・読んだエージェント・まだ届いていない相手）。
+fn 届き方(id: u64) -> (Vec<String>, Vec<String>, Vec<String>) {
     let 届いた = 届いた先
         .lock()
         .expect("毒されていない")
@@ -1898,7 +1964,77 @@ fn 届き方(id: u64) -> (Vec<String>, Vec<String>) {
         })
         .map(|(_, 名)| 名.clone())
         .collect();
-    (名札で並べる(&届いた), 名札で並べる(&読んだ))
+    let まだ = まだの先
+        .lock()
+        .expect("毒されていない")
+        .get(&id)
+        .map(|(_, 先)| 先.iter().map(|(_, 名)| 名.clone()).collect())
+        .unwrap_or_default();
+    (名札で並べる(&届いた), 名札で並べる(&読んだ), まだ)
+}
+
+/// その相手への**渡し方**（0.1.42）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum 渡し方 {
+    /// 線へ渡した。
+    渡した,
+    /// 客から見た、主催の向こうの相手。主催が配る（線は持っていない）。
+    主催ごし,
+    /// 名簿に居るのに渡せていない。
+    まだ,
+}
+
+/// **その相手に渡せたかを決める**（0.1.42）。
+///
+/// - 線へ渡せたなら「渡した」
+/// - 主催は名簿の全員と線を持つ。線が無いなら「まだ」（切れている。入り直したら預かり分を渡す）
+/// - 客は主催としか線を持たないことがある。主催へ渡せたなら、他の面々は「主催ごし」。
+///   主催へ渡せていなければ、誰にも渡っていない
+fn 渡し方を決める(
+    線へ渡せた: bool,
+    主催だ: bool,
+    相手は主催: bool,
+    主催へ渡せた: bool,
+) -> 渡し方 {
+    if 線へ渡せた {
+        渡し方::渡した
+    } else if !主催だ && !相手は主催 && 主催へ渡せた {
+        渡し方::主催ごし
+    } else {
+        渡し方::まだ
+    }
+}
+
+/// 発言ごとに、**まだ渡せていない相手**を控える（0.1.42）。居なければ控えない
+fn まだを控える(id: u64, 部屋: MeetingId, 先: Vec<鍵と名>) {
+    if 先.is_empty() {
+        return;
+    }
+    let mut 棚 = まだの先.lock().expect("毒されていない");
+    棚.insert(id, (部屋, 先));
+    while 棚.len() > 覚える発言 {
+        let 古い = *棚.keys().next().expect("空でない");
+        棚.remove(&古い);
+    }
+}
+
+/// **主催が、入り直した相手へ預かり分を渡した**（0.1.42）。
+///
+/// その部屋の発言で、この相手を「まだ」にしていたものを「届いた」へ移す。
+/// 預かり分は、線が切れていた間の文字を順に全部渡す（影の規則）ので、部屋ごとにまとめて移してよい
+pub(crate) fn 預かりを渡した(部屋: MeetingId, 鍵: &str) {
+    let mut まだ棚 = まだの先.lock().expect("毒されていない");
+    let mut 届いた棚 = 届いた先.lock().expect("毒されていない");
+    まだ棚.retain(|id, (その部屋, 先)| {
+        if *その部屋 != 部屋 {
+            return true;
+        }
+        if let Some(位置) = 先.iter().position(|(k, _)| k == 鍵) {
+            let (_, 名) = 先.remove(位置);
+            届いた棚.entry(*id).or_default().push(名);
+        }
+        !先.is_empty()
+    });
 }
 
 /// **この機械が呼び方を刻む。**エージェントは「どこで動いているか」しか名乗れない。
@@ -2125,6 +2261,46 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 主催は線の無い相手を_まだ_とし_客は主催へ渡せたら主催ごしとする() {
+        assert_eq!(渡し方を決める(true, true, false, false), 渡し方::渡した);
+        // 主催から見て線の切れた客
+        assert_eq!(渡し方を決める(false, true, false, false), 渡し方::まだ);
+        // 客から見て、主催の向こうの相手
+        assert_eq!(渡し方を決める(false, false, false, true), 渡し方::主催ごし);
+        // 客で、主催への線も無い
+        assert_eq!(渡し方を決める(false, false, false, false), 渡し方::まだ);
+        assert_eq!(渡し方を決める(false, false, true, false), 渡し方::まだ);
+    }
+
+    #[test]
+    fn 預かり分を渡したら_その部屋の_まだ_は_届いた_へ移る() {
+        let 部屋: MeetingId = "NBIW3PA2TUQ52DTJNVXSQOL3G4".parse().expect("読める");
+        let 他の部屋: MeetingId = "AFUF2T4ECVKMAAAAAAAAAAAAAA".parse().expect("読める");
+        let (一, 二, 三) = (9_000_001, 9_000_002, 9_000_003);
+        届けた(一, vec!["画面".to_owned()]);
+        まだを控える(一, 部屋, vec![("鍵A".to_owned(), "客".to_owned())]);
+        まだを控える(
+            二,
+            部屋,
+            vec![
+                ("鍵A".to_owned(), "客".to_owned()),
+                ("鍵B".to_owned(), "二人目".to_owned()),
+            ],
+        );
+        まだを控える(三, 他の部屋, vec![("鍵A".to_owned(), "客".to_owned())]);
+        assert_eq!(届き方(一).2, vec!["客".to_owned()]);
+
+        預かりを渡した(部屋, "鍵A");
+
+        let (届いた, _, まだ) = 届き方(一);
+        assert!(届いた.contains(&"客".to_owned()), "{届いた:?}");
+        assert!(まだ.is_empty());
+        assert_eq!(届き方(二).2, vec!["二人目".to_owned()]);
+        // 別の部屋の分は動かない
+        assert_eq!(届き方(三).2, vec!["客".to_owned()]);
+    }
+
     #[test]
     fn 古い口が抜けたら_番号付きの名は元に戻る() {
         let mut 棚 = BTreeMap::new();

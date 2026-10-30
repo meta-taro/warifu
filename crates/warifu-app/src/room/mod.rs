@@ -263,6 +263,22 @@ impl 部屋たち {
             .sum()
     }
 
+    /// その部屋で、**主催が留守として預かっている相手**（0.1.42）。
+    ///
+    /// 線が切れた相手は名簿から外れる（D83）ので、名簿だけを見ると「渡せていない相手」が見えない。
+    /// 入り直して預かり分を渡すか、自分で抜けるか、部屋を畳むと消える
+    #[must_use]
+    pub fn 留守の相手(&self, 部屋: MeetingId) -> Vec<PublicKey> {
+        let mut 相手: Vec<PublicKey> = self
+            .預かり
+            .keys()
+            .filter(|(r, _)| *r == 部屋)
+            .map(|(_, k)| *k)
+            .collect();
+        相手.sort_by_key(|k| k.to_bytes());
+        相手
+    }
+
     /// 主催が、線の切れた（留守の）面々あての知らせを預かる。差出人・線のある相手には預けない。
     fn 留守の分を預かる(
         &mut self, 部屋: MeetingId, 差出人: PublicKey, 知らせ: &Notice

@@ -433,6 +433,32 @@ pub(crate) async fn そのルームの相手(
     面々.iter().filter_map(|k| out.get(k).cloned()).collect()
 }
 
+/// **そのルームの名簿の相手と、その線**（0.1.42）。線が無い相手も `None` で並べる。
+///
+/// [`そのルームの相手`] は線のある相手しか返さないので、**渡せていない相手が数えられなかった。**
+pub(crate) async fn そのルームの面々(
+    ルーム: &ルームたち,
+    outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,
+    meeting: MeetingId,
+    me: PublicKey,
+) -> Vec<(PublicKey, Option<mpsc::Sender<Notice>>)> {
+    let 面々: Vec<PublicKey> = {
+        let 棚 = ルーム.lock().await;
+        let Some(c) = 棚.get(&meeting) else {
+            return Vec::new();
+        };
+        c.members().iter().filter(|k| **k != me).copied().collect()
+    };
+    let out = outbound.lock().await;
+    面々
+        .into_iter()
+        .map(|k| {
+            let 線 = out.get(&k.to_bytes()).cloned();
+            (k, 線)
+        })
+        .collect()
+}
+
 /// **その相手が居るルーム**を探す。居なければ `None`。
 ///
 /// ルームを複数持つので（`issues/015`）、「その人へ言う」には
@@ -2528,12 +2554,18 @@ fn 汲む(
                                 渡す.len()
                             );
                         }
+                        let mut 渡せた = false;
                         for 文 in 渡す {
-                            if let Ok(intent) = 文.to_intent()
-                                && channel.send(&intent).await.is_err()
-                            {
-                                break;
+                            if let Ok(intent) = 文.to_intent() {
+                                if channel.send(&intent).await.is_err() {
+                                    break;
+                                }
+                                渡せた = true;
                             }
+                        }
+                        // **chat_status の「まだ届いていない」から外す**（0.1.42）
+                        if 渡せた {
+                            desk::預かりを渡した(notice.meeting(), &key_to_string(peer));
                         }
                     }
                     // **文字は名簿を動かさない。**そのまま画面へ渡す

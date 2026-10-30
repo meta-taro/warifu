@@ -174,6 +174,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             // 常駐は部屋を指して返さない（届いた文字を命令へ渡すだけ）。古い机にも繋げる形のまま
             部屋も聞く: false,
             点検も聞く: false,
+            届かない先も聞く: false,
         }
         .書く(),
     )
@@ -216,6 +217,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                             どこから: 最後に聞いた,
                             部屋も聞く: false,
                             点検も聞く: false,
+                            届かない先も聞く: false,
                         }
                         .書く(),
                     )

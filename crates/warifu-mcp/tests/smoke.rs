@@ -117,6 +117,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     id,
                     届いた: vec!["画面".to_owned()],
                     読んだ: vec![],
+                    まだ: vec![],
                 }),
                 ToDesk::Status様子 => Some(FromDesk::様子 {
                     食い違い: Vec::new(),

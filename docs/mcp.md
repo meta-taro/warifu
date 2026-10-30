@@ -338,7 +338,9 @@ chat_status {"id": 12}
 |---|---|---|
 | A local agent | when it was handed out | **when it was handed to the caller** (`chat_read` / `chat_wait`) |
 | **A human's screen** | when it was displayed | **unknowable, so we do not claim it** |
-| A peer on another machine | when it was sent | **not implemented** |
+| A peer on another machine | when it was sent (`chat_status` lists peers by name; a guest sees the others behind the host as 「（主催ごし）」) | **not implemented** |
+
+**Not delivered yet** (0.1.42): peers the host has lost the line to (and is holding lines for) are listed in `chat_status` as 「まだ届いていない」. When they come back and the host hands over what it held, they move to 「届いた」. Until the host notices a dropped line (about 30 seconds), the dropped peer is still listed as arrived; those lines are re-sent when it rejoins (spec 02 S02-22).
 
 **"Read" has a deliberately narrow meaning: handed over.** Whether anyone understood it is unknowable, so we do not pretend. Only the **last 200 lines** are remembered; older ids answer "not remembered".
 

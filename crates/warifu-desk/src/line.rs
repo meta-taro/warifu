@@ -85,6 +85,11 @@ pub enum ToDesk {
         /// 同じ理由で opt-in。名乗った口にだけ机は `食い違い` の欄を付ける（空なら欄を書かない）。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         点検も聞く: bool,
+        /// **届き方に「まだ届いていない相手」を付けてほしい**（0.1.42）。
+        ///
+        /// 同じ理由で opt-in。名乗った口にだけ机は `まだ` の欄を付ける（空なら欄を書かない）。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        届かない先も聞く: bool,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -654,6 +659,12 @@ pub enum FromDesk {
         届いた: Vec<String>,
         /// 読んだエージェントの名。**渡したことが確かなものだけ。**
         読んだ: Vec<String>,
+        /// **ルームの名簿に居るのに、まだ渡せていない相手**（0.1.42）。
+        ///
+        /// 主催から見て線が切れている相手。入り直したときに主催が渡せば、ここから消えて「届いた」へ移る。
+        /// `届かない先も聞く` と名乗った口にだけ付ける（古い口は知らない欄で 1 行も読めなくなる）
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        まだ: Vec<String>,
     },
     /// **エージェントにつながった。**いつつながったかを返す（**`issues/4`** の 1 番）。
     ///
@@ -1309,6 +1320,7 @@ mod tests {
             どこから: None,
             部屋も聞く: false,
             点検も聞く: false,
+            届かない先も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1323,6 +1335,7 @@ mod tests {
             どこから: None,
             部屋も聞く: false,
             点検も聞く: false,
+            届かない先も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1337,6 +1350,7 @@ mod tests {
                 どこから: None,
                 部屋も聞く: false,
                 点検も聞く: false,
+                届かない先も聞く: false,
             }
         );
     }
@@ -1349,6 +1363,7 @@ mod tests {
                 どこから: None,
                 部屋も聞く: false,
                 点検も聞く: false,
+                届かない先も聞く: false,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -1363,6 +1378,7 @@ mod tests {
             どこから: None,
             部屋も聞く: false,
             点検も聞く: false,
+            届かない先も聞く: false,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
@@ -1381,6 +1397,7 @@ mod tests {
                 どこから: None,
                 部屋も聞く: false,
                 点検も聞く: false,
+                届かない先も聞く: false,
             }
         );
     }
@@ -1392,6 +1409,7 @@ mod tests {
             どこから: Some(42),
             部屋も聞く: false,
             点検も聞く: false,
+            届かない先も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
     }
@@ -1451,6 +1469,7 @@ mod tests {
             どこから: None,
             部屋も聞く: true,
             点検も聞く: true,
+            届かない先も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
         let 行 = r#"{"型":"listen","場所":"docs"}"#;
@@ -1459,6 +1478,7 @@ mod tests {
             ToDesk::Listen {
                 部屋も聞く: false,
                 点検も聞く: false,
+                届かない先も聞く: false,
                 ..
             }
         ));
@@ -1468,9 +1488,32 @@ mod tests {
             どこから: None,
             部屋も聞く: false,
             点検も聞く: false,
+            届かない先も聞く: false,
         };
         assert!(!聞かない.書く().contains("部屋も聞く"));
         assert!(!聞かない.書く().contains("点検も聞く"));
+        assert!(!聞かない.書く().contains("届かない先も聞く"));
+    }
+
+    // 0.1.42 —— まだ届いていない相手は、聞いた口にだけ、居るときだけ欄を書く
+    #[test]
+    fn 届き方のまだは_空なら欄を書かず_古い形の返事も読める() {
+        let 元 = FromDesk::Status {
+            id: 7,
+            届いた: vec!["画面".to_owned()],
+            読んだ: vec![],
+            まだ: vec!["客".to_owned()],
+        };
+        assert_eq!(FromDesk::読む(&元.書く()).expect("読める"), 元);
+        let 空 = FromDesk::Status {
+            id: 7,
+            届いた: vec!["画面".to_owned()],
+            読んだ: vec![],
+            まだ: vec![],
+        };
+        assert!(!空.書く().contains("まだ"));
+        let 古い = r#"{"型":"status","id":7,"届いた":["画面"],"読んだ":[]}"#;
+        assert_eq!(FromDesk::読む(古い).expect("読める"), 空);
     }
 
     // 0.1.40・内部の Issue 026 —— 口から部屋を片付ける

@@ -13,7 +13,7 @@ use warifu_calendar::{Calendar, Span};
 use warifu_capability::{Action, Decision, Gate, Request, Subject};
 use warifu_read::{Level, Reader, Received, RuleStore, View};
 
-use crate::chat::{Chat, 並べる, 宛ても見て並べる};
+use crate::chat::{Chat, 並べる, 宛ても見て並べる, 届き方を言う};
 use crate::tools::{CallArgs, ContactAddArgs, InviteArgs, JoinArgs, KeyGiveArgs};
 use crate::{OpenArgs, ProfileArgs, SayArgs, SlotsArgs, StatusArgs, ToolError, WaitArgs};
 
@@ -950,7 +950,9 @@ impl Warifu {
         description = "自分が流した発言が、いま誰に届いていて、誰が読んだかを見る。\
                        番号は chat_send の返りに出る（#12 のような形）。\
                        読んだのは、そのエージェントへ渡したことが確かなものだけ。\
-                       人の画面は「出した」までしか分からない（見たかどうかは誰にも分からない）。"
+                       人の画面は「出した」までしか分からない（見たかどうかは誰にも分からない）。\
+                       ルームの名簿に居るのに線が切れていて渡せていない相手は「まだ届いていない」に出る\
+                       （主催が預かり、入り直したときに渡すと「届いた」へ移る）。"
     )]
     pub async fn chat_status(
         &self,
@@ -958,24 +960,8 @@ impl Warifu {
     ) -> Result<String, ErrorData> {
         self.通るか("chat.read")?;
         let この機械 = self.この機械().await?;
-        let (届いた, 読んだ) = この機械.届き方(args.id).await?;
-        if 届いた.is_empty() {
-            // **知らないものを、知っているように見せない**
-            return Ok(format!(
-                "#{} は覚えていません（古すぎるか、番号が違います）。",
-                args.id
-            ));
-        }
-        Ok(format!(
-            "#{} 届いた {}／読んだ {}。人の画面は「出した」までしか分かりません。",
-            args.id,
-            届いた.join("・"),
-            if 読んだ.is_empty() {
-                "まだ誰も".to_owned()
-            } else {
-                読んだ.join("・")
-            }
-        ))
+        let 届き方 = この機械.届き方(args.id).await?;
+        Ok(届き方を言う(args.id, &届き方))
     }
 
     /// 届いている発言を読む。**読んだ分は消える。**
