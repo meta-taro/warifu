@@ -107,9 +107,9 @@ mod notify;
 mod postbox;
 mod profile;
 mod room_name;
-mod roster_sync;
 #[cfg(test)]
 mod room_sim;
+mod roster_sync;
 mod schedule;
 mod self_check;
 mod snapshot;
@@ -365,7 +365,10 @@ pub(crate) type 見ているルーム = Arc<Mutex<Option<MeetingId>>>;
 ///
 /// **すでに見ている部屋があるなら、そのまま。**無いときだけ、建てた部屋を見る。
 #[must_use]
-pub(crate) const fn 見る部屋を決める(いま: Option<MeetingId>, 建てた: MeetingId) -> MeetingId {
+pub(crate) const fn 見る部屋を決める(
+    いま: Option<MeetingId>,
+    建てた: MeetingId,
+) -> MeetingId {
     match いま {
         Some(見ている) => 見ている,
         None => 建てた,
@@ -400,7 +403,9 @@ pub(crate) async fn ルームを足す_見るのは奪わない(
 }
 
 /// いま見ているルームの id。**無ければ `None`。**
-pub(crate) async fn いま見ているルーム(いま: &見ているルーム) -> Option<MeetingId> {
+pub(crate) async fn いま見ているルーム(
+    いま: &見ているルーム
+) -> Option<MeetingId> {
     *いま.lock().await
 }
 
@@ -433,7 +438,8 @@ pub(crate) async fn そのルームの相手(
 /// ルームを複数持つので（`issues/015`）、「その人へ言う」には
 /// **どのルームの話か**を決めないと `Notice` が組めない。
 pub(crate) async fn 相手が居るルーム(
-    ルーム: &ルームたち, 相手: PublicKey
+    ルーム: &ルームたち,
+    相手: PublicKey,
 ) -> Option<MeetingId> {
     let 棚 = ルーム.lock().await;
     棚.iter()
@@ -472,7 +478,11 @@ impl Bridge {
         // 身元が毎回変われば相手は「同じ人」だと分からず、覚えた相手が全部無駄になる。
         // 落ちる理由（権限が緩い・中身が壊れている）は `warifu-vault` が文言で言う。
         let device = 身元().unwrap_or_else(|e| panic!("身元を開けません: {e}"));
-        let 影 = warifu_app::room::部屋たち::new(device.public_key());
+        let mut 影 = warifu_app::room::部屋たち::new(device.public_key());
+        // **持っている印を戻す**（0.1.42）。上がり直しても、主催へ「ここまで持っている」と言える
+        for (部屋, 印) in 持っている印を読む() {
+            影.印を思い出す(部屋, 印);
+        }
         Self {
             device,
             影: Arc::new(Mutex::new(影)),
@@ -527,7 +537,11 @@ impl Bridge {
         if let Some((_, トークン)) = &自前の中継 {
             記録!(
                 "中継: 自前の中継を控えています（トークン{}）",
-                if トークン.is_some() { "あり" } else { "なし" }
+                if トークン.is_some() {
+                    "あり"
+                } else {
+                    "なし"
+                }
             );
         }
         let 自前の中継がある = 自前の中継.is_some();
@@ -554,7 +568,11 @@ impl Bridge {
         };
         記録!(
             "中継: {}（{どこで}）",
-            if 使う { "**使います**" } else { "使いません" }
+            if 使う {
+                "**使います**"
+            } else {
+                "使いません"
+            }
         );
         let 中継 = if 使う {
             warifu_net::中継の使い方::使う
@@ -564,10 +582,11 @@ impl Bridge {
 
         // **前と同じ口を取りに行く**（**#38 の残り半分**）。
         // 鍵は「出したときの口」を焼き込むので、**口が変われば配った鍵は死ぬ**
-        let 控えた口 = 置き場()
-            .and_then(|v| v.port().ok())
-            .flatten();
-        let 決め方 = 控えた口.map_or(warifu_net::口の決め方::まかせる, warifu_net::口の決め方::同じ口);
+        let 控えた口 = 置き場().and_then(|v| v.port().ok()).flatten();
+        let 決め方 = 控えた口.map_or(
+            warifu_net::口の決め方::まかせる,
+            warifu_net::口の決め方::同じ口,
+        );
 
         let node = Arc::new(Node::bind_at(&self.device, 中継, 決め方).await?);
         self.口を言う(node.口の様子());
@@ -634,7 +653,9 @@ impl Bridge {
             warifu_net::口の様子::まかせた(口) => {
                 記録!("口 {口} で待ちます（初めてなので、この口を控えます）");
             }
-            warifu_net::口の様子::取れなかった { 望んだ, 代わり } => {
+            warifu_net::口の様子::取れなかった {
+                望んだ, 代わり
+            } => {
                 記録!(
                     "**前の口 {望んだ} が取れませんでした。**{代わり} で待ちます —— \
                      **前に配った鍵は、もう使えません。出し直してください**"
@@ -657,7 +678,9 @@ impl Bridge {
         match 置き場().map(|v| v.save_port(様子.口())) {
             Some(Ok(())) => {}
             Some(Err(e)) => 記録!("口を控えられませんでした: {e}（次の起動で口が変わります）"),
-            None => 記録!("置き場所を開けないので、口を控えられません（次の起動で口が変わります）"),
+            None => {
+                記録!("置き場所を開けないので、口を控えられません（次の起動で口が変わります）")
+            }
         }
     }
 }
@@ -719,7 +742,11 @@ fn set_relay(on: bool) -> Answer<()> {
     vault.save_relay(on)?;
     記録!(
         "中継: 次の起動から {}",
-        if on { "使います" } else { "使いません" }
+        if on {
+            "使います"
+        } else {
+            "使いません"
+        }
     );
     Ok(())
 }
@@ -877,7 +904,10 @@ fn 番地が変わったか(控えた: &[String], いまの: &[String]) -> bool 
 /// **番地は出さない。口の番号だけ**（外側の番地は人が Issue に貼る）。
 async fn ルーターの口開けを言う(node: &Node) {
     if let Some(外) = node.外への口(std::time::Duration::ZERO).await {
-        記録!("ルーター: 外への口を開けてもらえました（外側の口 {}）", 外.port());
+        記録!(
+            "ルーター: 外への口を開けてもらえました（外側の口 {}）",
+            外.port()
+        );
         return;
     }
     let 印 = |b: bool| if b { "○" } else { "×" };
@@ -906,7 +936,9 @@ const 番地が落ち着くまで: u64 = 15;
 ///
 /// **秒までは出さない。**鍵の期限は分の粒度で足りる。
 fn 時刻の言い方(秒: u64) -> String {
-    let Ok(時) = std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(秒)).ok_or(())
+    let Ok(時) = std::time::UNIX_EPOCH
+        .checked_add(std::time::Duration::from_secs(秒))
+        .ok_or(())
     else {
         return "（読めません）".to_owned();
     };
@@ -921,7 +953,7 @@ fn 時刻の言い方(秒: u64) -> String {
     let mut 年 = 1970u64;
     let mut 残 = 日;
     loop {
-        let 閏 = (年 % 4 == 0 &&年 % 100 != 0) || 年 % 400 == 0;
+        let 閏 = (年 % 4 == 0 && 年 % 100 != 0) || 年 % 400 == 0;
         let 年の日 = if 閏 { 366 } else { 365 };
         if 残 < 年の日 {
             break;
@@ -929,7 +961,7 @@ fn 時刻の言い方(秒: u64) -> String {
         残 -= 年の日;
         年 += 1;
     }
-    let 閏 = (年 % 4 == 0 &&年 % 100 != 0) || 年 % 400 == 0;
+    let 閏 = (年 % 4 == 0 && 年 % 100 != 0) || 年 % 400 == 0;
     let 月の日 = [
         31,
         if 閏 { 29 } else { 28 },
@@ -1207,8 +1239,12 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
     };
     // **起動の建て直しは、見ている部屋を奪わない**（**#39**）——
     // 人が［入る］を押した直後に、これが走って**自分の部屋へ戻していた**
-    let id =
-        ルームを足す_見るのは奪わない(&bridge.conferences, &bridge.いまのルーム, conference).await;
+    let id = ルームを足す_見るのは奪わない(
+        &bridge.conferences,
+        &bridge.いまのルーム,
+        conference,
+    )
+    .await;
     // **自分が建てた部屋の主催は自分**（**#37**）
     bridge.主催たち.lock().await.insert(id, 私);
     影へ(
@@ -1224,7 +1260,11 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
     部屋の合言葉を用意する(&bridge, id).await;
     // **建てた id を書き置く。**名前は画面から付けるので、ここでは触らない
     if let Ok(vault) = warifu_vault::Vault::default_location() {
-        let 名前 = vault.my_room().ok().flatten().map_or_else(String::new, |(_, n)| n);
+        let 名前 = vault
+            .my_room()
+            .ok()
+            .flatten()
+            .map_or_else(String::new, |(_, n)| n);
         if let Err(e) = vault.save_my_room(&id.to_string(), &名前) {
             記録!("ルームを書き置けませんでした: {e}");
         }
@@ -1323,7 +1363,10 @@ pub(crate) async fn 会議キーで入る(
     // CLI（`warifu join`）は前からこうしてある ——
     // 「**呼ぶ前に窓を見る。始まっていない・切れている鍵で相手を叩かない**」。
     // **画面だけが揃っていなかった。**
-    let acceptance = bridge.device.accept(&token, now_secs()).map_err(鍵の窓を言う)?;
+    let acceptance = bridge
+        .device
+        .accept(&token, now_secs())
+        .map_err(鍵の窓を言う)?;
 
     let node = bridge.node().await?;
     let to = Address::from_str(&address)?;
@@ -1364,7 +1407,12 @@ pub(crate) async fn 会議キーで入る(
         if 誰が == 誰が入れるか::人 {
             ルームを足す(&bridge.conferences, &bridge.いまのルーム, 部屋).await;
         } else {
-            ルームを足す_見るのは奪わない(&bridge.conferences, &bridge.いまのルーム, 部屋).await;
+            ルームを足す_見るのは奪わない(
+                &bridge.conferences,
+                &bridge.いまのルーム,
+                部屋,
+            )
+            .await;
         }
         // **呼んだ相手が、この部屋の主催**（**#37**）。
         // **ゲストの名簿は先頭が自分**なので、名簿からは主催が分からない ——
@@ -1416,7 +1464,8 @@ pub(crate) async fn 会議キーで入る(
         記録!("帰り道を書き置けませんでした: {e}");
     }
 
-    // 入ると告げる
+    // 持っている所を先に言い、入ると告げる
+    持っている所を言う(bridge, &mut channel, meeting_id).await;
     channel
         .send(
             &Notice::Join {
@@ -1741,15 +1790,19 @@ pub(crate) async fn 自己点検(app: &AppHandle) {
     let 出 = self_check::見比べる(&本体, &画面);
     *bridge.いまの食い違い.lock().await = 出.clone();
     // **影との見比べは記録だけ**（A2 の段 1）。ずれが出なくなったら影を本物にする
-    for 文 in 影を見比べる(&bridge, &ルームの並び(&bridge).await, 本体.見ている.as_deref()).await {
+    for 文 in 影を見比べる(
+        &bridge,
+        &ルームの並び(&bridge).await,
+        本体.見ている.as_deref(),
+    )
+    .await
+    {
         記録!("影: {文}");
     }
     let 今 = now_secs();
     let mut 控え = bridge.食い違いを言った.lock().await;
     for 文 in 出 {
-        let 言う = 控え
-            .get(&文)
-            .is_none_or(|前| 今.saturating_sub(*前) >= 600);
+        let 言う = 控え.get(&文).is_none_or(|前| 今.saturating_sub(*前) >= 600);
         if 言う {
             控え.insert(文.clone(), 今);
             記録!("食い違い: {文}");
@@ -1762,12 +1815,84 @@ pub(crate) async fn 自己点検(app: &AppHandle) {
 
 /// **影へ同じ出来事を流す**（計画 A2 の段 1）。決めるのはまだ今までどおりの錠。
 /// 返る手配は、**預かった分を渡す所だけ**本体が使う（`汲む`・Issue #1）。
-pub(crate) async fn 影へ(bridge: &Bridge, 入り: warifu_app::room::入り口) -> Vec<warifu_app::room::手配> {
-    bridge.影.lock().await.受ける(入り)
+pub(crate) async fn 影へ(
+    bridge: &Bridge,
+    入り: warifu_app::room::入り口,
+) -> Vec<warifu_app::room::手配> {
+    let 手配 = bridge.影.lock().await.受ける(入り);
+    // **持っている印をファイルへ**（0.1.42）。上がり直したあとも、持っていない分だけを主催にもらえる
+    for h in &手配 {
+        if let warifu_app::room::手配::印を覚える { 部屋, 印 } = h
+            && let Ok(vault) = warifu_vault::Vault::default_location()
+            && let Err(e) = vault.save_seen(&部屋.to_string(), &印を書く(印))
+        {
+            記録!("持っている印を書けませんでした: {e}");
+        }
+    }
+    手配
+}
+
+/// 印を 16 進の字にする。
+fn 印を書く(印: &[u8; 32]) -> String {
+    印.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// 16 進の字を印に戻す。形が違えば `None`。
+fn 印を読む(字: &str) -> Option<[u8; 32]> {
+    if 字.len() != 64 {
+        return None;
+    }
+    let mut 印 = [0u8; 32];
+    for (i, b) in 印.iter_mut().enumerate() {
+        *b = u8::from_str_radix(字.get(i * 2..i * 2 + 2)?, 16).ok()?;
+    }
+    Some(印)
+}
+
+/// 控えに置いた、部屋ごとの持っている印。読めなければ空（送り直しが起きないだけ）。
+fn 持っている印を読む() -> Vec<(MeetingId, [u8; 32])> {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return Vec::new();
+    };
+    vault
+        .seen()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|(id, 字)| Some((id.parse().ok()?, 印を読む(&字)?)))
+        .collect()
+}
+
+/// **入る前に「ここまで持っている」と主催へ言う**（0.1.42）。印が無ければ言わない（主催は送り直さない）。
+///
+/// 古い主催（〜0.1.41）は知らない知らせとして読み飛ばす。
+pub(crate) async fn 持っている所を言う(
+    bridge: &Bridge,
+    channel: &mut Channel,
+    部屋: MeetingId,
+) {
+    let Some(最後) = bridge.影.lock().await.最後の印(部屋) else {
+        return;
+    };
+    if let Ok(intent) = (Notice::Since {
+        meeting: 部屋,
+        最後: Some(最後),
+    })
+    .to_intent()
+    {
+        let _ = channel.send(&intent).await;
+        記録!(
+            "追いつき: 部屋 {} の持っている所を主催へ言った",
+            短く(&部屋.to_string())
+        );
+    }
 }
 
 /// **影と本物を見比べる**（計画 A2 の段 1）。ずれは記録だけに出す（人とエージェントには言わない）。
-async fn 影を見比べる(bridge: &Bridge, 並び: &[RoomRow], 見ている: Option<&str>) -> Vec<String> {
+async fn 影を見比べる(
+    bridge: &Bridge,
+    並び: &[RoomRow],
+    見ている: Option<&str>,
+) -> Vec<String> {
     let 影 = bridge.影.lock().await;
     let mut 出 = Vec::new();
     let 影の見ている = 影.見ている().map(|m| m.to_string());
@@ -1779,7 +1904,9 @@ async fn 影を見比べる(bridge: &Bridge, 並び: &[RoomRow], 見ている: O
         ));
     }
     for r in 並び {
-        let Ok(id) = r.id.parse::<MeetingId>() else { continue };
+        let Ok(id) = r.id.parse::<MeetingId>() else {
+            continue;
+        };
         let Some(c) = 影.棚().get(&id) else {
             出.push(format!("部屋 {} が影に無い", 短く(&r.id)));
             continue;
@@ -1797,7 +1924,12 @@ async fn 影を見比べる(bridge: &Bridge, 並び: &[RoomRow], 見ている: O
             ));
         }
         if r.host != 影.主催か(id) {
-            出.push(format!("部屋 {} の主催が違う（本物 {}・影 {}）", 短く(&r.id), r.host, 影.主催か(id)));
+            出.push(format!(
+                "部屋 {} の主催が違う（本物 {}・影 {}）",
+                短く(&r.id),
+                r.host,
+                影.主催か(id)
+            ));
         }
     }
     for id in 影.棚().keys() {
@@ -1855,7 +1987,11 @@ async fn known_keys(bridge: State<'_, Bridge>) -> Answer<Vec<String>> {
 #[tauri::command]
 fn met_keys() -> Answer<Vec<String>> {
     let vault = warifu_vault::Vault::default_location()?;
-    Ok(vault.met()?.into_iter().map(|(k, _)| k.to_string()).collect())
+    Ok(vault
+        .met()?
+        .into_iter()
+        .map(|(k, _)| k.to_string())
+        .collect())
 }
 
 /// **相手を戸口から降ろす。**次からは割符が要る。
@@ -1937,7 +2073,9 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                     叩きの中身::部屋の証しが合った => {
                         Knock::with_verified_room_proof(subject.clone(), now_secs())
                     }
-                    叩きの中身::どちらでもない => Knock::new(subject.clone(), now_secs()),
+                    叩きの中身::どちらでもない => {
+                        Knock::new(subject.clone(), now_secs())
+                    }
                 };
                 (door.answer(&knock), 知っていた)
             };
@@ -1980,7 +2118,10 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             if 中身 == 叩きの中身::どちらでもない {
                 // **戻りたい部屋が添えてあれば、その部屋へ**（0.1.41）。主催していなければ「もう無い」と返して建てない
                 let bridge = app.state::<Bridge>();
-                let 招く先 = match call::招く先を決める(望み, &主催している部屋たち(&bridge).await) {
+                let 招く先 = match call::招く先を決める(
+                    望み,
+                    &主催している部屋たち(&bridge).await,
+                ) {
                     call::招く先::その部屋(id) => Some(id),
                     call::招く先::もう無い(id) => {
                         if let Ok(intent) = (Notice::Leave { meeting: id }).to_intent() {
@@ -2249,7 +2390,9 @@ async fn 部屋の証しを確かめる(
 /// 直接の線と主催の配り直しの両方で届く発言を、受け手で 1 本にする。窓は 10 秒。
 static 重複の控え: std::sync::LazyLock<
     std::sync::Mutex<warifu_app::room::dedupe::重複の控え<(PublicKey, MeetingId)>>,
-> = std::sync::LazyLock::new(|| std::sync::Mutex::new(warifu_app::room::dedupe::重複の控え::new(10)));
+> = std::sync::LazyLock::new(|| {
+    std::sync::Mutex::new(warifu_app::room::dedupe::重複の控え::new(10))
+});
 
 /// 2 本の道で届いた同じ発言か。**初めてなら控えて偽。**
 fn 二本目か(from: PublicKey, meeting: MeetingId, 本文: &[u8]) -> bool {
@@ -2317,9 +2460,11 @@ fn 汲む(
         )
         .await;
         // **この経路で、どの部屋について名乗り返したか**（0.1.35）。1 部屋 1 度だけ
-        let mut 名乗り返した: std::collections::HashSet<MeetingId> = std::collections::HashSet::new();
+        let mut 名乗り返した: std::collections::HashSet<MeetingId> =
+            std::collections::HashSet::new();
         // **この経路で、どの部屋について「居ない」と告げたか**（0.1.37）。1 部屋 1 度だけ
-        let mut 居ないと告げた: std::collections::HashSet<MeetingId> = std::collections::HashSet::new();
+        let mut 居ないと告げた: std::collections::HashSet<MeetingId> =
+            std::collections::HashSet::new();
         let 訳 = loop {
             tokio::select! {
                 // 画面から送るもの
@@ -2355,10 +2500,12 @@ fn 汲む(
                     // **留守の間に預かった文字を、入り直した相手へ渡す**（Issue #1・0.1.41）。
                     // 主催が、線の切れた面々あての文字を影（本物の状態機械）で預かっている。
                     // 影の手配のうち、この相手への文字だけをこの線でそのまま送る（決めるのは影の規則）
-                    if matches!(notice, Notice::Join { .. }) {
+                    // **「ここまで持っている」には、持っていない分を送り直す**（0.1.42・同じ道）
+                    if matches!(notice, Notice::Join { .. } | Notice::Since { .. }) {
                         記録!(
-                            "預かり: {} が入り直した（部屋 {}・影の手配 {} 件・影が預かっている {} 件）",
+                            "預かり: {} が{}（部屋 {}・影の手配 {} 件・影が預かっている {} 件）",
                             短く(&key_to_string(peer)),
+                            if matches!(notice, Notice::Since { .. }) { "持っている所を言った" } else { "入り直した" },
                             短く(&notice.meeting().to_string()),
                             影の手配.len(),
                             app.state::<Bridge>().影.lock().await.預かっている数(notice.meeting())
@@ -3167,7 +3314,11 @@ fn 自分の住所を名乗り返す(
             .is_ok();
         記録!(
             "紹介: 新入りへ自分の住所を名乗り返し{}",
-            if 送れた { "ました" } else { "ませんでした（口が閉じていました）" }
+            if 送れた {
+                "ました"
+            } else {
+                "ませんでした（口が閉じていました）"
+            }
         );
     });
 }
@@ -3258,8 +3409,16 @@ async fn 紹介を配る(
                 "紹介: 送れません（{} へ {} の話。口 {} / 住所 {}）",
                 短く(&key_to_string(to)),
                 短く(&key_to_string(who)),
-                if out.contains_key(&to.to_bytes()) { "あり" } else { "なし" },
-                if book.contains_key(&who.to_bytes()) { "あり" } else { "なし" }
+                if out.contains_key(&to.to_bytes()) {
+                    "あり"
+                } else {
+                    "なし"
+                },
+                if book.contains_key(&who.to_bytes()) {
+                    "あり"
+                } else {
+                    "なし"
+                }
             );
             return None;
         };
@@ -3576,9 +3735,16 @@ async fn send_image(bridge: State<'_, Bridge>, bytes: Vec<u8>, kind: String) -> 
     let Notice::Image { 中身, .. } = &知らせ else {
         unreachable!("いま組み立てた");
     };
-    記録!("送信: 画像（{} バイト）を {} 人へ", 中身.len(), 送り先.len());
+    記録!(
+        "送信: 画像（{} バイト）を {} 人へ",
+        中身.len(),
+        送り先.len()
+    );
     if desk::エージェントの数(&bridge) > 0 {
-        let 話 = desk::聞いた(&key_to_string(bridge.device.public_key()), &画像の札(中身.len()));
+        let 話 = desk::聞いた(
+            &key_to_string(bridge.device.public_key()),
+            &画像の札(中身.len()),
+        );
         desk::配る(&bridge, 話);
     }
     for tx in &送り先 {
@@ -3707,7 +3873,6 @@ pub(crate) async fn 部屋を畳む(bridge: &Bridge, meeting: MeetingId) {
         }
     }
 }
-
 
 /// **前に入ったルームへの帰り道**（`gh issue 13`）。
 ///
@@ -3881,6 +4046,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Leave { .. } => "退出",
         Notice::Signal(_) => "下ごしらえ（SDP / ICE）",
         Notice::Link { .. } => "回線の報せ",
+        Notice::Since { .. } => "持っている所",
         Notice::Introduce { .. } => "紹介",
         Notice::Text { .. } => "文字",
         Notice::Image { .. } => "画像",
@@ -3958,9 +4124,10 @@ fn room_qr(key: String) -> Result<String, String> {
 fn 落ちた理由を書き残す() {
     let 前の係 = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        let 場所 = info
-            .location()
-            .map_or_else(|| "場所不明".to_owned(), |l| format!("{}:{}", l.file(), l.line()));
+        let 場所 = info.location().map_or_else(
+            || "場所不明".to_owned(),
+            |l| format!("{}:{}", l.file(), l.line()),
+        );
         let 糸 = std::thread::current().name().unwrap_or("名無し").to_owned();
         記録!("落ちました（panic・{場所}・糸 {糸}）: {}", 中身を言う(info));
         前の係(info);
@@ -4039,7 +4206,10 @@ pub fn run() {
                     std::env::var_os("USERPROFILE").as_deref(),
                 );
                 match warifu_vault::Vault::default_location() {
-                    Ok(v) => 記録!("置き場所: {}（{出どころ} で決まりました）", v.dir().display()),
+                    Ok(v) => 記録!(
+                        "置き場所: {}（{出どころ} で決まりました）",
+                        v.dir().display()
+                    ),
                     Err(e) => 記録!("置き場所が決まりません（{出どころ}）: {e}"),
                 }
             }
@@ -4131,7 +4301,6 @@ pub fn run() {
             desk_seats,
             call_contact,
             connect_in_room,
-
             rejoin_room,
             invite_window,
             note_screen,
@@ -4262,6 +4431,14 @@ mod 知らせの名の試験 {
             .public_key()
     }
 
+    #[test]
+    fn 持っている印は_16_進の字と往復し_形の違う字は読まない() {
+        let 印 = [0xabu8; 32];
+        assert_eq!(super::印を読む(&super::印を書く(&印)), Some(印));
+        assert_eq!(super::印を読む("ab"), None);
+        assert_eq!(super::印を読む(&"zz".repeat(32)), None);
+    }
+
     /// **いま在る知らせを、全部 1 つずつ作る。**
     ///
     /// `Notice` は `non_exhaustive` なので、`知らせの名` の `_` の枝は外せない。
@@ -4277,6 +4454,10 @@ mod 知らせの名の試験 {
                 roster: warifu_meeting::Roster::new(鍵()),
             },
             Notice::Join { meeting: 部屋 },
+            Notice::Since {
+                meeting: 部屋,
+                最後: None,
+            },
             Notice::Leave { meeting: 部屋 },
             Notice::Signal(warifu_meeting::Signal::new(
                 部屋,
@@ -4488,7 +4669,10 @@ mod 番地の見比べ {
     fn いまの番地が空なら_変わったと言わない() {
         // **まだ出ていないだけのことがある**（立ち上げ直した直後・中継だけの回線）。
         // **言うと、直っていないのに「出し直せ」と言うことになる**
-        assert!(!番地が変わったか(&束(&["192.168.24.17:55698"]), &[]));
+        assert!(!番地が変わったか(
+            &束(&["192.168.24.17:55698"]),
+            &[]
+        ));
     }
 }
 
@@ -4498,7 +4682,13 @@ mod 生きている行の試験 {
 
     #[test]
     fn 分で数えて_ルームの数を添える() {
-        assert_eq!(生きている行(59.9, 0), "生きています（起動から 0 分・ルーム 0）");
-        assert_eq!(生きている行(4261.0, 1), "生きています（起動から 71 分・ルーム 1）");
+        assert_eq!(
+            生きている行(59.9, 0),
+            "生きています（起動から 0 分・ルーム 0）"
+        );
+        assert_eq!(
+            生きている行(4261.0, 1),
+            "生きています（起動から 71 分・ルーム 1）"
+        );
     }
 }

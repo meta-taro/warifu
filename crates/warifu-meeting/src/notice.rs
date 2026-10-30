@@ -21,6 +21,8 @@ const LINK: &str = "meeting.link";
 const INTRODUCE: &str = "meeting.introduce";
 /// 会議の中で文字を送る（チャット）。
 const TEXT: &str = "meeting.text";
+/// ここまで持っている（入り直す客が主催へ・0.1.42）。
+const SINCE: &str = "meeting.since";
 /// 会議の中で画像を送る（チャット）。
 const IMAGE: &str = "meeting.image";
 /// **本人の名乗り**（プロフィール・**D75**）。
@@ -265,6 +267,21 @@ pub enum Notice {
         /// 名前。[`ROOM_NAME_MAX`] まで。
         名前: String,
     },
+    /// **その部屋の文字を、ここまで持っている**（0.1.42）。入り直す客が、参加より先に主催へ送る。
+    ///
+    /// 線が黙って切れると、主催が気づくまで（およそ 30 秒）に配った文字は、どこにも届かず消える。
+    /// 主催はこの印より後の文字を、その客へ送り直す（客が部屋に居た間の分だけ）。
+    ///
+    /// **印が無い（`None`）なら、送り直さない。**何を持っているか分からない相手へ送り直すと、
+    /// 見たことのある発言が新しい発言として 2 度届く（エージェントが 2 度動く）。
+    ///
+    /// 古い主催（〜0.1.41）は知らない知らせとして読み飛ばす。
+    Since {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 最後に持っている文字の印（[`Notice::文字の印`]）。
+        最後: Option<[u8; 32]>,
+    },
 }
 
 impl Notice {
@@ -282,9 +299,36 @@ impl Notice {
             | Self::Profile { meeting, .. }
             | Self::Key { meeting, .. }
             | Self::RoomSecret { meeting, .. }
-            | Self::RoomName { meeting, .. } => *meeting,
+            | Self::RoomName { meeting, .. }
+            | Self::Since { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
+    }
+
+    /// **文字の印**（0.1.42）。差出人・札・本文から作る。文字でなければ `None`。
+    ///
+    /// 主催が配り直しても差出人と札と本文は変わらないので、**どの機械で作っても同じ印になる。**
+    #[must_use]
+    pub fn 文字の印(&self) -> Option<[u8; 32]> {
+        use sha2::{Digest, Sha256};
+        let Self::Text {
+            meeting,
+            from,
+            話し手,
+            body,
+        } = self
+        else {
+            return None;
+        };
+        let 札 = 話し手.as_deref().unwrap_or_default();
+        let mut h = Sha256::new();
+        h.update(b"warifu-text-v1");
+        h.update(meeting.to_string().as_bytes());
+        h.update(from.to_bytes());
+        h.update((札.len() as u64).to_be_bytes());
+        h.update(札.as_bytes());
+        h.update(body.as_bytes());
+        Some(h.finalize().into())
     }
 
     /// 経路に載せられる形にする。
@@ -300,6 +344,7 @@ impl Notice {
             // 入る・出るのに荷物は要らない。**どの会議かは相関が持っている**
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
+            Self::Since { 最後, .. } => (SINCE, 最後.map(|h| h.to_vec()).unwrap_or_default()),
             Self::Signal(s) => (SIGNAL, s.encode()?),
             Self::Text {
                 from, 話し手, body,
@@ -409,6 +454,18 @@ impl Notice {
             JOIN | LEAVE if !荷物.is_empty() => Err(Error::Malformed),
             JOIN => Ok(Self::Join { meeting }),
             LEAVE => Ok(Self::Leave { meeting }),
+            // 空か 32 byte だけ。**ほかの長さは通さない**
+            SINCE => match 荷物.len() {
+                0 => Ok(Self::Since {
+                    meeting,
+                    最後: None,
+                }),
+                32 => Ok(Self::Since {
+                    meeting,
+                    最後: Some(荷物.try_into().map_err(|_| Error::Malformed)?),
+                }),
+                _ => Err(Error::Malformed),
+            },
             SIGNAL => Ok(Self::Signal(Signal::decode(meeting, 荷物)?)),
             TEXT => {
                 // 差出人 32 byte ＋ 札の長さ 1 byte ＋ 札 ＋ 中身。

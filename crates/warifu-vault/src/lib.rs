@@ -150,6 +150,12 @@ pub const ROOM_NAMES_MAX: usize = 64;
 ///
 /// 1 つの機械が入るルームの数としては十分に大きい。
 pub const REJOIN_MAX: usize = 16;
+
+/// 持っている印のファイルの見出し。
+const SEEN_HEADER: &str = "warifu-seen-v1";
+
+/// 印を覚えておく部屋の数。超えたら古い部屋から落とす。
+pub const SEEN_MAX: usize = 32;
 /// **主催が出した割符の控え**（**#38**・2026-09-16）。
 ///
 /// 1 行に `<ルーム id>\t<base32 の割符>`。**割符には secret が入っている**ので 0600。
@@ -627,6 +633,57 @@ impl Vault {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "帰り道を消す")(e)),
         }
+    }
+
+    /// **部屋ごとに、最後に持っている文字の印**のファイル（0.1.42）。
+    #[must_use]
+    pub fn seen_path(&self) -> PathBuf {
+        self.dir.join("seen.tsv")
+    }
+
+    /// 部屋ごとの、最後に持っている文字の印（16 進）。古いものから並ぶ。
+    ///
+    /// 上がり直したあと主催へ「ここまで持っている」と言うために読む。**本文は入らない**（印だけ）。
+    /// 見出しが違う・欄が欠けた行は飛ばす（無いのと同じ。送り直しが起きないだけ）。
+    ///
+    /// # Errors
+    /// 読めないとき [`Error::Io`]。
+    pub fn seen(&self) -> Result<Vec<(String, String)>, Error> {
+        let path = self.seen_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "持っている印を読む"))?;
+        let mut lines = text.lines();
+        if lines.next().unwrap_or_default().trim() != SEEN_HEADER {
+            return Ok(Vec::new());
+        }
+        Ok(lines
+            .filter_map(|行| {
+                let (id, 印) = 行.split_once('\t')?;
+                let (id, 印) = (id.trim(), 印.trim());
+                (!id.is_empty() && 印.len() == 64 && 印.bytes().all(|b| b.is_ascii_hexdigit()))
+                    .then(|| (id.to_owned(), 印.to_owned()))
+            })
+            .collect())
+    }
+
+    /// その部屋の印を置く。**同じ部屋の行は差し替えて後ろへ回す。**[`SEEN_MAX`] を超えたら古いものから落とす。
+    ///
+    /// # Errors
+    /// 読めない・書けないとき。
+    pub fn save_seen(&self, id: &str, 印: &str) -> Result<(), Error> {
+        let id: String = id.chars().filter(|c| !c.is_control()).collect();
+        let mut 並び = self.seen()?;
+        並び.retain(|(部屋, _)| *部屋 != id);
+        並び.push((id, 印.to_owned()));
+        let 余り = 並び.len().saturating_sub(SEEN_MAX);
+        並び.drain(..余り);
+        let mut out = format!("{SEEN_HEADER}\n");
+        for (id, 印) in &並び {
+            out.push_str(&format!("{id}\t{印}\n"));
+        }
+        self.write_private(&self.seen_path(), &out, "持っている印を書く")
     }
 
     /// **出した割符の控え**のファイル（**#38**）。

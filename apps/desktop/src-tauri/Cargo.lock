@@ -6587,6 +6587,7 @@ version = "0.1.41"
 name = "warifu-meeting"
 version = "0.1.41"
 dependencies = [
+ "sha2 0.10.9",
  "warifu-core",
  "warifu-intent",
  "warifu-link",

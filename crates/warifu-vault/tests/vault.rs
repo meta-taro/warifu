@@ -2043,3 +2043,35 @@ fn 会った相手は上限を超えたら古い方から忘れる() {
     assert_eq!(一覧.len(), Vault::MET_MAX);
     assert_eq!(一覧[0].1, "住所1");
 }
+
+// --- 持っている印（0.1.42） -------------------------------------------------
+
+#[test]
+fn 持っている印は部屋ごとに差し替わり_開き直しても読める() {
+    let dir = 仮の置き場("seen-roundtrip");
+    let vault = Vault::at(&dir);
+    assert_eq!(vault.seen().expect("読める"), Vec::new());
+    let a = "a".repeat(64);
+    let b = "b".repeat(64);
+    vault.save_seen("ROOM1", &a).expect("書ける");
+    vault.save_seen("ROOM2", &a).expect("書ける");
+    vault.save_seen("ROOM1", &b).expect("書ける");
+    assert_eq!(
+        Vault::at(&dir).seen().expect("読める"),
+        vec![("ROOM2".to_owned(), a), ("ROOM1".to_owned(), b)]
+    );
+}
+
+#[test]
+fn 持っている印は上限を超えたら古い部屋から落ちる() {
+    let dir = 仮の置き場("seen-max");
+    let vault = Vault::at(&dir);
+    for n in 0..=warifu_vault::SEEN_MAX {
+        vault
+            .save_seen(&format!("ROOM{n}"), &"c".repeat(64))
+            .expect("書ける");
+    }
+    let 並び = vault.seen().expect("読める");
+    assert_eq!(並び.len(), warifu_vault::SEEN_MAX);
+    assert_eq!(並び[0].0, "ROOM1");
+}

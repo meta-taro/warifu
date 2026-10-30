@@ -18,7 +18,11 @@ pub fn 入れ替えてよいか(実行ファイル: &Path, mac: bool) -> bool {
     let 親 = 実行ファイル.parent();
     let 祖父 = 親.and_then(Path::parent);
     let 曾祖父 = 祖父.and_then(Path::parent);
-    let 名 = |p: Option<&Path>| p.and_then(Path::file_name).and_then(|n| n.to_str()).map(str::to_owned);
+    let 名 = |p: Option<&Path>| {
+        p.and_then(Path::file_name)
+            .and_then(|n| n.to_str())
+            .map(str::to_owned)
+    };
     名(親).as_deref() == Some("MacOS")
         && 名(祖父).as_deref() == Some("Contents")
         && 名(曾祖父).is_some_and(|n| n.ends_with(".app"))

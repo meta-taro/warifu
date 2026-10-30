@@ -75,6 +75,16 @@ pub enum 捨てた訳 {
     名簿が受け取らなかった,
     /// もう名簿に居ない相手の退出（線が切れた時点で外している・D83）。
     もう居ない相手の退出,
+    /// 自分が主催していない部屋への「ここまで持っている」。
+    主催でない部屋への追いつき,
+    /// 印の無い「ここまで持っている」。何を持っているか分からないので送り直さない。
+    印の無い追いつき,
+    /// その部屋に居たことの無い相手の「ここまで持っている」。
+    居たことの無い相手の追いつき,
+    /// 印が控えに無い（主催が上がり直した・控えより古い）。預かり分だけを渡す。
+    控えに無い印,
+    /// 持っていない分は無かった。
+    追いつく分が無い,
 }
 
 /// やること。皮が順に果たす。**順序に意味がある**（画面へ出してから配る、など）。
@@ -111,6 +121,8 @@ pub enum 手配 {
     閉じた { 相手: PublicKey, 居た: bool },
     /// 画面と本体、または名簿と届いたものが食い違った。机へ 1 行・記録へ。
     食い違い { 文: String },
+    /// その部屋で最後に持っている文字の印。皮がファイルに置き、上がり直したら `印を思い出す` で戻す。
+    印を覚える { 部屋: MeetingId, 印: [u8; 32] },
     /// 捨てた。記録へ。
     捨てた {
         知らせ: &'static str, 訳: 捨てた訳
@@ -136,7 +148,18 @@ pub struct 部屋たち {
     /// 線が切れた（抜けたのではない）相手あての発言を、主催が預かり、その相手が入り直したら渡す。
     /// 自分で抜けた相手・部屋を畳んだら捨てる。相手ごとに [`預かる上限`] 件まで（古い分から落とす）。
     預かり: HashMap<(MeetingId, PublicKey), std::collections::VecDeque<Notice>>,
+    /// **部屋ごとの直近の文字**（0.1.42）。番・印・知らせ。[`控える上限`] 件まで。
+    控え: HashMap<MeetingId, std::collections::VecDeque<(u64, [u8; 32], Notice)>>,
+    /// 控えの次の番。
+    次の番: u64,
+    /// 主催が、相手が部屋に入ったときの番を覚える。**これより前の文字は送り直さない。**
+    入った番: HashMap<(MeetingId, PublicKey), u64>,
+    /// 部屋ごとの、最後に持っている文字の印（上がり直しても皮が戻す）。
+    最後の印: HashMap<MeetingId, [u8; 32]>,
 }
+
+/// 部屋ごとに控える文字の上限（件）。
+pub const 控える上限: usize = 200;
 
 /// 1 人ぶんに預かる上限（件）。超えたら古い分から落とす。
 pub const 預かる上限: usize = 200;
@@ -151,7 +174,83 @@ impl 部屋たち {
             見ている: None,
             線たち: Vec::new(),
             預かり: HashMap::new(),
+            控え: HashMap::new(),
+            次の番: 0,
+            入った番: HashMap::new(),
+            最後の印: HashMap::new(),
         }
+    }
+
+    /// その部屋で最後に持っている文字の印。
+    #[must_use]
+    pub fn 最後の印(&self, 部屋: MeetingId) -> Option<[u8; 32]> {
+        self.最後の印.get(&部屋).copied()
+    }
+
+    /// 上がり直したとき、皮が覚えておいた印を戻す（部屋に入る前でよい）。
+    pub fn 印を思い出す(&mut self, 部屋: MeetingId, 印: [u8; 32]) {
+        self.最後の印.insert(部屋, 印);
+    }
+
+    /// 文字を控え、その印を覚える。文字でなければ何もしない。
+    fn 控える(&mut self, 部屋: MeetingId, 知らせ: &Notice) -> Option<手配> {
+        let 印 = 知らせ.文字の印()?;
+        let 箱 = self.控え.entry(部屋).or_default();
+        箱.push_back((self.次の番, 印, 知らせ.clone()));
+        self.次の番 += 1;
+        while 箱.len() > 控える上限 {
+            箱.pop_front();
+        }
+        self.最後の印.insert(部屋, 印);
+        Some(手配::印を覚える { 部屋, 印 })
+    }
+
+    /// **入り直した客へ、持っていない分を送り直す**（0.1.42）。
+    ///
+    /// 印より後で、その客が部屋に入った後の文字だけ。その客自身の文字は送らない。
+    /// 送り直したら預かりは消す（同じ分が Join でもう一度渡らないように）。
+    fn 追いつかせる(
+        &mut self,
+        相手: PublicKey,
+        部屋: MeetingId,
+        最後: Option<[u8; 32]>,
+    ) -> Vec<手配> {
+        let 捨てる = |訳| {
+            vec![手配::捨てた {
+                知らせ: "追いつき",
+                訳,
+            }]
+        };
+        if !self.主催か(部屋) {
+            return 捨てる(捨てた訳::主催でない部屋への追いつき);
+        }
+        let Some(印) = 最後 else {
+            return 捨てる(捨てた訳::印の無い追いつき);
+        };
+        let Some(入り) = self.入った番.get(&(部屋, 相手)).copied() else {
+            return 捨てる(捨てた訳::居たことの無い相手の追いつき);
+        };
+        let 箱 = self.控え.get(&部屋);
+        let Some(どこ) = 箱.and_then(|b| b.iter().rposition(|(_, h, _)| *h == 印)) else {
+            return 捨てる(捨てた訳::控えに無い印);
+        };
+        let 送る: Vec<手配> = 箱
+            .into_iter()
+            .flatten()
+            .skip(どこ + 1)
+            .filter(|(番, _, 知らせ)| {
+                *番 >= 入り && !matches!(知らせ, Notice::Text { from, .. } if *from == 相手)
+            })
+            .map(|(_, _, 知らせ)| 手配::送る {
+                宛先: 相手,
+                知らせ: 知らせ.clone(),
+            })
+            .collect();
+        self.預かり.remove(&(部屋, 相手));
+        if 送る.is_empty() {
+            return 捨てる(捨てた訳::追いつく分が無い);
+        }
+        送る
     }
 
     /// その部屋で預かっている件数（全員ぶん）。
@@ -337,10 +436,20 @@ impl 部屋たち {
         } else {
             self.見ている.get_or_insert(部屋);
         }
-        vec![手配::送る {
-            宛先: 主催,
-            知らせ: Notice::Join { meeting: 部屋 },
-        }]
+        // **持っている所を先に言う**（0.1.42）。主催は Join の前にこれを受け、持っていない分を送り直す
+        vec![
+            手配::送る {
+                宛先: 主催,
+                知らせ: Notice::Since {
+                    meeting: 部屋,
+                    最後: self.最後の印.get(&部屋).copied(),
+                },
+            },
+            手配::送る {
+                宛先: 主催,
+                知らせ: Notice::Join { meeting: 部屋 },
+            },
+        ]
     }
 
     fn 畳む(&mut self, 部屋: MeetingId) -> Vec<手配> {
@@ -354,6 +463,9 @@ impl 部屋たち {
         self.棚.remove(&部屋);
         self.主催たち.remove(&部屋);
         self.預かり.retain(|(r, _), _| *r != 部屋);
+        self.入った番.retain(|(r, _), _| *r != 部屋);
+        self.控え.remove(&部屋);
+        self.最後の印.remove(&部屋);
         if self.見ている == Some(部屋) {
             self.見ている = self.棚.keys().next().copied();
         }
@@ -379,19 +491,21 @@ impl 部屋たち {
         if self.主催か(部屋) {
             let me = self.me;
             self.留守の分を預かる(部屋, me, &知らせ);
-            return self
-                .線のある面々(部屋)
-                .into_iter()
-                .map(|k| 手配::送る {
-                    宛先: k,
-                    知らせ: 知らせ.clone(),
-                })
-                .collect();
+            let mut 出: Vec<手配> = self.控える(部屋, &知らせ).into_iter().collect();
+            出.extend(self.線のある面々(部屋).into_iter().map(|k| 手配::送る {
+                宛先: k,
+                知らせ: 知らせ.clone(),
+            }));
+            return 出;
         }
         match self.主催(部屋) {
-            Some(h) if self.線があるか(h) => vec![手配::送る {
-                宛先: h, 知らせ
-            }],
+            Some(h) if self.線があるか(h) => {
+                let mut 出: Vec<手配> = self.控える(部屋, &知らせ).into_iter().collect();
+                出.push(手配::送る {
+                    宛先: h, 知らせ
+                });
+                出
+            }
             _ => vec![手配::捨てた {
                 知らせ: "言う",
                 訳: 捨てた訳::主催への線が無い,
@@ -498,6 +612,7 @@ impl 部屋たち {
                     話し手, 型, 中身
                 },
             ),
+            Notice::Since { meeting, 最後 } => self.追いつかせる(線の相手, meeting, 最後),
             Notice::Join { .. } | Notice::Leave { .. } | Notice::Signal(_) => {
                 self.名簿が動くものが来た(線の相手, 知らせ)
             }
@@ -574,6 +689,7 @@ impl 部屋たち {
         }
         let 知らせ = 中身.知らせに(部屋, 差出人);
         出.push(中身.手配に(部屋, 差出人));
+        出.extend(self.控える(部屋, &知らせ));
         // 主催は、その部屋のほかの面々へそのまま配る（差出人は書き換えない・D48）
         if self.主催か(部屋) {
             // **文字だけ預かる**（画像は大きいので預からない・Issue #1）
@@ -633,10 +749,15 @@ impl 部屋たち {
                 if 主催か {
                     match 知らせ {
                         // **入り直した相手へ、預かった分を渡す**（名簿を配った後・Issue #1）
-                        Notice::Join { .. } => 出.extend(self.預かりを渡す(部屋, 線の相手)),
+                        Notice::Join { .. } => {
+                            // 入った番は最初の 1 回だけ（入り直しでは動かさない）
+                            self.入った番.entry((部屋, 線の相手)).or_insert(self.次の番);
+                            出.extend(self.預かりを渡す(部屋, 線の相手));
+                        }
                         // 自分で抜けた相手の分は捨てる
                         Notice::Leave { .. } => {
                             self.預かり.remove(&(部屋, 線の相手));
+                            self.入った番.remove(&(部屋, 線の相手));
                         }
                         _ => {}
                     }
@@ -731,6 +852,7 @@ pub const fn 知らせの名(知らせ: &Notice) -> &'static str {
         Notice::Key { .. } => "鍵",
         Notice::Profile { .. } => "名乗り",
         Notice::Link { .. } => "回線",
+        Notice::Since { .. } => "追いつき",
         _ => "知らせ",
     }
 }

@@ -22,7 +22,9 @@ pub enum CLIの様子 {
     /// 画面より新しい（画面を上げ忘れている）。
     新しい { 場所: String, 版: String },
     /// 版が読めない（形が違う）。**「古い」と決めつけない。**
-    読めない { 場所: String, 出たもの: String },
+    読めない {
+        場所: String, 出たもの: String
+    },
 }
 
 /// `warifu version` が出す行から、版だけを取り出す。
@@ -66,7 +68,11 @@ pub fn 見比べる(場所: &Path, 画面の版: &str, cliの出力: &str) -> CL
 /// CLI を探す場所。**入れ方の案内と同じ順で見る。**
 #[must_use]
 pub fn 探す場所(home: &Path) -> Vec<PathBuf> {
-    let 名 = if cfg!(windows) { "warifu.exe" } else { "warifu" };
+    let 名 = if cfg!(windows) {
+        "warifu.exe"
+    } else {
+        "warifu"
+    };
     vec![
         home.join(".local/bin").join(名),
         PathBuf::from("/usr/local/bin").join(名),
@@ -148,7 +154,9 @@ mod tests {
     #[test]
     fn 探す場所は_案内と同じ順で並ぶ() {
         let 並び = 探す場所(Path::new("/home/x"));
-        assert!(並び[0].ends_with(".local/bin/warifu") || 並び[0].ends_with(".local/bin/warifu.exe"));
+        assert!(
+            並び[0].ends_with(".local/bin/warifu") || 並び[0].ends_with(".local/bin/warifu.exe")
+        );
         assert_eq!(並び.len(), 3);
     }
 }

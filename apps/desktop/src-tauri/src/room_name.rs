@@ -29,7 +29,11 @@ pub const EVENT_ROOM_NAME: &str = "warifu://room-name";
 ///
 /// 付けた本人から直に来たもの、または**そのルームの主催が配り直したもの**だけ。
 /// それ以外（ゲストが他人の名を騙って送るなど）は捨てる。
-pub fn 受け取るか(付けた人: PublicKey, 経路の相手: PublicKey, 主催: Option<PublicKey>) -> bool {
+pub fn 受け取るか(
+    付けた人: PublicKey,
+    経路の相手: PublicKey,
+    主催: Option<PublicKey>,
+) -> bool {
     付けた人 == 経路の相手 || 主催 == Some(経路の相手)
 }
 
@@ -80,7 +84,8 @@ pub async fn 付ける(bridge: &Bridge, id: &str, 名前: &str) -> Answer<()> {
     };
     // **組めないものは、送る前に断る**（長すぎる・改行を含む）
     notice.to_intent()?;
-    let 送り先 = crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, me).await;
+    let 送り先 =
+        crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, me).await;
     記録!(
         "ルームの名前: {} 人へ渡します（ルーム {}）",
         送り先.len(),

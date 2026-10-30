@@ -4183,6 +4183,7 @@ dependencies = [
 name = "warifu-meeting"
 version = "0.1.41"
 dependencies = [
+ "sha2 0.10.9",
  "tokio",
  "warifu-core",
  "warifu-intent",

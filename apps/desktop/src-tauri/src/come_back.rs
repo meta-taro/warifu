@@ -149,7 +149,11 @@ pub async fn 見張る(app: AppHandle) {
 }
 
 /// **見張りが戻ったあと、どのルームを見るか。**前に見ていたルームがまだ在れば、そこに戻す。
-fn 見張りのあとに見るルーム<T: Copy>(前: Option<T>, いま: Option<T>, 前は在る: bool) -> Option<T> {
+fn 見張りのあとに見るルーム<T: Copy>(
+    前: Option<T>,
+    いま: Option<T>,
+    前は在る: bool,
+) -> Option<T> {
     match 前 {
         Some(前) if 前は在る => Some(前),
         _ => いま,
@@ -160,7 +164,11 @@ fn 見張りのあとに見るルーム<T: Copy>(前: Option<T>, いま: Option<
 ///
 /// 割符なしで叩くと、主催が選んだ部屋へ招かれる。戻りたい部屋でなければ、
 /// その部屋は持ち続けない —— 叩き直すたびに知らない部屋が増え、通話も作り直していた。
-pub(crate) fn 頼んでいない部屋<T: PartialEq + Copy>(前: &[T], 後: &[T], 戻る先: Option<T>) -> Vec<T> {
+pub(crate) fn 頼んでいない部屋<T: PartialEq + Copy>(
+    前: &[T],
+    後: &[T],
+    戻る先: Option<T>,
+) -> Vec<T> {
     後.iter()
         .filter(|id| !前.contains(id) && Some(**id) != 戻る先)
         .copied()
@@ -201,7 +209,10 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     let 後の部屋: Vec<_> = bridge.conferences.lock().await.keys().copied().collect();
     let 戻る先 = 後の部屋.iter().copied().find(|m| m.to_string() == id);
     for 部屋 in 頼んでいない部屋(&前の部屋, &後の部屋, 戻る先) {
-        記録!("戻る: 頼んでいない部屋 {} へ招かれたので抜けます", crate::短く(&部屋.to_string()));
+        記録!(
+            "戻る: 頼んでいない部屋 {} へ招かれたので抜けます",
+            crate::短く(&部屋.to_string())
+        );
         crate::部屋を畳む(&bridge, 部屋).await;
     }
     // **主催が「その部屋はもう無い」と言った**（0.1.41）。3 回叩いて見切るのを待たず、1 回で帰り道を消す
@@ -221,9 +232,18 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     let (前のしくじり, _, 前の違い) = 控え.get(&id).copied().unwrap_or((0, Instant::now(), 0));
     let しくじった = 前のしくじり.saturating_add(1);
     // 繋がれなかった回は数えない（主催が落ちているだけかもしれない）
-    let 違った = if 結果.is_ok() { 前の違い.saturating_add(1) } else { 0 };
+    let 違った = if 結果.is_ok() {
+        前の違い.saturating_add(1)
+    } else {
+        0
+    };
     if 見切るか(違った) {
-        見切る(app, &id, &format!("主催が別の部屋を {見切る回数} 回続けて教えた")).await;
+        見切る(
+            app,
+            &id,
+            &format!("主催が別の部屋を {見切る回数} 回続けて教えた"),
+        )
+        .await;
         控え.remove(&id);
         return;
     }
@@ -237,7 +257,10 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
             e.message
         ),
     }
-    控え.insert(id, (しくじった, Instant::now() + Duration::from_secs(秒), 違った));
+    控え.insert(
+        id,
+        (しくじった, Instant::now() + Duration::from_secs(秒), 違った),
+    );
 }
 
 /// **主催の居ない部屋を見切る。**帰り道を忘れ、自分のほかに誰も居なければ部屋も畳む。
@@ -295,7 +318,9 @@ async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
     帰り道
         .into_iter()
         .filter(|(id, _)| {
-            戻るべきか(Some(id), &部屋たち, |鍵| 繋がっている.iter().any(|k| k == 鍵))
+            戻るべきか(Some(id), &部屋たち, |鍵| {
+                繋がっている.iter().any(|k| k == 鍵)
+            })
         })
         .collect()
 }
@@ -316,7 +341,6 @@ mod 試験 {
         assert!(!super::もう無いと言われたか(&居ない));
         assert!(!super::もう無いと言われたか(&Ok(())));
     }
-
 
     #[test]
     fn 見張りが戻っても_前に見ていたルームを奪わない() {
@@ -369,17 +393,25 @@ mod 試験 {
 
     #[test]
     fn ルームを持っていなければ戻る() {
-        assert!(戻るべきか(Some("R"), &[部屋("別", true, "私")], |_| false));
+        assert!(戻るべきか(Some("R"), &[部屋("別", true, "私")], |_| {
+            false
+        }));
     }
 
     #[test]
     fn 自分の部屋なら戻らない() {
-        assert!(!戻るべきか(Some("R"), &[部屋("R", true, "私")], |_| false));
+        assert!(!戻るべきか(Some("R"), &[部屋("R", true, "私")], |_| {
+            false
+        }));
     }
 
     #[test]
     fn 主催と繋がっていれば戻らない() {
-        assert!(!戻るべきか(Some("R"), &[部屋("R", false, "主")], |k| k == "主"));
+        assert!(!戻るべきか(
+            Some("R"),
+            &[部屋("R", false, "主")],
+            |k| k == "主"
+        ));
     }
 
     #[test]

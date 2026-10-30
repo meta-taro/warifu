@@ -57,8 +57,10 @@ pub fn 住所から足す(
     名前: &str,
     今: u64,
 ) -> Result<PublicKey, String> {
-    let 宛先 = Address::from_str(住所.trim())
-        .map_err(|_| "住所として読めません（WARIFU1-… の住所を渡してください。ルームキーではありません）".to_owned())?;
+    let 宛先 = Address::from_str(住所.trim()).map_err(|_| {
+        "住所として読めません（WARIFU1-… の住所を渡してください。ルームキーではありません）"
+            .to_owned()
+    })?;
     let 相手 = 宛先.public_key();
     if 相手 == 自分 {
         return Err("この PC 自身の住所です。自分は連絡先に足せません".to_owned());
@@ -200,7 +202,10 @@ pub fn 迎える(door: &mut Door, key: PublicKey) {
     };
     if door.welcome(who) {
         戸口を書き置く(&door.known().map(str::to_owned).collect::<Vec<_>>());
-        記録!("戸口: 自分から呼んだ相手を迎えた（{}）", crate::短く(&key_to_string(key)));
+        記録!(
+            "戸口: 自分から呼んだ相手を迎えた（{}）",
+            crate::短く(&key_to_string(key))
+        );
     }
 }
 
@@ -431,7 +436,12 @@ pub fn 住所だけの帰り道(帰り道: &str) -> Option<Address> {
 /// **1 本の経路・1 部屋につき 1 度だけ返す。**両側が自分を主催だと思っていると、
 /// 名乗りに名乗りで返して往復する（2026-09-13 に配り直しで踏んだ形）。
 #[must_use]
-pub fn 名乗り返すか(主催か: bool, 相手: PublicKey, 名乗り: PublicKey, もう返した: bool) -> bool {
+pub fn 名乗り返すか(
+    主催か: bool,
+    相手: PublicKey,
+    名乗り: PublicKey,
+    もう返した: bool,
+) -> bool {
     主催か && 相手 == 名乗り && !もう返した
 }
 
@@ -467,7 +477,11 @@ pub fn 主催と同じか(主催: Option<PublicKey>, 誰: PublicKey) -> bool {
 ///
 /// **通るのはそのルームの中だけ。**戸口の書き置きには入れない（`Door::名簿で迎える`）。
 #[must_use]
-pub fn 名簿として迎えるか(紹介者が主催か: bool, 紹介者: PublicKey, 名乗り: PublicKey) -> bool {
+pub fn 名簿として迎えるか(
+    紹介者が主催か: bool,
+    紹介者: PublicKey,
+    名乗り: PublicKey,
+) -> bool {
     紹介者が主催か && 紹介者 != 名乗り
 }
 
@@ -527,7 +541,11 @@ mod 配る試験 {
     #[test]
     fn 主催でない相手の紹介は_戸口で通さない() {
         // **信じるのは主催の言い分だけ。**ゲストが「この人は居る」と言っても通さない
-        assert!(!名簿として迎えるか(false, 鍵([1; 32]), 鍵([2; 32])));
+        assert!(!名簿として迎えるか(
+            false,
+            鍵([1; 32]),
+            鍵([2; 32])
+        ));
     }
 
     #[test]
@@ -557,7 +575,10 @@ mod 呼ぶ相手の試験 {
     fn 帳() -> Vec<(String, String)> {
         vec![
             ("AAAAMMMMKKKK1111".to_owned(), "相手A".to_owned()),
-            ("BBBBQQQQ22223333".to_owned(), "相手B（エージェント）".to_owned()),
+            (
+                "BBBBQQQQ22223333".to_owned(),
+                "相手B（エージェント）".to_owned(),
+            ),
             ("BBBBZZZZ44445555".to_owned(), "別の人".to_owned()),
         ]
     }
@@ -619,14 +640,21 @@ mod 書き出しの名の試験 {
 
     #[test]
     fn 覚えている相手の鍵なら_呼び名を前に出す() {
-        assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "AAAAMMMMKKKK1111"), "相手A（AAAAMMMMKKKK…）");
+        assert_eq!(
+            書き出しの名(&帳(), "SELFSELFSELF0000", "AAAAMMMMKKKK1111"),
+            "相手A（AAAAMMMMKKKK…）"
+        );
     }
 
     #[test]
     fn 相手のエージェントの札が付いていても_呼び名を添える() {
         // 線の向こうのエージェントは「鍵の頭（名札）」で来る
         assert_eq!(
-            書き出しの名(&帳(), "SELFSELFSELF0000", "AAAAMMMMKKKK…（クロ のエージェント）"),
+            書き出しの名(
+                &帳(),
+                "SELFSELFSELF0000",
+                "AAAAMMMMKKKK…（クロ のエージェント）"
+            ),
             "相手A（クロ のエージェント）"
         );
     }
@@ -641,8 +669,14 @@ mod 書き出しの名の試験 {
 
     #[test]
     fn 覚えていない相手と_この機械の名札はそのまま() {
-        assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "ZZZZZZZZZZZZ9999"), "ZZZZZZZZZZZZ9999");
-        assert_eq!(書き出しの名(&帳(), "SELFSELFSELF0000", "warifu のエージェント"), "warifu のエージェント");
+        assert_eq!(
+            書き出しの名(&帳(), "SELFSELFSELF0000", "ZZZZZZZZZZZZ9999"),
+            "ZZZZZZZZZZZZ9999"
+        );
+        assert_eq!(
+            書き出しの名(&帳(), "SELFSELFSELF0000", "warifu のエージェント"),
+            "warifu のエージェント"
+        );
     }
 }
 
@@ -698,7 +732,12 @@ mod 住所から足す試験 {
         assert!(!札を見た.get(), "断りが決まった足し方で札を見ない");
         assert_eq!(帳.len(), 前.len());
         // 読めない住所・自分自身も同じ
-        assert!(札を使って足す(&mut 帳, 鍵(1), "WARIFU1-AAAA", "x", 10, || panic!("札を見た")).is_err());
+        assert!(
+            札を使って足す(&mut 帳, 鍵(1), "WARIFU1-AAAA", "x", 10, || panic!(
+                "札を見た"
+            ))
+            .is_err()
+        );
         assert!(札を使って足す(&mut 帳, 鍵(1), &住所(1), "x", 10, || panic!("札を見た")).is_err());
     }
 
@@ -708,7 +747,8 @@ mod 住所から足す試験 {
         let 結果 = 札を使って足す(&mut 帳, 鍵(1), &住所(3), "ZenBook", 10, || false);
         assert!(結果.is_err());
         assert_eq!(帳.len(), 0, "札が無いなら帳はそのまま");
-        let 相手 = 札を使って足す(&mut 帳, 鍵(1), &住所(3), "ZenBook", 10, || true).expect("札があれば足せる");
+        let 相手 = 札を使って足す(&mut 帳, 鍵(1), &住所(3), "ZenBook", 10, || true)
+            .expect("札があれば足せる");
         assert_eq!(相手, 鍵(3));
         assert_eq!(帳.len(), 1);
     }
@@ -727,7 +767,8 @@ mod 住所から足す試験 {
     fn 既にいる相手は_名前も住所も書き換えない() {
         let mut 帳 = warifu_vault::Contacts::new();
         住所から足す(&mut 帳, 鍵(1), &住所(2), "相手B", 10).expect("足せる");
-        let 別の番地 = Address::from_ip_addrs(鍵(2), ["198.51.100.1:5000".parse().expect("番地")]).to_string();
+        let 別の番地 =
+            Address::from_ip_addrs(鍵(2), ["198.51.100.1:5000".parse().expect("番地")]).to_string();
         let 訳 = 住所から足す(&mut 帳, 鍵(1), &別の番地, "別名", 20).unwrap_err();
         assert!(訳.contains("相手B"), "{訳}");
         let 行 = 帳.find(鍵(2)).expect("在る");

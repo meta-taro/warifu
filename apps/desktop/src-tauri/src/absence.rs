@@ -127,7 +127,10 @@ mod 試験 {
         let mut 帳 = 不在帳::default();
         let t0 = Instant::now();
         帳.切れた("A", t0);
-        assert!(帳.知らせる頃(t0 + Duration::from_secs(599), 十分).is_empty());
+        assert!(
+            帳.知らせる頃(t0 + Duration::from_secs(599), 十分)
+                .is_empty()
+        );
     }
 
     #[test]

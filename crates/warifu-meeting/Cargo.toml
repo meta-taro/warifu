@@ -11,6 +11,7 @@ repository.workspace = true
 warifu-core.workspace = true
 warifu-intent.workspace = true
 warifu-link.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
 warifu-net.workspace = true

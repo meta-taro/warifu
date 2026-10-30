@@ -21,7 +21,9 @@ use warifu_meeting::{MeetingId, Notice, Roster, Signal, Step};
 
 use crate::RoomRow;
 use crate::call::{招く部屋を選ぶ, 自分を名簿に足す};
-use crate::come_back::{居ないと告げるか, 戻るべきか, 見切るか, 頼んでいない部屋};
+use crate::come_back::{
+    居ないと告げるか, 戻るべきか, 見切るか, 頼んでいない部屋
+};
 
 const 定員: usize = warifu_app::DEFAULT_CAPACITY;
 
@@ -73,11 +75,18 @@ impl 機械 {
             .map(|c| RoomRow {
                 id: c.id().to_string(),
                 members: c.members().len(),
-                host: self.主催たち.get(&c.id()).is_none_or(|主催| *主催 == self.鍵),
+                host: self
+                    .主催たち
+                    .get(&c.id())
+                    .is_none_or(|主催| *主催 == self.鍵),
                 host_key: crate::key_to_string(
                     self.主催たち.get(&c.id()).copied().unwrap_or(self.鍵),
                 ),
-                member_keys: c.members().iter().map(|k| crate::key_to_string(*k)).collect(),
+                member_keys: c
+                    .members()
+                    .iter()
+                    .map(|k| crate::key_to_string(*k))
+                    .collect(),
             })
             .collect()
     }
@@ -94,7 +103,9 @@ impl 機械 {
     }
 
     fn 居ると思っている(&self, 部屋: MeetingId, 相手: PublicKey) -> bool {
-        self.棚.get(&部屋).is_some_and(|c| c.members().contains(&相手))
+        self.棚
+            .get(&部屋)
+            .is_some_and(|c| c.members().contains(&相手))
     }
 }
 
@@ -254,8 +265,11 @@ impl 網 {
             {
                 continue;
             }
-            let Some(c) = gm.棚.get_mut(&部屋) else { continue };
-            let (足す, 外す) = crate::roster_sync::名簿の差(c.members(), &名簿, &gm.鍵, &主催の鍵);
+            let Some(c) = gm.棚.get_mut(&部屋) else {
+                continue;
+            };
+            let (足す, 外す) =
+                crate::roster_sync::名簿の差(c.members(), &名簿, &gm.鍵, &主催の鍵);
             for 相手 in 足す {
                 let _ = c.admit(相手);
                 gm.戸口.insert(相手);
@@ -280,7 +294,10 @@ impl 網 {
                 continue;
             }
             // 主催かは覚えた主催で決める（0.1.40・lib.rs と同じ読み）。棚を触る前に読む
-            let 主催か = crate::roster_sync::主催か(self.機械たち[j].主催たち.get(&部屋), &self.機械たち[j].鍵);
+            let 主催か = crate::roster_sync::主催か(
+                self.機械たち[j].主催たち.get(&部屋),
+                &self.機械たち[j].鍵,
+            );
             if let Some(c) = self.機械たち[j].棚.get_mut(&部屋) {
                 let events = c
                     .on_notice(自分, &Notice::Leave { meeting: 部屋 })
@@ -307,7 +324,8 @@ impl 網 {
         let 帰り道 = self.機械たち[i].帰り道.clone();
         for (部屋, 主催の鍵) in 帰り道 {
             // 見切ったあとは帰り道ごと消えている
-            if !self.戻るか(i, 部屋) || !self.機械たち[i].帰り道.iter().any(|(id, _)| *id == 部屋) {
+            if !self.戻るか(i, 部屋) || !self.機械たち[i].帰り道.iter().any(|(id, _)| *id == 部屋)
+            {
                 continue;
             }
             let 前: Vec<MeetingId> = self.機械たち[i].棚.keys().copied().collect();
@@ -342,7 +360,9 @@ impl 網 {
             .filter(|&j| self.繋がっている(i, j))
             .map(|j| crate::key_to_string(self.機械たち[j].鍵))
             .collect();
-        戻るべきか(Some(&部屋.to_string()), &並び, |k| 繋がっている鍵.iter().any(|c| c == k))
+        戻るべきか(Some(&部屋.to_string()), &並び, |k| {
+            繋がっている鍵.iter().any(|c| c == k)
+        })
     }
 
     /// **使わない線が閉じる。**両側が気づき、互いを名簿から外す（外せる分だけ）。
@@ -357,7 +377,10 @@ impl 網 {
     /// `come_back::見切る`。自分のほかに誰も居なければ畳み、居れば帰り道だけ忘れる。
     fn 見切る(&mut self, i: usize, 部屋: MeetingId) {
         self.機械たち[i].違った.remove(&部屋);
-        let 誰も居ない = self.機械たち[i].棚.get(&部屋).is_none_or(|c| c.members().len() <= 1);
+        let 誰も居ない = self.機械たち[i]
+            .棚
+            .get(&部屋)
+            .is_none_or(|c| c.members().len() <= 1);
         if 誰も居ない && self.機械たち[i].棚.contains_key(&部屋) {
             self.畳む(i, 部屋);
         } else {
@@ -369,7 +392,9 @@ impl 網 {
     /// 受けた側が名簿に居ないとして断り、自分が主催なら「居ない」と告げる（0.1.37）。
     fn 下ごしらえ(&mut self, i: usize, 部屋: MeetingId) {
         let 自分 = self.機械たち[i].鍵;
-        let Some(c) = self.機械たち[i].棚.get(&部屋) else { return };
+        let Some(c) = self.機械たち[i].棚.get(&部屋) else {
+            return;
+        };
         let 相手たち: Vec<PublicKey> = c.members().iter().copied().filter(|k| *k != 自分).collect();
         for k in 相手たち {
             let j = self.番号(k);
@@ -402,7 +427,12 @@ impl 網 {
                     .棚
                     .keys()
                     .copied()
-                    .filter(|id| self.機械たち[i].主催たち.get(id).is_some_and(|h| *h != self.機械たち[i].鍵))
+                    .filter(|id| {
+                        self.機械たち[i]
+                            .主催たち
+                            .get(id)
+                            .is_some_and(|h| *h != self.機械たち[i].鍵)
+                    })
                     .collect();
                 for 部屋 in 客の部屋 {
                     self.下ごしらえ(i, 部屋);
@@ -417,7 +447,9 @@ impl 網 {
         let mut 並び = Vec::new();
         for g in self.機械たち.iter().filter(|m| m.起きている) {
             for (部屋, c) in &g.棚 {
-                let Some(主催の鍵) = g.主催たち.get(部屋).copied() else { continue };
+                let Some(主催の鍵) = g.主催たち.get(部屋).copied() else {
+                    continue;
+                };
                 if 主催の鍵 == g.鍵 {
                     continue;
                 }
@@ -425,7 +457,11 @@ impl 網 {
                 let 客は居ると思う = c.members().contains(&主催の鍵);
                 let 主催の名簿に居る = h.起きている && h.居ると思っている(*部屋, g.鍵);
                 if 客は居ると思う && !主催の名簿に居る {
-                    並び.push(format!("{} は部屋 {} に居るつもりだが、主催の名簿に居ない", 名(g), 頭(*部屋)));
+                    並び.push(format!(
+                        "{} は部屋 {} に居るつもりだが、主催の名簿に居ない",
+                        名(g),
+                        頭(*部屋)
+                    ));
                 }
                 // **客の名簿は、主催の名簿と同じ顔ぶれであること**（0.1.39・`roster_sync`）。
                 // 違うと、見出しの人数にも届く先にも出ない相手から発言が届く
@@ -447,7 +483,10 @@ impl 網 {
             }
             for (部屋, 主催の鍵) in &g.帰り道 {
                 let h = &self.機械たち[self.番号(*主催の鍵)];
-                if h.起きている && h.棚.contains_key(部屋) && !h.居ると思っている(*部屋, g.鍵) {
+                if h.起きている
+                    && h.棚.contains_key(部屋)
+                    && !h.居ると思っている(*部屋, g.鍵)
+                {
                     並び.push(format!("{} は部屋 {} に戻れていない", 名(g), 頭(*部屋)));
                 }
             }
@@ -545,18 +584,32 @@ fn 主催の居ない部屋は_見切って叩き合いをやめ_部屋を増や
         網.線を閉じる(0, 1);
     }
     assert!(
-        網.機械たち.iter().all(|m| !m.帰り道.iter().any(|(id, _)| *id == 幽霊)),
+        網.機械たち
+            .iter()
+            .all(|m| !m.帰り道.iter().any(|(id, _)| *id == 幽霊)),
         "どちらも見切る"
     );
-    assert!(網.機械たち.iter().all(|m| !m.棚.contains_key(&幽霊)), "幽霊の部屋は畳まれる");
-    assert!(網.部屋の数() <= 4, "叩くたびに部屋が増えない（{} 室）", 網.部屋の数());
+    assert!(
+        網.機械たち.iter().all(|m| !m.棚.contains_key(&幽霊)),
+        "幽霊の部屋は畳まれる"
+    );
+    assert!(
+        網.部屋の数() <= 4,
+        "叩くたびに部屋が増えない（{} 室）",
+        網.部屋の数()
+    );
 }
 
 #[test]
 fn 客として他人の部屋を見ていても_呼ばれたら自分の部屋へ招く() {
     // 0.1.35 / 0.1.37。見ている部屋へ招くと、その部屋の主催の知らない所で部屋が割れた
     let mut 網 = 主催と客(1); // 1 は 0 の部屋の客
-    let x = 網.機械たち[1].棚.keys().copied().find(|id| 網.機械たち[1].主催たち[id] != 網.機械たち[1].鍵).unwrap();
+    let x = 網.機械たち[1]
+        .棚
+        .keys()
+        .copied()
+        .find(|id| 網.機械たち[1].主催たち[id] != 網.機械たち[1].鍵)
+        .unwrap();
     網.機械たち[1].見ている = Some(x);
     // 2 台目の知り合い（2）が 1 を鍵なしで呼ぶ
     網.機械たち.push(機械::new(3));
@@ -577,11 +630,30 @@ fn 調べ_取り残し() {
         eprintln!("── {段}");
         for m in &網.機械たち {
             for (id, c) in &m.棚 {
-                let 主催 = m.主催たち.get(id).map(|k| crate::短く(&crate::key_to_string(*k))).unwrap_or_default();
-                let 面々: Vec<String> = c.members().iter().map(|k| crate::短く(&crate::key_to_string(*k))).collect();
-                eprintln!("  {} 部屋 {} 主催 {} 名簿 {:?} 見ている {:?}", 名(m), 頭(*id), 主催, 面々, m.見ている.map(頭));
+                let 主催 = m
+                    .主催たち
+                    .get(id)
+                    .map(|k| crate::短く(&crate::key_to_string(*k)))
+                    .unwrap_or_default();
+                let 面々: Vec<String> = c
+                    .members()
+                    .iter()
+                    .map(|k| crate::短く(&crate::key_to_string(*k)))
+                    .collect();
+                eprintln!(
+                    "  {} 部屋 {} 主催 {} 名簿 {:?} 見ている {:?}",
+                    名(m),
+                    頭(*id),
+                    主催,
+                    面々,
+                    m.見ている.map(頭)
+                );
             }
-            eprintln!("  {} 帰り道 {:?}", 名(m), m.帰り道.iter().map(|(i, _)| 頭(*i)).collect::<Vec<_>>());
+            eprintln!(
+                "  {} 帰り道 {:?}",
+                名(m),
+                m.帰り道.iter().map(|(i, _)| 頭(*i)).collect::<Vec<_>>()
+            );
         }
         eprintln!("  線 {:?}", 網.線);
     };

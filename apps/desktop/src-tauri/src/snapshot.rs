@@ -25,7 +25,8 @@ static 待ち: Mutex<Option<HashMap<u64, oneshot::Sender<String>>>> = Mutex::new
 pub async fn 写してもらう(app: &AppHandle) -> Result<String, String> {
     let 番号 = 次の番号.fetch_add(1, Ordering::Relaxed);
     let (返す, 受ける) = oneshot::channel();
-    待ち.lock()
+    待ち
+        .lock()
         .expect("毒されていない")
         .get_or_insert_with(HashMap::new)
         .insert(番号, 返す);
@@ -37,7 +38,10 @@ pub async fn 写してもらう(app: &AppHandle) -> Result<String, String> {
         Ok(Ok(中身)) => Ok(中身),
         _ => {
             取り下げる(番号);
-            Err("画面が写しを返しませんでした（窓が閉じている・古い版の画面かもしれません）".to_owned())
+            Err(
+                "画面が写しを返しませんでした（窓が閉じている・古い版の画面かもしれません）"
+                    .to_owned(),
+            )
         }
     }
 }

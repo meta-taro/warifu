@@ -182,8 +182,13 @@ pub async fn 頼む(
         .map_or_else(|| 短く(&鍵), |(_, 名)| 名.clone());
     let 番号 = 次の番号.fetch_add(1, Ordering::Relaxed);
     // **人が前もって「聞かずに渡す」と決めていれば、聞かずに渡す**（0.1.41）
-    if crate::desk::持続の札().iter().any(|(a, _)| a == 聞かずに渡す札) {
-        記録!("手渡し: 人が前もって許しているので、聞かずに渡します（{相手} へ・頼んだのは {頼んだ人}）");
+    if crate::desk::持続の札()
+        .iter()
+        .any(|(a, _)| a == 聞かずに渡す札)
+    {
+        記録!(
+            "手渡し: 人が前もって許しているので、聞かずに渡します（{相手} へ・頼んだのは {頼んだ人}）"
+        );
         let 頼 = 頼み {
             番号,
             相手,
@@ -205,7 +210,10 @@ pub async fn 頼む(
     if let Err(e) = app.emit(EVENT_HANDOFF, 並べる()) {
         記録!("手渡し: 画面へ知らせられませんでした: {e}");
     }
-    crate::notify::承認を頼む(app, &format!("{相手} へルームキーを渡してよいか、聞かれています"));
+    crate::notify::承認を頼む(
+        app,
+        &format!("{相手} へルームキーを渡してよいか、聞かれています"),
+    );
     答えを待つ(番号, 待つ秒).await
 }
 
@@ -251,7 +259,9 @@ pub async fn answer_handoff(
         手渡しの返り::断った
     };
     let 言い方 = match &結果 {
-        手渡しの返り::渡した { 相手, いつまで } => {
+        手渡しの返り::渡した {
+            相手, いつまで
+        } => {
             format!("{相手} の機械へルームキーを渡しました（{いつまで} まで）")
         }
         手渡しの返り::断った => format!("{} へは渡しませんでした", 頼.相手),
@@ -268,10 +278,17 @@ async fn 送る(bridge: &Bridge, 頼: &頼み) -> 手渡しの返り {
         return 渡せない("相手の鍵が読めません");
     };
     // **経路の宛先にする会議**（その相手と共にしているもの）。鍵の行き先とは限らない
-    let Some(meeting) = crate::相手が居るルーム(&bridge.conferences, 相手の鍵).await else {
+    let Some(meeting) = crate::相手が居るルーム(&bridge.conferences, 相手の鍵).await
+    else {
         return 渡せない("その相手と同じルームに居ません");
     };
-    let Some(tx) = bridge.outbound.lock().await.get(&相手の鍵.to_bytes()).cloned() else {
+    let Some(tx) = bridge
+        .outbound
+        .lock()
+        .await
+        .get(&相手の鍵.to_bytes())
+        .cloned()
+    else {
         return 渡せない("その相手の機械とは、いまつながっていません");
     };
     let 開始 = crate::now_secs();
@@ -294,7 +311,10 @@ async fn 送る(bridge: &Bridge, 頼: &頼み) -> 手渡しの返り {
     }
     let いつまで = crate::時刻の言い方(開始.saturating_add(寿命));
     // **鍵を書かない。**誰へ・いつまでだけ
-    記録!("手渡し: {} へルームキーを 1 本渡しました（{いつまで} まで）", 頼.相手);
+    記録!(
+        "手渡し: {} へルームキーを 1 本渡しました（{いつまで} まで）",
+        頼.相手
+    );
     手渡しの返り::渡した {
         相手: 頼.相手.clone(),
         いつまで,
@@ -330,7 +350,10 @@ mod tests {
         // 口（warifu mcp）は控えの札の名を「小文字・数字・点」で読む。外れると読めない
         let 名 = super::聞かずに渡す札;
         assert!(!名.is_empty() && !名.starts_with('.') && !名.ends_with('.') && !名.contains(".."));
-        assert!(名.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.'));
+        assert!(
+            名.bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.')
+        );
     }
 
     use super::*;

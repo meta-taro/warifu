@@ -74,10 +74,16 @@ pub fn 見比べる(本体: &本体の写し, 画面: &画面の写し) -> Vec<S
     let 画面の集合: BTreeSet<&str> = 画面.部屋ごと.iter().map(|r| r.id.as_str()).collect();
     let 本体の集合: BTreeSet<&str> = 本体.部屋ごと.iter().map(|r| r.id.as_str()).collect();
     for id in 画面の集合.difference(&本体の集合) {
-        出.push(format!("画面にだけ部屋 {} がある（本体の棚に無い）", 頭(id)));
+        出.push(format!(
+            "画面にだけ部屋 {} がある（本体の棚に無い）",
+            頭(id)
+        ));
     }
     for id in 本体の集合.difference(&画面の集合) {
-        出.push(format!("本体にだけ部屋 {} がある（画面の一覧に無い）", 頭(id)));
+        出.push(format!(
+            "本体にだけ部屋 {} がある（画面の一覧に無い）",
+            頭(id)
+        ));
     }
     for 画 in &画面.部屋ごと {
         let Some(本) = 本体.部屋ごと.iter().find(|r| r.id == 画.id) else {
@@ -108,8 +114,16 @@ pub fn 見比べる(本体: &本体の写し, 画面: &画面の写し) -> Vec<S
                 出.push(format!(
                     "部屋 {} の届く先が名簿と違う（画面に無い: {}／名簿に無い: {}）",
                     頭(&画.id),
-                    if 足りない.is_empty() { "なし".to_owned() } else { 足りない.join("・") },
-                    if 余計.is_empty() { "なし".to_owned() } else { 余計.join("・") }
+                    if 足りない.is_empty() {
+                        "なし".to_owned()
+                    } else {
+                        足りない.join("・")
+                    },
+                    if 余計.is_empty() {
+                        "なし".to_owned()
+                    } else {
+                        余計.join("・")
+                    }
                 ));
             }
         }
@@ -118,7 +132,11 @@ pub fn 見比べる(本体: &本体の写し, 画面: &画面の写し) -> Vec<S
             出.push(format!(
                 "部屋 {} の題字（{}）と本体の主催（{}）が違う",
                 頭(&画.id),
-                if 画.建てたと出している { "あなたが建てた" } else { "建てていない" },
+                if 画.建てたと出している {
+                    "あなたが建てた"
+                } else {
+                    "建てていない"
+                },
                 if 本.主催か { "自分" } else { "相手" }
             ));
         }
@@ -199,6 +217,9 @@ mod 試験 {
         });
         let 出 = 見比べる(&本体(), &画);
         assert!(出.iter().any(|s| s.contains("画面にだけ部屋 GHOST…")));
-        assert!(出.iter().any(|s| s.contains("題字（建てていない）と本体の主催（自分）")));
+        assert!(
+            出.iter()
+                .any(|s| s.contains("題字（建てていない）と本体の主催（自分）"))
+        );
     }
 }

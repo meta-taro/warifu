@@ -429,10 +429,7 @@ mod tests {
     #[test]
     fn 名乗りに場所が入っていれば_重ねて付けない() {
         assert_eq!(
-            名札にする(
-                "docs-site のエージェント",
-                Some("資料くん（docs-site）")
-            ),
+            名札にする("docs-site のエージェント", Some("資料くん（docs-site）")),
             "資料くん（docs-site）"
         );
     }
@@ -488,7 +485,10 @@ mod この機械の名乗りの試験 {
             (Who::Me, "人A", "開発"),
             (Who::Desk("docs".to_owned()), "資料くん", "資料"),
         ]);
-        assert_eq!(この機械の名乗り(&面々), ("人A".to_owned(), "開発".to_owned()));
+        assert_eq!(
+            この機械の名乗り(&面々),
+            ("人A".to_owned(), "開発".to_owned())
+        );
     }
 
     #[test]
@@ -496,7 +496,10 @@ mod この機械の名乗りの試験 {
         let 面々 = 作る(&[(Who::Desk("zen".to_owned()), "ZenBook", "Windows の席")]);
         assert_eq!(
             この機械の名乗り(&面々),
-            ("ZenBook のエージェント".to_owned(), "Windows の席".to_owned())
+            (
+                "ZenBook のエージェント".to_owned(),
+                "Windows の席".to_owned()
+            )
         );
         let 二人 = 作る(&[
             (Who::Desk("a".to_owned()), "A", ""),

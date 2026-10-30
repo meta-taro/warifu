@@ -91,7 +91,10 @@ pub async fn 住所へ呼ぶ(
     };
     session.send(&叩き).await.map_err(|_| 居ません())?;
     match 戻りたい {
-        Some(部屋) => 記録!("呼ぶ: 割符なしで叩いた（戻りたい部屋 {}）", crate::短く(&部屋.to_string())),
+        Some(部屋) => 記録!(
+            "呼ぶ: 割符なしで叩いた（戻りたい部屋 {}）",
+            crate::短く(&部屋.to_string())
+        ),
         None => 記録!("呼ぶ: 割符なしで叩いた"),
     }
 
@@ -150,6 +153,8 @@ pub async fn 住所へ呼ぶ(
     }
     emit_events(app, meeting, &events);
 
+    // 持っている所を先に言う（0.1.42・主催は持っていない分を送り直す）
+    crate::持っている所を言う(bridge, &mut channel, meeting).await;
     channel
         .send(&Notice::Join { meeting }.to_intent()?)
         .await
@@ -233,7 +238,10 @@ pub const もう無いの印: &str = "room.gone";
 
 fn もう無い(部屋: warifu_meeting::MeetingId) -> Failure {
     Failure {
-        message: format!("部屋 {} は、主催がもう主催していません", crate::短く(&部屋.to_string())),
+        message: format!(
+            "部屋 {} は、主催がもう主催していません",
+            crate::短く(&部屋.to_string())
+        ),
         code: Some(もう無いの印.into()),
     }
 }
@@ -264,7 +272,6 @@ pub fn 招く(
         roster,
     })
 }
-
 
 /// **部屋の合言葉の証しを見せて、同じ部屋のゲストを呼ぶ**（**D118** / **#28**）。
 ///
@@ -406,9 +413,18 @@ async fn 部屋へ足す(
 mod 試験 {
     #[test]
     fn 添えられた部屋を主催していればそこへ_していなければもう無い_添えが無ければ選ぶ() {
-        assert_eq!(super::招く先を決める(Some(1), &[1, 2]), super::招く先::その部屋(1));
-        assert_eq!(super::招く先を決める(Some(3), &[1, 2]), super::招く先::もう無い(3));
-        assert_eq!(super::招く先を決める(Some(3), &[]), super::招く先::もう無い(3));
+        assert_eq!(
+            super::招く先を決める(Some(1), &[1, 2]),
+            super::招く先::その部屋(1)
+        );
+        assert_eq!(
+            super::招く先を決める(Some(3), &[1, 2]),
+            super::招く先::もう無い(3)
+        );
+        assert_eq!(
+            super::招く先を決める(Some(3), &[]),
+            super::招く先::もう無い(3)
+        );
         assert_eq!(super::招く先を決める::<u8>(None, &[1]), super::招く先::選ぶ);
     }
 

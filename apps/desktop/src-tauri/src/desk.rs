@@ -23,7 +23,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::broadcast;
-use warifu_desk::{FromDesk, ToDesk, 受け口, 口, この機械の場所};
+use warifu_desk::{FromDesk, ToDesk, この機械の場所, 受け口, 口};
 use warifu_meeting::MeetingId;
 
 use crate::{Bridge, EVENT_DESK, EVENT_DESK_SEATS};
@@ -95,7 +95,10 @@ fn 版が上がったと告げる(app: &AppHandle) {
         記録!("告げた版を控えられません（{}）: {e}", 道.display());
     }
     if let Some(本文) = 版が上がった知らせ(前.as_deref().map(str::trim), 版) {
-        記録!("版が {} から {版} に上がったと、エージェントへ告げます", 前.as_deref().unwrap_or("").trim());
+        記録!(
+            "版が {} から {版} に上がったと、エージェントへ告げます",
+            前.as_deref().unwrap_or("").trim()
+        );
         配る(&app.state::<Bridge>(), 聞いた("割符", &本文));
     }
 }
@@ -162,8 +165,9 @@ static 直近の発言: Mutex<Vec<(u64, FromDesk)>> = Mutex::new(Vec::new());
 /// **後から来たほうに番号を振る** —— 先に居るほうの名前を変えない。
 fn エージェントにつながれる(エージェント: u64, 呼び方: &str) {
     let mut 棚 = エージェントたち.lock().expect("毒されていない");
-    let 使われている =
-        |名: &str, 棚: &BTreeMap<u64, String>| 棚.iter().any(|(番, 呼)| *番 != エージェント && 呼 == 名);
+    let 使われている = |名: &str, 棚: &BTreeMap<u64, String>| {
+        棚.iter().any(|(番, 呼)| *番 != エージェント && 呼 == 名)
+    };
     if !使われている(呼び方, &棚) {
         棚.insert(エージェント, 呼び方.to_owned());
         return;
@@ -468,7 +472,10 @@ async fn 応じる(
                 過去を選ぶ(&棚, どこから)
             };
             if !過去.is_empty() {
-                記録!("この機械: {名} へ、切れている間の {} 行を渡します", 過去.len());
+                記録!(
+                    "この機械: {名} へ、切れている間の {} 行を渡します",
+                    過去.len()
+                );
             }
             for 行 in 過去 {
                 if 口.送る(&行.書く()).await.is_err() {
@@ -498,8 +505,9 @@ async fn 応じる(
                 None => FromDesk::Denied {
                     why: "先に名乗ってください（--as か、起動した場所）".to_owned(),
                 },
-                Some(名) => match crate::profile::エージェントの名乗りを書く(app, 名, &名前, &紹介)
-                {
+                Some(名) => match crate::profile::エージェントの名乗りを書く(
+                    app, 名, &名前, &紹介,
+                ) {
                     Ok(()) => {
                         // **相手の名簿にも出す**（0.1.33）。人が名乗っていない PC では、
                         // この名乗りが相手に見える名前になる。入ったあとで名乗っても届くよう、配り直す
@@ -533,7 +541,10 @@ async fn 応じる(
             // **まず帯を出す。**待つ前に頼んでおかないと、人は何も見ない
             let 答え = 頼みを受ける(app, &動作, &訳, 名乗り.as_deref());
             let 答え = if matches!(答え, warifu_desk::頼みの返り::まだ) {
-                記録!("札: 待ちます（{動作}・{待つ秒} 秒・{}）", 呼び方(名乗り.as_deref()));
+                記録!(
+                    "札: 待ちます（{動作}・{待つ秒} 秒・{}）",
+                    呼び方(名乗り.as_deref())
+                );
                 答えを待つ(&動作, 待つ秒).await
             } else {
                 // **すでに答えが出ているものは待たない**（許した／断った／受け付けない）
@@ -562,7 +573,11 @@ async fn 応じる(
                     Err(e) => {
                         // **途中で失敗したら、出せた分だけ返さない。**
                         // 半分渡すと「何本渡したか」が両側で食い違う
-                        記録!("招く: 出せませんでした（{} 本目・{}）", 鍵たち.len() + 1, e.message);
+                        記録!(
+                            "招く: 出せませんでした（{} 本目・{}）",
+                            鍵たち.len() + 1,
+                            e.message
+                        );
                         let _ = 口.送る(&FromDesk::Denied { why: e.message }.書く()).await;
                         return Ok(());
                     }
@@ -674,7 +689,8 @@ async fn 応じる(
             記録!(
                 "入る: {}（頼んだのは {}）",
                 match &返事 {
-                    FromDesk::入った { ルーム } => format!("ルーム {} へ入りました", crate::短く(ルーム)),
+                    FromDesk::入った { ルーム } =>
+                        format!("ルーム {} へ入りました", crate::短く(ルーム)),
                     FromDesk::Denied { why } => format!("入れませんでした: {why}"),
                     _ => String::new(),
                 },
@@ -707,7 +723,10 @@ async fn 応じる(
         // **向こうに新しい版があるか尋ねる**（0.1.41・内部の Issue 027）。入れ替えは人が押す
         ToDesk::更新を確かめる => {
             let 返事 = 更新を確かめる(app).await;
-            記録!("{} が更新を確かめました: {返事:?}", 呼び方(名乗り.as_deref()));
+            記録!(
+                "{} が更新を確かめました: {返事:?}",
+                呼び方(名乗り.as_deref())
+            );
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
@@ -717,7 +736,8 @@ async fn 応じる(
             記録!(
                 "抜ける: {}（頼んだのは {}）",
                 match &返事 {
-                    FromDesk::抜けた { 部屋 } => format!("部屋 {} を抜けました", crate::短く(部屋)),
+                    FromDesk::抜けた { 部屋 } =>
+                        format!("部屋 {} を抜けました", crate::短く(部屋)),
                     FromDesk::Denied { why } => format!("抜けませんでした: {why}"),
                     _ => String::new(),
                 },
@@ -804,7 +824,9 @@ async fn 応じる(
                     .filter_map(|k| 棚.get(&k.to_bytes()).cloned())
                     .collect();
                 match 札たち.split_first() {
-                    Some((先頭, 残り)) if 残り.iter().all(|x| x == 先頭) => Some(先頭.clone()),
+                    Some((先頭, 残り)) if 残り.iter().all(|x| x == 先頭) => {
+                        Some(先頭.clone())
+                    }
                     _ => None,
                 }
             };
@@ -896,7 +918,8 @@ async fn 応じる(
                 None => None,
             };
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
-            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋).await {
+            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋).await
+            {
                 Ok((id, 届いた, 流した先)) => FromDesk::Sent {
                     to: 届いた.len(),
                     id,
@@ -966,7 +989,10 @@ pub(crate) async fn 流す(
     if let Some(m) = 部屋
         && !bridge.conferences.lock().await.contains_key(&m)
     {
-        return Err(format!("その部屋に居ません（{}）", crate::短く(&m.to_string())));
+        return Err(format!(
+            "その部屋に居ません（{}）",
+            crate::短く(&m.to_string())
+        ));
     }
 
     // **会話に出す名前は、名簿と同じ決め方を通す**（2026-09-09）。
@@ -1019,7 +1045,8 @@ pub(crate) async fn 流す(
     )
     .await;
     // **そのルームに居る相手だけへ。**全員へ配ると、別のルームの人にも届く
-    let 送り先 = crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
+    let 送り先 =
+        crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
     for tx in &送り先 {
         // 届かない相手が居ても止めない。**送る側を待たせない**
         let _ = tx
@@ -1198,7 +1225,9 @@ async fn 住所で足す(app: &AppHandle, 住所: &str, 名前: &str, 誰: &str)
     let 結果 = warifu_vault::Vault::default_location()
         .map_err(|e| format!("連絡先を読めませんでした: {e}"))
         .and_then(|v| {
-            let mut 帳 = v.contacts().map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
+            let mut 帳 = v
+                .contacts()
+                .map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
             let 相手 = crate::contacts::札を使って足す(
                 &mut 帳,
                 自分,
@@ -1238,7 +1267,9 @@ async fn 住所で足す(app: &AppHandle, 住所: &str, 名前: &str, 誰: &str)
 async fn 更新を確かめる(app: &AppHandle) -> FromDesk {
     use tauri_plugin_updater::UpdaterExt;
     let いまの版 = env!("CARGO_PKG_VERSION").to_owned();
-    let 返す = |新しい版: Option<String>, 何が変わったか: Option<String>, 確かめられない: Option<String>| {
+    let 返す = |新しい版: Option<String>,
+                何が変わったか: Option<String>,
+                確かめられない: Option<String>| {
         FromDesk::更新 {
             いまの版: いまの版.clone(),
             新しい版,
@@ -1305,7 +1336,10 @@ async fn 部屋を抜ける(app: &AppHandle, 指定: &str, 誰: &str) -> FromDes
     let _ = app.emit(crate::EVENT_LOOK, ());
     配る(
         &bridge,
-        聞いた("割符", &format!("{誰} が部屋 {} を抜けました", crate::短く(&id))),
+        聞いた(
+            "割符",
+            &format!("{誰} が部屋 {} を抜けました", crate::短く(&id)),
+        ),
     );
     FromDesk::抜けた { 部屋: id }
 }
@@ -1314,7 +1348,12 @@ async fn 部屋を抜ける(app: &AppHandle, 指定: &str, 誰: &str) -> FromDes
 ///
 /// 画面の `remember` と同じ：呼び名を書き、いま知っている住所（線の相手の名乗り、無ければ
 /// ルームで会ったときの住所）も書く。居ない相手・2 人に当たる指し方は**札を見る前に**断る。
-async fn 相手に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str, 誰: &str) -> FromDesk {
+async fn 相手に名前を付ける(
+    app: &AppHandle,
+    指定: &str,
+    名前: &str,
+    誰: &str,
+) -> FromDesk {
     let 帳 = match 呼べる相手を並べる() {
         Ok(行たち) => 行たち,
         Err(why) => return FromDesk::Denied { why },
@@ -1346,7 +1385,9 @@ async fn 相手に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str
     let 結果 = warifu_vault::Vault::default_location()
         .map_err(|e| format!("連絡先を読めませんでした: {e}"))
         .and_then(|v| {
-            let mut list = v.contacts().map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
+            let mut list = v
+                .contacts()
+                .map_err(|e| format!("連絡先を読めませんでした: {e}"))?;
             list.add(who, 名前, crate::now_secs())
                 .map_err(|e| format!("名前を付けられません: {e}"))?;
             if let Some(住所) = &住所 {
@@ -1364,7 +1405,10 @@ async fn 相手に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str
         &bridge,
         聞いた(
             "割符",
-            &format!("{誰} が {} に「{名前}」と名前を付けました", crate::短く(&鍵)),
+            &format!(
+                "{誰} が {} に「{名前}」と名前を付けました",
+                crate::短く(&鍵)
+            ),
         ),
     );
     FromDesk::名付けた {
@@ -1374,7 +1418,12 @@ async fn 相手に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str
 }
 
 /// **口から部屋に名前を付ける**（0.1.40）。居ない部屋は札を見る前に断る。
-async fn 部屋に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str, 誰: &str) -> FromDesk {
+async fn 部屋に名前を付ける(
+    app: &AppHandle,
+    指定: &str,
+    名前: &str,
+    誰: &str,
+) -> FromDesk {
     let bridge = app.state::<Bridge>();
     let 候補: Vec<String> = bridge
         .conferences
@@ -1400,10 +1449,19 @@ async fn 部屋に名前を付ける(app: &AppHandle, 指定: &str, 名前: &str
         };
     }
     // **画面にも同じ名前を出す**（人が付けたときと同じ出来事）
-    let _ = app.emit(crate::room_name::EVENT_ROOM_NAME, (id.clone(), 名前.to_owned()));
+    let _ = app.emit(
+        crate::room_name::EVENT_ROOM_NAME,
+        (id.clone(), 名前.to_owned()),
+    );
     配る(
         &bridge,
-        聞いた("割符", &format!("{誰} が部屋 {} に「{名前}」と名前を付けました", crate::短く(&id))),
+        聞いた(
+            "割符",
+            &format!(
+                "{誰} が部屋 {} に「{名前}」と名前を付けました",
+                crate::短く(&id)
+            ),
+        ),
     );
     FromDesk::付けた {
         部屋: id,
@@ -1535,7 +1593,9 @@ pub fn 札を取り消す(動作: &str) -> Result<(), String> {
         .into_iter()
         .filter(|(a, _, _)| a != 動作)
         .collect();
-    vault.save_passes_with_until(&残す).map_err(|e| e.to_string())?;
+    vault
+        .save_passes_with_until(&残す)
+        .map_err(|e| e.to_string())?;
     記録!("札: 取り消した（{動作}）");
     Ok(())
 }
@@ -1833,7 +1893,9 @@ fn 届き方(id: u64) -> (Vec<String>, Vec<String>) {
     // **番号ではなく名前で返す。**呼び手に番号の意味は無い
     let 読んだ: Vec<String> = エージェント棚
         .iter()
-        .filter(|(エージェント, 名)| 届いた.contains(名) && 読んだ棚.get(*エージェント).copied().unwrap_or(0) >= id)
+        .filter(|(エージェント, 名)| {
+            届いた.contains(名) && 読んだ棚.get(*エージェント).copied().unwrap_or(0) >= id
+        })
         .map(|(_, 名)| 名.clone())
         .collect();
     (名札で並べる(&届いた), 名札で並べる(&読んだ))
@@ -1867,13 +1929,19 @@ fn 頼みを受ける(
     訳: &str,
     頼んだ人: Option<&str>,
 ) -> warifu_desk::頼みの返り {
-    use warifu_capability::{受け付けない訳, 札の答え, 頼みの行き先, 頼みをどうするか};
+    use warifu_capability::{
+        受け付けない訳, 札の答え, 頼みの行き先, 頼みをどうするか
+    };
     use warifu_desk::頼みの返り;
 
     let いまの控え = 札の控え();
     match 頼みをどうするか(&いまの控え, 動作, 訳) {
-        頼みの行き先::答えが出ている(札の答え::許した) => 頼みの返り::許した,
-        頼みの行き先::答えが出ている(札の答え::断った) => 頼みの返り::断った,
+        頼みの行き先::答えが出ている(札の答え::許した) => {
+            頼みの返り::許した
+        }
+        頼みの行き先::答えが出ている(札の答え::断った) => {
+            頼みの返り::断った
+        }
         頼みの行き先::答えが出ている(札の答え::まだ) => 頼みの返り::まだ,
         頼みの行き先::受け付けない(訳け) => {
             // **「どうすれば通るか」は書かない。**何が悪かったかだけ
@@ -1966,7 +2034,9 @@ async fn 答えを待つ_控えは(
 struct 控え(BTreeMap<String, bool>);
 
 impl warifu_capability::札の控え for 控え {
-    fn 答え(&self, 動作: &warifu_capability::Action) -> Option<warifu_capability::札の答え> {
+    fn 答え(
+        &self, 動作: &warifu_capability::Action
+    ) -> Option<warifu_capability::札の答え> {
         self.0.get(動作.as_str()).map(|許した| {
             if *許した {
                 warifu_capability::札の答え::許した
@@ -2015,7 +2085,9 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
     } else {
         一覧.push((動作.to_owned(), 許した, まで));
     }
-    vault.save_passes_with_until(&一覧).map_err(|e| e.to_string())?;
+    vault
+        .save_passes_with_until(&一覧)
+        .map_err(|e| e.to_string())?;
     待っている頼み
         .lock()
         .expect("毒されていない")
@@ -2042,7 +2114,11 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
         //
         // **`pass.tsv` の中身（許した／断った）は変えない** ——
         // あれは置き場所の形であって、変えると**前に書いたファイルが読めなくなる。**
-        if 許した { "通されました" } else { "通されませんでした" }
+        if 許した {
+            "通されました"
+        } else {
+            "通されませんでした"
+        }
     );
     Ok(())
 }
@@ -2065,7 +2141,10 @@ mod tests {
         assert_eq!(棚[&3], "zumen のエージェント");
         // 名乗りが数字で終わっていても、「エージェント」で終わらなければ触らない
         assert_eq!(super::元の名("席 2 のエージェント"), None);
-        assert_eq!(super::元の名("席 のエージェント 10"), Some("席 のエージェント"));
+        assert_eq!(
+            super::元の名("席 のエージェント 10"),
+            Some("席 のエージェント")
+        );
     }
 
     #[test]
@@ -2073,7 +2152,7 @@ mod tests {
         assert!(super::版が上がった知らせ(None, "0.1.39").is_none());
         assert!(super::版が上がった知らせ(Some("0.1.39"), "0.1.39").is_none());
         let 文 = super::版が上がった知らせ(Some("0.1.38"), "0.1.39").expect("告げる");
-        assert!(文.contains("0.1.38") &&文.contains("0.1.39") && 文.contains("app_view"));
+        assert!(文.contains("0.1.38") && 文.contains("0.1.39") && 文.contains("app_view"));
     }
 
     #[test]
@@ -2083,7 +2162,6 @@ mod tests {
         assert_eq!(super::続きの番号(Some(29)), 30);
         assert_eq!(super::続きの番号(None), 1);
     }
-
 
     #[test]
     fn 書き出しは返事の上限に収め_古い行から落とす() {
@@ -2095,7 +2173,14 @@ mod tests {
         };
         let 行たち: Vec<_> = (1..=20).map(行).collect();
         let 収めた = 書き出しを収める(行たち, 20_000);
-        assert!(FromDesk::書き出し { 行たち: 収めた.clone() }.書く().len() <= 20_000);
+        assert!(
+            FromDesk::書き出し {
+                行たち: 収めた.clone()
+            }
+            .書く()
+            .len()
+                <= 20_000
+        );
         assert!(収めた.len() < 20 && !収めた.is_empty());
         assert_eq!(収めた.last().unwrap().番号, 20, "新しい行は残す");
         // 収まるなら、そのまま
@@ -2118,7 +2203,7 @@ mod tests {
 
     /// **人が押した瞬間に返る**（2026-09-24）。
     mod 押されるのを待つ {
-        use super::super::{答えの知らせ口, 答えを待つ_控えは, 控え};
+        use super::super::{控え, 答えの知らせ口, 答えを待つ_控えは};
         use std::sync::Arc;
         use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -2326,13 +2411,22 @@ mod tests {
         ];
         let (通す, 残す) = 札を受け取る(一覧.clone(), "contacts.add", 1_000);
         assert!(通す);
-        assert!(!残す.iter().any(|(a, _, _)| a == "contacts.add"), "使い切りは消える");
+        assert!(
+            !残す.iter().any(|(a, _, _)| a == "contacts.add"),
+            "使い切りは消える"
+        );
         let (通す, 残す) = 札を受け取る(一覧.clone(), "room.join", 1_000);
         assert!(通す);
-        assert!(残す.iter().any(|(a, _, _)| a == "room.join"), "期限内の持続の札は残る");
+        assert!(
+            残す.iter().any(|(a, _, _)| a == "room.join"),
+            "期限内の持続の札は残る"
+        );
         let (通す, 残す) = 札を受け取る(一覧.clone(), "room.leave", 1_000);
         assert!(!通す, "期限切れは通さない");
-        assert!(!残す.iter().any(|(a, _, _)| a == "room.leave"), "期限切れは消す");
+        assert!(
+            !残す.iter().any(|(a, _, _)| a == "room.leave"),
+            "期限切れは消す"
+        );
         let (通す, _) = 札を受け取る(一覧.clone(), "voice.say", 1_000);
         assert!(!通す, "断っている札は通さない");
         let (通す, _) = 札を受け取る(一覧, "room.rename", 1_000);
@@ -2347,7 +2441,10 @@ mod tests {
             "NBIWAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
             "4QNXPYQIHAYIAAAAAAAAAAAAAA".to_owned(),
         ];
-        assert_eq!(部屋を引く(&候補, "4QNX…").as_deref(), Ok("4QNXPYQIHAYIAAAAAAAAAAAAAA"));
+        assert_eq!(
+            部屋を引く(&候補, "4QNX…").as_deref(),
+            Ok("4QNXPYQIHAYIAAAAAAAAAAAAAA")
+        );
         assert_eq!(
             部屋を引く(&候補, "NBIW3PA2TUQ52DTJNVXSQOL3G4").as_deref(),
             Ok("NBIW3PA2TUQ52DTJNVXSQOL3G4")
@@ -2474,7 +2571,10 @@ mod tests {
         let 会った = vec![(鍵(1), "住所1".to_owned())];
         let a = 帳.find(鍵(1)).expect("在る");
         let b = 帳.find(鍵(2)).expect("在る");
-        assert!(呼べるか(a, &会った), "連絡帳に住所が無くても、会った住所で呼べる");
+        assert!(
+            呼べるか(a, &会った),
+            "連絡帳に住所が無くても、会った住所で呼べる"
+        );
         assert!(!呼べるか(b, &会った), "どちらの住所も無ければ呼べない");
     }
 
