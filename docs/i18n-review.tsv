@@ -25,6 +25,8 @@ act.state.no	Not yet	まだできない	还不行	아직 안 됨
 act.state.ok	Works	できる	可以	가능				
 act.state.wait	Conditions apply	条件つき	有条件	조건부				
 app.name	warifu	warifu	warifu	warifu				
+avatar.owner.agent	Agent	エージェント	智能体	에이전트		顔の右上に付ける小さな印に重ねたときの説明。人ではなく AI エージェントであることを言う。		
+avatar.owner.person	Person	人	人	사람		顔の右上に付ける小さな印に重ねたときの説明。AI エージェントではなく人であることを言う。		
 browser.only	This is open in a browser. Rooms only work in the warifu window.	ブラウザで開いています。ルームは warifu の窓でだけ動きます。	你在浏览器里打开了。房间只在 warifu 的窗口里工作。	브라우저에서 열려 있습니다. 방은 warifu 창에서만 움직입니다.				
 call.camera	Camera	カメラ	摄像头	카메라				
 call.controls	Turn the call on and off. Separate from checking your gear — this stops what you are sending now.	通話の入切。支度の確認とは別で、いま送っているものを止めます。	通话的开关。与设备确认不同，这会停止你现在正在发送的内容。	통화 켜고 끄기. 기기 확인과는 다르며, 지금 보내고 있는 것을 멈춥니다.				
@@ -34,6 +36,7 @@ camera.denied	Camera and microphone are not allowed. Allow them in your OS setti
 camera.missing	No camera or microphone found.	カメラかマイクが見つかりません。	找不到摄像头或麦克风。	카메라나 마이크를 찾을 수 없습니다.				
 camera.unknown	Could not use the camera.	カメラを使えませんでした。	无法使用摄像头。	카메라를 사용할 수 없습니다.				
 chat.agent	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
+chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{name}의 에이전트		会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。		
 chat.desk	An agent on this computer is connected. You can talk to it even with nobody else in the room.	この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。	这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。	이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
@@ -45,11 +48,11 @@ chat.joined	{who} came in	{who} が入りました	{who} 进来了	{who} 가 들
 chat.keep	You are mid-message, so the destination is held. Their state changed, but what you write goes to whoever you started writing to.	打ちかけているので、宛先はそのままにしています。相手の様子が変わりましたが、書いたものは打ち始めた相手へ送ります。	你正在输入，所以收件对象保持不变。对方的状态变了，但你写的内容仍发给最初开始写的对象。	입력하던 중이라 보낼 곳을 그대로 두었습니다. 상대의 상태가 바뀌었지만, 쓴 내용은 처음 쓰기 시작한 상대에게 보냅니다.				
 chat.keep.switch	Switch to the new destination	新しい宛先に切り替える	切换到新的收件对象	새 보낼 곳으로 바꾸기				
 chat.late	while away	留守中	离线期间	부재 중				
+chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
+chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.mention.me	to you	あなた宛て	提到你	나를 부름		自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。		
 chat.mention.pick	Pick who to mention (↑↓ to move, Enter to insert)	呼ぶ相手を選ぶ（↑↓ で選び、Enter で入れる）	选择要提及的人（↑↓ 选择，Enter 插入）	부를 상대 고르기 (↑↓ 로 고르고 Enter 로 넣기)		`@` を打ったときに出る候補の一覧の説明。		
 chat.mention.to	Mentioning {who} (everyone in the room can see it)	{who} を呼びます（ルームの全員に見えます）	将提及 {who}（房间内所有人都能看到）	{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)	★	呼んでも**届く先は変わらない**ことを必ず残す。「{who} にだけ送ります」と読める訳にすると、人は見られたくないことを書く。		
-chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
-chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.new	{n} new	新しい発言 {n} 件	{n} 条新发言	새 발언 {n} 건				
 chat.new.title	Jump to the newest	いちばん下まで送ります	跳到最新	맨 아래로 이동합니다				
 chat.nobody	Nobody is here yet. Hand out a room key and wait for someone to come in.	ルームにはまだ誰も入っていません。ルームキーを渡して、入ってもらうと送れます。	还没有人进来。把密钥交给对方，等对方进来后即可发送。	아직 아무도 없습니다. 열쇠를 건네고 상대가 들어오면 보낼 수 있습니다.				
@@ -68,11 +71,11 @@ chat.to.room	To {name} ({n} people)	{name}（{n} 人）へ	发送给 {name}（{n
 chat.to.room.nth	To room {nth} ({n} people)	ルーム {nth}（{n} 人）へ	发送给 房间 {nth}（{n} 人）	룸 {nth}（{n}명）에게				
 chat.to.sealed	To {name} only (held for while they are away)	{name} だけへ（留守中の受け取りに預けます）	仅发送给 {name}（对方不在时代为保管）	{name}에게만 (자리를 비운 동안 맡아 둡니다)				
 cli.ahead	The warifu command on this PC ({ver}) is newer than the app. Update the app. {path}	この PC の warifu コマンド（{ver}）のほうが新しいです。画面を上げてください。{path}	这台电脑上的 warifu 命令（{ver}）比界面更新。请更新界面。{path}	이 PC 의 warifu 명령({ver})이 화면보다 새롭습니다. 화면을 올려 주세요. {path}				
+cli.old	The warifu command on this PC is still old ({ver}). Delete {path}, then put the new one in place (overwriting it can leave a command that will not start). Updating the app does not update the command.	この PC の warifu コマンドが古いままです（{ver}）。{path} を消してから、新しいものを置いてください（上書きすると、起動しなくなることがあります）。画面だけ上げても、コマンドは上がりません。	这台电脑上的 warifu 命令还是旧版（{ver}）。请先删除 {path}，再放入新的（直接覆盖可能导致无法启动）。只更新界面不会更新命令。	이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}). {path} 를 지운 뒤 새것을 놓아 주세요(덮어쓰면 실행되지 않을 수 있습니다). 화면만 올려도 명령은 올라가지 않습니다.				
 cli.oldReplaceable	The warifu command on this PC is still old ({ver}, {path}). It can be replaced with the same version as the app.	この PC の warifu コマンドが古いままです（{ver}・{path}）。画面と同じ版に入れ替えられます。	这台电脑上的 warifu 命令还是旧版（{ver}・{path}）。可以替换为与界面相同的版本。	이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}・{path}). 화면과 같은 버전으로 바꿀 수 있습니다.				
 cli.replace	Update the command too	コマンドも上げる	同时更新命令	명령도 올리기		帯の押し所。押すと PATH の中の warifu コマンドを入れ替える。「インストール」「ダウンロード」と読ませないこと —— 網には出ず、画面に入っているものを置く。		
-cli.replaced	Replaced the warifu command with {ver} ({path}). Running agents use the new command after they restart.	warifu コマンドを {ver} に入れ替えました（{path}）。動いているエージェントは、立ち上げ直すと新しいコマンドで動きます。	已将 warifu 命令替换为 {ver}（{path}）。正在运行的代理重新启动后会使用新命令。	warifu 명령을 {ver} 로 바꿨습니다({path}). 실행 중인 에이전트는 다시 시작하면 새 명령으로 동작합니다.				
 cli.replaceFailed	Could not replace the warifu command: {why}	warifu コマンドを入れ替えられませんでした: {why}	无法替换 warifu 命令：{why}	warifu 명령을 바꾸지 못했습니다: {why}				
-cli.old	The warifu command on this PC is still old ({ver}). Delete {path}, then put the new one in place (overwriting it can leave a command that will not start). Updating the app does not update the command.	この PC の warifu コマンドが古いままです（{ver}）。{path} を消してから、新しいものを置いてください（上書きすると、起動しなくなることがあります）。画面だけ上げても、コマンドは上がりません。	这台电脑上的 warifu 命令还是旧版（{ver}）。请先删除 {path}，再放入新的（直接覆盖可能导致无法启动）。只更新界面不会更新命令。	이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}). {path} 를 지운 뒤 새것을 놓아 주세요(덮어쓰면 실행되지 않을 수 있습니다). 화면만 올려도 명령은 올라가지 않습니다.				
+cli.replaced	Replaced the warifu command with {ver} ({path}). Running agents use the new command after they restart.	warifu コマンドを {ver} に入れ替えました（{path}）。動いているエージェントは、立ち上げ直すと新しいコマンドで動きます。	已将 warifu 命令替换为 {ver}（{path}）。正在运行的代理重新启动后会使用新命令。	warifu 명령을 {ver} 로 바꿨습니다({path}). 실행 중인 에이전트는 다시 시작하면 새 명령으로 동작합니다.				
 connect.copied	Copied	写しました	已复制	복사했습니다				
 connect.copy	Copy	コピー	复制	복사				
 connect.docs	You write which actions are allowed (denied by default). See docs/mcp.md.	許す動作は人が書きます（既定は拒否）。詳しくは docs/mcp.md。	允许哪些动作由人来写（默认拒绝）。详见 docs/mcp.md。	허용할 동작은 사람이 씁니다(기본은 거부). 자세히는 docs/mcp.md.				
@@ -96,10 +99,10 @@ contacts.forget.hint	Right now this person can come in without a room key. Turn 
 contacts.key.label	Public key (your ID)	公開鍵（あなたの ID）	公钥	공개키(내 ID)				
 contacts.late	Arrived while you were away	留守中に届いた相手	离线期间来信的人	부재 중에 온 상대				
 contacts.me	You	あなた	你	당신				
-contacts.me.copied	Copied	コピーしました	已复制	복사했습니다				
-contacts.me.address.label	This PC's address	この PC の住所	这台电脑的地址	이 PC의 주소				
 contacts.me.address.copy	Copy address	住所をコピー	复制地址	주소 복사				
+contacts.me.address.label	This PC's address	この PC の住所	这台电脑的地址	이 PC의 주소				
 contacts.me.address.what	The address is not a key; on its own it lets no one in. Once both sides add each other's address to their contacts (agents use contact_add), you can call each other without a key.	住所はルームキーではありません。これだけでは誰も入れません。お互いの住所を連絡先に足し合うと（エージェントなら contact_add）、ルームキーなしで呼び合えます。	地址不是密钥，仅凭它谁也进不来。双方把对方的地址加入联系人后（智能体用 contact_add），就能不用密钥互相呼叫。	주소는 열쇠가 아닙니다. 이것만으로는 아무도 들어올 수 없습니다. 서로의 주소를 연락처에 추가하면(에이전트는 contact_add) 열쇠 없이 서로 부를 수 있습니다.				
+contacts.me.copied	Copied	コピーしました	已复制	복사했습니다				
 contacts.me.copy	Copy public key	公開鍵（あなたの ID）をコピー	复制公钥	공개키(내 ID) 복사				
 contacts.me.key.what	The public key is the name that says who you are. It is not what connects you. You hand it over when someone adds you to their contacts, or when a postbox keeper adds you to their allow list.	公開鍵は「あなたが誰か」を表す名前です。これで相手とつながるのではありません。相手の連絡帳に載せてもらうときや、受け取り先の名簿に書いてもらうときに渡します。	公钥是表示「你是谁」的名字。它不是用来建立连接的。对方把你加入通讯录时，或保管处的管理者把你写进名单时，才需要交给对方。	공개키(내 ID)는 「당신이 누구인지」를 나타내는 이름입니다. 이것으로 상대와 연결되는 것이 아닙니다. 상대가 주소록에 등록할 때나, 보관소 관리자가 명단에 적을 때 건넵니다.				
 contacts.me.name	The name you set here is shown to the people you talk to. If they have given you a nickname of their own, theirs wins — a declared name can be copied by anyone.	ここで名乗った名前は、相手の画面にも出ます。ただし相手が呼び名を付けていれば、そちらが優先されます（名乗った名前は誰でも真似できるためです）。	你在这里填的名字，对方也会看到。但如果对方给你起了称呼，以对方的为准——申报的名字谁都能冒充。	여기서 댄 이름은 상대 화면에도 나옵니다. 다만 상대가 호칭을 붙였다면 그쪽이 우선입니다 (스스로 댄 이름은 누구나 흉내 낼 수 있습니다).				
@@ -131,8 +134,8 @@ face.clear.confirm.hint	The image you set is deleted. Drop one again to put it b
 face.clear.do	Go back	戻す	恢复	되돌리기				
 handoff.asked	An agent is asking whether it may hand a room key to another machine	エージェントが、ルームキーを相手の機械へ渡してよいか聞いています	有代理在询问能否把房间钥匙交给对方的机器	에이전트가 룸 키를 상대 기기에 건네도 되는지 묻고 있습니다				
 handoff.give	Hand it over	渡す	交出	건넨다				
-handoff.hint	If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.	渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。	交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。	건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.	★	「相手の機械にだけ」「チャットやメールを通らない」を落とさないこと —— 鍵が外に出ないことが、押す理由である。		
 handoff.give.always	Always hand it over without asking	今後は聞かずに渡す	今后不询问直接交出	앞으로 묻지 않고 건네기				
+handoff.hint	If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.	渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。	交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。	건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.	★	「相手の機械にだけ」「チャットやメールを通らない」を落とさないこと —— 鍵が外に出ないことが、押す理由である。		
 handoff.keep	Don't hand it over	渡さない	不交出	건네지 않는다				
 handoff.who	{who} wants to hand {to}'s machine a key to the room you are viewing	{who} が、{to} の機械へ、いま見ているルームのキーを渡そうとしています	{who} 想把你正在看的房间的钥匙交给 {to} 的机器	{who} 이(가) 지금 보고 있는 방의 키를 {to} 의 기기에 건네려 합니다				
 help.close	Close	閉じる	关闭	닫기				
@@ -155,11 +158,11 @@ home.people	{n}	{n} 人	{n} 人	{n}명
 home.postbox	Receiving while away	留守中の受け取り	不在时的接收	부재 중 수신				
 home.postbox.off	Not set up	未設定	未设置	설정 안 됨				
 home.postbox.on	Set up	設定済み	已设置	설정됨				
-home.version	Version	いまの版	当前版本	현재 버전				
 home.rooms	Rooms you are in	ルーム	所在的 room	들어가 있는 룸				
 home.rooms.n	{n} (people: {m})	{n} 室（{m} 人）	{n} 间（{m} 人）	{n}개({m}명)				
 home.seats	Agents on this computer	この PC のエージェント	这台电脑的智能体	이 PC의 에이전트				
 home.title	What you can do	できること	可以做的事	할 수 있는 일				
+home.version	Version	いまの版	当前版本	현재 버전				
 howto.1	Open "Room" and press [Create a room]	「ルーム」を開いて［ルームをつくる］を押す	打开「房间」，按下［创建房间］	「방」을 열고 ［방 만들기］를 누릅니다				
 howto.2	Hand the room key (or the link) to the other person	出てきたルームキー（またはリンク）を、相手に渡す	把出现的room key（或链接）交给对方	나온 열쇠(또는 링크)를 상대에게 건넵니다				
 howto.3	They take it and enter, and you are connected	相手が受け取って入ると、つながります	对方收到并进入后，就连上了	상대가 받아서 들어오면 연결됩니다				
@@ -188,7 +191,7 @@ link.invited.enter	Enter	入る	进入	들어간다
 link.invited.hint	Anyone can make such a link. Do not enter an invitation you were not expecting.	このリンクは誰でも作れます。心当たりのない誘いには入らないでください。	这样的链接谁都能做。没有印象的邀请，请不要进入。	이런 링크는 누구나 만들 수 있습니다. 짐작 가지 않는 초대에는 들어가지 마세요.	★	**警告である。**「安全です」「割符が確認済みです」と読める訳にしないこと。このリンクは誰でも作れる。割符は差出人を確かめていない。確かめられるのは、心当たりがあるかどうかだけで、それは人にしか分からない。		
 link.invited.no	Do not enter	入らない	不进入	들어가지 않는다				
 link.invited.until	This room key works until {until}. Declining does not use it up.	このルームキーは {until} まで使えます。入らなくても、それまでは使えます。	这把 room key 到 {until} 之前都能用。不进去也不会用掉它。	이 룸 키는 {until} 까지 쓸 수 있습니다. 들어가지 않아도 없어지지 않습니다.				
-link.lost	The route to them broke. They can come back with the same key — waiting. 	相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. 	★	**2026-09-24 に括弧を足した。**「同じルームキーで戻ってこられます」だけだと、**この機械の番地が変わった場合に嘘になる** —— 鍵は `WARIFU1-<宛先>#<割符>#<ルーム>` で、**宛先（番地と口）が中に入っている。**実際に番地が `192.168.24.17` から `.16` へ変わり、相手が同じ 1 本を貼り直して「宛先に届きませんでした」になった。**括弧は条件付きである** —— 既定では戻れるので、「作り直してください」とは読ませないこと（D44）。**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
+link.lost	The route to them broke. They can come back with the same key — waiting. (If it does not reach, this machine’s address changed — issue a new room key.)	相手との経路が切れました。同じルームキーで戻ってこられます — 待っています。（届かないときは、この機械の番地が変わっています — ルームキーを出し直してください）	与对方的连接断了。用同一把密钥可以回来 —— 正在等待。（如果连不上，是这台机器的地址变了 —— 请重新发放房间密钥。）	상대와의 경로가 끊겼습니다. 같은 열쇠로 돌아올 수 있습니다 — 기다리고 있습니다. (닿지 않으면 이 기기의 주소가 바뀐 것입니다 — 룸 키를 다시 발급하세요.)	★	**2026-09-24 に括弧を足した。**「同じルームキーで戻ってこられます」だけだと、**この機械の番地が変わった場合に嘘になる** —— 鍵は `WARIFU1-<宛先>#<割符>#<ルーム>` で、**宛先（番地と口）が中に入っている。**実際に番地が `192.168.24.17` から `.16` へ変わり、相手が同じ 1 本を貼り直して「宛先に届きませんでした」になった。**括弧は条件付きである** —— 既定では戻れるので、「作り直してください」とは読ませないこと（D44）。**切れたが、戻ってこられる**という意味（D44）。戻れるのは**さっきまで入っていた同じ相手だけ**で、ルームの鍵が別人に渡っても意味は無い（一回性＝D12 は崩していない）。「誰でも入れるようになりました」と読める訳にしないこと。また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。		
 link.lost.host	The route to the host broke. Once the host is back up, use [Back to the last room] to rejoin (no new key needed).	主催との経路が切れました。主催が立ち上げ直したら、［前のルームに戻る］で入り直せます（ルームキーはもらい直さなくて構いません）。	与主持人的连接断了。主持人重新启动后，按［回到上一个房间］就能重新进入（不需要再要 room key）。	주최자와의 경로가 끊겼습니다. 주최자가 다시 켜지면 [이전 룸으로 돌아가기]를 눌러 다시 들어갈 수 있습니다(룸 키를 다시 받을 필요는 없습니다).				
 link.relay.missing	Video and sound are not reaching the other side. Restart the warifu app (text messages still get through). If that does not help, send the "media path" lines from warifu.log.	相手へ映像と音を届けられていません。割符の画面を立ち上げ直してください（文字のやりとりはそのまま届いています）。直らなければ、記録（warifu.log）の「映像の道」の行を知らせてください。	连不上。这台电脑内部的视频中继端口没有给出候选（与防火墙无关）。请重新启动应用。如果仍然不行，请提供日志（warifu.log）中“映像の道”的行。	경로가 생기지 않습니다. 이 PC 안의 영상 중계 포트가 후보를 내지 않고 있습니다(방화벽 문제가 아닙니다). 앱을 다시 실행해 주세요. 그래도 안 되면 기록(warifu.log)의 "映像の道" 줄을 알려 주세요.				
 link.relayed	Relayed	中継	中继	중계				
@@ -231,10 +234,10 @@ meeting.start.title	Make a room	ルームをつくる	建一个房间	방 만들
 meeting.status.both	Connected — video and audio, both ways	つながっています（映像と音を、送って受けています）	已连接（视频和声音，双向）	연결되어 있습니다 (영상과 소리를 주고받고 있습니다)				
 meeting.status.holding	Connected — your camera and microphone are on, but nothing is being sent	つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）	已连接（摄像头和麦克风已开启，但没有向对方发送任何内容）	연결되어 있습니다 (카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다)				
 meeting.status.live	Connected	つながっています	已连接	연결되어 있습니다				
+meeting.status.none	Not in a room yet	まだルームに入っていません	尚未进入房间	아직 룸에 없습니다				
 meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours; press [Add video and sound] to send.	つながっています（相手の映像を受けています。あなたは送っていません —— ［映像と音を足す］を押すと送ります）	已连接（正在接收对方的视频。你没有发送自己的视频 —— 按［为这个房间加上影像］就会发送）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다 —— ［이 룸에 영상을 더하기］를 누르면 보냅니다)				
 meeting.status.sendonly	Connected — you are sending video. Theirs has not arrived.	つながっています（あなたは送っています。相手の映像は来ていません）	已连接（你正在发送视频。对方的视频还没有到达）	연결되어 있습니다 (당신은 보내고 있습니다. 상대의 영상은 오지 않았습니다)				
 meeting.status.textonly	Connected — text only. Camera and microphone are not in use	つながっています（いま文字だけです。カメラもマイクも使っていません）	已连接（现在只有文字。没有使用摄像头和麦克风）	연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)				
-meeting.status.none	Not in a room yet	まだルームに入っていません	尚未进入房间	아직 룸에 없습니다				
 meeting.status.waiting	Waiting for the other person	相手を待っています	正在等待对方	상대방을 기다리는 중				
 notices.dismiss	Dismiss this notice (you can see it again under Notices on the left)	このお知らせを閉じる（左の「お知らせ」からあとで見られます）	关闭此通知（之后可在左侧的“通知”中查看）	이 알림 닫기 (왼쪽의 ‘알림’에서 다시 볼 수 있습니다)		閉じても消えない（あとで見られる）ことが伝わる訳にする		
 notices.empty	No notices yet	まだお知らせはありません	还没有通知	아직 알림이 없습니다				
@@ -244,17 +247,17 @@ pane.divider	Divider (drag left or right to resize; double-click to reset)	仕�
 pane.meeting	Room	ルーム	房间	방				
 pane.schedule	Schedule	予定	日程	일정				
 pass.allow	Allow	通す	允许	허용				
+pass.allow.standing	Allow for 24 hours	24 時間聞かない	24 小时内不再询问	24시간 동안 묻지 않음				
 pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
+pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
 pass.asked	An agent is asking for permission	エージェントが、これを使ってよいか聞いています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다				
 pass.asked.hint	If you allow it, this agent can use that action. You can revoke it later.	通すと、このエージェントはそれを使えるようになります。あとで取り消せます。	允许后，该代理就能使用这个动作。之后可以撤销。	허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.				
 pass.refuse	Don't allow	通さない	不允许	허용하지 않음				
 pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は {what} を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
-pass.who	{who} wants to use {what}	{who} が {what} を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
-pass.allow.standing	Allow for 24 hours	24 時間聞かない	24 小时内不再询问	24시간 동안 묻지 않음				
-pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
 pass.revoke	Revoke	取り消す	撤销	취소				
 pass.standing	{what} passes without asking for {hours} more hours	{what} は、あと {hours} 時間は聞かずに通します	{what} 在接下来 {hours} 小时内无需询问即可通过	{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다				
 pass.standing.untilRevoked	{what} passes without asking until you revoke it	{what} は、取り消すまで聞かずに通します	{what} 在撤销之前无需询问即可通过	{what} 은(는) 취소할 때까지 묻지 않고 통과합니다				
+pass.who	{who} wants to use {what}	{who} が {what} を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
 postbox.clear	Remove	外す	取消	해제				
 postbox.cleared	Mailbox removed.	留守中の受け取りを外しました。	已移除寄存处。	보관소를 내렸습니다.				
 postbox.hint	A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.	あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。	在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。	당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.				
@@ -266,8 +269,6 @@ postbox.saved	Mailbox set.	留守中の受け取りを設定しました。	已�
 postbox.title	Receiving while away (optional)	留守中の受け取り（任意）	不在时的接收（可选）	부재 중 수신(선택)				
 presence.off	Disconnected	切れています	已断开	끊김				
 presence.on	Connected	つながっています	已连上	연결됨				
-avatar.owner.agent	Agent	エージェント	智能体	에이전트		顔の右上に付ける小さな印に重ねたときの説明。人ではなく AI エージェントであることを言う。		
-avatar.owner.person	Person	人	人	사람		顔の右上に付ける小さな印に重ねたときの説明。AI エージェントではなく人であることを言う。		
 profile.ai.hint	Written by the owner of this computer, or by the agent in that seat. No agent can write another seat’s profile. Which seat it is — where it runs — is set by a person at launch.	名前と紹介は、あなたと、このエージェント自身が書けます。ほかのエージェントは書き換えられません。	由这台电脑的主人，或坐在该位置的代理自己填写。别的位置的代理改不了。在哪里运行（位置）由人在启动时决定。	이 PC 의 주인과, 그 자리의 에이전트 자신이 쓸 수 있습니다. 다른 자리의 에이전트는 바꿀 수 없습니다. 어디서 도는지(자리)는 띄울 때 사람이 정합니다.				
 profile.ai.who	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 profile.bio	Short bio	短い紹介	简介	짧은 소개				
@@ -295,7 +296,7 @@ revoke.confirm	Revoke {device}	{device} を失効させる	吊销 {device}	{devi
 revoke.irreversible	This revocation cannot be undone.	この失効は取り消せません。	此吊销无法撤销。	이 해지는 되돌릴 수 없습니다.	★	「取り消せない」は事実であって、丁寧な警告ではない。「後で戻せます」「元に戻すこともできます」と読める訳にしないこと。戻せると誤解させると、人は軽く押す（D12）。		
 room.alone	Just you so far. Hand out a room key and someone can come in.	まだ自分だけです。ルームキーを渡すと入ってもらえます。	目前只有你。把密钥交出去，对方就能进来。	아직 자신뿐입니다. 열쇠를 건네면 들어올 수 있습니다.				
 room.back	Back to the last room	前のルームに戻る	回到上一个房间	이전 룸으로 돌아가기				
-room.back.hint	Rejoins the room you were in. You do not need a new key — even after the key\'s 24 hours are up, you can return if they still let you in.	前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。	重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。	이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.				
+room.back.hint	Rejoins the room you were in. You do not need a new key — even after the key's 24 hours are up, you can return if they still let you in.	前に入ったルームへ入り直します。ルームキーをもう一度もらう必要はありません。ルームキーの期限（24 時間）が切れていても、相手が通してくれるなら戻れます。	重新进入上一个房间。不需要再要一把新的 room key —— 就算 room key 的 24 小时已经过了，只要对方还愿意放行，也能回去。	이전 룸에 다시 들어갑니다. 키를 다시 받을 필요는 없습니다. 룸 키의 24 시간이 지나도, 상대가 들여보내 준다면 돌아갈 수 있습니다.				
 room.entry.more	Invite someone / join another room	人を招く／別のルームに入る	邀请他人／进入其他房间	사람 초대／다른 방에 들어가기				
 room.hasvideo	● Video and sound are on this room	● このルームに映像と音が付いています	● 影像和声音加在这个房间	● 이 룸에 영상과 소리가 붙어 있습니다				
 room.host	You made this room	あなたが作ったルームです	这个房间由你建立	당신이 만든 방입니다				
@@ -309,18 +310,17 @@ room.leave.hint	Everyone in the room is told you left. The conversation here is 
 room.manage	This room (invite, name, leave)	このルーム（人を呼ぶ・名前・抜ける）	这个房间（邀请・名称・退出）	이 룸（초대・이름・나가기）				
 room.members.some	People are here.	人が入っています。	有人在。	사람이 있습니다.				
 room.mine	you set this up	あなたが建てた	你建的	내가 만든 룸				
-room.people	In this room ({n})	このルームに入っている（{n}）	在这个房间里（{n}）	이 룸에 있음 ({n})				
-room.people.host	host	主催	主持	주최				
-room.people.hint	Agents on other machines appear once they speak in this room.	相手の機械のエージェントは、このルームで話した分だけ出ます。	其他电脑上的智能体，在这个房间说过话后才会显示。	다른 기기의 에이전트는 이 룸에서 말한 뒤에 나옵니다.				
 room.name	Room name	ルームの名前	房间名	방 이름				
 room.name.hint	Everyone in the room sees the same name. Anyone can change it; the newest one wins.	ルームに入っている人みんなに、同じ名前で見えます。誰が付け直しても、新しいものが勝ちます。	房间里的每个人都会看到同一个名字。谁都可以修改，以最新的为准。	방에 있는 모두에게 같은 이름으로 보입니다. 누구든 바꿀 수 있고, 가장 새로운 이름이 적용됩니다.				
 room.nth	Room {n} (people: {m})	ルーム {n}（{m} 人）	Room {n}（{m} 人）	룸 {n}({m}명)				
 room.of	{name}'s room	{name} のルーム	{name} 的房间	{name}의 룸				
 room.own	Your room	あなたのルーム	你的房间	내 룸				
+room.people	In this room ({n})	このルームに入っている（{n}）	在这个房间里（{n}）	이 룸에 있음 ({n})				
+room.people.hint	Agents on other machines appear once they speak in this room.	相手の機械のエージェントは、このルームで話した分だけ出ます。	其他电脑上的智能体，在这个房间说过话后才会显示。	다른 기기의 에이전트는 이 룸에서 말한 뒤에 나옵니다.				
+room.people.host	host	主催	主持	주최				
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
-roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.host	Host	主催	主持人	호스트		名簿で、ルームを建てた人に付く札。		
-chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{name}의 에이전트		会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。		
+roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
 roster.name.save	Save	決める	保存	저장				
 roster.title	People in this room	このルームに入っている人	这个房间里的人	이 방에 있는 사람				
@@ -397,8 +397,8 @@ update.later	Later	あとで	稍后	나중에
 update.none	You are on the latest ({version}).	いまが最新です（{version}）。	已是最新（{version}）。	최신입니다({version}).				
 update.notes	What changed	何が変わったか	有哪些变化	무엇이 달라졌는지				
 update.notes.none	Nothing written.	書かれていません。	没有写。	쓰여 있지 않습니다.				
-video.agentVoice	Let this machine\'s agent speak	この機械のエージェントの声を流す	让这台电脑的智能体发声	이 기기의 에이전트 목소리 내보내기				
-video.agentVoice.hint	Only while this is on can an agent on this PC speak in this room with a synthesized voice. What it says also appears in the chat, marked as the agent\'s voice. It turns off when you leave the room.	入れている間だけ、この PC のエージェントが読み上げの声でこのルームに話せます。声は会話にも「（エージェントの声）」として出ます。ルームを抜けると切に戻ります。	只有打开时，这台电脑上的智能体才能用合成的声音在这个房间说话。说的内容也会作为智能体的声音出现在聊天里。退出房间后会自动关闭。	켜 둔 동안에만 이 PC의 에이전트가 합성 음성으로 이 룸에서 말할 수 있습니다. 말한 내용은 대화에도 에이전트 목소리로 표시됩니다. 룸에서 나가면 꺼집니다.				
+video.agentVoice	Let this machine's agent speak	この機械のエージェントの声を流す	让这台电脑的智能体发声	이 기기의 에이전트 목소리 내보내기				
+video.agentVoice.hint	Only while this is on can an agent on this PC speak in this room with a synthesized voice. What it says also appears in the chat, marked as the agent's voice. It turns off when you leave the room.	入れている間だけ、この PC のエージェントが読み上げの声でこのルームに話せます。声は会話にも「（エージェントの声）」として出ます。ルームを抜けると切に戻ります。	只有打开时，这台电脑上的智能体才能用合成的声音在这个房间说话。说的内容也会作为智能体的声音出现在聊天里。退出房间后会自动关闭。	켜 둔 동안에만 이 PC의 에이전트가 합성 음성으로 이 룸에서 말할 수 있습니다. 말한 내용은 대화에도 에이전트 목소리로 표시됩니다. 룸에서 나가면 꺼집니다.				
 video.agentVoice.short	Agent voice	声を流す	智能体发声	에이전트 목소리				
 video.hint	Adds video and sound to the room you are in. Typing keeps working as before.	いまのルームに、映像と音を足します。文字のやりとりはそのまま続きます。	在当前 room 里加上影像和声音。文字交流照旧继续。	지금 있는 룸에 영상과 소리를 더합니다. 문자 대화는 그대로 이어집니다.				
 video.move.ask	Video and sound are on another room. You have one camera and one microphone, so you cannot be in two rooms at once. Move them here?	いま別のルームに映像と音が付いています。カメラもマイクも 1 つずつなので、同時に 2 つのルームへは出られません。こちらへ移しますか？	影像和声音正加在另一个房间。摄像头和麦克风各只有一个，不能同时出现在两个房间。要把它们移过来吗？	지금 다른 룸에 영상과 소리가 붙어 있습니다. 카메라도 마이크도 하나씩이라 두 룸에 동시에 나갈 수 없습니다. 이쪽으로 옮길까요?				

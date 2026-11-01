@@ -30,9 +30,20 @@ OUT = ROOT / "docs/i18n-review.tsv"
 LOCALES = ["en", "ja", "zh", "ko"]  # DESIGN.md §9 の並び
 
 
-# **鍵と値の形。**値は単引用符でも二重引用符でも書ける
+# **文字列の 1 片。**単引用符でも二重引用符でも書ける
 # （中にアポストロフィが在ると、TypeScript 側は二重引用符になる）。
-値の形 = re.compile(r"""'([^']+)':\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")""")
+片の形 = r"""(?:'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")"""
+# **鍵と値の形。**長い値は `'…' +` で行をまたいでつなぐので、`+` でつないだ片をすべて拾う
+# （最初の 1 片だけ拾っていたので、シートの訳が途中で切れていた・0.1.42）
+値の形 = re.compile(rf"""'([^']+)':\s*({片の形}(?:\s*\+\s*{片の形})*)""")
+
+
+def 値を読む(並び: str) -> str:
+    """`'a' + "b"` の片をつなぎ、書き方の `\\` を戻す（`\\'` → `'`。残すとシートにだけ `\\'` が出ていた）。"""
+    return "".join(
+        re.sub(r"\\(.)", lambda m: {"n": "\n", "t": "\t"}.get(m.group(1), m.group(1)), 片[1:-1])
+        for 片 in re.findall(片の形, 並び)
+    )
 
 
 def 読む() -> tuple[dict[str, dict[str, str]], set[str], dict[str, str]]:
@@ -48,7 +59,7 @@ def 読む() -> tuple[dict[str, dict[str, str]], set[str], dict[str, str]]:
         # TypeScript 側は二重引用符で書く。**単引用符だけ見ていたので、
         # **その鍵だけ数から落ちて「言語ごとに鍵の数が違う」で止まった。**
         組 = re.findall(値の形, body[i:j])
-        出[lang] = {鍵: 単 or 二 for 鍵, 単, 二 in 組}
+        出[lang] = {鍵: 値を読む(並び) for 鍵, 並び in 組}
 
     数 = {l: len(d) for l, d in 出.items()}
     if len(set(数.values())) != 1:
@@ -59,8 +70,8 @@ def 読む() -> tuple[dict[str, dict[str, str]], set[str], dict[str, str]]:
 
     注記 = {}
     nb = src[src.index("export const TRANSLATOR_NOTES") :]
-    for m in re.finditer(r"'([^']+)':\s*\n?\s*((?:'(?:[^'\\]|\\.)*'\s*\+?\s*)+),", nb):
-        注記[m.group(1)] = "".join(re.findall(r"'((?:[^'\\]|\\.)*)'", m.group(2)))
+    for 鍵, 並び in re.findall(値の形, nb[: nb.index("\n};")]):
+        注記[鍵] = 値を読む(並び)
 
     return 出, 事故, 注記
 
