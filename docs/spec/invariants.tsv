@@ -1,10 +1,10 @@
 id	文	層	試験の場所	状態
 S00-7	ルームの名簿は主催が持ち、主催が配る。ゲストは主催から来た名簿だけを信じる	L1・L2	apps/desktop/src-tauri/src/room_sim.rs 客どうしが直接つながれなくても_名簿は主催と同じになる／crates/warifu-app/tests/room_sim.rs 入ったばかりなら_名簿は全員そろい_何も捨てていない／crates/warifu-app/tests/three_nodes.rs 三台の名簿がそろい_文字は主催ごしに全員へ_1_回ずつ届く	済
-S00-8	ゲストどうしが直接つながれなくても、発言は主催を通って全員に届く	L0・L1・L2	crates/warifu-app/src/room/roster.rs 主催ごしの発言は通し_それ以外の名乗りは通さない／crates/warifu-app/tests/room_sim.rs 文字は主催ごしに_ほかの全員へ_1_回ずつ届き_自分には届かない／crates/warifu-app/tests/three_nodes.rs 三台の名簿がそろい_文字は主催ごしに全員へ_1_回ずつ届く
+S00-8	ゲストどうしが直接つながれなくても、発言は主催を通って全員に届く	L0・L1・L2	crates/warifu-app/src/room/roster.rs 主催ごしの発言は通し_それ以外の名乗りは通さない／crates/warifu-app/tests/room_sim.rs 文字は主催ごしに_ほかの全員へ_1_回ずつ届き_自分には届かない／crates/warifu-app/tests/three_nodes.rs 三台の名簿がそろい_文字は主催ごしに全員へ_1_回ずつ届く	済
 S00-9	主催かは「覚えた主催が自分か（覚えていなければ自分）」で決める。名簿の並び順では決めない	L0	crates/warifu-app/src/room/roster.rs 主催かは_覚えた主催で決める_名簿の先頭では決めない／crates/warifu-app/src/room/tests.rs ゲストの名簿は自分が先頭でも_主催ではない	済
 S00-10	主催が落ちたら、ゲストは自分で戻る	L1	apps/desktop/src-tauri/src/room_sim.rs 主催が上がり直しても_客は自分で戻る	済
 S00-11	画面の人数・届く先・見ているルームは本体と常に同じ。違えば食い違いとして知らせる	L4		未
-S00-12	生の鍵を人に見せない	L4		未
+S00-12	生の鍵を人に見せない	L4	apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 名簿に名前のある相手は_行の鍵の頭ではなく名前で出る	一部（会話欄の差出人だけ。ほかの画面は未）
 S00-13	機械 1 台に割符 1 つ。その機械のエージェントは全部その割符に乗る（エージェントごとの鍵は無い）	L3		未担保
 S00-14	各機械の割符は当番を名乗る。名乗りの無い機械はフォルダ名で出る	L4		未担保
 S00-15	いちばん落ちない機械が常設のルームを主催し、ほかの機械はそこに入る。落ちた機械は帰り道で戻る	L1		未担保
@@ -23,7 +23,7 @@ S04-12	版が上がって最初の立ち上げで 1 度だけ点検を頼む	L0	
 S04-14	握手の無い版で先に尋ねられても、握手のある版だけを名乗り、tools/list に道具が出る	L3	crates/warifu-mcp/tests/protocol.rs 断られて握手し直した相手に_道具の一覧を返す	済
 S04-15	23 の口の返りの中身が仕様どおり	L3	crates/warifu-mcp/tests/smoke.rs（返るか、だけ）	未
 S02-1	発言の番号は立て直しても続く	L0	apps/desktop/src-tauri/src/desk.rs 立て直したら_控えの続きから番号を振る	済
-S02-2	部屋を替えても打ちかけの文は混ざらない	L0	apps/desktop/src/lib/chat/draft.test.ts	済
+S02-2	部屋を替えても打ちかけの文は混ざらない	L0・L4	apps/desktop/src/lib/chat/draft.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 部屋を替えても打ちかけの文は混ざらず_戻れば前の文が出る	済
 S02-3	人が自分で部屋を替えたら、宛先を据え置かない	L0	apps/desktop/src/lib/chat/keep.test.ts 人が自分で部屋を替えたなら、据え置かない	済
 S01-5	名簿が動いたら主催はいまの名簿をゲスト全員へ配る	L1・L2	apps/desktop/src-tauri/src/room_sim.rs 客どうしが直接つながれなくても_名簿は主催と同じになる／crates/warifu-app/tests/room_sim.rs 主催が上がり直しても_客は帰り道で戻り_部屋は増えない／crates/warifu-app/tests/three_nodes.rs 客が落ちたら_主催は外して名簿を配り直し_残りの客の名簿も揃う	済（線が切れて外したときは未）
 S01-6	ゲストは主催から来た名簿だけを信じる	L0	crates/warifu-app/src/room/roster.rs 主催の名簿に居て_自分の名簿に居ない相手を足す	済
@@ -36,7 +36,7 @@ S01-17a	ゲストが帰り道で戻るときは戻りたい部屋を主催へ伝
 S01-17	ゲストが落ちたら主催は外して配り直し、残りの名簿も揃う	L0・L1・L2	crates/warifu-app/src/room/tests.rs 客の線が切れたら_主催は外して名簿を配り直す／crates/warifu-app/tests/room_sim.rs 客が落ちたら_主催は外して名簿を配り直し_残りの客の名簿もそろう／crates/warifu-app/tests/three_nodes.rs 客が落ちたら_主催は外して名簿を配り直し_残りの客の名簿も揃う	済（純粋な部品。皮の配線は 0.1.41）
 S01-19	エージェントが入るルームは人が見ているルームを奪わない	L1	apps/desktop/src-tauri/src/room_sim.rs 客として他人の部屋を見ていても_呼ばれたら自分の部屋へ招く	済
 S02-6	届き札は 渡した／預けた／届かない の 3 つ。既読は作らない	L0	apps/desktop/src/lib/chat/delivery.test.ts	済
-S02-8	@名前 は届く先を変えない。呼ばれた側にだけ印	L0	apps/desktop/src/lib/chat/mention.test.ts	済
+S02-8	@名前 は届く先を変えない。呼ばれた側にだけ印	L0・L4	apps/desktop/src/lib/chat/mention.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts @_で呼んでも届く先は変わらないと言い_呼ばれた行にだけ「あなた宛て」が付く	済
 S02-9	未読は相手ごとに数え、相手へは送らない	L0	apps/desktop/src/lib/chat/unread.test.ts	済
 S02-10	下に居れば追い、上に居れば札で知らせる	L0	apps/desktop/src/lib/chat/scroll.test.ts	済
 S02-13	繋ぎ直したエージェントは切れていた間の発言を続きから受け取る	L0	apps/desktop/src-tauri/src/desk.rs 立て直したら_控えの続きから番号を振る	済
@@ -62,3 +62,33 @@ S02-22	入り直す客は参加より先に持っている所を言い、主催�
 S02-23	印の無い客・居たことの無い客・控えに無い印には送り直さない。入る前の文字は送らない	L1	crates/warifu-app/tests/room_sim.rs 印を持たない客には送り直さない・入る前の文字は_印が古くても送り直さない	済
 S02-24	主催の届き方は、線が切れて預かっている相手を「まだ届いていない」と並べ、預かり分を渡したら「届いた」へ移す。chat_send の返りの形は変えない	L0	crates/warifu-app/src/room/tests.rs 主催は_線の切れた客を留守として並べ_入り直したら外す／apps/desktop/src-tauri/src/desk.rs 預かり分を渡したら_その部屋の_まだ_は_届いた_へ移る・主催は線の無い相手を_まだ_とし_客は主催へ渡せたら主催ごしとする／crates/warifu-mcp/src/chat.rs 届き方は_まだ届いていない相手を_居るときだけ言う／crates/warifu-desk/src/line.rs 届き方のまだは_空なら欄を書かず_古い形の返事も読める	済（実機は dev 2 つ）
 S01-22	線が切れた相手は、その人が居たすべての部屋の名簿から外す（主催の部屋でも客の部屋でも・D83）。戻ってきたら Join で入り直す	L0	crates/warifu-app/src/room/tests.rs 主催の線が切れたら_客も名簿から外す／apps/desktop/src-tauri/src/lib.rs 汲む の終わり（試験なし）	済
+S08-1	ルームの id を名前の代わりに出さない。名簿に名前のある相手は名前で出す	L4	apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 名簿に名前のある相手は_行の鍵の頭ではなく名前で出る／apps/desktop/src/lib/chat/Participants.svelte.test.ts 名乗りの無い自分は_鍵の頭ではなく連絡帳と同じ「あなた（この_PC_の人）」で出て_札を重ねない	一部（会話欄の差出人と、入っている一覧の自分の行）
+S08-2	状態は色だけで言わない。字か形を添える	L5		未担保（人が見る）
+S08-3	字と地の対比は本文 4.5 : 1・薄い字 3 : 1 以上（明・暗とも）	L0	apps/desktop/src/lib/ui/contrast.test.ts	済
+S08-4	色は定義のあるトークンだけで書く	L0	apps/desktop/src/lib/ui/tokens.test.ts	済
+S08-5	省略した字は hover で全文が読める	L0・L4	apps/desktop/src/lib/ui/ellipsis.test.ts／apps/desktop/src/lib/chat/Reach.svelte.test.ts	済
+S08-6	繋がっていないことを繋がっているように見せない。分からないことには印を出さない	L5		未担保（人が見る）
+S08-7	面は人の操作でだけ移る	L4		未担保
+S08-8	画面の言葉は ルーム／ルームキー／この PC のエージェント。部屋・机・席・居る を出さない	L0	apps/desktop/src/lib/i18n/messages.test.ts 日本語の画面に_部屋・机・席・居る_を出さない	済（日本語の文言だけ）
+S08-9	押しても効かない押し所を押せる形で置かない。押せない訳を添える	L4	apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts Enter_で前後の空白を落として送り_欄を空ける。届く先が無ければ送る押し所は押せない	一部（送る押し所だけ）
+S08-10	起動して最初に出るのは連絡帳	L4		未担保
+S08-11	顔の印は知っている状態だけ。在席は出さない	L5		未担保（人が見る）
+S08-12	いま会議に居る人に n / 定員 を出さない	L4		未担保
+S08-13	メールの送るは押せる形にしない	L4		未担保
+S08-14	知らない相手からの通しますか・出ますかを出さない	L5		未担保（作らないと決めたもの・人が見る）
+S08-15	名簿の見出しの人数 ＝ 名簿の長さ。同じ PC のエージェントは数えない	L4	apps/desktop/src/lib/meeting/Roster.svelte.test.ts	済
+S08-16	主催の札は主催の行にだけ。自分の行に自分の印	L4	apps/desktop/src/lib/meeting/Roster.svelte.test.ts／apps/desktop/src/lib/chat/Participants.svelte.test.ts	済
+S08-17	ルームキーの全文は畳む。畳んだままでも写せる	L4		未担保
+S08-18	会話の見出しは誰に届くかを名乗る。自分だけなら「へ」と言わない	L0・L4	apps/desktop/src/lib/chat/destination.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 見出しは「文字で話す」ではなく_宛先を名乗る	済
+S08-19	届く先を 1 人ずつ並べる	L4	apps/desktop/src/lib/chat/Reach.svelte.test.ts	済
+S08-20	この機械からは右・ほかは左・知らせは吹き出しにしない・エージェントは字で印	L0・L4	apps/desktop/src/lib/chat/bubble.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 自分の発言は右・ほかの機械からは左・知らせは吹き出しにせず_エージェントには字で印を付ける	済
+S08-21	差出人は名簿の名前で出す	L0・L4	apps/desktop/src/lib/chat/name.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 名簿に名前のある相手は_行の鍵の頭ではなく名前で出る	済
+S08-22	相手ごとの会話があるように見せない（預かり所ごしの 1 対 1 は例外）	L5		未担保（人が見る）
+S08-23	留守中に届いた分には印を付け、出した側の時刻で出す	L4		未担保
+S08-24	届き札は 渡した／預けた／届かない の 3 つだけ	L0	apps/desktop/src/lib/chat/delivery.test.ts	済
+S08-25	届く先が無いときは送れない。打ち込みは残す	L4	apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts Enter_で前後の空白を落として送り_欄を空ける。届く先が無ければ送る押し所は押せない	一部（打ち込みが残ることは見ていない）
+S08-26	会議の面は隠しても音を止めない	L5		未担保（人が見る）
+S08-27	窓ごとスクロールさせない。映像は縦の中央	L5		未担保（人が見る）
+S08-28	経路は色・字・形の 3 つで出す	L5		未担保（人が見る）
+S08-29	新しい版は帯で言い、黙って入れ替えない	L0	apps/desktop/src/lib/update/notice.test.ts	一部（出す・出さないの判断だけ）
+S08-30	コマンドが古いと帯で言い、入れ替えられるときだけ押し所を出す	L0	apps/desktop/src/lib/update/cli.test.ts	済

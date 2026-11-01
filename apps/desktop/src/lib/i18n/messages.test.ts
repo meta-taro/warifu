@@ -31,6 +31,13 @@ describe('文言辞書（DESIGN.md §9 / D35）', () => {
     }
   });
 
+  it('日本語の画面に 部屋・机・席・居る を出さない（D89・spec 08 S08-8）', () => {
+    // 画面の言葉は「ルーム」「この PC のエージェント」「入っている・つながっている」。
+    // 中の名前（部屋・机・席）が文言へ漏れると、人には別の物があるように読める。「居場所」は別の語なので通す
+    const 漏れ = Object.entries(MESSAGES.ja).filter(([, 文]) => /部屋|机|席|居[るまなた]/.test(文));
+    expect(漏れ.map(([鍵, 文]) => `${鍵}: ${文}`)).toEqual([]);
+  });
+
   it('誤訳が事故になる文言には、翻訳者への注記が必ず付く', () => {
     expect(CRITICAL_KEYS.length).toBeGreaterThan(0);
     for (const key of CRITICAL_KEYS) {

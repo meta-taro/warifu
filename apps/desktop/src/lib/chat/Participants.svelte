@@ -11,18 +11,25 @@
     並び: readonly 参加者[];
     /** 機械の鍵から、画面で呼ぶ名前。 */
     名: (key: string) => string;
+    /**
+     * **この端末の人の名乗り。**無ければ連絡帳と同じ「あなた（この PC の人）」で出す。
+     * 名乗りの無い機械では、`名` が自分の鍵の頭を返していた（0.1.42 で直した）
+     */
+    自分の名?: string | null;
     顔の画?: Readonly<Record<string, string>>;
     /** この機械のエージェントの名札（届く先と同じ形・`連動（docs）`）。 */
     席の名札?: (席: string) => string;
   }
 
-  const { locale, 並び, 名, 顔の画 = {}, 席の名札 = (席: string) => 席 }: Props = $props();
+  const { locale, 並び, 名, 自分の名 = null, 顔の画 = {}, 席の名札 = (席: string) => 席 }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
   const 主の名 = (主: '人' | 'エージェント') =>
     t(主 === 'エージェント' ? 'avatar.owner.agent' : 'avatar.owner.person');
   const エージェントの名 = (札: string) =>
     エージェントの名を言い換える(札, (n) => format(t('chat.agentOf'), { name: n }));
+  /** 行に出す名前。自分は名乗りか、連絡帳と同じ呼び方（鍵の頭を出さない）。 */
+  const 出す名 = (p: 参加者) => (p.自分 ? (自分の名 ?? t('contacts.me.row')) : 名(p.key));
   const 相手にエージェントが居ないか = $derived(
     並び.some((p) => !p.自分 && p.エージェントたち.length === 0),
   );
@@ -35,9 +42,10 @@
       {#each 並び as p (p.key)}
         <li>
           <div class="who">
-            <Avatar 種={p.key} 大きさ={24} 画像={顔の画[p.key] ?? null} 名={名(p.key)} {主の名} />
-            <span class="name" title={名(p.key)}>{名(p.key)}</span>
-            {#if p.自分}<span class="chip">{t('contacts.me')}</span>{/if}
+            <Avatar 種={p.key} 大きさ={24} 画像={顔の画[p.key] ?? null} 名={出す名(p)} {主の名} />
+            <span class="name" title={出す名(p)}>{出す名(p)}</span>
+            <!-- 名乗りが無ければ名前が「あなた（この PC の人）」なので、札を重ねない -->
+            {#if p.自分 && 自分の名}<span class="chip">{t('contacts.me')}</span>{/if}
             {#if p.主催}<span class="chip host">{t('room.people.host')}</span>{/if}
           </div>
           {#if p.エージェントたち.length > 0}
