@@ -107,6 +107,8 @@ fn 使い方() -> ExitCode {
          \x20 warifu setup [--yes]\n\
          \x20            MCP の口を、Claude Code の利用者ごとの設定へ入れる\n\
          \x20            （どのフォルダでも出るようになる。会話だけを許します）\n\
+         \x20 warifu claude [claude の引数…]\n\
+         \x20            割符の知らせ（@ で呼ばれた本文）を受ける形で Claude Code を立ち上げる\n\
          \x20 warifu version 版を出す\n\
          \x20 warifu help    この使い方を出す\n\
          \x20 warifu contacts                       覚えた相手を並べる\n\
@@ -366,6 +368,8 @@ async fn 本体() -> ExitCode {
             Ok(設) => setup::入れる(&設),
             Err(e) => Err(e.into()),
         },
+        // **割符の知らせを受ける形で Claude Code を立ち上げる**（0.1.43）
+        Some("claude") => setup::claude_を立ち上げる(&mut args),
         Some("post") => match post::読む(&mut args) {
             Ok(設) => post::走る(&設).await,
             Err(e) => Err(e.into()),

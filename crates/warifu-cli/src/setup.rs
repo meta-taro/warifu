@@ -122,6 +122,57 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// channels を受ける印（Claude Code の研究段階の機能）。**これを付けないと、届いた知らせは黙って捨てられる**
+const 知らせを受ける印: &str = "--dangerously-load-development-channels";
+
+/// `warifu claude` が `claude` に渡す引数（0.1.43・内部の Issue 030）。
+///
+/// 知らせ（`push.rs`）は、channels を付けて立ち上げたセッションにしか届かない。
+/// **付け方が長く、付けずに立ち上げた席は、呼ばれても気づかなかった。**
+/// 人が書いた引数は後ろへそのまま渡す。**印をもう書いていれば、二重に足さない。**
+#[must_use]
+pub fn claude_へ渡す引数(人の引数: &[String]) -> Vec<String> {
+    let mut 引数 = Vec::new();
+    if !人の引数.iter().any(|a| a == 知らせを受ける印) {
+        引数.push(知らせを受ける印.to_owned());
+        引数.push("server:warifu".to_owned());
+    }
+    引数.extend(人の引数.iter().cloned());
+    引数
+}
+
+/// `warifu claude [claude の引数…]` —— **割符の知らせを受ける形で Claude Code を立ち上げる。**
+///
+/// 口（`warifu setup`）が入っていなければ、先に入れるよう言って止める。
+pub fn claude_を立ち上げる(
+    args: &mut impl Iterator<Item = String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let 人の引数: Vec<String> = args.collect();
+    if which_claude().is_none() {
+        return Err("`claude` が見つかりません。Claude Code を入れてから打ってください".into());
+    }
+    if すでに入っている().is_none() {
+        return Err("warifu の口がまだ入っていません。先に `warifu setup` を打ってください".into());
+    }
+    let mut 命令 = claude();
+    命令.args(claude_へ渡す引数(&人の引数));
+    #[cfg(unix)]
+    {
+        // **この端末を Claude Code に明け渡す**（子として抱えると、Ctrl+C や終わり方が二重になる）
+        use std::os::unix::process::CommandExt;
+        Err(命令.exec().into())
+    }
+    #[cfg(not(unix))]
+    {
+        let 出た = 命令.status()?;
+        if 出た.success() {
+            Ok(())
+        } else {
+            Err(format!("claude が {出た} で終わりました").into())
+        }
+    }
+}
+
 /// すでに入っているか。入っていれば、**いま許してある札**を返す。
 ///
 /// **入っているかどうかを、当てずっぽうで決めない。**`claude` に聞く。
@@ -211,6 +262,25 @@ mod tests {
     // `Command::new("claude")` は `.exe` しか探さないので、**入っているのに「見つかりません」**になった。
     // 手で打つ 1 行も、PowerShell 5.1 から `.ps1` を呼ぶと **`--` が食われ**、
     // `--allow` を claude が自分の指定として読んで止まった。
+    #[test]
+    fn claude_には_知らせを受ける印を付けて_人の引数は後ろへ渡す() {
+        let 人 = vec!["--resume".to_owned()];
+        assert_eq!(
+            claude_へ渡す引数(&人),
+            [知らせを受ける印, "server:warifu", "--resume"]
+        );
+        assert_eq!(claude_へ渡す引数(&[]), [知らせを受ける印, "server:warifu"]);
+    }
+
+    #[test]
+    fn 印をもう書いていれば_二重に足さない() {
+        let 人 = vec![
+            知らせを受ける印.to_owned(),
+            "server:warifu,server:other".to_owned(),
+        ];
+        assert_eq!(claude_へ渡す引数(&人), 人);
+    }
+
     #[test]
     fn windows_では_cmd_越しに呼ぶ() {
         let (頭, 前置き) = claude_の呼び方(true);
