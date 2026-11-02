@@ -247,18 +247,39 @@ pane.contacts	Contacts	連絡帳	通讯录	연락처
 pane.divider	Divider (drag left or right to resize; double-click to reset)	仕切り（左右にドラッグで幅を変える・ダブルクリックで元の幅）	分隔线（左右拖动调整宽度，双击恢复原宽度）	구분선 (좌우로 끌어 너비 조절, 더블클릭하면 원래 너비)				
 pane.meeting	Room	ルーム	房间	방				
 pane.schedule	Schedule	予定	日程	일정				
+pass.action.calendar.freebusy	Seeing free/busy times	予定の空き	查看日程空闲时间	일정의 빈 시간 보기				
+pass.action.chat.export	Exporting chats	会話の書き出し	导出对话	대화 내보내기				
+pass.action.chat.read	Reading chats	会話の読み取り	读取对话	대화 읽기				
+pass.action.chat.send	Sending messages	会話への書き込み	发送消息	메시지 보내기				
+pass.action.contacts.add	Adding contacts	連絡帳への追加	添加联系人	연락처 추가				
+pass.action.contacts.call	Calling contacts	連絡先の呼び出し	呼叫联系人	연락처 호출				
+pass.action.contacts.read	Reading contacts	連絡帳の読み取り	读取联系人	연락처 읽기				
+pass.action.inbox.list	Listing the inbox	受信箱の一覧	列出收件箱	받은편지함 목록 보기				
+pass.action.inbox.open.attachments	Reading email attachments	メールの添付	读取邮件附件	메일 첨부 읽기				
+pass.action.inbox.open.raw	Reading full email text	メールの本文	读取邮件正文	메일 본문 읽기				
+pass.action.inbox.open.structured	Reading email key fields	メールの要点	读取邮件要点	메일 요점 읽기				
+pass.action.inbox.open.summary	Reading email summaries	メールの要約	读取邮件摘要	메일 요약 읽기				
+pass.action.profile.write	Editing the profile	名乗りの書き換え	修改个人资料	프로필 수정				
+pass.action.room.handoff	Handing over room keys	ルームキーの手渡し	转交房间密钥	룸 키 전달		エージェントが、人に聞かずにルームキーを相手へ渡すこと。「受け取る」と読める訳にしないこと。渡すのはこの PC の側である。		
+pass.action.room.invite	Issuing room keys	ルームキーの発行	签发房间密钥	룸 키 발급				
+pass.action.room.join	Joining rooms	ルームへの参加	加入房间	룸 참가				
+pass.action.room.leave	Leaving rooms	ルームからの退出	退出房间	룸 나가기				
+pass.action.room.rename	Renaming rooms	ルームの名前の変更	重命名房间	룸 이름 변경				
+pass.action.rules.list	Listing rules	規則の一覧	列出规则	규칙 목록 보기				
+pass.action.screen.read	Reading the screen	画面の読み取り	读取屏幕	화면 읽기				
+pass.action.voice.say	Speaking aloud	声での読み上げ	语音朗读	음성으로 읽기				
 pass.allow	Allow	通す	允许	허용				
 pass.allow.standing	Allow for 24 hours	24 時間聞かない	24 小时内不再询问	24시간 동안 묻지 않음				
-pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
-pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
+pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は{what}を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
+pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は{what}を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
 pass.asked	An agent is asking for permission	エージェントが、これを使ってよいか聞いています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다				
 pass.asked.hint	If you allow it, this agent can use that action. You can revoke it later.	通すと、このエージェントはそれを使えるようになります。あとで取り消せます。	允许后，该代理就能使用这个动作。之后可以撤销。	허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.				
 pass.refuse	Don't allow	通さない	不允许	허용하지 않음				
-pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は {what} を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
+pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は{what}を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
 pass.revoke	Revoke	取り消す	撤销	취소				
-pass.standing	{what} passes without asking for {hours} more hours	{what} は、あと {hours} 時間は聞かずに通します	{what} 在接下来 {hours} 小时内无需询问即可通过	{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다				
-pass.standing.untilRevoked	{what} passes without asking until you revoke it	{what} は、取り消すまで聞かずに通します	{what} 在撤销之前无需询问即可通过	{what} 은(는) 취소할 때까지 묻지 않고 통과합니다				
-pass.who	{who} wants to use {what}	{who} が {what} を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
+pass.standing	{what} passes without asking for {hours} more hours	{what}は、あと {hours} 時間は聞かずに通します	{what} 在接下来 {hours} 小时内无需询问即可通过	{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다				
+pass.standing.untilRevoked	{what} passes without asking until you revoke it	{what}は、取り消すまで聞かずに通します	{what} 在撤销之前无需询问即可通过	{what} 은(는) 취소할 때까지 묻지 않고 통과합니다				
+pass.who	{who} wants to use {what}	{who} が{what}を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
 postbox.clear	Remove	外す	取消	해제				
 postbox.cleared	Mailbox removed.	留守中の受け取りを外しました。	已移除寄存处。	보관소를 내렸습니다.				
 postbox.hint	A place that holds what arrives, sealed, while you are not running. Whoever holds it cannot read it. Without it, messages only arrive while you are running.	あなたが起動していない間、届いた言葉を封のまま預かってもらう所です。中身は預かる側にも読めません。設定しなければ、あなたが起動している間だけ届きます。	在你没有启动的期间，把送到的话封着代为保管的地方。保管方也读不到内容。不设置的话，只有你启动着的时候才会送到。	당신이 켜져 있지 않은 동안, 도착한 말을 봉한 채로 맡아 두는 곳입니다. 맡는 쪽도 내용을 읽을 수 없습니다. 설정하지 않으면 켜져 있는 동안에만 도착합니다.				

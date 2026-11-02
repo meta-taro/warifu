@@ -165,6 +165,27 @@ export type MessageKey =
   | 'pass.allowed.standing'
   | 'pass.standing'
   | 'pass.revoke'
+  | 'pass.action.chat.read'
+  | 'pass.action.chat.send'
+  | 'pass.action.chat.export'
+  | 'pass.action.contacts.read'
+  | 'pass.action.contacts.add'
+  | 'pass.action.contacts.call'
+  | 'pass.action.room.invite'
+  | 'pass.action.room.join'
+  | 'pass.action.room.leave'
+  | 'pass.action.room.rename'
+  | 'pass.action.room.handoff'
+  | 'pass.action.screen.read'
+  | 'pass.action.voice.say'
+  | 'pass.action.profile.write'
+  | 'pass.action.rules.list'
+  | 'pass.action.calendar.freebusy'
+  | 'pass.action.inbox.list'
+  | 'pass.action.inbox.open.summary'
+  | 'pass.action.inbox.open.structured'
+  | 'pass.action.inbox.open.raw'
+  | 'pass.action.inbox.open.attachments'
   | 'handoff.asked'
   | 'handoff.who'
   | 'handoff.hint'
@@ -633,20 +654,41 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.asked.hint': '通すと、このエージェントはそれを使えるようになります。あとで取り消せます。',
     'pass.allow': '通す',
     'pass.refuse': '通さない',
-    'pass.allowed': '通しました。{who} は {what} を使えるようになりました（あとで取り消せます）。',
-    'pass.refused': '通しませんでした。{who} は {what} を使えません。',
-    'pass.who': '{who} が {what} を使いたい',
+    'pass.allowed': '通しました。{who} は{what}を使えるようになりました（あとで取り消せます）。',
+    'pass.refused': '通しませんでした。{who} は{what}を使えません。',
+    'pass.who': '{who} が{what}を使いたい',
     'pass.allow.standing': '24 時間聞かない',
-    'pass.allowed.standing': '通しました。{who} は {what} を 24 時間、聞かれずに使えます（取り消せます）。',
-    'pass.standing': '{what} は、あと {hours} 時間は聞かずに通します',
+    'pass.allowed.standing': '通しました。{who} は{what}を 24 時間、聞かれずに使えます（取り消せます）。',
+    'pass.standing': '{what}は、あと {hours} 時間は聞かずに通します',
     'pass.revoke': '取り消す',
+    'pass.action.chat.read': '会話の読み取り',
+    'pass.action.chat.send': '会話への書き込み',
+    'pass.action.chat.export': '会話の書き出し',
+    'pass.action.contacts.read': '連絡帳の読み取り',
+    'pass.action.contacts.add': '連絡帳への追加',
+    'pass.action.contacts.call': '連絡先の呼び出し',
+    'pass.action.room.invite': 'ルームキーの発行',
+    'pass.action.room.join': 'ルームへの参加',
+    'pass.action.room.leave': 'ルームからの退出',
+    'pass.action.room.rename': 'ルームの名前の変更',
+    'pass.action.room.handoff': 'ルームキーの手渡し',
+    'pass.action.screen.read': '画面の読み取り',
+    'pass.action.voice.say': '声での読み上げ',
+    'pass.action.profile.write': '名乗りの書き換え',
+    'pass.action.rules.list': '規則の一覧',
+    'pass.action.calendar.freebusy': '予定の空き',
+    'pass.action.inbox.list': '受信箱の一覧',
+    'pass.action.inbox.open.summary': 'メールの要約',
+    'pass.action.inbox.open.structured': 'メールの要点',
+    'pass.action.inbox.open.raw': 'メールの本文',
+    'pass.action.inbox.open.attachments': 'メールの添付',
     'handoff.asked': 'エージェントが、ルームキーを相手の機械へ渡してよいか聞いています',
     'handoff.who': '{who} が、{to} の機械へ、いま見ているルームのキーを渡そうとしています',
     'handoff.hint': '渡すと、割符の線で相手の機械にだけ届きます（チャットやメールは通りません）。入るかは相手の人が決めます。',
     'handoff.give': '渡す',
     'handoff.keep': '渡さない',
     'handoff.give.always': '今後は聞かずに渡す',
-    'pass.standing.untilRevoked': '{what} は、取り消すまで聞かずに通します',
+    'pass.standing.untilRevoked': '{what}は、取り消すまで聞かずに通します',
     'link.gift': '{from} からルームキーが届きました。入りますか？',
     'link.gift.hint': '割符の線で、相手の機械から直接届きました。心当たりがなければ入らないでください。',
     'link.gift.declined': '入りませんでした。入るときは、相手にもう一度渡してもらってください。',
@@ -1067,6 +1109,27 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': 'Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).',
     'pass.standing': '{what} passes without asking for {hours} more hours',
     'pass.revoke': 'Revoke',
+    'pass.action.chat.read': 'Reading chats',
+    'pass.action.chat.send': 'Sending messages',
+    'pass.action.chat.export': 'Exporting chats',
+    'pass.action.contacts.read': 'Reading contacts',
+    'pass.action.contacts.add': 'Adding contacts',
+    'pass.action.contacts.call': 'Calling contacts',
+    'pass.action.room.invite': 'Issuing room keys',
+    'pass.action.room.join': 'Joining rooms',
+    'pass.action.room.leave': 'Leaving rooms',
+    'pass.action.room.rename': 'Renaming rooms',
+    'pass.action.room.handoff': 'Handing over room keys',
+    'pass.action.screen.read': 'Reading the screen',
+    'pass.action.voice.say': 'Speaking aloud',
+    'pass.action.profile.write': 'Editing the profile',
+    'pass.action.rules.list': 'Listing rules',
+    'pass.action.calendar.freebusy': 'Seeing free/busy times',
+    'pass.action.inbox.list': 'Listing the inbox',
+    'pass.action.inbox.open.summary': 'Reading email summaries',
+    'pass.action.inbox.open.structured': 'Reading email key fields',
+    'pass.action.inbox.open.raw': 'Reading full email text',
+    'pass.action.inbox.open.attachments': 'Reading email attachments',
     'handoff.asked': 'An agent is asking whether it may hand a room key to another machine',
     'handoff.who': '{who} wants to hand {to}\'s machine a key to the room you are viewing',
     'handoff.hint': 'If you hand it over, it travels over the warifu link to that machine only (not through chat or email). The person there decides whether to enter.',
@@ -1492,6 +1555,27 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': '已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。',
     'pass.standing': '{what} 在接下来 {hours} 小时内无需询问即可通过',
     'pass.revoke': '撤销',
+    'pass.action.chat.read': '读取对话',
+    'pass.action.chat.send': '发送消息',
+    'pass.action.chat.export': '导出对话',
+    'pass.action.contacts.read': '读取联系人',
+    'pass.action.contacts.add': '添加联系人',
+    'pass.action.contacts.call': '呼叫联系人',
+    'pass.action.room.invite': '签发房间密钥',
+    'pass.action.room.join': '加入房间',
+    'pass.action.room.leave': '退出房间',
+    'pass.action.room.rename': '重命名房间',
+    'pass.action.room.handoff': '转交房间密钥',
+    'pass.action.screen.read': '读取屏幕',
+    'pass.action.voice.say': '语音朗读',
+    'pass.action.profile.write': '修改个人资料',
+    'pass.action.rules.list': '列出规则',
+    'pass.action.calendar.freebusy': '查看日程空闲时间',
+    'pass.action.inbox.list': '列出收件箱',
+    'pass.action.inbox.open.summary': '读取邮件摘要',
+    'pass.action.inbox.open.structured': '读取邮件要点',
+    'pass.action.inbox.open.raw': '读取邮件正文',
+    'pass.action.inbox.open.attachments': '读取邮件附件',
     'handoff.asked': '有代理在询问能否把房间钥匙交给对方的机器',
     'handoff.who': '{who} 想把你正在看的房间的钥匙交给 {to} 的机器',
     'handoff.hint': '交出后，它只会通过 warifu 的线路送到对方的机器（不经过聊天或邮件）。是否进入由对方的人决定。',
@@ -1921,6 +2005,27 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': '통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.',
     'pass.standing': '{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다',
     'pass.revoke': '취소',
+    'pass.action.chat.read': '대화 읽기',
+    'pass.action.chat.send': '메시지 보내기',
+    'pass.action.chat.export': '대화 내보내기',
+    'pass.action.contacts.read': '연락처 읽기',
+    'pass.action.contacts.add': '연락처 추가',
+    'pass.action.contacts.call': '연락처 호출',
+    'pass.action.room.invite': '룸 키 발급',
+    'pass.action.room.join': '룸 참가',
+    'pass.action.room.leave': '룸 나가기',
+    'pass.action.room.rename': '룸 이름 변경',
+    'pass.action.room.handoff': '룸 키 전달',
+    'pass.action.screen.read': '화면 읽기',
+    'pass.action.voice.say': '음성으로 읽기',
+    'pass.action.profile.write': '프로필 수정',
+    'pass.action.rules.list': '규칙 목록 보기',
+    'pass.action.calendar.freebusy': '일정의 빈 시간 보기',
+    'pass.action.inbox.list': '받은편지함 목록 보기',
+    'pass.action.inbox.open.summary': '메일 요약 읽기',
+    'pass.action.inbox.open.structured': '메일 요점 읽기',
+    'pass.action.inbox.open.raw': '메일 본문 읽기',
+    'pass.action.inbox.open.attachments': '메일 첨부 읽기',
     'handoff.asked': '에이전트가 룸 키를 상대 기기에 건네도 되는지 묻고 있습니다',
     'handoff.who': '{who} 이(가) 지금 보고 있는 방의 키를 {to} 의 기기에 건네려 합니다',
     'handoff.hint': '건네면 warifu 회선으로 상대 기기에만 전달됩니다(채팅이나 메일을 거치지 않습니다). 들어갈지는 상대가 정합니다.',
@@ -2174,6 +2279,9 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
 export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
+  'pass.action.room.handoff':
+    'エージェントが、人に聞かずにルームキーを相手へ渡すこと。' +
+    '「受け取る」と読める訳にしないこと。渡すのはこの PC の側である。',
   'contacts.noname':
     'こちらが呼び名を付けておらず、相手も名乗っていない人の名前の代わり。' +
     '親しみのある「名前の無い人」の意味で、エラーや欠けた値に読める訳にしないこと。',

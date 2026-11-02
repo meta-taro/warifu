@@ -91,6 +91,7 @@
   } from '$lib/schedule/schedule';
   import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
   import { 出す名, 呼び名 } from '$lib/meeting/names';
+  import { 動作の言葉 } from '$lib/pass/action';
   import { エージェントの名を言い換える } from '$lib/chat/name';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
@@ -1463,7 +1464,7 @@
       // **同意を求めておいて、同意した結果を見せないのは、押させただけである。**
       notice = format(t(持続 ? 'pass.allowed.standing' : 許す ? 'pass.allowed' : 'pass.refused'), {
         who: 相手,
-        what: 動作,
+        what: 動作の言葉(動作, t),
       });
     } catch (e) {
       // **黙って畳まない。**畳むと「押したのに効いていない」が見えなくなる
@@ -3335,7 +3336,7 @@
   <div class="invited" role="alertdialog" aria-live="polite">
     <p class="what">{t('pass.asked')}</p>
     <p class="hint">
-      {format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 待ち.動作 })}
+      {format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 動作の言葉(待ち.動作, t) })}
     </p>
     <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
     <p class="hint">{待ち.訳}</p>
@@ -3360,8 +3361,8 @@
   <div class="invited standing" role="status">
     <p class="hint">
       {まで - いま秒 > 365 * 24 * 3600
-        ? format(t('pass.standing.untilRevoked'), { what: 動作 })
-        : format(t('pass.standing'), { what: 動作, hours: 残り時間(まで) })}
+        ? format(t('pass.standing.untilRevoked'), { what: 動作の言葉(動作, t) })
+        : format(t('pass.standing'), { what: 動作の言葉(動作, t), hours: 残り時間(まで) })}
     </p>
     <div class="tail">
       <button type="button" class="quiet" onclick={() => void 札を取り消す(動作)}>
