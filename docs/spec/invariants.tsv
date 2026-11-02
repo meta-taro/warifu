@@ -23,7 +23,7 @@ S04-12	版が上がって最初の立ち上げで 1 度だけ点検を頼む	L0	
 S04-14	握手の無い版で先に尋ねられても、握手のある版だけを名乗り、tools/list に道具が出る	L3	crates/warifu-mcp/tests/protocol.rs 断られて握手し直した相手に_道具の一覧を返す	済
 S04-15	23 の口の返りの中身が仕様どおり	L3	crates/warifu-mcp/tests/smoke.rs（返るか、だけ）	未
 S04-16	戻る途中は、room_status の題字がそう言う	L0	apps/desktop/src-tauri/src/come_back.rs 戻る先がある間だけ_題字を戻る途中と言い換える	済（dev で帰り道を置いて上げ直し、room_status を見た）
-S04-17	戻れたら戻った先を見る。相手の居るルームは奪わない	L0	apps/desktop/src-tauri/src/come_back.rs 上げ直した直後の_自分しか居ない仮のルームは見続けず_戻った先を見る・見張りが戻っても_前に見ていたルームを奪わない	済（dev で帰り道を置いて上げ直し、room_status を見た）
+S04-17	戻れたら戻った先を見る。相手の居るルームは奪わない	L0	apps/desktop/src-tauri/src/come_back.rs 上げ直した直後の_自分しか居ない仮のルームは見続けず_戻った先を見る・見張りが戻っても_前に見ていたルームを奪わない・主催が鍵を配った部屋は_皆が戻る前で空でも見続ける	済（dev で帰り道を置いて上げ直し、room_status を見た）
 S02-1	発言の番号は立て直しても続く	L0	apps/desktop/src-tauri/src/desk.rs 立て直したら_控えの続きから番号を振る	済
 S02-2	部屋を替えても打ちかけの文は混ざらない	L0・L4	apps/desktop/src/lib/chat/draft.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 部屋を替えても打ちかけの文は混ざらず_戻れば前の文が出る	済
 S02-3	人が自分で部屋を替えたら、宛先を据え置かない	L0	apps/desktop/src/lib/chat/keep.test.ts 人が自分で部屋を替えたなら、据え置かない	済
