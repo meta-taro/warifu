@@ -3,7 +3,7 @@
 > **English:** [install.md](install.md)
 
 配布物は [ダウンロードのページ](https://meta-taro.github.io/warifu/) と
-[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.41**。
+[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.42**。
 
 **何かを預ける前に、[`SECURITY.ja.md`](../SECURITY.ja.md) を読んでください。**アルファ版です。
 
@@ -41,7 +41,7 @@ spctl -a -vv -t exec /Applications/warifu.app
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.41+<commit>
+./warifu version          # → warifu 0.1.42+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば
 ```
 
@@ -84,8 +84,8 @@ pnpm tauri build --bundles app
 
 | ファイル | |
 |---|---|
-| **`warifu_0.1.41_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
-| `warifu_0.1.41_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
+| **`warifu_0.1.42_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
+| `warifu_0.1.42_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
 | `warifu.exe` | CLI。置いた場所から、そのまま打てます |
 
 ### SmartScreen が出ます
@@ -104,8 +104,8 @@ Windows によって PC が保護されました
 （**署名が無いのは、どちらでも同じ**です）。
 
 ```powershell
-gh release download v0.1.41 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.41_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
+gh release download v0.1.42 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.42_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
 ```
 
 ### **初回はファイアウォールの規則が要ります**（ここで詰まります）
@@ -206,7 +206,7 @@ warifu relay-server clear   # 使うのをやめる
 
 **Windows では、入れ替える前に Claude Code（`warifu mcp`）を全部止めてください。**
 古い `warifu mcp` が机のパイプ（`\\.\pipe\warifu-desk`）を掴んだままだと、新しい画面版が
-「この機械を開けませんでした: アクセスが拒否されました (os error 5)」で開けません（0.1.41 で実測）。
+「この機械を開けませんでした: アクセスが拒否されました (os error 5)」で開けません（0.1.42 で実測）。
 止めてから入れ替え、入れ替えたら Claude Code を立ち上げ直してください。
 記録は `%USERPROFILE%\.local\share\warifu\warifu.log` にあります（macOS は `~/Library/Application Support/warifu/warifu.log`）。
 
@@ -216,7 +216,7 @@ Bash から立てた聞き役のスクリプトなど）はそれでは入れ替
 
 **`/mcp` の繋ぎ直しでも、古い `warifu mcp` が残ることがあります**（2026-10-28 に macOS で見ました。古い口が同じ親の子として残り、
 画面の「この PC」に同じ席が「〜のエージェント 2」と二重に出ます）。残っていたら、`pgrep -fl 'warifu mcp'`（Windows は
-`tasklist | findstr warifu`）で数えて、古いほうを止めてください。0.1.41 からは、古い口が抜けると「2」は元の名に戻ります。
+`tasklist | findstr warifu`）で数えて、古いほうを止めてください。0.1.42 からは、古い口が抜けると「2」は元の名に戻ります。
 どれが古いままかは `ps -axo pid,ppid,lstart,command | grep '[w]arifu mcp'` で起動時刻を見れば分かります
 （Windows は `tasklist | findstr warifu`）。
 
