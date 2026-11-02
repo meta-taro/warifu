@@ -260,8 +260,9 @@ export const leave = () => invoke<void>('leave');
  * `to` に**同じ PC の AI の呼び方**を渡すと、**そのエージェントにだけ**届く。
  * 渡さなければ、ルームに居る全員とこの機械の AI 全員へ。
  */
-export const sendText = (body: string, to?: string | null) =>
-  invoke<void>('send_text', { body, to: to ?? null });
+/** `force` は、秘密らしいものを人が確かめて［それでも送る］を押したとき（0.1.42）。無ければ本体も止める */
+export const sendText = (body: string, to?: string | null, force = false) =>
+  invoke<void>('send_text', { body, to: to ?? null, force });
 
 /**
  * **ルームの相手へ画像を送る。**画面で縮めてから渡す（`chat/image.ts`）。

@@ -479,13 +479,18 @@ impl Warifu {
 
     /// 会話へ 1 行流す。**人の画面にも同じ行が出る。**
     #[tool(
-        description = "会話へ 1 行流す。同じ PC の人の画面と、繋がっている相手にも届く。`room` を省くと、居る部屋が 1 つならそこへ流す。2 つ以上の部屋に居るときは送らずに候補の部屋を返すので、`room` に部屋の id（chat_read の行の末尾）か、その頭を書いて送り直す。"
+        description = "会話へ 1 行流す。同じ PC の人の画面と、繋がっている相手にも届く。`room` を省くと、居る部屋が 1 つならそこへ流す。2 つ以上の部屋に居るときは送らずに候補の部屋を返すので、`room` に部屋の id（chat_read の行の末尾）か、その頭を書いて送り直す。送った発言は取り消せない（届いた各機械に写しが残る）ので、トークン・API キー・秘密鍵・ルームキーの全文など秘密らしいものが入っていれば送らずに止める。"
     )]
     pub async fn chat_send(
         &self,
         Parameters(args): Parameters<SayArgs>,
     ) -> Result<String, ErrorData> {
         self.通るか("chat.send")?;
+        // **秘密らしいものは送らない**（0.1.42）。会話は送ったら消せない（P2P）。
+        // エージェントには押し切る道を持たせない。値は言い返さない（ここでまた写る）
+        if let Some(断り) = warifu_desk::エージェントへの断り(&args.body) {
+            return Err(ToolError::BadArgs(断り).into());
+        }
         let この機械 = self.この機械().await?;
         let 流した = この機械
             .部屋へ言う(&args.body, args.room.as_deref())

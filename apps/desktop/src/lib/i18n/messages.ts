@@ -68,6 +68,15 @@ export type MessageKey =
   | 'chat.image.close'
   | 'chat.image.nobody'
   | 'chat.send'
+  | 'chat.secret.found'
+  | 'chat.secret.hint'
+  | 'chat.secret.send'
+  | 'chat.secret.cancel'
+  | 'chat.secret.kind.hex'
+  | 'chat.secret.kind.assign'
+  | 'chat.secret.kind.apikey'
+  | 'chat.secret.kind.pem'
+  | 'chat.secret.kind.roomkey'
   | 'chat.empty'
   | 'chat.joined'
   | 'chat.left'
@@ -564,6 +573,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.close': '閉じる',
     'chat.image.nobody': '画像はルームの相手に届きます。いまはほかの機械の人がいません（この PC のエージェントには画像は届きません）。',
     'chat.send': '送る',
+    'chat.secret.found': '秘密らしいもの（{what}）が入っています。送ると取り消せません',
+    'chat.secret.hint': '割符の会話は、届いた各機械に写しが残ります。その部分を消してから送るか、確かめたうえで送ってください。',
+    'chat.secret.send': 'それでも送る',
+    'chat.secret.cancel': '送らずに直す',
+    'chat.secret.kind.hex': '長い 16 進の並び',
+    'chat.secret.kind.assign': '「TOKEN=」のような名前と値',
+    'chat.secret.kind.apikey': 'API キーの形',
+    'chat.secret.kind.pem': 'プライベートキー（SSH など）',
+    'chat.secret.kind.roomkey': 'ルームキーの全文',
     'chat.empty': 'まだ何もありません',
     'chat.joined': '{who} が入りました',
     'chat.left': '{who} が退室しました',
@@ -1012,6 +1030,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.close': 'Close',
     'chat.image.nobody': 'Images go to the people in the room. Nobody from another machine is here right now (agents on this PC do not receive images).',
     'chat.send': 'Send',
+    'chat.secret.found': 'This looks like it contains a secret ({what}). Once sent, it cannot be taken back',
+    'chat.secret.hint': 'Every device that receives a warifu message keeps a copy. Remove that part before sending, or send only after checking it.',
+    'chat.secret.send': 'Send anyway',
+    'chat.secret.cancel': 'Edit instead',
+    'chat.secret.kind.hex': 'a long hex string',
+    'chat.secret.kind.assign': 'a name and value like "TOKEN="',
+    'chat.secret.kind.apikey': 'an API key pattern',
+    'chat.secret.kind.pem': 'a private key',
+    'chat.secret.kind.roomkey': 'a full room key',
     'chat.empty': 'Nothing yet',
     'chat.joined': '{who} came in',
     'chat.left': '{who} left',
@@ -1458,6 +1485,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.close': '关闭',
     'chat.image.nobody': '图片会送到房间里的人。现在没有其他机器的人在（这台电脑的代理收不到图片）。',
     'chat.send': '发送',
+    'chat.secret.found': '似乎包含机密信息（{what}）。发送后无法撤回',
+    'chat.secret.hint': 'warifu 的消息会在每台收到的设备上留下副本。请删除该部分后再发送，或确认无误后再发送。',
+    'chat.secret.send': '仍然发送',
+    'chat.secret.cancel': '不发送，去修改',
+    'chat.secret.kind.hex': '较长的十六进制串',
+    'chat.secret.kind.assign': '类似“TOKEN=”的名称与值',
+    'chat.secret.kind.apikey': 'API 密钥的格式',
+    'chat.secret.kind.pem': '私钥',
+    'chat.secret.kind.roomkey': '完整的房间密钥',
     'chat.empty': '还没有内容',
     'chat.joined': '{who} 进来了',
     'chat.left': '{who} 已离开',
@@ -1908,6 +1944,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.close': '닫기',
     'chat.image.nobody': '이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다(이 PC의 에이전트에는 이미지가 가지 않습니다).',
     'chat.send': '보내기',
+    'chat.secret.found': '비밀로 보이는 내용（{what}）이 들어 있습니다. 보내면 취소할 수 없습니다',
+    'chat.secret.hint': 'warifu 대화는 받은 각 기기에 사본이 남습니다. 그 부분을 지우고 보내거나, 확인한 뒤 보내 주세요.',
+    'chat.secret.send': '그래도 보내기',
+    'chat.secret.cancel': '보내지 않고 고치기',
+    'chat.secret.kind.hex': '긴 16진 문자열',
+    'chat.secret.kind.assign': '“TOKEN=” 같은 이름과 값',
+    'chat.secret.kind.apikey': 'API 키 형태',
+    'chat.secret.kind.pem': '개인 키',
+    'chat.secret.kind.roomkey': '룸 키 전체',
     'chat.empty': '아직 아무것도 없습니다',
     'chat.joined': '{who} 가 들어왔습니다',
     'chat.left': '{who} 님이 퇴장했습니다',
@@ -2253,6 +2298,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
  * 機械翻訳をそのまま採らない（D35）。
  */
 export const CRITICAL_KEYS: readonly MessageKey[] = [
+  'chat.secret.found',
+  'chat.secret.send',
   'revoke.irreversible',
   'revoke.confirm',
   'door.refused',
@@ -2279,6 +2326,12 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
 export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
+  'chat.secret.send':
+    '確かめたうえで、取り消せないことを承知して送る押し所。' +
+    '「送信」だけの訳にしないこと（ふだんの送る押し所と見分けが付かなくなる）。',
+  'chat.secret.found':
+    '**警告である。**送った発言は取り消せない（届いた各機械に写しが残る）ことが伝わる訳にすること。' +
+    '「送れません」「エラー」と読める訳にしないこと。人は確かめたうえで送ることができる。',
   'pass.action.room.handoff':
     'エージェントが、人に聞かずにルームキーを相手へ渡すこと。' +
     '「受け取る」と読める訳にしないこと。渡すのはこの PC の側である。',

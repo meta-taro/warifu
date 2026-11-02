@@ -1010,6 +1010,11 @@ pub(crate) async fn 流す(
     呼び方: String,
     部屋: Option<MeetingId>,
 ) -> Result<(u64, Vec<String>, Option<MeetingId>), String> {
+    // **秘密らしいものは流さない**（0.1.42）。口（`chat_send`）でも止めるが、
+    // 口を通らないエージェント（`warifu agent` の返事など）もここを通るので、ここでも止める
+    if let Some(断り) = warifu_desk::エージェントへの断り(body) {
+        return Err(断り);
+    }
     let bridge = app.state::<Bridge>();
     let 自分 = bridge.device.public_key();
     let 見ている = crate::いま見ているルーム(&bridge.いまのルーム).await;

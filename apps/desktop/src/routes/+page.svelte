@@ -92,6 +92,7 @@
   import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
   import { 出す名, 呼び名 } from '$lib/meeting/names';
   import { 動作の言葉 } from '$lib/pass/action';
+  import { 秘密を言う } from '$lib/chat/secret';
   import { エージェントの名を言い換える } from '$lib/chat/name';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
@@ -2410,6 +2411,10 @@
   function 読める(e: unknown): string {
     if (e && typeof e === 'object' && 'message' in e) {
       const m = String((e as { message: unknown }).message);
+      // **本体が秘密らしいものを止めた**（0.1.42）。種類が「・」で並んで返る
+      if ('code' in e && (e as { code: unknown }).code === 'chat.secret') {
+        return format(t('chat.secret.found'), { what: 秘密を言う(m.split('・'), t) });
+      }
       // Rust 側が返す既知の理由は、**画面の言語で**出す
       return m === 'meeting.key.own' ? t('meeting.key.own') : m;
     }
@@ -2605,7 +2610,7 @@
     }
   }
 
-  async function 話す(body: string) {
+  async function 話す(body: string, 秘密を承知 = false) {
     if (!body.trim()) return;
     // **相手が居ないなら、預かり所へ。**置いていなければ、そう言って終わる（D71）
     if (送り方.種類 === '送れない') {
@@ -2617,7 +2622,7 @@
       return;
     }
     try {
-      await sendText(body, 宛先);
+      await sendText(body, 宛先, 秘密を承知);
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
       log(話の記録('送信', 宛先 ?? (会議中 ? `${この部屋の相手を見る().length} 人` : 'この機械'), body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
@@ -3748,7 +3753,7 @@
       {届く先がある}
       会議中={部屋に相手が居る}
       {この機械の人数}
-      送る={(body) => void 話す(body)}
+      送る={(body, 秘密を承知) => void 話す(body, 秘密を承知)}
       画像を送る={画像の口を出す ? (f) => void 画像を話す(f) : undefined}
       画像の届く先がある={画像を送れる}
       {届く先}
@@ -4301,7 +4306,7 @@
           {届く先がある}
           会議中={部屋に相手が居る}
           {この機械の人数}
-          送る={(body) => void 話す(body)}
+          送る={(body, 秘密を承知) => void 話す(body, 秘密を承知)}
           画像を送る={画像の口を出す ? (f) => void 画像を話す(f) : undefined}
       画像の届く先がある={画像を送れる}
           相手ごとではない={送り方.種類 === 'ルーム'}

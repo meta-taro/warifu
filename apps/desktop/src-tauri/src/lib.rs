@@ -3654,7 +3654,28 @@ fn log(message: String) {
 /// **まだ残さない。**送ったものも届いたものも、閉じれば消える。
 /// 身元は続くようになった（**D42**）ので、次は履歴を置く形を決める（`issues/010`）。
 #[tauri::command]
-async fn send_text(bridge: State<'_, Bridge>, body: String, to: Option<String>) -> Answer<()> {
+async fn send_text(
+    bridge: State<'_, Bridge>,
+    body: String,
+    to: Option<String>,
+    force: Option<bool>,
+) -> Answer<()> {
+    // **秘密らしいものは、人が確かめてから送る**（0.1.42）。会話は送ったら消せない（P2P）。
+    // 画面が先に見て［それでも送る］を出すが、ここでも見る（画面の見落としで素通りさせない）。
+    // 種類だけを返す。値は返さない
+    if !force.unwrap_or(false) {
+        let 見つけた = warifu_desk::秘密らしいもの(&body);
+        if !見つけた.is_empty() {
+            let 種類: Vec<&str> = 見つけた
+                .into_iter()
+                .map(warifu_desk::秘密の種類::名前)
+                .collect();
+            return Err(Failure {
+                message: 種類.join("・"),
+                code: Some("chat.secret".into()),
+            });
+        }
+    }
     // **人が打った行は、まずこの機械へ配る。**
     // 会議に人が 1 人も居なくても、**同じエージェントの AI には届く** ——
     // チャットは会議を前提にしない（2026-09-06）。

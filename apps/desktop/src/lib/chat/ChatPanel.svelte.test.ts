@@ -75,7 +75,7 @@ describe('ChatPanel', () => {
     const { rerender } = render(ChatPanel, { ...素, 送る });
     await 打つ('  こんにちは  ');
     await fireEvent.keyDown(打つ欄(), { key: 'Enter' });
-    expect(送る).toHaveBeenCalledWith('こんにちは');
+    expect(送る).toHaveBeenCalledWith('こんにちは', false);
     expect(打つ欄().value).toBe('');
 
     await rerender({ ...素, 送る, 届く先がある: false });
@@ -108,5 +108,45 @@ describe('ChatPanel', () => {
 
     await 打つ('@山田さん お願いします');
     expect(screen.getByText(/@山田さん を呼びます（ルームの全員に見えます）/)).toBeTruthy();
+  });
+
+  it('秘密らしいものは、すぐ送らずに確かめる。直すなら欄に残り、「それでも送る」で初めて送る（0.1.42）', async () => {
+    // 割符の会話は送ったら消せない（P2P）。止められるのは送る前だけ
+    const 送る = vi.fn();
+    render(ChatPanel, { ...素, 送る });
+    const 値 = '0f1e2d3c4b5a6978'.repeat(4);
+    await 打つ(`TOKEN=${値}`);
+    await fireEvent.keyDown(打つ欄(), { key: 'Enter' });
+
+    expect(送る).not.toHaveBeenCalled();
+    expect(打つ欄().value).toBe(`TOKEN=${値}`);
+    const 確かめ = screen.getByRole('alert');
+    expect(確かめ.textContent).toContain('取り消せません');
+    // 値は確かめの文に繰り返さない
+    expect(確かめ.textContent).not.toContain(値);
+
+    await fireEvent.click(screen.getByRole('button', { name: ja['chat.secret.send'] }));
+    expect(送る).toHaveBeenCalledWith(`TOKEN=${値}`, true);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('秘密らしいものを見つけても「送らずに直す」なら送らず、欄に残す', async () => {
+    const 送る = vi.fn();
+    render(ChatPanel, { ...素, 送る });
+    await 打つ('ghp_' + 'aZ3kQ9mX7pL2'.repeat(3));
+    await fireEvent.keyDown(打つ欄(), { key: 'Enter' });
+    await fireEvent.click(screen.getByRole('button', { name: ja['chat.secret.cancel'] }));
+    expect(送る).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(打つ欄().value).toContain('ghp_');
+  });
+
+  it('秘密らしいものが無ければ、確かめずにそのまま送る', async () => {
+    const 送る = vi.fn();
+    render(ChatPanel, { ...素, 送る });
+    await 打つ('commit 9085f6a を push しました');
+    await fireEvent.keyDown(打つ欄(), { key: 'Enter' });
+    expect(送る).toHaveBeenCalledWith('commit 9085f6a を push しました', false);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

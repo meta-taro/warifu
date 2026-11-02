@@ -21,6 +21,7 @@
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
   import { 吹き出しの形 } from './bubble';
   import Reach from './Reach.svelte';
+  import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, type 打ちかけ } from './mention';
 
   interface Props {
@@ -40,8 +41,11 @@
     会議中: boolean;
     /** この機械につながっている人数。 */
     この機械の人数: number;
-    /** 送る。**中身は呼ぶ側が持つ**（下書きもここでは持たない）。 */
-    送る: (body: string) => void;
+    /**
+     * 送る。**中身は呼ぶ側が持つ**（下書きもここでは持たない）。
+     * `秘密を承知` は、秘密らしいものを人が確かめて［それでも送る］を押したとき真（0.1.42）
+     */
+    送る: (body: string, 秘密を承知: boolean) => void;
     /**
      * **いま見ている部屋**（ルームの鍵、またはこの機械のルーム）。
      *
@@ -266,12 +270,32 @@
     if (新着 === 0) 下へ送る(false);
   }
 
-  function 出す() {
+  /**
+   * **秘密らしいものの確かめ**（0.1.42）。割符の会話は送ったら消せない（P2P）ので、
+   * 見つけたらすぐには送らず、打った文は欄に残して確かめてもらう。種類だけを出し、値は繰り返さない
+   */
+  let 秘密の確かめ = $state<秘密の種類[] | null>(null);
+
+  function 出す(秘密を承知 = false) {
     const body = 下書き.trim();
     if (!body) return;
-    送る(body);
+    if (!秘密を承知) {
+      const 見つけた = 秘密らしいもの(body);
+      if (見つけた.length > 0) {
+        秘密の確かめ = 見つけた;
+        return;
+      }
+    }
+    秘密の確かめ = null;
+    送る(body, 秘密を承知);
     下書き = '';
     呼びかけ = null;
+  }
+
+  /** ［送らずに直す］。欄に残したまま、打つ欄へ戻す */
+  function 直しに戻る() {
+    秘密の確かめ = null;
+    打つ欄?.focus();
   }
 
   // **`@名前` で呼ぶ**（0.1.35・メンション）。人数が多いと、誰に話しかけたか分からない。
@@ -468,6 +492,20 @@
       {/each}
     </div>
   {/if}
+  {#if 秘密の確かめ}
+    <!-- **送ったら消せない。**確かめてから送る（0.1.42）。値は繰り返さない -->
+    <div class="secret-check" role="alert">
+      <p>
+        {format(t('chat.secret.found'), { what: 秘密を言う(秘密の確かめ, t) })}
+      </p>
+      <p class="hint">{t('chat.secret.hint')}</p>
+      <div class="tail">
+        <!-- **押してほしいのは直すほう。**送るほうは控えめにする（取り消せない操作を主にしない） -->
+        <button type="button" class="quiet" onclick={() => 出す(true)}>{t('chat.secret.send')}</button>
+        <button type="button" onclick={直しに戻る}>{t('chat.secret.cancel')}</button>
+      </div>
+    </div>
+  {/if}
   <div class="say">
     <!--
       **改行できる**（2026-09-06）。Shift+Enter / Option+Enter で改行、
@@ -478,7 +516,11 @@
       rows="1"
       bind:this={打つ欄}
       bind:value={下書き}
-      oninput={候補を見直す}
+      oninput={() => {
+        // 打ち直したら確かめは消す（直した文を、また送る前に見る）
+        秘密の確かめ = null;
+        候補を見直す();
+      }}
       oncompositionupdate={() => queueMicrotask(候補を見直す)}
       oncompositionend={候補を見直す}
       onclick={候補を見直す}
@@ -517,7 +559,7 @@
         <Icon name="image" size={18} />
       </button>
     {/if}
-    <button type="button" onclick={出す} disabled={!届く先がある || !下書き.trim()}>
+    <button type="button" onclick={() => 出す()} disabled={!届く先がある || !下書き.trim()}>
       {t('chat.send')}
     </button>
   </div>
@@ -813,6 +855,35 @@
     cursor: default;
   }
   /* **呼ぶ相手の候補。**打つ欄のすぐ上に並べる */
+  /* **送ったら消せないものの確かめ**（0.1.42）。打つ欄のすぐ上に、注意の色で出す */
+  .secret-check {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+    color: var(--warning-fg);
+    background: var(--warning-bg);
+    border-radius: var(--radius-md);
+  }
+  .secret-check p {
+    margin: 0;
+  }
+  .secret-check .hint {
+    color: var(--warning-fg);
+  }
+  .secret-check .tail {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .secret-check .tail button {
+    width: auto;
+  }
+  .secret-check .tail button.quiet {
+    color: var(--warning-fg);
+    background: transparent;
+    border: 1px solid var(--warning-fg);
+  }
   .mention-pick {
     display: flex;
     flex-wrap: wrap;

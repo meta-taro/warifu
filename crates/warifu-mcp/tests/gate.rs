@@ -722,6 +722,29 @@ async fn 画面が後から開いても_会話は使える() {
 }
 
 #[tokio::test]
+async fn 秘密らしいものは_札があっても会話へ流さない() {
+    // **割符の会話は送ったら消せない**（P2P）。2026-11-02、中継のトークンが全機の会話に流れた。
+    // エージェントには押し切る道を持たせない（送るなら人が画面から送る）
+    let 値 = "0f1e2d3c4b5a6978".repeat(4);
+    let 口 = 用意(&["chat.send"]);
+    let 出た = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: format!("IROH_RELAY_ACCESS_TOKEN={値}"),
+                room: None,
+            },
+        ))
+        .await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("送りませんでした"), "{文}");
+    assert!(文.contains("取り消せません"), "なぜ止めたかを言う: {文}");
+    assert!(文.contains("16進"), "何を見つけたかを言う: {文}");
+    assert!(文.contains("画面"), "どうすれば送れるかを言う: {文}");
+    assert!(!文.contains(&値), "止めた所で値を写さない: {文}");
+    assert!(!文.contains("この機械"), "この機械につなぐ前に止める: {文}");
+}
+
+#[tokio::test]
 async fn 誰も居ないとき_流せたことにしない() {
     // **2026-09-07、実物で再発した。**画面を建ててこの機械につながり、
     // 会議に人が 1 人も居ない状態で chat_send を叩いたら

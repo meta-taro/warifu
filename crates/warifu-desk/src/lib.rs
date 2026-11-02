@@ -31,6 +31,7 @@ mod line;
 mod mention;
 mod pipe;
 mod place;
+mod secret;
 mod talk;
 
 pub use line::{
@@ -43,4 +44,5 @@ pub use pipe::{一本, 受け口, 繋ぐ, 開いているか};
 pub use place::{
     この機械の在り処, この機械の場所, 在り処, 在り処を決める, 場所を決める
 };
+pub use secret::{エージェントへの断り, 秘密の種類, 秘密らしいもの};
 pub use talk::{口, 返事の上限};

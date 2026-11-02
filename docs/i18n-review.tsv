@@ -61,6 +61,15 @@ chat.placeholder.desk	Talk to an agent on this computer	マイ PC エージェ�
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
 chat.reach	Goes to {who}	届く先 {who}	送达 {who}	가는 곳 {who}				
 chat.reach.none	It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.	届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。	目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。	아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.				
+chat.secret.cancel	Edit instead	送らずに直す	不发送，去修改	보내지 않고 고치기				
+chat.secret.found	This looks like it contains a secret ({what}). Once sent, it cannot be taken back	秘密らしいもの（{what}）が入っています。送ると取り消せません	似乎包含机密信息（{what}）。发送后无法撤回	비밀로 보이는 내용（{what}）이 들어 있습니다. 보내면 취소할 수 없습니다	★	**警告である。**送った発言は取り消せない（届いた各機械に写しが残る）ことが伝わる訳にすること。「送れません」「エラー」と読める訳にしないこと。人は確かめたうえで送ることができる。		
+chat.secret.hint	Every device that receives a warifu message keeps a copy. Remove that part before sending, or send only after checking it.	割符の会話は、届いた各機械に写しが残ります。その部分を消してから送るか、確かめたうえで送ってください。	warifu 的消息会在每台收到的设备上留下副本。请删除该部分后再发送，或确认无误后再发送。	warifu 대화는 받은 각 기기에 사본이 남습니다. 그 부분을 지우고 보내거나, 확인한 뒤 보내 주세요.				
+chat.secret.kind.apikey	an API key pattern	API キーの形	API 密钥的格式	API 키 형태				
+chat.secret.kind.assign	a name and value like "TOKEN="	「TOKEN=」のような名前と値	类似“TOKEN=”的名称与值	“TOKEN=” 같은 이름과 값				
+chat.secret.kind.hex	a long hex string	長い 16 進の並び	较长的十六进制串	긴 16진 문자열				
+chat.secret.kind.pem	a private key	プライベートキー（SSH など）	私钥	개인 키				
+chat.secret.kind.roomkey	a full room key	ルームキーの全文	完整的房间密钥	룸 키 전체				
+chat.secret.send	Send anyway	それでも送る	仍然发送	그래도 보내기	★	確かめたうえで、取り消せないことを承知して送る押し所。「送信」だけの訳にしないこと（ふだんの送る押し所と見分けが付かなくなる）。		
 chat.send	Send	送る	发送	보내기				
 chat.shared	This is not a conversation with the person you picked.	ここは、選んだ相手だけの会話ではありません。	这里不是只和所选对方的会话。	여기는 고른 상대만의 대화가 아닙니다.	★	**会話は 1 本しか無い。**選んだ相手の隣に並んでいても、その人だけに届くのではない。「この相手にだけ届きます」「非公開の会話です」「ダイレクトメッセージ」と読める訳にしないこと。**個別に届くと誤解した人は、見られたくないものを書く。**		
 chat.title	Chat	文字で話す	文字聊天	문자로 대화				
