@@ -296,8 +296,24 @@ async fn 見切る(app: &AppHandle, id: &str, 訳: &str) {
     }
 }
 
+/// **戻る途中なら、様子の題字をそう言い換える**（0.1.42）。
+///
+/// 画面を上げ直すと、まず自分の新しいルームを建て、帰り道のルームへ戻るのは少し後になる。
+/// その間の `room_status` は「相手: 居ません／相手を待っています」を返し、
+/// エージェントが「ルームから出た」と読みかけた（11-02）。戻る先がある間は、そう言う。
+pub fn 戻る途中の題字(戻る先: &[String], 元の題字: Option<String>) -> Option<String> {
+    if 戻る先.is_empty() {
+        return 元の題字;
+    }
+    let 頭たち: Vec<String> = 戻る先.iter().map(|id| crate::短く(id)).collect();
+    Some(format!(
+        "前のルーム（{}）へ戻ろうとしています。いま見ているルームは戻るまでの仮で、相手が居ないのはそのためです",
+        頭たち.join("・")
+    ))
+}
+
 /// **戻るべきルームの帰り道**（ルーム id と鍵）。
-async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
+pub(crate) async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
     let Ok(vault) = warifu_vault::Vault::default_location() else {
         return Vec::new();
     };
@@ -327,6 +343,25 @@ async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod 試験 {
+    #[test]
+    fn 戻る先がある間だけ_題字を戻る途中と言い換える() {
+        use super::戻る途中の題字;
+        let 元 = Some("相手を待っています".to_owned());
+        assert_eq!(戻る途中の題字(&[], 元.clone()), 元);
+        assert_eq!(戻る途中の題字(&[], None), None);
+        let 言った =
+            戻る途中の題字(&["NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()], 元).expect("言い換える");
+        assert!(言った.contains("戻ろうとしています"), "{言った}");
+        assert!(
+            言った.contains("NBIW3PA2"),
+            "どのルームへかを言う: {言った}"
+        );
+        assert!(
+            !言った.contains("NBIW3PA2TUQ52DTJNVXSQOL3G4"),
+            "id は頭だけ: {言った}"
+        );
+    }
+
     #[test]
     fn もう無いと言われた返りだけを見分ける() {
         let もう無い: crate::Answer<()> = Err(crate::Failure {

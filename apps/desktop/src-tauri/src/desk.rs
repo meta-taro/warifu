@@ -859,6 +859,11 @@ async fn 応じる(
                 }
             };
             let 映り = bridge.画面に映っているもの.lock().await.clone();
+            let 戻る先: Vec<String> = crate::come_back::いま戻る先(app)
+                .await
+                .into_iter()
+                .map(|(id, _)| id)
+                .collect();
             let _ = 口
                 .送る(
                     &FromDesk::様子 {
@@ -873,7 +878,12 @@ async fn 応じる(
                         送っている: 映り.as_ref().map(|m| m.送っている),
                         受けている: 映り.as_ref().map(|m| m.受けている),
                         掴んでいる: 映り.as_ref().map(|m| m.掴んでいる),
-                        題字: 映り.as_ref().map(|m| m.題字.clone()),
+                        // **戻る途中なら、そう言う**（0.1.42）。上げ直した直後の仮のルームを、
+                        // エージェントが「ルームから出た」と読まないように
+                        題字: crate::come_back::戻る途中の題字(
+                            &戻る先,
+                            映り.as_ref().map(|m| m.題字.clone()),
+                        ),
                         // **本体が見比べた食い違い**（spec 04 S04-8）。名乗った口にだけ付ける（古い口は読めない）
                         食い違い: if 聞き方.点検 {
                             bridge.いまの食い違い.lock().await.clone()
