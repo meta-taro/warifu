@@ -148,14 +148,23 @@ pub async fn 見張る(app: AppHandle) {
     }
 }
 
-/// **見張りが戻ったあと、どのルームを見るか。**前に見ていたルームがまだ在れば、そこに戻す。
+/// **前に見ていたルームを見続けるか。**在って、自分のほかに誰か居るときだけ（0.1.42）。
+///
+/// 人が話しているルームは奪わない（0.1.33）。ただし、上げ直した直後に建てた
+/// **自分しか居ない仮のルーム**まで守ると、戻れたのに仮のルームを見続け、
+/// `room_status` は「相手 居ません」を返し続けた（11-02 に 2 台で見た）。
+fn 見続けるか(在る: bool, 人数: usize) -> bool {
+    在る && 人数 > 1
+}
+
+/// **見張りが戻ったあと、どのルームを見るか。**前に見ていたルームを見続けてよければ、そこに戻す。
 fn 見張りのあとに見るルーム<T: Copy>(
     前: Option<T>,
     いま: Option<T>,
-    前は在る: bool,
+    前を見続ける: bool,
 ) -> Option<T> {
     match 前 {
-        Some(前) if 前は在る => Some(前),
+        Some(前) if 前を見続ける => Some(前),
         _ => いま,
     }
 }
@@ -186,12 +195,16 @@ async fn 一つ戻る(app: &AppHandle, 控え: &mut 控え, id: String, 鍵: Str
     let 前の部屋: Vec<_> = bridge.conferences.lock().await.keys().copied().collect();
     let 結果 = 戻る(app.clone(), id.parse().ok(), 鍵).await;
     {
-        let 在る = match 前 {
-            Some(前) => bridge.conferences.lock().await.contains_key(&前),
+        let 見続ける = match 前 {
+            Some(前) => {
+                let 棚 = bridge.conferences.lock().await;
+                let 人数 = 棚.get(&前).map_or(0, |c| c.members().len());
+                見続けるか(棚.contains_key(&前), 人数)
+            }
             None => false,
         };
         let mut いま = bridge.いまのルーム.lock().await;
-        *いま = 見張りのあとに見るルーム(前, *いま, 在る);
+        *いま = 見張りのあとに見るルーム(前, *いま, 見続ける);
         let 見る = *いま;
         drop(いま);
         if let Some(部屋) = 見る {
@@ -385,6 +398,20 @@ mod 試験 {
         assert_eq!(見張りのあとに見るルーム(Some(1), Some(2), false), Some(2));
         // 何も見ていなかったなら、戻った先を見る
         assert_eq!(見張りのあとに見るルーム(None, Some(2), false), Some(2));
+    }
+
+    #[test]
+    fn 上げ直した直後の_自分しか居ない仮のルームは見続けず_戻った先を見る() {
+        // 11-02 に 2 台で見た。上げ直すとまず自分のルームを建て、そこを見ている。
+        // 戻れたのに仮のルームを見続け、room_status は「相手 居ません」を返し続けた
+        use super::{見張りのあとに見るルーム, 見続けるか};
+        assert!(!見続けるか(true, 1), "自分しか居ないルームは見続けない");
+        assert!(見続けるか(true, 2), "相手の居るルームは奪わない（0.1.33）");
+        assert!(!見続けるか(false, 2), "無くなったルームは見続けない");
+        assert_eq!(
+            見張りのあとに見るルーム(Some(1), Some(2), 見続けるか(true, 1)),
+            Some(2)
+        );
     }
 
     use super::*;
