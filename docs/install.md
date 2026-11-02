@@ -154,17 +154,30 @@ You need Rust and the Visual Studio Build Tools. **On ARM64 Windows you also nee
 
 ## Using your own relay (to reach peers on another network)
 
-Peers you cannot reach directly (home and office, for example) can use **a relay you run yourselves** as a fallback path.
-Get the relay URL and token from whoever runs it (**do not put them anywhere public**).
+For peers you cannot reach directly (home and office, for example), **a relay you run yourselves** can be the fallback path.
+Get the relay URL from whoever runs it.
+
+**If the relay admits devices by their keys** (an allowlist), no token is needed.
+
+1. Run `warifu id` and give the first line (the 52-character public key) to whoever runs the relay. **It is a public key, not a secret**
+2. Once they have added it, record the relay
 
 ```bash
-# Do not pass the token as an argument (it stays in your shell history). Pipe it in
-pbpaste | warifu relay-server set https://<relay-host>/relay   # with the token on the clipboard
+warifu relay-server set https://<relay-host>/relay   # when asked for a token, just press Enter
 warifu relay-server show    # shows the URL and only whether a token is set
 warifu relay-server clear   # stop using it
 ```
 
-- It is stored as `relay-server.tsv` next to your identity (readable only by you). **The app uses it from its next start**
+**If the relay is protected by a shared token**, get the token from whoever runs it and pipe it in (**never write it anywhere public**).
+
+```bash
+# Do not pass the token as an argument (it stays in your shell history). Pipe it in
+pbpaste | warifu relay-server set https://<relay-host>/relay   # with the token on the clipboard
+```
+
+- It is stored as `relay-server.tsv` next to your identity (readable only by you). **The app uses it from its next start** (once it is recorded, the app uses it without the "reach across networks" switch)
+- **A device that is not on the allowlist is refused by the relay.** There is one key per device, and it does not change across restarts or updates
+- The machine hosting the room must record the same relay. Room keys issued after that carry the relay's address (keys issued before do not go through the relay)
 - The relay is used only when a direct path fails. **The relay operator can see who connected to whom and when** (not the content)
 - The CLI uses it with `--relay`. The environment variables `WARIFU_RELAY_URL` and `WARIFU_RELAY_TOKEN` take precedence
 

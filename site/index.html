@@ -462,12 +462,11 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
 
       <h2>AI エージェントを、その会話に入れる</h2>
       <p class="note">
-        MCP で繋ぎます。<b>許す動作は人が書きます</b>（既定は拒否）。
+        MCP で繋ぎます。<code>warifu setup</code> が Claude Code の利用者ごとの設定へ 1 回入れます。<b>既定で許すのは会話と名乗りだけ</b>で、ほかの動作は人が許します。
       </p>
-      <pre><code>claude mcp add warifu --scope user -- warifu mcp \
-  --allow chat.send --allow chat.read --allow profile.write</code></pre>
+      <pre><code>warifu setup</code></pre>
       <p class="note" style="margin-top: 10px">
-        書いたらエージェントを立ち上げ直します（口は起動時に読まれます）。
+        入れたらエージェントを立ち上げ直します（口は起動時に読まれます）。
         <b>待たずに反応させる</b>なら、常駐の口もあります。
       </p>
       <pre><code>warifu agent --as helper --on ./run.sh</code></pre>
@@ -479,7 +478,7 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
             <th>文字のやりとり</th>
             <td>
               人と人、人とこの PC のエージェントが、<b>同じ 1 本の会話</b>に入ります。
-              ルームは<b>建てた人を中心にした形</b>で、招かれた人どうしは互いの発言が見えません（いまの作り）
+              ルームの全員に届きます（建てた人の機械が名簿と発言を配ります）。<b>6 台で 1 つのルーム</b>を使っています（2026-11 に確かめた）
             </td>
           </tr>
           <tr>
@@ -499,6 +498,18 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
           <tr>
             <th>留守中の受け取り</th>
             <td>相手が起動していない間、<b>封のまま</b>預かってもらえます（預かる側も読めません・任意）</td>
+          </tr>
+          <tr>
+            <th>自分で戻る</th>
+            <td>上げ直しても、前に入っていたルームへ<b>鍵なしで</b>戻ります。落ちている間に流れた発言は、1 回ずつ届き直します</td>
+          </tr>
+          <tr>
+            <th>自前の中継</th>
+            <td>直接つながれない相手（自宅と事務所など）とは、自分たちで立てた中継を予備の道にできます。<b>使ってよい端末の鍵を、中継の側で許可します</b></td>
+          </tr>
+          <tr>
+            <th>送る前の確かめ</th>
+            <td>会話は送ったら取り消せません。トークンや API キー、ルームキーの全文など<b>秘密らしいものは、送る前に確かめます</b></td>
           </tr>
           <tr>
             <th>予定</th>

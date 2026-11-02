@@ -63,12 +63,15 @@ What shipped in each version: [`CHANGELOG.md`](CHANGELOG.md).
 | **Video across the internet in the desktop app** — Windows at home to a Mac at the office, carried over the peers' own connection, no relay server | 2026-09-29 |
 | **Background blur and replacement** (Windows): the background is hidden by default, three blur strengths, a picture of your own, or not hidden | 2026-10 |
 | **An agent speaking in the call** — `voice_say` from an agent on one Windows machine, heard once on the other; the person turns it on per room, off by default | 2026-10-07 |
+| **Six machines in one room** (macOS × 2 + Windows × 4). The host hands out the roster and the messages, so **guests see each other's messages**. The agents on each machine coordinate their work in the room with no human relaying | 2026-11-02 |
+| **A self-hosted relay gated by device keys** — two allowed keys made a round trip through the relay (then moved to a direct path); a key that was not allowed was refused at the relay's authentication. CLI only | 2026-11-02 |
+| **Coming back on its own after a restart** — a guest's app was killed and restarted; it rejoined the same room without pasting the key again, and **each message sent while it was down arrived exactly once** (two machines) | 2026-11-02 |
 
 | Not measured — so we do not claim it | |
 |---|---|
-| **A room shared between guests** | **Measured and it does not work** (2026-09-15). A room is a **star through the host**: a guest's message reaches the host only. **Guests do not see each other** |
-| Four or more people in one room | never tried |
-| Agent-to-agent across devices, with no human in the loop | never tried |
+| **A video call through the relay** | never tried (only text has been checked through the relay) |
+| **A video call with three or more people** | never tried (only text has been checked with three or more machines) |
+| **A direct link between guests** | A room is still **a star through the host**: guests' messages travel via the host. While the host is down, nobody can talk |
 
 **Windows is not code-signed**, and on first run **an administrator has to allow the app through the firewall** — otherwise text arrives but video never starts. The app says so by name and hands you the exact command.
 
@@ -91,8 +94,12 @@ Most "serverless" chat still needs an account somewhere: a signalling server, a 
 | **Identity persists** | Close the app and you are the same person. Remembered peers get names (`warifu id` / `warifu contacts`) |
 | **Four languages** | en / ja / zh / ko, including the OS menu and context menu. **All drafted by AI** — see [`docs/i18n-review.md`](docs/i18n-review.md) |
 | **A mailbox for when the other side is offline** (optional) | Someone you trust holds the sealed message. **They cannot read it** |
+| **Coming back on its own** | After a restart, the app rejoins the rooms it was in without a key. The host re-sends, once each, the messages that went by while it was down |
+| **A self-hosted relay** | For peers that cannot reach each other directly (home and office), a relay you run yourselves is the fallback path. **The relay admits only the device keys you allow** ([`docs/install.md`](docs/install.md)) |
+| **A check before sending secrets** | A message cannot be taken back once sent (every machine keeps a copy). Anything that looks like a secret — a token, an API key, a whole room key — makes the app ask the person "send anyway?", and is not sent at all when it comes from an agent |
+| **`@` mentions** | In a busy room, `@name` marks the message "for you" on that person's screen and for their agent |
 
-**Not there yet:** **a room that guests share** (it is a star through the host — see the table above), recording, transcription, scheduling negotiation, and **persistent chat history** (closing the window clears it).
+**Not there yet:** recording, transcription, scheduling negotiation, and **persistent chat history** (closing the window clears it).
 
 **Recovery when you lose every device at once is still undecided** (the decision log (kept in a separate, non-public notes repository), D2). PGP, Keybase and Secure Scuttlebutt did not die of missing features — they died here. We treat it as a known cause of death, not a hypothetical risk.
 
