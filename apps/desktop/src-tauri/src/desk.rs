@@ -633,7 +633,7 @@ async fn 応じる(
         }
         // **覚えている相手を並べる**（2026-10-16）。住所そのものは渡さない
         ToDesk::連絡先 => {
-            let 返事 = match 呼べる相手を並べる() {
+            let 返事 = match 口に見せる相手(&app.state::<Bridge>()).await {
                 Ok(行たち) => FromDesk::連絡先たち { 行たち },
                 Err(why) => FromDesk::Denied { why },
             };
@@ -1279,6 +1279,60 @@ fn 名前の無い会った相手(
         .collect()
 }
 
+/// いまルームに入っている相手のうち、**帳（連絡帳＋会った相手）に無い者だけ**を、名前の無い行にする。
+fn 名前の無いルームの相手たち(
+    帳: &[warifu_desk::連絡先の行],
+    入っている相手: Vec<warifu_core::PublicKey>,
+) -> Vec<warifu_desk::連絡先の行> {
+    let mut 足した: Vec<String> = Vec::new();
+    入っている相手
+        .into_iter()
+        .map(|鍵| 鍵.to_string())
+        .filter(|鍵| {
+            let 新しい = !帳.iter().any(|r| r.鍵 == *鍵) && !足した.contains(鍵);
+            if 新しい {
+                足した.push(鍵.clone());
+            }
+            新しい
+        })
+        .map(|鍵| warifu_desk::連絡先の行 {
+            名前: 名前の無いルームの相手.to_owned(),
+            鍵,
+            // 主催ごしにだけ繋がっていて、住所は知らない（呼べない）
+            住所あり: false,
+        })
+        .collect()
+}
+
+/// いま入っているルームすべての名簿から、自分を除いた相手（重なりあり・名簿の順）。
+async fn いまルームに入っている相手(bridge: &Bridge) -> Vec<warifu_core::PublicKey> {
+    let 自分 = bridge.device.public_key();
+    bridge
+        .conferences
+        .lock()
+        .await
+        .values()
+        .flat_map(|c| c.members().to_vec())
+        .filter(|k| *k != 自分)
+        .collect()
+}
+
+/// 口に見せる相手の並び：連絡帳・会った相手・**いまルームに入っている相手**（0.1.42）。
+///
+/// 主催ごしにだけ繋がっている相手は会った相手に入らない。それでも名前は付けられるようにする
+async fn 口に見せる相手(
+    bridge: &Bridge,
+) -> Result<Vec<warifu_desk::連絡先の行>, String> {
+    let mut 行たち = 呼べる相手を並べる()?;
+    let 足す =
+        名前の無いルームの相手たち(&行たち, いまルームに入っている相手(bridge).await);
+    行たち.extend(足す);
+    Ok(行たち)
+}
+
+/// ルームの相手の、名前の欄。
+const 名前の無いルームの相手: &str = "（名前なし・いまルームに入っている相手）";
+
 /// 名前の無い相手の、名前の欄。**鍵の頭で呼んでもらう。**
 const 名前の無い相手: &str = "（名前なし・ルームで会った相手）";
 
@@ -1424,7 +1478,7 @@ async fn 相手に名前を付ける(
     名前: &str,
     誰: &str,
 ) -> FromDesk {
-    let 帳 = match 呼べる相手を並べる() {
+    let 帳 = match 口に見せる相手(&app.state::<Bridge>()).await {
         Ok(行たち) => 行たち,
         Err(why) => return FromDesk::Denied { why },
     };
@@ -2783,5 +2837,38 @@ mod tests {
         let 鍵たち: Vec<String> = 足す.iter().map(|r| r.鍵.clone()).collect();
         assert_eq!(鍵たち, vec![鍵(3).to_string(), 鍵(2).to_string()]);
         assert!(足す.iter().all(|r| r.名前 == 名前の無い相手 && r.住所あり));
+    }
+
+    #[test]
+    fn いまルームに入っている相手は_帳にも会った相手にも無ければ名前の無い行になる() {
+        // 主催ごしにだけ繋がっている相手は「会った相手」に入らない（住所を知らない）。
+        // それでも同じルームに居るので、口から名前を付けられる必要がある（0.1.42・PdM の報告）
+        use super::{名前の無いルームの相手, 名前の無いルームの相手たち};
+        use warifu_core::Seed;
+        let 鍵 = |b: u8| {
+            Seed::from_bytes([b; 32])
+                .profile("Personal")
+                .device(warifu_core::端末の呼び名)
+                .public_key()
+        };
+        let 帳 = vec![warifu_desk::連絡先の行 {
+            名前: "相手A".to_owned(),
+            鍵: 鍵(1).to_string(),
+            住所あり: true,
+        }];
+        let 入っている相手 = vec![鍵(1), 鍵(4), 鍵(4), 鍵(5)];
+        let 足す = 名前の無いルームの相手たち(&帳, 入っている相手);
+        let 鍵たち: Vec<String> = 足す.iter().map(|r| r.鍵.clone()).collect();
+        assert_eq!(
+            鍵たち,
+            vec![鍵(4).to_string(), 鍵(5).to_string()],
+            "帳に居る相手と重なりは除く"
+        );
+        assert!(
+            足す
+                .iter()
+                .all(|r| r.名前 == 名前の無いルームの相手 && !r.住所あり),
+            "住所は知らない（呼べない）が、名前は付けられる"
+        );
     }
 }
