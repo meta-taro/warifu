@@ -540,7 +540,7 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
             <td>ありません。身元は端末の中の鍵です</td>
           </tr>
           <tr>
-            <th>4 人以上・機械をまたいだエージェントどうし</th>
+            <th>中継を通したビデオ・3 人以上のビデオ</th>
             <td><b>まだ実測していません。</b>できると書けるのは、実物で見てからです</td>
           </tr>
         </table>
@@ -549,7 +549,7 @@ New-NetFirewallRule -DisplayName "warifu (out)" -Direction Outbound -Program "$e
       <div class="en">
         <b>warifu</b> — people and AI agents in one conversation, with no central account and no
         server holding the messages. Alpha: two-party video and audio are measured, including across the internet
-        with no relay server; four or more people and agent-to-agent across devices are not measured yet.
+        with no relay server; six machines share one text room, with agents on each machine coordinating in it. Video through a relay and video with three or more people are not measured yet.
         The macOS app (.dmg) and the CLI are signed and notarized; the Windows build is not signed.
         <a href="https://github.com/meta-taro/warifu">Source on GitHub</a>.
       </div>
