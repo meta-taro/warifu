@@ -42,6 +42,7 @@
 mod address;
 mod error;
 mod node;
+mod os_dns;
 mod pick;
 mod upnp;
 

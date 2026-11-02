@@ -268,7 +268,10 @@ impl Node {
         let mut builder = Endpoint::builder(presets::Minimal)
             .secret_key(secret)
             .alpns(vec![ALPN.to_vec()])
-            .relay_mode(中継の設定);
+            .relay_mode(中継の設定)
+            // **名前は OS に先に引かせる**（0.1.42・`os_dns`）。既定の引き方に Form Error を返す
+            // ルーターの網では、中継の場所が引けず、中継に一度も繋がらなかった
+            .dns_resolver(crate::os_dns::OSに先に聞く::既定());
 
         // **口を指すときだけ、既定の口を外して置き直す。**
         // iroh の builder は 0.0.0.0:0 と [::]:0 を最初から持っており、
