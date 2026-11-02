@@ -19,7 +19,7 @@
   import { tick, untrack, type Snippet } from 'svelte';
   import { 画像を拾う } from './image';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
-  import { 吹き出しの形 } from './bubble';
+  import { 吹き出しの形, 畳むか } from './bubble';
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, type 打ちかけ } from './mention';
@@ -176,6 +176,13 @@
   });
   /** 大きく見ている画像（`blob:` の URL）。 */
   let 大きく見る = $state<string | null>(null);
+  // **開いた長い発言**（会話の何番目か）。畳むのは長い発言だけ（`畳むか`）
+  let 開いた = $state(new Set<number>());
+  function 開け閉め(i: number): void {
+    const 次 = new Set(開いた);
+    if (!次.delete(i)) 次.add(i);
+    開いた = 次;
+  }
   let 画像の口: HTMLInputElement | undefined = $state();
 
   function 選んだ画像を送る(e: Event) {
@@ -377,6 +384,7 @@
     {#each 会話 as line, i (i)}
       {@const 形 = 吹き出しの形(line)}
       {@const 宛て = !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
+      {@const 長い = !line.system && 畳むか(line.body)}
       {#if line.system}
         <!-- **会議からの知らせ**は吹き出しにしない。真ん中に小さく -->
         <p class="line system">
@@ -402,7 +410,7 @@
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
             {#if line.at}<span class="at">{line.at}</span>{/if}
           </div>
-          <div class="bubble">{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
+          <div class="bubble" class:folded={長い && !開いた.has(i)}>{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
                 class="mention"
                 class:me={自分の呼ばれる名.includes(片.呼び)}>{片.文}</span
               >{:else}{片.文}{/if}{/each}{#if line.画像}<button
@@ -415,6 +423,11 @@
                   alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿)) })}
                 /></button
               >{/if}</div>
+          {#if 長い}
+            <button type="button" class="more" aria-expanded={開いた.has(i)} onclick={() => 開け閉め(i)}
+              >{t(開いた.has(i) ? 'chat.less' : 'chat.more')}</button
+            >
+          {/if}
           {#if 宛て || line.届き}
             <div class="foot">
               {#if 宛て}<span class="mark to-me-mark">{t('chat.mention.me')}</span>{/if}
@@ -784,6 +797,24 @@
     background: var(--neutral-bg);
     border-radius: var(--radius-full);
     white-space: nowrap;
+  }
+  /* **長い発言は頭だけ見せる**（0.1.42）。下を薄くして、続きがあると分かるようにする */
+  .bubble.folded {
+    max-height: 9em;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 60%, transparent);
+  }
+  .more {
+    padding: 0 4px;
+    font: inherit;
+    font-size: 0.85em;
+    color: var(--accent);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .more:hover {
+    text-decoration: underline;
   }
   .foot {
     display: flex;

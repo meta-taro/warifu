@@ -86,6 +86,8 @@ export type MessageKey =
   | 'chat.desk'
   | 'chat.placeholder.desk'
   | 'chat.late'
+  | 'chat.more'
+  | 'chat.less'
   | 'chat.mention.to'
   | 'chat.mention.me'
   | 'chat.mention.pick'
@@ -589,8 +591,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.nobody': 'ルームにはまだ誰も入っていません。ルームキーを渡して、入ってもらうと送れます。',
     'chat.agent': 'マイ PC エージェント',
     'chat.desk': 'この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。',
-    'chat.placeholder.desk': 'マイ PC エージェントに話しかける',
+    'chat.placeholder.desk': 'マイ PC エージェントに話しかける（改行は Shift+Enter）',
     'chat.late': '留守中',
+    'chat.more': 'もっと見る',
+    'chat.less': 'たたむ',
     'chat.mention.to': '{who} を呼びます（ルームの全員に見えます）',
     'chat.mention.me': 'あなた宛て',
     'chat.mention.pick': '呼ぶ相手を選ぶ（↑↓ で選び、Enter で入れる）',
@@ -1046,8 +1050,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.nobody': 'Nobody is here yet. Hand out a room key and wait for someone to come in.',
     'chat.agent': 'My PC agents',
     'chat.desk': 'An agent on this computer is connected. You can talk to it even with nobody else in the room.',
-    'chat.placeholder.desk': 'Talk to an agent on this computer',
+    'chat.placeholder.desk': 'Talk to an agent on this computer (Shift+Enter for a new line)',
     'chat.late': 'while away',
+    'chat.more': 'Show more',
+    'chat.less': 'Show less',
     'chat.mention.to': 'Mentioning {who} (everyone in the room can see it)',
     'chat.mention.me': 'to you',
     'chat.mention.pick': 'Pick who to mention (↑↓ to move, Enter to insert)',
@@ -1501,8 +1507,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.nobody': '还没有人进来。把密钥交给对方，等对方进来后即可发送。',
     'chat.agent': '我的电脑代理',
     'chat.desk': '这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。',
-    'chat.placeholder.desk': '对这台电脑的代理说话',
+    'chat.placeholder.desk': '对这台电脑的代理说话（换行用 Shift+Enter）',
     'chat.late': '离线期间',
+    'chat.more': '展开',
+    'chat.less': '收起',
     'chat.mention.to': '将提及 {who}（房间内所有人都能看到）',
     'chat.mention.me': '提到你',
     'chat.mention.pick': '选择要提及的人（↑↓ 选择，Enter 插入）',
@@ -1960,8 +1968,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.nobody': '아직 아무도 없습니다. 열쇠를 건네고 상대가 들어오면 보낼 수 있습니다.',
     'chat.agent': '내 PC 에이전트',
     'chat.desk': '이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.',
-    'chat.placeholder.desk': '이 PC 의 에이전트에게 말을 걸기',
+    'chat.placeholder.desk': '이 PC 의 에이전트에게 말을 걸기 (줄바꿈은 Shift+Enter)',
     'chat.late': '부재 중',
+    'chat.more': '더 보기',
+    'chat.less': '접기',
     'chat.mention.to': '{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)',
     'chat.mention.me': '나를 부름',
     'chat.mention.pick': '부를 상대 고르기 (↑↓ 로 고르고 Enter 로 넣기)',

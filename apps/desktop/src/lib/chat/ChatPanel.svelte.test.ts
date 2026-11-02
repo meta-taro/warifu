@@ -149,4 +149,28 @@ describe('ChatPanel', () => {
     expect(送る).toHaveBeenCalledWith('commit 9085f6a を push しました', false);
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  it('長い発言だけ畳み、［もっと見る］で開いて［たたむ］で戻る（0.1.42）', async () => {
+    const { container } = render(ChatPanel, {
+      ...素,
+      会話: [
+        { who: '山田さん', body: 'あ'.repeat(500), mine: false },
+        { who: '山田さん', body: '短い', mine: false },
+      ],
+    });
+    const 吹き出し = container.querySelectorAll('.bubble');
+    expect(吹き出し[0].classList.contains('folded')).toBe(true);
+    expect(吹き出し[1].classList.contains('folded')).toBe(false);
+    const 開く = screen.getByRole('button', { name: ja['chat.more'] });
+    expect(screen.getAllByRole('button', { name: ja['chat.more'] })).toHaveLength(1);
+    expect(開く.getAttribute('aria-expanded')).toBe('false');
+
+    await fireEvent.click(開く);
+    expect(container.querySelectorAll('.bubble')[0].classList.contains('folded')).toBe(false);
+    const 閉じる = screen.getByRole('button', { name: ja['chat.less'] });
+    expect(閉じる.getAttribute('aria-expanded')).toBe('true');
+
+    await fireEvent.click(閉じる);
+    expect(container.querySelectorAll('.bubble')[0].classList.contains('folded')).toBe(true);
+  });
 });

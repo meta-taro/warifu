@@ -745,6 +745,24 @@ async fn 秘密らしいものは_札があっても会話へ流さない() {
 }
 
 #[tokio::test]
+async fn 長すぎる本文は_この機械へ運ばず長すぎると言う() {
+    // 11-02、1,733 字の本文が「この機械が返事をしません」で落ちた。
+    // 成功・失敗・長さ超過が同じ 1 文だと、エージェントは区別できず再送する
+    let 口 = 用意(&["chat.send"]);
+    let 出た = 口
+        .chat_send(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SayArgs {
+                body: "あ".repeat(1733),
+                room: None,
+            },
+        ))
+        .await;
+    let 文 = format!("{:?}", 出た.unwrap_err());
+    assert!(文.contains("長すぎ"), "{文}");
+    assert!(!文.contains("返事をしません"), "{文}");
+}
+
+#[tokio::test]
 async fn 誰も居ないとき_流せたことにしない() {
     // **2026-09-07、実物で再発した。**画面を建ててこの機械につながり、
     // 会議に人が 1 人も居ない状態で chat_send を叩いたら

@@ -1003,6 +1003,49 @@ const 誰も居ない: &str = "まだ誰も居ません";
 ///
 /// `部屋` を指されたらそこへ。指されなければ**画面が見ているルーム**へ（今までどおり）。
 /// 返事が声掛けの来た部屋へ戻らなかった —— 口は届いた行の部屋をそのまま指してくる。
+/// **1 本の線に渡すのを待てる長さ**（0.1.42）。
+///
+/// 口（`chat_send`）は 5 秒で返事を諦める。相手ごとに順に `send().await` していたので、
+/// 眠っている相手の線が詰まると、そこで止まって 5 秒を越え、**届いているのに
+/// 「この機械が返事をしません」が返り、エージェントが送り直して同じ発言が 2 回並んだ**（11-02）。
+const 線を待てる: std::time::Duration = std::time::Duration::from_millis(1500);
+
+/// 面々へ同じ知らせを**同時に**渡す。詰まった線は `待てる` で諦めて「渡せなかった」に数える。
+///
+/// **全体でも `待てる` を少し越えるだけ**にする（相手の数に比例して延びない）。
+async fn 皆へ渡す(
+    面々: Vec<(
+        warifu_core::PublicKey,
+        Option<tokio::sync::mpsc::Sender<warifu_meeting::Notice>>,
+    )>,
+    知らせ: &warifu_meeting::Notice,
+    待てる: std::time::Duration,
+) -> Vec<(warifu_core::PublicKey, bool)> {
+    let mut 組 = tokio::task::JoinSet::new();
+    let mut 渡せたか = Vec::with_capacity(面々.len());
+    for (鍵, 線) in 面々 {
+        let Some(tx) = 線 else {
+            渡せたか.push((鍵, false));
+            continue;
+        };
+        let 知らせ = 知らせ.clone();
+        組.spawn(async move {
+            let 渡せた = matches!(
+                tokio::time::timeout(待てる, tx.send(知らせ)).await,
+                Ok(Ok(()))
+            );
+            (鍵, 渡せた)
+        });
+    }
+    while let Some(済んだ) = 組.join_next().await {
+        // 渡す仕事は panic しない（send と timeout だけ）。万一落ちたら、その相手は数えない
+        if let Ok(組の答え) = 済んだ {
+            渡せたか.push(組の答え);
+        }
+    }
+    渡せたか
+}
+
 pub(crate) async fn 流す(
     app: &AppHandle,
     body: &str,
@@ -1081,29 +1124,18 @@ pub(crate) async fn 流す(
     // **線の無い相手も並べる**（0.1.42）—— 黙って数えないと、渡せていないことが誰にも見えない
     let 面々 =
         crate::そのルームの面々(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
-    let mut 渡せたか = Vec::with_capacity(面々.len());
-    for (鍵, 線) in 面々 {
-        let Some(tx) = 線 else {
-            渡せたか.push((鍵, false));
-            continue;
-        };
-        // 届かない相手が居ても止めない。**送る側を待たせない**
-        let 渡せた = tx
-            .send(warifu_meeting::Notice::Text {
-                meeting,
-                // **エージェントの持ち主は自分**（D48）。AI は自分のエージェントから喋っている
-                from: 自分,
-                // **そのエージェントの誰が言ったかを、線の向こうへも運ぶ**（2026-09-08）。
-                // 載せないと、相手の画面では人が打ったのと区別が付かない。
-                // **名乗っていれば名前も載せる**（`資料くん（docs）`・**D75**）——
-                // ただし**どこのエージェントかは落とさない**（落とすと取り違えられる）
-                話し手: Some(名札.clone()),
-                body: body.to_owned(),
-            })
-            .await
-            .is_ok();
-        渡せたか.push((鍵, 渡せた));
-    }
+    let 文字 = warifu_meeting::Notice::Text {
+        meeting,
+        // **エージェントの持ち主は自分**（D48）。AI は自分のエージェントから喋っている
+        from: 自分,
+        // **そのエージェントの誰が言ったかを、線の向こうへも運ぶ**（2026-09-08）。
+        // 載せないと、相手の画面では人が打ったのと区別が付かない。
+        // **名乗っていれば名前も載せる**（`資料くん（docs）`・**D75**）——
+        // ただし**どこのエージェントかは落とさない**（落とすと取り違えられる）
+        話し手: Some(名札.clone()),
+        body: body.to_owned(),
+    };
+    let 渡せたか = 皆へ渡す(面々, &文字, 線を待てる).await;
     let 部屋の主催 = bridge.主催たち.lock().await.get(&meeting).copied();
     let 主催だ = crate::roster_sync::主催か(部屋の主催.as_ref(), &自分);
     let 主催へ渡せた = 渡せたか
@@ -2869,6 +2901,54 @@ mod tests {
                 .iter()
                 .all(|r| r.名前 == 名前の無いルームの相手 && !r.住所あり),
             "住所は知らない（呼べない）が、名前は付けられる"
+        );
+    }
+
+    /// **詰まった相手が居ても、口の待ち（5 秒）より先に返る**（0.1.42・11-02）。
+    #[tokio::test]
+    async fn 詰まった線は諦めて_他の相手には渡し_口の待ちより先に返る() {
+        use super::皆へ渡す;
+        use warifu_core::Seed;
+        let 鍵 = |b: u8| {
+            Seed::from_bytes([b; 32])
+                .profile("Personal")
+                .device(warifu_core::端末の呼び名)
+                .public_key()
+        };
+        let 知らせ = warifu_meeting::Notice::Text {
+            meeting: MeetingId::generate(),
+            from: 鍵(9),
+            話し手: None,
+            body: "やあ".to_owned(),
+        };
+        // 1 本目：容量 1 を埋めて詰まらせる（眠っている相手）。2 本目：空いている
+        let (詰まり, _詰まりの受け) = tokio::sync::mpsc::channel(1);
+        詰まり.try_send(知らせ.clone()).expect("1 通は入る");
+        let 詰まった線を_3本 = (1..=3).map(|b| (鍵(b), Some(詰まり.clone())));
+        let (空き, mut 空きの受け) = tokio::sync::mpsc::channel(4);
+        let 面々: Vec<_> = 詰まった線を_3本
+            .chain([(鍵(4), Some(空き)), (鍵(5), None)])
+            .collect();
+
+        let 始め = std::time::Instant::now();
+        let 待てる = std::time::Duration::from_millis(300);
+        let mut 渡せたか = 皆へ渡す(面々, &知らせ, 待てる).await;
+        let かかった = 始め.elapsed();
+
+        渡せたか.sort_by_key(|(k, _)| k.to_string());
+        let mut 期待 = vec![
+            (鍵(1), false),
+            (鍵(2), false),
+            (鍵(3), false),
+            (鍵(4), true),
+            (鍵(5), false),
+        ];
+        期待.sort_by_key(|(k, _)| k.to_string());
+        assert_eq!(渡せたか, 期待);
+        assert!(空きの受け.try_recv().is_ok(), "空いている相手には届く");
+        assert!(
+            かかった < 待てる * 2,
+            "詰まった 3 本を順に待たない（{かかった:?}）"
         );
     }
 }

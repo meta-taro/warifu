@@ -491,6 +491,11 @@ impl Warifu {
         if let Some(断り) = warifu_desk::エージェントへの断り(&args.body) {
             return Err(ToolError::BadArgs(断り).into());
         }
+        // **長さも、この機械へつなぐ前に見る**（0.1.42）。つないだ後だと、画面が開いていない・
+        // 返事が遅いときの断りに紛れて「長すぎる」が届かず、エージェントが同じものを送り直していた
+        if let Err(e) = warifu_desk::ToDesk::say_in(args.body.as_str(), None) {
+            return Err(ToolError::BadArgs(e.to_string()).into());
+        }
         let この機械 = self.この機械().await?;
         let 流した = この機械
             .部屋へ言う(&args.body, args.room.as_deref())
