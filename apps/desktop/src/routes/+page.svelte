@@ -90,7 +90,7 @@
     長さの分,
   } from '$lib/schedule/schedule';
   import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
-  import { 呼び名 } from '$lib/meeting/names';
+  import { 出す名, 呼び名 } from '$lib/meeting/names';
   import { エージェントの名を言い換える } from '$lib/chat/name';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
@@ -986,7 +986,8 @@
     const 既定 = 呼び名(名簿, key);
     // `呼び名` は覚えていなければ鍵の頭（末尾が `…`）を返す
     const 呼んでいる名 = 既定.endsWith('…') ? undefined : 既定;
-    return 呼ぶ名(呼んでいる名, 相手の名乗り[key], 既定);
+    // **名乗りも無ければ「名無しさん」**（0.1.42）。鍵の頭は人には読めない
+    return 呼ぶ名(呼んでいる名, 相手の名乗り[key], 呼んでいる名 ?? t('contacts.noname'));
   }
 
   /** いま見ているルーム。**同じ PC の AI を選んでいればこの機械のルーム。** */
@@ -3626,14 +3627,14 @@
           <!-- svelte-ignore a11y_media_has_caption -->
           <video autoplay playsinline muted {@attach (el) => { (el as HTMLVideoElement).srcObject = r.stream; }}></video>
           <audio autoplay {@attach (el) => { (el as HTMLAudioElement).srcObject = r.stream; }}></audio>
-          <span class="cap">{呼び名(名簿, r.key)} <LinkBadge {locale} path={r.path} /></span>
+          <span class="cap">{出す名(画面での名簿, r.key, t('contacts.noname'))} <LinkBadge {locale} path={r.path} /></span>
         </div>
       {/each}
       <!-- **居るのに映像の線がまだ張れていない人**（0.1.41）。枠を出し、なぜ映っていないかを言う -->
       {#each 映像の届いていない人 as key (key)}
         <div class="tile 映像なし">
           <div class="映像の代わり"><Icon name="camera-off" size={28} /><p>{t('tile.peer.noVideo')}</p></div>
-          <span class="cap" title={呼び名(名簿, key)}>{呼び名(名簿, key)}</span>
+          <span class="cap" title={呼び名(名簿, key)}>{出す名(画面での名簿, key, t('contacts.noname'))}</span>
         </div>
       {/each}
       <!-- **エージェントの枠**（0.1.41）。映像は無いので、それと分かる形にする -->

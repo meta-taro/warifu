@@ -348,7 +348,9 @@
     if (行.種類 === '自分' || 行.key === この機械の印) return t(行.name as MessageKey);
     // **相手の名乗りは、呼び名を付けていないときだけ名前になる**（D46 / `claimed.ts`）
     if (行.種類 === '人') {
-      return 呼ぶ名(呼び名を付けているか(行) ? 行.name : undefined, 名乗られたもの[行.key], 行.name);
+      // **名前の無い人は鍵の頭でなく「名無しさん」で出す**（0.1.42）。鍵は詳しい欄と title に残す
+      const 付けた = 呼び名を付けているか(行) ? 行.name : undefined;
+      return 呼ぶ名(付けた, 名乗られたもの[行.key], 付けた ?? t('contacts.noname'));
     }
     return 行.name;
   }
@@ -361,6 +363,12 @@
    */
   function 呼び名を付けているか(行: 行): boolean {
     return !行.name.endsWith('…');
+  }
+
+  /** 行の title。**名無しさんが並んでも見分けられるよう、鍵の頭を添える。** */
+  function 名の札(行: 行): string {
+    const 出した = 名(行);
+    return 行.種類 === '人' && 出した === t('contacts.noname') ? `${出した}（${鍵の頭(行.key)}）` : 出した;
   }
 
   /** いまこの機械につながっているエージェントが 1 人でも居るか。 */
@@ -568,7 +576,7 @@
               {/if}
             </span>
           {/if}
-          <span class="name" title={名(行)}>{名(行)}</span>
+          <span class="name" title={名の札(行)}>{名(行)}</span>
           <!-- **まだ見ていない相手の行の数**（案 A・2026-09-11）。
                0 のときは出さない —— 0 を出すと、何も無いことが目に入り続ける -->
           {#if 未読(行) > 0}

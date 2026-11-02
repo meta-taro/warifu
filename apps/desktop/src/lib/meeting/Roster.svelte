@@ -6,7 +6,7 @@
   import type { Locale } from '../i18n/locales';
   import type { LinkPath } from '../link/path';
   import { clampCapacity } from './roster';
-  import { 呼び名 } from './names';
+  import { 出す名, 鍵の頭 } from './names';
   import Avatar from '$lib/contacts/Avatar.svelte';
 
   export interface Member {
@@ -52,6 +52,10 @@
   let { locale, members, capacity, names = {}, onRename, この機械のAIたち = [], 経路を出す = true }: Props = $props();
 
   const t = (key: keyof (typeof MESSAGES)[Locale]) => MESSAGES[locale][key];
+  /** 出す名前。**名前の無い人は「名無しさん」**（0.1.42） */
+  const 名 = (key: string) => 出す名(names, key, t('contacts.noname'));
+  /** title。**名無しさんが並んでも見分けられるよう、鍵の頭を添える** */
+  const 名の札 = (key: string) => (名(key) === t('contacts.noname') ? `${名(key)}（${鍵の頭(key)}）` : 名(key));
 
   /** いま名前を付けている相手（公開鍵）。**1 人ずつ** */
   let 書き換え中 = $state<string | null>(null);
@@ -113,7 +117,7 @@
                字だけでは誰が誰か追えない（2026-09-12）。
                **確かめるのは全桁の鍵**であって、顔は見分けにすぎない -->
           <Avatar 種={m.key} 大きさ={18} 名="" />
-          <span class="name" title={`${呼び名(names, m.key)}${m.me ? `（${t('tile.me')}）` : ''}`}>{呼び名(names, m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
+          <span class="name" title={`${名の札(m.key)}${m.me ? `（${t('tile.me')}）` : ''}`}>{名(m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
           {#if m.host}<span class="host">{t('roster.host')}</span>{/if}
           {#if 経路を出す && !m.me}<LinkBadge {locale} path={m.path} />{/if}
           {#if onRename && !m.me}

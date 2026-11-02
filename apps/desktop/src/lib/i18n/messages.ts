@@ -111,6 +111,7 @@ export type MessageKey =
   | 'contacts.me'
   | 'contacts.unread'
   | 'contacts.me.row'
+  | 'contacts.noname'
   | 'contacts.desk'
   | 'contacts.desk.none'
   | 'contacts.saved'
@@ -584,6 +585,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.this': 'この PC',
     'contacts.me': 'あなた',
     'contacts.me.row': 'あなた（この PC の人）',
+    'contacts.noname': '名無しさん',
     'contacts.unread': 'まだ読んでいない発言 {n} 件',
     'contacts.desk': 'マイ PC エージェント',
     'contacts.desk.none': 'このエージェントは、いま繋がっていません。',
@@ -1010,6 +1012,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.this': 'This computer',
     'contacts.me': 'You',
     'contacts.me.row': 'You (the person at this PC)',
+    'contacts.noname': 'No name',
     'contacts.unread': '{n} unread messages',
     'contacts.desk': 'My PC agents',
     'contacts.desk.none': 'No agent on this computer is connected. Connect one with `warifu mcp` and it appears here.',
@@ -1434,6 +1437,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.this': '这台电脑',
     'contacts.me': '你',
     'contacts.me.row': '你（这台电脑的人）',
+    'contacts.noname': '无名氏',
     'contacts.unread': '未读消息 {n} 条',
     'contacts.desk': '我的电脑代理',
     'contacts.desk.none': '这台电脑还没有连上智能体。用 `warifu mcp` 连接后会出现在这里。',
@@ -1862,6 +1866,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'contacts.this': '이 PC',
     'contacts.me': '당신',
     'contacts.me.row': '당신（이 PC 의 사람）',
+    'contacts.noname': '이름 없음',
     'contacts.unread': '읽지 않은 메시지 {n}건',
     'contacts.desk': '내 PC 에이전트',
     'contacts.desk.none': '이 PC에 연결된 에이전트가 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.',
@@ -2169,6 +2174,9 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
 
 /** 翻訳者への注記。**訳文と一緒に渡す。** */
 export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
+  'contacts.noname':
+    'こちらが呼び名を付けておらず、相手も名乗っていない人の名前の代わり。' +
+    '親しみのある「名前の無い人」の意味で、エラーや欠けた値に読める訳にしないこと。',
   'setup.bg.failed':
     '**カメラの映像は送っていない。**「背景を隠さずに送っています」と読める訳にしないこと。' +
     '背景を見せられない人がいる前提の文言である。素のまま送るのは、人が「隠さない」を選んだときだけ。',

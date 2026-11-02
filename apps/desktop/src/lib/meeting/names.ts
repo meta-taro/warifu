@@ -22,3 +22,14 @@ export function 呼び名(名簿: Readonly<Record<string, string>>, key: string)
   const 覚えている = 名簿[key];
   return 覚えている && 覚えている.trim() !== '' ? 覚えている : 鍵の頭(key);
 }
+
+/**
+ * 人に見せる名前。**覚えていなければ `名無し`（「名無しさん」など）で出す**（0.1.42）。
+ *
+ * 鍵の頭は人には読めない。見分けは顔の色と、詳しい欄の鍵でつける。
+ * 中で相手を引くとき（`呼び名`）は、これまでどおり鍵の頭を使う。
+ */
+export function 出す名(名簿: Readonly<Record<string, string>>, key: string, 名無し: string): string {
+  const 覚えている = 名簿[key];
+  return 覚えている && 覚えている.trim() !== '' ? 覚えている : 名無し;
+}

@@ -52,4 +52,19 @@ describe('Roster', () => {
     expect(screen.getByText('1 / 12')).toBeTruthy();
     expect(screen.getByText(/dev のエージェント/)).toBeTruthy();
   });
+
+  it('名前の無い人は鍵の頭でなく「名無しさん」で出し、title に鍵の頭を添える（0.1.42）', () => {
+    render(Roster, {
+      locale: 'ja',
+      capacity: 12,
+      members: [
+        { key: 鍵(1), me: true, host: true, path: 'unknown' },
+        { key: 鍵(2), path: 'direct' },
+      ],
+      names: { [鍵(1)]: '自分の機械' },
+    });
+    const 行 = screen.getByText('名無しさん');
+    expect(行.getAttribute('title')).toBe(`名無しさん（${鍵(2).slice(0, 12)}…）`);
+    expect(screen.queryByText(new RegExp(`^${鍵(2).slice(0, 12)}`))).toBeNull();
+  });
 });

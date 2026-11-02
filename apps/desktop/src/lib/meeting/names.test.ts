@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { 呼び名, 鍵の頭 } from './names';
+import { 出す名, 呼び名, 鍵の頭 } from './names';
 
 const 鍵 = '67R54JO7ND6PXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXA';
 
@@ -20,5 +20,17 @@ describe('呼び名', () => {
 
   it('短い鍵はそのまま出す', () => {
     expect(鍵の頭('ABC')).toBe('ABC');
+  });
+});
+
+describe('出す名', () => {
+  it('名前の無い相手は、鍵の頭ではなく「名無し」の言葉で出す（0.1.42）', () => {
+    // 鍵の頭は人には読めない。見分けは顔の色と、詳しい欄の鍵でつける
+    expect(出す名({}, 鍵, '名無しさん')).toBe('名無しさん');
+    expect(出す名({ [鍵]: '  ' }, 鍵, '名無しさん')).toBe('名無しさん');
+  });
+
+  it('覚えている相手は、その呼び名で出す', () => {
+    expect(出す名({ [鍵]: 'alpha' }, 鍵, '名無しさん')).toBe('alpha');
   });
 });

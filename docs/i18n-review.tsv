@@ -109,6 +109,7 @@ contacts.me.name	The name you set here is shown to the people you talk to. If th
 contacts.me.row	You (the person at this PC)	あなた（この PC の人）	你（这台电脑的人）	당신（이 PC 의 사람）				
 contacts.me.share	You can show this public key to anyone. On its own it lets nobody in — coming in needs a room key.	この公開鍵は、相手に見せて構いません。これだけでは誰も入ってこられません（入るにはルームキーが要ります）。	这个公钥可以给对方看。仅凭它谁也进不来（进来需要密钥）。	이 공개키(내 ID)는 상대에게 보여도 됩니다. 이것만으로는 아무도 들어올 수 없습니다 (들어오려면 열쇠가 필요합니다).				
 contacts.me.what	This is you on this computer. You stay the same person after closing it.	これがこの PC のあなたです。閉じても同じ人でいられます。	这是这台电脑上的你。关掉之后仍然是同一个人。	이것이 이 PC 의 당신입니다. 닫아도 같은 사람으로 있습니다.				
+contacts.noname	No name	名無しさん	无名氏	이름 없음		こちらが呼び名を付けておらず、相手も名乗っていない人の名前の代わり。親しみのある「名前の無い人」の意味で、エラーや欠けた値に読める訳にしないこと。		
 contacts.note	Your note	覚え書き	备注	메모				
 contacts.note.hint	Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.	この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。	用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。	이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.				
 contacts.pick	Pick someone to see what you can do.	相手を選ぶと、できることが出ます。	选择一位，就会显示可以做的事。	상대를 고르면 할 수 있는 일이 나옵니다.				
