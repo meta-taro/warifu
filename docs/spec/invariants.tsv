@@ -104,6 +104,6 @@ S09-2	聞くと言っていない線には居場所を流さない	L0	apps/deskt
 S09-3	速く来た居場所は 0.2 秒ごとに最後の 1 つにまとめる	L0	apps/desktop/src-tauri/src/presence.rs 初めてか_間が過ぎていれば_いま送る・間の内に来たら_残りの間だけ待つ	済（dev で 10 回送って 2 回届いた）
 S09-4	空の場所は閉じた。線が切れた・相手が抜けたら閉じたを流す	L0	apps/desktop/src-tauri/src/presence.rs 空の場所は閉じた印で_控えから外す・抜けた相手の控えは_開いていた文書を閉じる分だけ持つ	済（dev で線を切る・客が抜けるで閉じたが届いた）
 S09-5	後から入った相手に、いまの居場所をまとめて送る	L5	dev で、居場所を開いたまま 3 台目が入ると、入った直後に届いた（11-03）	済（手で確かめた・自動の試験は無い）
-S09-6	客どうしの居場所も届き、2 本の道で来ても 1 回だけ渡す	L0	apps/desktop/src-tauri/src/presence.rs 二本の道で届いた同じ居場所は_二度目を渡さない	済（dev で客から客へ 1 回だけ届いた）
+S09-6	客どうしの居場所も届き、2 本の道で来ても 1 回だけ渡す（2 秒以上空いた同じ居場所は渡す）	L0	apps/desktop/src-tauri/src/presence.rs 二本の道で届いた同じ居場所は_二度目を渡さない・同じ居場所でも_間が空いていれば渡す	済（dev で客から客へ 1 回だけ届いた）
 S09-7	文書の名前と場所は 512 バイトまで・制御文字なし・文書は空にしない	L0	crates/warifu-meeting/tests/presence.rs・crates/warifu-desk/src/line.rs 居場所の試験	済
 S09-8	古い版は居場所の知らせを読み飛ばす	L0	crates/warifu-meeting/src/notice.rs 知らない meeting.* は NotMeeting（既存）	一部（0.1.42 の受け手が読めない知らせを continue で飛ばすのはコードで確かめた・古い版との実機は未）

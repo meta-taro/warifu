@@ -52,8 +52,12 @@ struct 線の送り {
 /// **まだ送っていない居場所**（線の番号ごと）。
 static 送り待ち: Mutex<BTreeMap<u64, 線の送り>> = Mutex::new(BTreeMap::new());
 
-/// 相手の開いている文書（その機械の誰・文書 → いまの場所）。
-type 開いている文書 = BTreeMap<(String, String), String>;
+/// 相手の開いている文書（その機械の誰・文書 → いまの場所と、それを線へ渡した時）。
+type 開いている文書 = BTreeMap<(String, String), (String, Instant)>;
+
+/// 同じ居場所を 2 度目として捨てる間。**これより空いていれば、同じ中身でも渡す**
+/// （相手が生きている印として、同じ居場所を間を置いて送り直すため）。
+pub(crate) const 同じとみなす間: Duration = Duration::from_secs(2);
 
 /// **ルームの相手から届いた、いまの居場所**（部屋・相手の鍵ごと）。抜けたら閉じる。
 static 相手の居場所: Mutex<BTreeMap<(MeetingId, [u8; 32]), 開いている文書>> =
@@ -236,10 +240,16 @@ pub(crate) async fn 入った相手へ(app: &AppHandle, 相手: PublicKey, 部�
 
 /// 届いた居場所を、相手ごとの控えに足す（空なら外す）。**抜けたときに閉じるため。**
 ///
-/// **前と同じなら `false`**（線に渡さない）。客どうしは直接の線と主催の配り直しの
-/// 2 本の道で同じ居場所を受けるので、2 本目を捨てる。
+/// **前と同じ場所が `同じとみなす間` の内に来たら `false`**（線に渡さない）。客どうしは
+/// 直接の線と主催の配り直しの 2 本の道で同じ居場所を受けるので、2 本目を捨てる。
+/// 間が空いていれば、同じ場所でも渡す（生きている印の送り直し）。
 fn 相手を控える(
-    部屋: MeetingId, 相手: PublicKey, 誰: &str, 文書: &str, 場所: &str
+    部屋: MeetingId,
+    相手: PublicKey,
+    誰: &str,
+    文書: &str,
+    場所: &str,
+    今: Instant,
 ) -> bool {
     let mut 棚 = 相手の居場所.lock().expect("毒されていない");
     let 鍵 = (部屋, 相手.to_bytes());
@@ -248,7 +258,13 @@ fn 相手を控える(
     let 変わった = if 場所.is_empty() {
         文書たち.remove(&一つ).is_some()
     } else {
-        文書たち.insert(一つ, 場所.to_owned()).as_deref() != Some(場所)
+        let 二度目 = 文書たち.get(&一つ).is_some_and(|(前の場所, 渡した)| {
+            前の場所 == 場所 && 今.saturating_duration_since(*渡した) < 同じとみなす間
+        });
+        if !二度目 {
+            文書たち.insert(一つ, (場所.to_owned(), 今));
+        }
+        !二度目
     };
     if 文書たち.is_empty() {
         棚.remove(&鍵);
@@ -282,7 +298,7 @@ pub(crate) async fn 届いた(
         return;
     };
     let 誰 = 見せる名(from, 話し手.as_deref());
-    if !相手を控える(*meeting, *from, &誰, 文書, 場所) {
+    if !相手を控える(*meeting, *from, &誰, 文書, 場所, Instant::now()) {
         // 2 本目の道で届いた同じ居場所（直接と主催ごし）。**線にも配り直しにも回さない**
         return;
     }
@@ -427,9 +443,10 @@ mod tests {
             .profile("Personal")
             .device("PC")
             .public_key();
-        assert!(相手を控える(部屋, 相手, "A（md）", "a", "{}"));
-        assert!(相手を控える(部屋, 相手, "A（md）", "b", "{}"));
-        assert!(相手を控える(部屋, 相手, "A（md）", "b", ""));
+        let 今 = Instant::now();
+        assert!(相手を控える(部屋, 相手, "A（md）", "a", "{}", 今));
+        assert!(相手を控える(部屋, 相手, "A（md）", "b", "{}", 今));
+        assert!(相手を控える(部屋, 相手, "A（md）", "b", "", 今));
         let 開いていた: Vec<(String, String)> = 相手の居場所
             .lock()
             .unwrap()
@@ -448,16 +465,66 @@ mod tests {
             .profile("Personal")
             .device("PC")
             .public_key();
-        assert!(相手を控える(部屋, 相手, "B", "a", r#"{"line":1}"#));
+        let 今 = Instant::now();
+        let 少し後 = 今 + Duration::from_millis(300);
+        assert!(相手を控える(
+            部屋,
+            相手,
+            "B",
+            "a",
+            r#"{"line":1}"#,
+            今
+        ));
         assert!(
-            !相手を控える(部屋, 相手, "B", "a", r#"{"line":1}"#),
+            !相手を控える(部屋, 相手, "B", "a", r#"{"line":1}"#, 少し後),
             "同じ居場所を 2 度渡す"
         );
-        assert!(相手を控える(部屋, 相手, "B", "a", r#"{"line":2}"#));
-        assert!(相手を控える(部屋, 相手, "B", "a", ""));
+        assert!(相手を控える(
+            部屋,
+            相手,
+            "B",
+            "a",
+            r#"{"line":2}"#,
+            少し後
+        ));
+        assert!(相手を控える(部屋, 相手, "B", "a", "", 少し後));
         assert!(
-            !相手を控える(部屋, 相手, "B", "a", ""),
+            !相手を控える(部屋, 相手, "B", "a", "", 少し後),
             "閉じた印を 2 度渡す"
+        );
+    }
+
+    #[test]
+    fn 同じ居場所でも_間が空いていれば渡す() {
+        let 部屋 = MeetingId::generate();
+        let 相手 = warifu_core::Seed::from_bytes([5; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key();
+        let 今 = Instant::now();
+        assert!(相手を控える(
+            部屋,
+            相手,
+            "B",
+            "a",
+            r#"{"line":1}"#,
+            今
+        ));
+        let 送り直し = 今 + 同じとみなす間;
+        assert!(
+            相手を控える(部屋, 相手, "B", "a", r#"{"line":1}"#, 送り直し),
+            "生きている印の送り直しを捨てる"
+        );
+        assert!(
+            !相手を控える(
+                部屋,
+                相手,
+                "B",
+                "a",
+                r#"{"line":1}"#,
+                送り直し + Duration::from_millis(500)
+            ),
+            "送り直しの 2 本目は捨てる（間は渡した時から数える）"
         );
     }
 }
