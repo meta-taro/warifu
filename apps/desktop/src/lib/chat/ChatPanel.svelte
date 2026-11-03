@@ -12,7 +12,7 @@
   import { エージェントの名を言い換える, 行の差出人名 } from './name';
   import type { 見出し } from './destination';
   import Avatar from '$lib/contacts/Avatar.svelte';
-  import { 新しい行が来たとき, 底に着いた, type 位置 } from './scroll';
+  import { 新しい行が来たとき, 底に着いた, 見えたときに送るか, type 位置 } from './scroll';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
@@ -172,6 +172,8 @@
       下書きの控え = 替えた.控え;
       下書き = 替えた.下書き;
       見ていた部屋 = 次;
+      // **別の部屋の会話を開いたら、最新から見せる**（前の部屋で読み返していた位置は持ち越さない）
+      void tick().then(() => 下へ送る(false));
     });
   });
   /** 大きく見ている画像（`blob:` の URL）。 */
@@ -267,6 +269,20 @@
     const 見え = untrack(() => 新しい行が来たとき(いまの位置, 増えた, 新着, 自分の発言か));
     新着 = 見え.新着;
     if (見え.追う) 下へ送る(増えた > 0);
+  });
+
+  // **隠れていた欄が見えたら、最新を見せる**（ルームの面は畳まずに隠す・`見えたときに送るか`）
+  $effect(() => {
+    const 見る欄 = 欄;
+    if (!見る欄 || typeof ResizeObserver === 'undefined') return;
+    let 前の高さ = 見る欄.clientHeight;
+    const 見張り = new ResizeObserver(() => {
+      const いまの高さ = 見る欄.clientHeight;
+      if (見えたときに送るか(前の高さ, いまの高さ, untrack(() => 新着))) 下へ送る(false);
+      前の高さ = いまの高さ;
+    });
+    見張り.observe(見る欄);
+    return () => 見張り.disconnect();
   });
 
   /**
