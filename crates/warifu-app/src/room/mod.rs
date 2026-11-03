@@ -869,6 +869,7 @@ pub const fn 知らせの名(知らせ: &Notice) -> &'static str {
         Notice::Profile { .. } => "名乗り",
         Notice::Link { .. } => "回線",
         Notice::Since { .. } => "追いつき",
+        Notice::Presence { .. } => "居場所",
         _ => "知らせ",
     }
 }

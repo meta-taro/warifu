@@ -25,6 +25,12 @@ const TEXT: &str = "meeting.text";
 const SINCE: &str = "meeting.since";
 /// 会議の中で画像を送る（チャット）。
 const IMAGE: &str = "meeting.image";
+/// **同時編集の居場所**（0.1.43）。誰がどの文書のどこに居るか。
+const PRESENCE: &str = "meeting.presence";
+/// 居場所の文書の名前と場所の、それぞれの長さの上限（バイト）。**受け取る側でも数える**（D15）。
+///
+/// 文書の名前は `<remote>#<相対パス>`、場所は小さな JSON（行・列・ブランチ）で、どちらも数百バイトに収まる。
+pub const PRESENCE_MAX: usize = 512;
 /// **本人の名乗り**（プロフィール・**D75**）。
 const PROFILE: &str = "meeting.profile";
 /// **ルームキーを、その相手にだけ手渡す**（2026-10-20）。
@@ -282,6 +288,25 @@ pub enum Notice {
         /// 最後に持っている文字の印（[`Notice::文字の印`]）。
         最後: Option<[u8; 32]>,
     },
+    /// **同時編集の居場所**（0.1.43・内部の Issue 035）。誰がどの文書のどこを見ているか。
+    ///
+    /// **文書も場所も読まない。**中身（パス・行・列・ブランチ）は文書を扱う側が決める。
+    /// 長さと、行を壊す字だけを見る。**場所が空 ＝ その文書を閉じた。**
+    /// 差出人と札の扱いは [`Notice::Text`] と同じ。
+    ///
+    /// 古い版（〜0.1.42）は知らない知らせとして読み飛ばす。
+    Presence {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰の居場所か（[`Notice::Text`] の `from` と同じ）。
+        from: PublicKey,
+        /// その機械の誰か（エージェントや文書の道具。人なら `None`）。
+        話し手: Option<String>,
+        /// どの文書か（空にしない）。
+        文書: String,
+        /// 文書の中のどこか（空なら閉じた）。
+        場所: String,
+    },
 }
 
 impl Notice {
@@ -300,7 +325,8 @@ impl Notice {
             | Self::Key { meeting, .. }
             | Self::RoomSecret { meeting, .. }
             | Self::RoomName { meeting, .. }
-            | Self::Since { meeting, .. } => *meeting,
+            | Self::Since { meeting, .. }
+            | Self::Presence { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -377,6 +403,16 @@ impl Notice {
                 中身,
                 ..
             } => (IMAGE, 画像を詰める(from, 話し手.as_deref(), 型, 中身)?),
+            Self::Presence {
+                from,
+                話し手,
+                文書,
+                場所,
+                ..
+            } => (
+                PRESENCE,
+                居場所を詰める(from, 話し手.as_deref(), 文書, 場所)?,
+            ),
             Self::Key { from, 鍵, .. } => {
                 鍵を検める(鍵)?;
                 let mut 荷物 = Vec::with_capacity(32 + 鍵.len());
@@ -494,6 +530,7 @@ impl Notice {
                 })
             }
             IMAGE => 画像を読む(meeting, 荷物),
+            PRESENCE => 居場所を読む(meeting, 荷物),
             KEY => {
                 // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
                 let 頭: [u8; 32] = 荷物
@@ -692,5 +729,79 @@ fn 画像を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
         話し手,
         型,
         中身,
+    })
+}
+
+/// 居場所の文書の名前と場所が運べるか。**長すぎず、行と欄を壊さない。**文書は空にしない。
+fn 居場所を検める(文書: &str, 場所: &str) -> Result<(), Error> {
+    let 壊す = |字: &str| 字.chars().any(char::is_control);
+    if 文書.is_empty()
+        || 文書.len() > PRESENCE_MAX
+        || 場所.len() > PRESENCE_MAX
+        || 壊す(文書)
+        || 壊す(場所)
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// `[差出人 32][札の長さ 1][札][文書の長さ 2][文書][場所]`
+fn 居場所を詰める(
+    from: &PublicKey,
+    話し手: Option<&str>,
+    文書: &str,
+    場所: &str,
+) -> Result<Vec<u8>, Error> {
+    札を検める(話し手)?;
+    居場所を検める(文書, 場所)?;
+    let 札 = 話し手.unwrap_or_default();
+    let mut 荷物 = Vec::with_capacity(32 + 1 + 札.len() + 2 + 文書.len() + 場所.len());
+    荷物.extend_from_slice(&from.to_bytes());
+    荷物.push(u8::try_from(札.len()).map_err(|_| Error::Malformed)?);
+    荷物.extend_from_slice(札.as_bytes());
+    荷物.extend_from_slice(
+        &u16::try_from(文書.len())
+            .map_err(|_| Error::Malformed)?
+            .to_be_bytes(),
+    );
+    荷物.extend_from_slice(文書.as_bytes());
+    荷物.extend_from_slice(場所.as_bytes());
+    Ok(荷物)
+}
+
+/// 居場所を読む。**組み立てる側と同じ検めをする**（相手が守る保証は無い）。
+fn 居場所を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    let 頭: [u8; 32] = 荷物
+        .get(..32)
+        .ok_or(Error::Malformed)?
+        .try_into()
+        .map_err(|_| Error::Malformed)?;
+    let from = PublicKey::from_bytes(頭).map_err(|_| Error::Malformed)?;
+    let 札の長さ = usize::from(*荷物.get(32).ok_or(Error::Malformed)?);
+    let 札の終わり = 33 + 札の長さ;
+    let 札 = 荷物.get(33..札の終わり).ok_or(Error::Malformed)?;
+    let 長さ: [u8; 2] = 荷物
+        .get(札の終わり..札の終わり + 2)
+        .ok_or(Error::Malformed)?
+        .try_into()
+        .map_err(|_| Error::Malformed)?;
+    let 文書の終わり = 札の終わり + 2 + usize::from(u16::from_be_bytes(長さ));
+    let 文書 = 荷物
+        .get(札の終わり + 2..文書の終わり)
+        .ok_or(Error::Malformed)?;
+    let 字 = |b: &[u8]| String::from_utf8(b.to_vec()).map_err(|_| Error::Malformed);
+    let 札 = 字(札)?;
+    let 話し手 = (!札.is_empty()).then_some(札);
+    札を検める(話し手.as_deref())?;
+    let 文書 = 字(文書)?;
+    let 場所 = 字(&荷物[文書の終わり..])?;
+    居場所を検める(&文書, &場所)?;
+    Ok(Notice::Presence {
+        meeting,
+        from,
+        話し手,
+        文書,
+        場所,
     })
 }

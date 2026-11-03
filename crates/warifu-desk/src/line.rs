@@ -302,6 +302,47 @@ pub enum ToDesk {
     /// 人が画面のメニューを押す以外に、版を確かめる道が無かった。
     /// 新しい版があれば画面が更新の帯を出す。**落として入れ替えるのは人が押す**（この行では入れ替えない）。
     更新を確かめる,
+    /// **この線に、ルームの相手の居場所を流してもらう**（0.1.43・同時編集・内部の Issue 035）。
+    ///
+    /// 言わない線（エージェント）には流さない。居場所は速く何度も来るので、会話の雑音になる。
+    居場所を聞く,
+    /// **自分の居場所を言う**（0.1.43・同時編集）。誰がどの文書のどこに居るか。
+    ///
+    /// **文書も場所も、この機械は読まない**（文書を扱う側が決める）。上限は [`居場所の上限`]（バイト）。
+    /// **場所が空 ＝ その文書を閉じた。**誰の居場所かはこの機械が刻む（[`ToDesk::Say`] と同じ約束）。
+    居場所 {
+        /// どの文書か（空にしない）。
+        文書: String,
+        /// 文書の中のどこか（空なら閉じた）。
+        場所: String,
+        /// どの部屋へ（`None` なら画面が見ているルーム）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+    },
+}
+
+/// 居場所の文書の名前と場所の、それぞれの上限（バイト）。**網の上の上限（`warifu-meeting`）と同じ**。
+pub const 居場所の上限: usize = 512;
+
+/// 居場所として運べるか。**長すぎず、行と欄を壊さない。**文書は空にしない。
+fn 居場所を検める(文書: &str, 場所: &str) -> Result<(), Error> {
+    for (何, 字) in [("文書の名前", 文書), ("場所", 場所)] {
+        if 字.len() > 居場所の上限 {
+            return Err(Error::長すぎる {
+                何,
+                数: 字.len(),
+                上限: 居場所の上限,
+                単位: "バイト",
+            });
+        }
+        if 字.chars().any(char::is_control) {
+            return Err(Error::Malformed);
+        }
+    }
+    if 文書.is_empty() {
+        return Err(Error::Empty);
+    }
+    Ok(())
 }
 
 /// **画面の写しの上限**（バイト）。1 行の上限（本文の上限 ＋ 飾り）に、JSON の飾りごと収める。
@@ -749,6 +790,20 @@ pub enum FromDesk {
         /// 付けた名前。
         名前: String,
     },
+    /// **ルームの相手の居場所**（0.1.43・同時編集）。[`ToDesk::居場所を聞く`] と言った線にだけ流す。
+    ///
+    /// **場所が空 ＝ その文書を閉じた。**相手が抜けたら [`FromDesk::Left`] が来る。
+    居場所 {
+        /// 誰の。**この機械が刻む。**
+        誰: String,
+        /// どの文書か。
+        文書: String,
+        /// 文書の中のどこか（空なら閉じた）。
+        場所: String,
+        /// どの部屋で（会議 id の全文）。この機械の中の居場所なら `None`。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+    },
     /// **更新の様子**（[`ToDesk::更新を確かめる`] の返り・0.1.41）。
     更新 {
         /// いま動いている画面の版。
@@ -927,7 +982,16 @@ impl ToDesk {
                 部屋を検める(部屋)?;
                 部屋の名前を検める(名前)?;
             }
+            Self::居場所 {
+                文書, 場所, room
+            } => {
+                居場所を検める(文書, 場所)?;
+                if let Some(r) = room {
+                    部屋を検める(r)?;
+                }
+            }
             Self::連絡先
+            | Self::居場所を聞く
             | Self::書き出す
             | Self::画面の写し
             | Self::部屋たち
@@ -2188,5 +2252,66 @@ mod 長すぎる試験 {
             !文.contains(&本文の上限.to_string()),
             "本文の上限を言っている: {文}"
         );
+    }
+}
+
+#[cfg(test)]
+mod 居場所の試験 {
+    use super::*;
+
+    #[test]
+    fn 居場所の行は_部屋ありもなしも往復する() {
+        for room in [None, Some("NBIW3PA2TUQ5".to_owned())] {
+            let 行 = ToDesk::居場所 {
+                文書: "github.com/o/r#docs/a.md".to_owned(),
+                場所: r#"{"branch":"main","line":3}"#.to_owned(),
+                room,
+            };
+            assert_eq!(ToDesk::読む(&行.書く()).unwrap(), 行);
+        }
+        assert_eq!(
+            ToDesk::読む(&ToDesk::居場所を聞く.書く()).unwrap(),
+            ToDesk::居場所を聞く
+        );
+        let 届く = FromDesk::居場所 {
+            誰: "md-business（docs）".to_owned(),
+            文書: "a".to_owned(),
+            場所: String::new(),
+            room: Some("X".to_owned()),
+        };
+        assert_eq!(FromDesk::読む(&届く.書く()).unwrap(), 届く);
+    }
+
+    #[test]
+    fn 空の場所は閉じた印として通し_空の文書は通さない() {
+        let 閉じた = ToDesk::居場所 {
+            文書: "a".to_owned(),
+            場所: String::new(),
+            room: None,
+        };
+        assert!(ToDesk::読む(&閉じた.書く()).is_ok());
+        let 空 = ToDesk::居場所 {
+            文書: String::new(),
+            場所: "{}".to_owned(),
+            room: None,
+        };
+        assert_eq!(ToDesk::読む(&空.書く()), Err(Error::Empty));
+    }
+
+    #[test]
+    fn 長すぎる居場所は_何の上限かを言って断る() {
+        let 行 = ToDesk::居場所 {
+            文書: "a".repeat(居場所の上限 + 1),
+            場所: "{}".to_owned(),
+            room: None,
+        };
+        let 文 = ToDesk::読む(&行.書く()).unwrap_err().to_string();
+        assert!(文.contains("文書の名前"), "{文}");
+        let 行 = ToDesk::居場所 {
+            文書: "a".to_owned(),
+            場所: "{\n}".to_owned(),
+            room: None,
+        };
+        assert_eq!(ToDesk::読む(&行.書く()), Err(Error::Malformed));
     }
 }

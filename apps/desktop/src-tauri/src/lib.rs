@@ -105,6 +105,7 @@ mod link;
 mod media_path;
 mod notify;
 mod postbox;
+mod presence;
 mod profile;
 mod room_name;
 #[cfg(test)]
@@ -2736,6 +2737,21 @@ fn 汲む(
                         }
                         continue;
                     }
+                    // **同時編集の居場所**（0.1.43・内部の Issue 035）。**名簿は動かさない。**
+                    // 差出人の確かめは文字と同じ（主催ごしの分だけ通す）。主催なら面々へ配る
+                    if let Notice::Presence { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 居場所の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        presence::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
                     // **鍵の手渡し**（2026-10-20）。**名簿は動かさない。入るかは人が決める**
                     if let Notice::Key { from, 鍵, .. } = &notice {
                         if *from != peer {
@@ -4156,6 +4172,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         // **中身は出さない。**種別だけ言う —— これは合言葉を運ぶ知らせである（**D118**）
         Notice::RoomSecret { .. } => "部屋の合言葉",
         Notice::RoomName { .. } => "ルームの名前",
+        Notice::Presence { .. } => "居場所",
         _ => "知らない知らせ",
     }
 }
@@ -4164,6 +4181,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
 /// **その部屋の会話**に書くため —— 渡していなかったので、別の部屋への入り直しが
 /// 見ている部屋に「入りました」と並んでいた（10-23）。
 fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event]) {
+    let 部屋id = 部屋;
     let 部屋 = 部屋.to_string();
     for event in events {
         let _ = match event {
@@ -4176,6 +4194,14 @@ fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event])
                 let 名 = desk::入退室を配る(&app.state::<Bridge>(), &鍵, true);
                 let 名 = if 名 == 鍵 { 短く(&鍵) } else { 名 };
                 notify::入ったと知らせる(app, &名);
+                // **この機械のいまの居場所を、入った相手へまとめて送る**（0.1.43）
+                {
+                    let app = app.clone();
+                    let 相手 = *key;
+                    tauri::async_runtime::spawn(async move {
+                        presence::入った相手へ(&app, 相手, 部屋id).await;
+                    });
+                }
                 app.emit(EVENT_JOINED, (鍵, 部屋.clone()))
             }
             warifu_app::Event::Left(key) => {
@@ -4184,6 +4210,8 @@ fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event])
                 // **ここへ来るのは、本人が抜けたときだけ**（切れたときは `Left` を出さない）
                 absence::抜けた(&鍵);
                 desk::入退室を配る(&app.state::<Bridge>(), &鍵, false);
+                // **抜けた相手の居場所を、閉じたとして流す**（0.1.43）
+                presence::相手が抜けた(app, 部屋id, *key);
                 app.emit(EVENT_LEFT, (鍵, 部屋.clone()))
             }
             warifu_app::Event::Signal { from, step, blob } => app.emit(
@@ -4607,6 +4635,13 @@ mod 知らせの名の試験 {
                 meeting: 部屋,
                 from: 鍵(),
                 名前: String::new(),
+            },
+            Notice::Presence {
+                meeting: 部屋,
+                from: 鍵(),
+                話し手: None,
+                文書: "a".to_owned(),
+                場所: String::new(),
             },
         ]
     }

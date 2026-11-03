@@ -333,6 +333,8 @@ struct 聞き方 {
     点検: bool,
     /// 届き方に「まだ届いていない相手」を付けてよいか（0.1.42）。
     届かない先: bool,
+    /// ルームの相手の居場所を流してよいか（0.1.43・同時編集・`ToDesk::居場所を聞く`）。
+    居場所: bool,
 }
 
 /// この機械につながった 1 人の面倒を見る。
@@ -370,6 +372,8 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
                         // エージェントは自分の発言を「誰かの発言」として読む。
                         // 宛先つきなら、**そのエージェントだけが受ける**
                         Ok((出所, _)) if !自分あてか(出所, 自分) => continue,
+                        // **居場所は、聞くと言った線にだけ**（0.1.43）。エージェントには雑音になる
+                        Ok((_, 一つ)) if !crate::presence::この線に渡すか(&一つ, 聞き方.居場所) => continue,
                         Ok((_, 一つ)) => {
                             let 一つ = 部屋を落とすか(一つ, 聞き方.部屋);
                             if 口.送る(&一つ.書く()).await.is_err() {
@@ -384,6 +388,8 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
             }
         }
         記録!("この機械から 1 人抜けました");
+        // **開いていた文書を閉じたとして流す**（0.1.43）。流さないと、相手の画面に居場所が残る
+        crate::presence::線が切れた(&app, 自分);
         {
             let mut 棚 = エージェントたち.lock().expect("毒されていない");
             棚.remove(&自分);
@@ -456,6 +462,8 @@ async fn 応じる(
                 部屋: 部屋も聞く,
                 点検: 点検も聞く,
                 届かない先: 届かない先も聞く,
+                // 先に `居場所を聞く` と言っていれば、名乗り直しても続ける
+                居場所: 聞き方.居場所,
             };
             let Some(名) = 場所 else {
                 // **名乗らない相手はエージェントに着けない。**どうすればつながれるかは言う ——
@@ -916,6 +924,42 @@ async fn 応じる(
             let _ = 口.送る(&FromDesk::声の返り { 結果 }.書く()).await;
             Ok(())
         }
+        // **居場所を聞く**（0.1.43・同時編集）。返事は無い（以後、居場所の行が流れてくる）
+        ToDesk::居場所を聞く => {
+            聞き方.居場所 = true;
+            Ok(())
+        }
+        ToDesk::居場所 { .. } if 名乗り.is_none() => {
+            let _ = 口
+                .送る(
+                    &FromDesk::Denied {
+                        why: 名乗ってください.to_owned(),
+                    }
+                    .書く(),
+                )
+                .await;
+            Ok(())
+        }
+        // **自分の居場所を言う**（0.1.43）。返事は無い —— 速く何度も来るので、断るときだけ返す
+        ToDesk::居場所 {
+            文書, 場所, room
+        } => {
+            let 部屋 = match 部屋を決める(app, room.as_deref()).await {
+                Ok(Some(m)) => m,
+                Ok(None) => {
+                    let why = "ルームに居ないので、居場所を運べません".to_owned();
+                    let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                    return Ok(());
+                }
+                Err(why) => {
+                    let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                    return Ok(());
+                }
+            };
+            let 名札 = crate::profile::エージェントの名札(&呼び方(名乗り.as_deref()));
+            crate::presence::言った(app, 自分, 名札, 文書, 場所, 部屋);
+            Ok(())
+        }
         ToDesk::Say { .. } if 名乗り.is_none() => {
             // **名乗っていないエージェントからは流さない。**
             // 流すと「どこの誰か分からない発言」が人の画面に並ぶ
@@ -978,6 +1022,30 @@ async fn 応じる(
             Ok(())
         }
     }
+}
+
+/// **どの部屋か**を決める。指されたらその部屋（id の全文か頭）、指されなければ画面が見ているルーム。
+///
+/// 指された部屋に居なければ断る理由を返す。どこにも居なければ `Ok(None)`。
+async fn 部屋を決める(
+    app: &AppHandle,
+    指定: Option<&str>,
+) -> Result<Option<MeetingId>, String> {
+    let bridge = app.state::<Bridge>();
+    let Some(指定) = 指定 else {
+        return Ok(crate::いま見ているルーム(&bridge.いまのルーム).await);
+    };
+    let 候補: Vec<String> = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .map(ToString::to_string)
+        .collect();
+    let id = 部屋を引く(&候補, 指定)?;
+    id.parse::<MeetingId>()
+        .map(Some)
+        .map_err(|_| format!("部屋の id が読めません（{id}）"))
 }
 
 /// 名乗っていない相手へ返す言い分。**どうすればつながれるかまで言う。**

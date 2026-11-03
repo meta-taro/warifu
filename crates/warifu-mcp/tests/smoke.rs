@@ -204,6 +204,8 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                         本文: "煙の確かめ".to_owned(),
                     }],
                 }),
+                // 口は居場所を使わない（同時編集の道具が使う・0.1.43）。返事も無い
+                ToDesk::居場所を聞く | ToDesk::居場所 { .. } => None,
             };
             if let Some(返し) = 返し {
                 口.送る(&返し.書く()).await.expect("返せること");

@@ -1677,7 +1677,9 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::付けた { .. }
             | FromDesk::名付けた { .. }
             // **更新の様子も会話の行ではない**（0.1.41）
-            | FromDesk::更新 { .. } => String::new(),
+            | FromDesk::更新 { .. }
+            // **居場所も会話の行ではない**（0.1.43・同時編集）。口は聞かないので、本来は来ない
+            | FromDesk::居場所 { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
