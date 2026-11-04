@@ -1984,6 +1984,55 @@ fn 自前の中継は_url_とトークンを控え_消せる() {
 }
 
 #[test]
+fn メールの繋ぎ先は_ホスト_ポート_利用者だけを控え_消せる() {
+    let vault = Vault::at(仮の置き場("mail"));
+    assert_eq!(vault.mail().expect("読める"), None);
+    vault
+        .save_mail("imap.example.com", 993, "someone@example.com")
+        .expect("書ける");
+    assert_eq!(
+        vault.mail().expect("読める"),
+        Some((
+            "imap.example.com".to_owned(),
+            993,
+            "someone@example.com".to_owned()
+        ))
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        let mode = std::fs::metadata(vault.mail_path())
+            .expect("ある")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "0600 で置く");
+    }
+    vault.forget_mail().expect("消せる");
+    assert_eq!(vault.mail().expect("読める"), None);
+}
+
+#[test]
+fn メールの繋ぎ先に空白や改行は書かない() {
+    let vault = Vault::at(仮の置き場("mail-bad"));
+    assert!(
+        vault
+            .save_mail("imap.example.com", 993, "a b@example.com")
+            .is_err()
+    );
+    assert!(
+        vault
+            .save_mail("imap\nexample.com", 993, "a@example.com")
+            .is_err()
+    );
+    assert!(
+        vault
+            .save_mail("imap.example.com", 0, "a@example.com")
+            .is_err()
+    );
+}
+
+#[test]
 fn 自前の中継に改行やタブは書かない() {
     let vault = Vault::at(仮の置き場("relay-server-bad"));
     assert!(vault.save_relay_server("https://a\nb", None).is_err());

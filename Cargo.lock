@@ -4098,6 +4098,7 @@ dependencies = [
  "warifu-core",
  "warifu-desk",
  "warifu-guard",
+ "warifu-imap",
  "warifu-intent",
  "warifu-mcp",
  "warifu-meeting",

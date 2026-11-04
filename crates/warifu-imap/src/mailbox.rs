@@ -67,10 +67,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
         limit: usize,
         received_at: u64,
     ) -> Result<Vec<Received>, Error> {
-        self.session
-            .select("INBOX")
-            .await
-            .map_err(|e| Error::Imap(e.to_string()))?;
+        self.読むだけで開く().await?;
 
         let mut 番号: Vec<u32> = self
             .session
@@ -106,6 +103,38 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
         Ok(届いた)
     }
 
+    /// **受信箱の通の数と、未読の数**（0.1.44）。件名も本文も取らない。
+    ///
+    /// つないで読めるかを、人が中身を見ずに確かめるための口（`warifu mail check`）。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`]。
+    pub async fn count(&mut self) -> Result<数, Error> {
+        let 箱 = self.読むだけで開く().await?;
+        let 未読 = self
+            .session
+            .search("UNSEEN")
+            .await
+            .map_err(|e| Error::Imap(e.to_string()))?
+            .len();
+        Ok(数 {
+            全部: 箱, 未読
+        })
+    }
+
+    /// **受信箱を読むだけで開く**（`EXAMINE`）。返りは通の数。
+    ///
+    /// `SELECT` で開くと、サーバは「最近届いた」印を落とし、書ける形で開く。
+    /// 割符は読むだけなので、**受信箱に何の跡も付けない**開き方にする（0.1.44）。
+    async fn 読むだけで開く(&mut self) -> Result<u32, Error> {
+        self.session
+            .examine("INBOX")
+            .await
+            .map(|箱| 箱.exists)
+            .map_err(|e| Error::Imap(e.to_string()))
+    }
+
     /// 閉じる。
     pub async fn logout(&mut self) -> Result<(), Error> {
         self.session
@@ -113,6 +142,15 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
             .await
             .map_err(|e| Error::Imap(e.to_string()))
     }
+}
+
+/// 受信箱の数（[`Mailbox::count`]）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct 数 {
+    /// 受信箱の通の数。
+    pub 全部: u32,
+    /// そのうち未読。
+    pub 未読: usize,
 }
 
 /// 文言に混ざった利用者名を伏せる。

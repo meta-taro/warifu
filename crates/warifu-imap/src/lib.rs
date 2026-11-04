@@ -22,11 +22,12 @@
 mod account;
 mod convert;
 mod error;
+pub mod keychain;
 mod mailbox;
 mod tls;
 
 pub use account::Account;
 pub use convert::to_received;
 pub use error::Error;
-pub use mailbox::{DEFAULT_LIMIT, Mailbox};
+pub use mailbox::{DEFAULT_LIMIT, Mailbox, 数};
 pub use tls::connect;

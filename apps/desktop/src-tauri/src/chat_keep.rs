@@ -36,10 +36,16 @@ pub(crate) fn 刈る(会話: Map<String, Value>, 今: u64) -> Map<String, Value>
     let 境 = 今.saturating_sub(残す日数 * 一日のミリ秒);
     let mut 残す = Map::new();
     for (ルーム, 行たち) in 会話 {
-        let Value::Array(行たち) = 行たち else { continue };
+        let Value::Array(行たち) = 行たち else {
+            continue;
+        };
         let 新しい: Vec<Value> = 行たち
             .into_iter()
-            .filter(|行| 行.get("時").and_then(Value::as_u64).is_none_or(|時| 時 >= 境))
+            .filter(|行| {
+                行.get("時")
+                    .and_then(Value::as_u64)
+                    .is_none_or(|時| 時 >= 境)
+            })
             .collect();
         let 飛ばす = 新しい.len().saturating_sub(一部屋の行数);
         let 残り: Vec<Value> = 新しい.into_iter().skip(飛ばす).collect();
@@ -52,11 +58,19 @@ pub(crate) fn 刈る(会話: Map<String, Value>, 今: u64) -> Map<String, Value>
 
 /// 行の数（記録に書くため。中身は書かない）。
 fn 行の数(会話: &Map<String, Value>) -> usize {
-    会話.values().filter_map(Value::as_array).map(Vec::len).sum()
+    会話
+        .values()
+        .filter_map(Value::as_array)
+        .map(Vec::len)
+        .sum()
 }
 
 /// **封をして置く。**先に別の名で書き、書き終えてから入れ替える（途中で落ちても前の控えが残る）。
-pub(crate) fn 書く(置き場: &Path, 自分: PublicKey, 会話: &Map<String, Value>) -> Result<(), String> {
+pub(crate) fn 書く(
+    置き場: &Path,
+    自分: PublicKey,
+    会話: &Map<String, Value>,
+) -> Result<(), String> {
     let 中身 = serde_json::to_vec(会話).map_err(|e| format!("会話を形にできません: {e}"))?;
     let 封 = warifu_seal::seal(自分, &中身).map_err(|e| format!("封ができません: {e}"))?;
     std::fs::create_dir_all(置き場).map_err(|e| format!("置き場所を作れません: {e}"))?;
@@ -133,10 +147,15 @@ fn 置き場() -> Result<PathBuf, Failure> {
 pub(crate) fn chat_keep(bridge: tauri::State<'_, Bridge>, rooms: Map<String, Value>) -> Answer<()> {
     let 置き場 = 置き場()?;
     let 刈った = 刈る(rooms, 今のミリ秒());
-    let _錠 = 書く錠.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _錠 = 書く錠
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     書く(&置き場, bridge.device.public_key(), &刈った).map_err(|message| {
         記録!("会話を残せませんでした: {message}");
-        Failure { message, code: None }
+        Failure {
+            message,
+            code: None,
+        }
     })
 }
 
@@ -144,11 +163,17 @@ pub(crate) fn chat_keep(bridge: tauri::State<'_, Bridge>, rooms: Map<String, Val
 #[tauri::command]
 pub(crate) fn chat_restore(bridge: tauri::State<'_, Bridge>) -> Answer<Map<String, Value>> {
     let 置き場 = 置き場()?;
-    let _錠 = 書く錠.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let _錠 = 書く錠
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     match 読む(&置き場, &bridge.device) {
         Ok(会話) => {
             let 刈った = 刈る(会話, 今のミリ秒());
-            記録!("残した会話を読みました（{} ルーム・{} 行）", 刈った.len(), 行の数(&刈った));
+            記録!(
+                "残した会話を読みました（{} ルーム・{} 行）",
+                刈った.len(),
+                行の数(&刈った)
+            );
             Ok(刈った)
         }
         Err(message) => {
@@ -180,7 +205,10 @@ mod tests {
     fn 三十日より古い行は落とし_空になったルームは消す() {
         let mut 会話 = Map::new();
         会話.insert("古い".into(), json!([行(今 - 31 * 一日のミリ秒)]));
-        会話.insert("混ざる".into(), json!([行(今 - 31 * 一日のミリ秒), 行(今 - 一日のミリ秒)]));
+        会話.insert(
+            "混ざる".into(),
+            json!([行(今 - 31 * 一日のミリ秒), 行(今 - 一日のミリ秒)]),
+        );
         let 刈った = 刈る(会話, 今);
         assert_eq!(ルーム(刈った.clone()), vec!["混ざる".to_owned()]);
         assert_eq!(刈った["混ざる"].as_array().map(Vec::len), Some(1));
@@ -188,7 +216,9 @@ mod tests {
 
     #[test]
     fn 一部屋_5000_行を超えたら_古いほうから落とす() {
-        let 行たち: Vec<Value> = (0..一部屋の行数 as u64 + 3).map(|i| 行(今 - 1000 + i)).collect();
+        let 行たち: Vec<Value> = (0..一部屋の行数 as u64 + 3)
+            .map(|i| 行(今 - 1000 + i))
+            .collect();
         let mut 会話 = Map::new();
         会話.insert("R".into(), Value::Array(行たち));
         let 刈った = 刈る(会話, 今);
@@ -201,7 +231,10 @@ mod tests {
     #[test]
     fn いつの行か分からない行は_日数では落とさない() {
         let mut 会話 = Map::new();
-        会話.insert("R".into(), json!([{ "who": "A", "body": "x", "mine": false }]));
+        会話.insert(
+            "R".into(),
+            json!([{ "who": "A", "body": "x", "mine": false }]),
+        );
         assert_eq!(刈る(会話, 今)["R"].as_array().map(Vec::len), Some(1));
     }
 
@@ -223,7 +256,10 @@ mod tests {
         let 置き場 = 試しの置き場("往復");
         let 自分 = 試しの身元();
         let mut 会話 = Map::new();
-        会話.insert("R".into(), json!([{ "who": "A", "body": "ひみつの話", "mine": false }]));
+        会話.insert(
+            "R".into(),
+            json!([{ "who": "A", "body": "ひみつの話", "mine": false }]),
+        );
         書く(&置き場, 自分.public_key(), &会話).expect("書ける");
         let 生 = std::fs::read(控えの道(&置き場)).expect("ある");
         assert!(!String::from_utf8_lossy(&生).contains("ひみつ"));
@@ -231,7 +267,10 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt as _;
-            let mode = std::fs::metadata(控えの道(&置き場)).expect("ある").permissions().mode();
+            let mode = std::fs::metadata(控えの道(&置き場))
+                .expect("ある")
+                .permissions()
+                .mode();
             assert_eq!(mode & 0o077, 0, "他人に読める置き方になっている");
         }
         let _ = std::fs::remove_dir_all(&置き場);

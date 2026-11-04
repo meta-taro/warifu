@@ -23,6 +23,9 @@ pub enum Error {
     /// **秘密情報を含めない。**下の層の文言をそのまま載せると、
     /// 資格情報がログへ写ることがある。
     Imap(String),
+    /// キーチェーンを使えなかった（OS が対応していない・`security` が断った）。
+    /// **パスワードの字は載せない。**
+    Keychain(String),
 }
 
 impl fmt::Display for Error {
@@ -34,6 +37,7 @@ impl fmt::Display for Error {
             Self::NoCredentials => f.write_str("繋ぎ先か資格情報が揃っていません"),
             Self::Network(why) => write!(f, "経路で落ちました: {why}"),
             Self::Imap(why) => write!(f, "IMAP で落ちました: {why}"),
+            Self::Keychain(why) => write!(f, "キーチェーン: {why}"),
         }
     }
 }

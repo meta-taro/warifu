@@ -78,7 +78,7 @@ fn 未読が一通ある() -> Vec<u8> {
         "* OK IMAP4rev1 ready\r\n\
          A0001 OK LOGIN completed\r\n\
          * 1 EXISTS\r\n\
-         A0002 OK [READ-WRITE] SELECT completed\r\n\
+         A0002 OK [READ-ONLY] EXAMINE completed\r\n\
          * SEARCH 1\r\n\
          A0003 OK SEARCH completed\r\n\
          * 1 FETCH (BODY[] {{{}}}\r\n{})\r\n\
@@ -122,11 +122,48 @@ async fn 読んだ印を付けない() {
 }
 
 #[tokio::test]
+async fn 受信箱は読むだけで開き_書ける形で開かない() {
+    // SELECT は書ける形で開き、「最近届いた」印を落とす。割符は読むだけ（0.1.44）
+    let (流れ, 書かれた) = 台本::new(未読が一通ある());
+    let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
+    受信箱.fetch_unseen(50, 100).await.unwrap();
+    let 送ったもの = String::from_utf8_lossy(&書かれた.lock().unwrap()).into_owned();
+    assert!(
+        送ったもの.contains("EXAMINE \"INBOX\""),
+        "送った命令: {送ったもの}"
+    );
+    assert!(
+        !送ったもの.contains("SELECT"),
+        "書ける形で開いています: {送ったもの}"
+    );
+}
+
+#[tokio::test]
+async fn 数を聞くと_通の数と未読の数だけを返し_中身は取らない() {
+    let 台 = "* OK ready\r\n\
+              A0001 OK LOGIN completed\r\n\
+              * 12 EXISTS\r\n\
+              A0002 OK [READ-ONLY] EXAMINE completed\r\n\
+              * SEARCH 3 7 12\r\n\
+              A0003 OK SEARCH completed\r\n";
+    let (流れ, 書かれた) = 台本::new(台.as_bytes().to_vec());
+    let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
+    let 数 = 受信箱.count().await.unwrap();
+    assert_eq!(
+        数,
+        warifu_imap::数 {
+            全部: 12, 未読: 3
+        }
+    );
+    assert!(!String::from_utf8_lossy(&書かれた.lock().unwrap()).contains("FETCH"));
+}
+
+#[tokio::test]
 async fn 未読が無ければ空で返る() {
     let 台 = "* OK ready\r\n\
               A0001 OK LOGIN completed\r\n\
               * 0 EXISTS\r\n\
-              A0002 OK [READ-WRITE] SELECT completed\r\n\
+              A0002 OK [READ-ONLY] EXAMINE completed\r\n\
               * SEARCH\r\n\
               A0003 OK SEARCH completed\r\n";
     let (流れ, 書かれた) = 台本::new(台.as_bytes().to_vec());

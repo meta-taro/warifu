@@ -170,6 +170,7 @@ const ISSUED_ADDRS_HEADER: &str = "warifu-issued-addrs-v1";
 /// 中継を使うかの控えの見出し（**#5**・2026-09-18）。
 const RELAY_HEADER: &str = "warifu-relay-v1";
 const RELAY_SERVER_HEADER: &str = "warifu-relay-server-v1";
+const MAIL_HEADER: &str = "warifu-mail-v1";
 
 /// 部屋の合言葉の控えの見出し（**D118**）。
 const ROOM_SECRET_HEADER: &str = "warifu-room-secret-v1";
@@ -995,6 +996,85 @@ impl Vault {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => Err(Error::io(&path, "自前の中継を忘れる")(e)),
+        }
+    }
+
+    /// メールの繋ぎ先の控えの置き場所（0.1.44）。
+    #[must_use]
+    pub fn mail_path(&self) -> PathBuf {
+        self.dir.join("mail.tsv")
+    }
+
+    /// **メールの繋ぎ先（IMAP のホスト・ポート・利用者）を控える**（0.1.44）。
+    ///
+    /// **パスワードはここに置かない。**OS のキーチェーンに置く（`warifu_imap::keychain`）。
+    /// 利用者（メールアドレス）は秘密ではないが人のものなので、0600 で置く。
+    ///
+    /// # Errors
+    /// 空か、改行・タブなどを含むとき [`Error::Malformed`]、書けないとき [`Error::Io`]。
+    pub fn save_mail(&self, host: &str, port: u16, user: &str) -> Result<(), Error> {
+        let path = self.mail_path();
+        let 壊す = |s: &str| s.is_empty() || s.chars().any(|c| c.is_control() || c.is_whitespace());
+        let (host, user) = (host.trim(), user.trim());
+        if 壊す(host) || 壊す(user) || port == 0 {
+            return Err(Error::malformed(
+                &path,
+                "メールのホストか利用者が空か、使えない字を含みます",
+            ));
+        }
+        let out = format!(
+            "{MAIL_HEADER}
+host\t{host}\nport\t{port}\nuser\t{user}\n"
+        );
+        self.write_private(&path, &out, "メールの繋ぎ先を控える")
+    }
+
+    /// 控えたメールの繋ぎ先（ホスト・ポート・利用者）。**無ければ `None`。**
+    ///
+    /// # Errors
+    /// 見出しが違う・欄が欠けているとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn mail(&self) -> Result<Option<(String, u16, String)>, Error> {
+        let path = self.mail_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(t) => t,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(Error::io(&path, "メールの繋ぎ先を読む")(e)),
+        };
+        let mut lines = text.lines();
+        if lines.next().unwrap_or_default().trim() != MAIL_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{MAIL_HEADER} を待っていました）"),
+            ));
+        }
+        let (mut host, mut port, mut user) = (None, None, None);
+        for line in lines {
+            match line.split_once('\t') {
+                Some(("host", v)) => host = Some(v.trim().to_owned()),
+                Some(("port", v)) => port = v.trim().parse::<u16>().ok(),
+                Some(("user", v)) => user = Some(v.trim().to_owned()),
+                _ => {}
+            }
+        }
+        match (host, port, user) {
+            (Some(h), Some(p), Some(u)) if !h.is_empty() && !u.is_empty() => Ok(Some((h, p, u))),
+            _ => Err(Error::malformed(
+                &path,
+                "ホスト・ポート・利用者のどれかが欠けています",
+            )),
+        }
+    }
+
+    /// メールの繋ぎ先の控えを消す。**無くても止めない。**
+    ///
+    /// # Errors
+    /// 消せないとき [`Error::Io`]。
+    pub fn forget_mail(&self) -> Result<(), Error> {
+        let path = self.mail_path();
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::io(&path, "メールの繋ぎ先を忘れる")(e)),
         }
     }
 

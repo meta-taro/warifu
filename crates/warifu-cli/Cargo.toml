@@ -23,6 +23,8 @@ warifu-post.workspace = true
 warifu-postbox.workspace = true
 warifu-capability.workspace = true
 warifu-read.workspace = true
+# 既存の受信箱を読むだけでつなぐ（warifu mail・0.1.44）
+warifu-imap.workspace = true
 warifu-guard.workspace = true
 rmcp.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "io-std", "io-util", "process", "sync", "signal"] }

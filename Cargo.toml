@@ -46,6 +46,7 @@ warifu-vault = { path = "crates/warifu-vault" }
 warifu-net = { path = "crates/warifu-net" }
 warifu-intent = { path = "crates/warifu-intent" }
 warifu-read = { path = "crates/warifu-read" }
+warifu-imap = { path = "crates/warifu-imap" }
 warifu-capability = { path = "crates/warifu-capability" }
 warifu-calendar = { path = "crates/warifu-calendar" }
 warifu-link = { path = "crates/warifu-link" }
