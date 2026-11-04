@@ -40,10 +40,12 @@ chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{na
 chat.desk	An agent on this computer is connected. You can talk to it even with nobody else in the room.	この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。	这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。	이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
+chat.history.unreadable	Could not open the earlier conversation. It does not seem to have been saved on this machine (set aside; starting empty)	前の会話を開けませんでした。この機械で残したものではないようです（脇へ退けて、空から始めます）	无法打开之前的对话。它似乎不是在本机上保存的（已移到一旁，从空白开始）	이전 대화를 열지 못했습니다. 이 기기에서 저장한 것이 아닌 것 같습니다(옆으로 옮기고 빈 상태로 시작합니다)				
 chat.image.alt	Image from {who}	{who} が送った画像	{who} 发来的图片	{who}이(가) 보낸 이미지				
 chat.image.attach	Send an image (you can also paste or drag one in; large images are shrunk before sending)	画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）	发送图片（也可以粘贴或拖进来；大图会先缩小再发送）	이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)				
 chat.image.close	Close	閉じる	关闭	닫기				
 chat.image.nobody	Images go to the people in the room. Nobody from another machine is here right now.	画像はルームの相手に届きます。いまはほかの機械の人がいません。	图片会送到房间里的人。现在没有其他机器的人在。	이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다.		「いまは」を落とさないこと —— 相手が入れば送れる。		
+chat.image.notKept	[An image was here. It was received before the restart and can no longer be shown]	［画像がありました。立ち上げ直す前のものなので、見られません］	［此处有一张图片。它是重新启动之前收到的，已无法显示］	［여기에 이미지가 있었습니다. 다시 시작하기 전에 받은 것이라 볼 수 없습니다］				
 chat.image.save	Save to Downloads	ダウンロードに保存	保存到下载	다운로드에 저장				
 chat.image.saveFailed	Could not save: {why}	保存できませんでした: {why}	无法保存：{why}	저장하지 못했습니다: {why}				
 chat.image.saved	Saved: {path}	保存しました: {path}	已保存：{path}	저장했습니다: {path}				

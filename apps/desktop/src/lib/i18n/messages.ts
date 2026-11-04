@@ -69,6 +69,8 @@ export type MessageKey =
   | 'chat.image.save'
   | 'chat.image.saved'
   | 'chat.image.saveFailed'
+  | 'chat.image.notKept'
+  | 'chat.history.unreadable'
   | 'chat.image.nobody'
   | 'chat.send'
   | 'chat.secret.found'
@@ -579,6 +581,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.save': 'ダウンロードに保存',
     'chat.image.saved': '保存しました: {path}',
     'chat.image.saveFailed': '保存できませんでした: {why}',
+    'chat.image.notKept': '［画像がありました。立ち上げ直す前のものなので、見られません］',
+    'chat.history.unreadable': '前の会話を開けませんでした。この機械で残したものではないようです（脇へ退けて、空から始めます）',
     'chat.image.nobody': '画像はルームの相手に届きます。いまはほかの機械の人がいません。',
     'chat.send': '送る',
     'chat.secret.found': '秘密らしいもの（{what}）が入っています。送ると取り消せません',
@@ -1041,6 +1045,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.save': 'Save to Downloads',
     'chat.image.saved': 'Saved: {path}',
     'chat.image.saveFailed': 'Could not save: {why}',
+    'chat.image.notKept': '[An image was here. It was received before the restart and can no longer be shown]',
+    'chat.history.unreadable': 'Could not open the earlier conversation. It does not seem to have been saved on this machine (set aside; starting empty)',
     'chat.image.nobody': 'Images go to the people in the room. Nobody from another machine is here right now.',
     'chat.send': 'Send',
     'chat.secret.found': 'This looks like it contains a secret ({what}). Once sent, it cannot be taken back',
@@ -1501,6 +1507,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.save': '保存到下载',
     'chat.image.saved': '已保存：{path}',
     'chat.image.saveFailed': '无法保存：{why}',
+    'chat.image.notKept': '［此处有一张图片。它是重新启动之前收到的，已无法显示］',
+    'chat.history.unreadable': '无法打开之前的对话。它似乎不是在本机上保存的（已移到一旁，从空白开始）',
     'chat.image.nobody': '图片会送到房间里的人。现在没有其他机器的人在。',
     'chat.send': '发送',
     'chat.secret.found': '似乎包含机密信息（{what}）。发送后无法撤回',
@@ -1965,6 +1973,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.save': '다운로드에 저장',
     'chat.image.saved': '저장했습니다: {path}',
     'chat.image.saveFailed': '저장하지 못했습니다: {why}',
+    'chat.image.notKept': '［여기에 이미지가 있었습니다. 다시 시작하기 전에 받은 것이라 볼 수 없습니다］',
+    'chat.history.unreadable': '이전 대화를 열지 못했습니다. 이 기기에서 저장한 것이 아닌 것 같습니다(옆으로 옮기고 빈 상태로 시작합니다)',
     'chat.image.nobody': '이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다.',
     'chat.send': '보내기',
     'chat.secret.found': '비밀로 보이는 내용（{what}）이 들어 있습니다. 보내면 취소할 수 없습니다',

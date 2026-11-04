@@ -36,6 +36,8 @@ warifu-vault = { path = "../../../crates/warifu-vault" }
 warifu-capability = { path = "../../../crates/warifu-capability" }
 warifu-desk = { path = "../../../crates/warifu-desk" }
 warifu-postbox = { path = "../../../crates/warifu-postbox" }
+# 残した会話に、この機械の鍵で封をする（0.1.44）
+warifu-seal = { path = "../../../crates/warifu-seal" }
 # **遮る物を調べる**（開けはしない・baseline §13）
 warifu-guard = { path = "../../../crates/warifu-guard" }
 serde = { version = "1", features = ["derive"] }

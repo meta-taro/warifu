@@ -78,6 +78,7 @@
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
   import { 宛先の見出し } from '$lib/chat/destination';
+  import { 残す形, 戻す } from '$lib/chat/history';
   import { 映像を始めてよいか } from '$lib/meeting/stage-one';
   import { 未読の数, 見た印を置く, type 見た印 as 見た印の型 } from '$lib/chat/unread';
   import {
@@ -215,6 +216,8 @@
     sendText,
     sendImage,
     saveImage,
+    chatKeep,
+    chatRestore,
     sendToContact,
     postbox,
     cliState,
@@ -813,6 +816,11 @@
    * 「1 対 1 と 1 対 N がはっきりしない」（2026-09-08）の本体である。
    */
   let ルームの会話たち = $state<ルームの会話>({});
+  /**
+   * **残した会話を読み終えたか**（0.1.44）。読み終える前に書くと、空の会話で控えを潰す。
+   * 控えを読めなかった（鍵が違う等で脇へ退けた）ときも、読み終えたことにして書き始める
+   */
+  let 会話を戻した = $state(false);
   /** いま居るルームの id（Rust 側が持っている）。 */
   let いまのルーム = $state<string | null>(null);
   /** いま居るルームたち。**持てても見えなければ切り替えようがない。** */
@@ -1727,6 +1735,8 @@
       return;
     }
     void (async () => {
+      // **残した会話を先に戻す**（0.1.44）。受け始めてから届いた分は、残した分の後ろに並ぶ
+      await 残した会話を戻す();
       try {
         // **メニューには、いま選んでいるテーマの印も付ける。**
         // 覚えているのは画面側なので、こちらから渡す
@@ -2582,6 +2592,33 @@
    * 消すと人には「送れない」としか見えない。押せないときは、なぜかを添える（`画像を送れる`）。
    */
   const 画像の口を出す = $derived(送り方.種類 === 'ルーム');
+
+  /** **残した会話を読み、いまの会話の前に置く**（0.1.44）。 */
+  async function 残した会話を戻す() {
+    try {
+      ルームの会話たち = 戻す(await chatRestore(), ルームの会話たち);
+      会話を戻した = true;
+    } catch (e) {
+      // 鍵の違う控えは本体が脇へ退けてある。**空から始めて書いてよい**
+      if (e && typeof e === 'object' && 'code' in e && e.code === 'chat.unreadable') {
+        notice = t('chat.history.unreadable');
+        会話を戻した = true;
+        return;
+      }
+      // ほかの訳で読めないときは、**書かない**（読めなかった控えを空で潰さない）
+      log(`会話: 残した分を読めませんでした（${読める(e)}）`);
+    }
+  }
+
+  // **会話が変わったら、少し待ってまとめて残す**（0.1.44）。打つたびに封をし直さない
+  $effect(() => {
+    if (!会話を戻した) return;
+    const 残す = 残す形(ルームの会話たち);
+    const 待ち = setTimeout(() => {
+      chatKeep(残す).catch((e: unknown) => log(`会話: 残せませんでした（${読める(e)}）`));
+    }, 500);
+    return () => clearTimeout(待ち);
+  });
 
   /** **届いた画像を保存する**（0.1.43）。`blob:` の URL から中身を取り出して本体へ渡す */
   async function 画像を保存する(画像: string): Promise<string> {

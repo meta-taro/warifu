@@ -18,6 +18,7 @@
   import Icon from '$lib/ui/Icon.svelte';
   import { tick, untrack, type Snippet } from 'svelte';
   import { 画像を拾う } from './image';
+  import { 時刻の札 } from './history';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
   import { 吹き出しの形, 畳むか } from './bubble';
   import Reach from './Reach.svelte';
@@ -424,7 +425,7 @@
       {#if line.system}
         <!-- **会議からの知らせ**は吹き出しにしない。真ん中に小さく -->
         <p class="line system">
-          {#if line.at}<span class="at">{line.at}</span>{/if}{line.body}
+          {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}{line.body}
         </p>
       {:else}
         <!-- **この機械から出た発言は右、ほかの機械からは左**（0.1.36）。
@@ -444,7 +445,7 @@
             <!-- **人か、エージェントか**を字で言う（色だけに頼らない） -->
             {#if 形.主 === 'エージェント'}<span class="kind">{t('avatar.owner.agent')}</span>{/if}
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
-            {#if line.at}<span class="at">{line.at}</span>{/if}
+            {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}
           </div>
           <div class="bubble" class:folded={長い && !開いた.has(i)}>{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
                 class="mention"
@@ -458,7 +459,7 @@
                   src={line.画像}
                   alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿)) })}
                 /></button
-              >{/if}</div>
+              >{/if}{#if line.画像は残していない}<span class="gone">{t('chat.image.notKept')}</span>{/if}</div>
           {#if 長い}
             <button type="button" class="more" aria-expanded={開いた.has(i)} onclick={() => 開け閉め(i)}
               >{t(開いた.has(i) ? 'chat.less' : 'chat.more')}</button
@@ -1023,6 +1024,12 @@
     border-radius: var(--radius-sm);
   }
   /* 時刻は等幅で、桁を揃える（DESIGN.md §5）。**本文より前に出て、本文より弱い** */
+  /* 残していない画像の札（0.1.44）。本文と取り違えないよう、一段薄く */
+  .gone {
+    display: block;
+    color: var(--text-secondary);
+    font-size: var(--text-xs-size);
+  }
   .at {
     font-family: var(--font-mono);
     font-size: var(--text-2xs-size);

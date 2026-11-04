@@ -44,6 +44,9 @@ S02-6	届き札は 渡した／預けた／届かない の 3 つ。既読は作
 S02-8	@名前 は届く先を変えない。呼ばれた側にだけ印	L0・L4	apps/desktop/src/lib/chat/mention.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts @_で呼んでも届く先は変わらないと言い_呼ばれた行にだけ「あなた宛て」が付く	済
 S02-9	未読は相手ごとに数え、相手へは送らない	L0	apps/desktop/src/lib/chat/unread.test.ts	済
 S02-10	下に居れば追い、上に居れば札で知らせる	L0	apps/desktop/src/lib/chat/scroll.test.ts	済
+S02-11	会話は各機械に残し、立ち上げ直しても前の会話の続きに並ぶ。上限はルームごとに 30 日または 5,000 行。別の日の行には日付を添える	L0	apps/desktop/src-tauri/src/chat_keep.rs 三十日より古い行は落とし_空になったルームは消す・一部屋_5000_行を超えたら_古いほうから落とす／apps/desktop/src/lib/chat/history.test.ts 残した行は、立ち上げてから届いた行より前に並ぶ・別の日の行は日付を添える／apps/desktop/src/lib/chat/rooms.test.ts 足した行に時を付け、付いていればそのまま	一部（立ち上げ直しの通しは dev で確かめる）
+S02-12	保存は機械の鍵で封をし、自分だけが読める置き方にする。開けない控えは上書きせず脇へ退ける	L0	apps/desktop/src-tauri/src/chat_keep.rs 封をして書いたものを_同じ鍵で読み戻せ_ファイルに平文は無い・別の鍵の控えは上書きせず_脇へ退ける	済
+S02-11a	画像は残さず、画像があったことだけを残す	L0	apps/desktop/src/lib/chat/history.test.ts 画像は残さず、画像があったことだけを残す	済
 S02-13	繋ぎ直したエージェントは切れていた間の発言を続きから受け取る	L0	apps/desktop/src-tauri/src/desk.rs 立て直したら_控えの続きから番号を振る	済
 S00-19	エージェントの返事は、部屋を指さなければ、居る部屋が 1 つならそこへ流れ、2 つ以上なら送らずに候補を返す（横の部屋の発言で送り先が変わらない）。指した部屋に居なければ断る	L0	crates/warifu-mcp/src/chat.rs 流す部屋は_指した部屋_最後に聞いた部屋_無しの順／部屋を指さないとき_1_つならそこ_無ければ机に任せ_2_つ以上なら止めて候補を言う／apps/desktop/src-tauri/src/desk.rs 指された部屋は_全文か頭で_1_つに引く	済
 S00-20	同じ発言は、何本の道で届いても画面と口に 1 回だけ出る	L0	crates/warifu-app/src/room/dedupe.rs 同じ発言が窓の中でもう一度来たら_2_本目は重複	済

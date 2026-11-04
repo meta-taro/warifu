@@ -279,6 +279,18 @@ export const saveImage = (bytes: Uint8Array, kind: string) =>
   invoke<string>('save_image', { bytes: Array.from(bytes), kind });
 
 /**
+ * **会話を手元に残す**（D127・0.1.44）。ルームごとの会話を全部渡す。
+ * 本体が上限（ルームごとに 30 日または 5,000 行）を当て、この機械の鍵で封をして置く。
+ */
+export const chatKeep = (rooms: Record<string, unknown>) => invoke<void>('chat_keep', { rooms });
+
+/**
+ * **残した会話を読む**（0.1.44）。立ち上がったときに 1 度だけ。
+ * 開けない控えは本体が脇へ退け、`code: 'chat.unreadable'` で断る。
+ */
+export const chatRestore = () => invoke<Record<string, unknown>>('chat_restore');
+
+/**
  * いまこの機械に何人つながっているか。
  *
  * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**

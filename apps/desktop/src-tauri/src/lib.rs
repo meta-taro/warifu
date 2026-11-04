@@ -96,6 +96,7 @@ macro_rules! 記録 {
 mod absence;
 mod bundle;
 mod call;
+mod chat_keep;
 mod cli;
 mod come_back;
 mod contacts;
@@ -3669,8 +3670,7 @@ fn log(message: String) {
 /// **会議に入っている全員へ送る。**下ごしらえ（SDP）と違って、
 /// 文字は組ごとのものではないので、宛先を指定しない。
 ///
-/// **まだ残さない。**送ったものも届いたものも、閉じれば消える。
-/// 身元は続くようになった（**D42**）ので、次は履歴を置く形を決める（`issues/010`）。
+/// 残すのは画面の会話（`chat_keep`・0.1.44）。ここは送るだけで、何も置かない。
 #[tauri::command]
 async fn send_text(
     bridge: State<'_, Bridge>,
@@ -4419,6 +4419,8 @@ pub fn run() {
             send_text,
             send_image,
             save_image::save_image,
+            chat_keep::chat_keep,
+            chat_keep::chat_restore,
             log,
             contacts,
             remember,

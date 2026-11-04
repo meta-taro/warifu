@@ -396,6 +396,6 @@ It is a same-machine-only endpoint. On Unix the socket is `0600`, so **another u
 
 ### Not there yet
 
-- **Conversation history is not kept.** Closing clears it (`issues/010`)
+- **Agents only see recent conversation.** `chat_read` and `chat_export` return what warifu has held since it started; closing clears it. The conversation on the person's screen is kept on the machine from 0.1.44 (per room: 30 days or 5,000 lines, sealed with this machine's key)
 - **The inbox is empty.** `inbox_*` answers "nothing" until `issues/011` is decided
 - **Mail cannot be sent.** There is no send path at all yet
