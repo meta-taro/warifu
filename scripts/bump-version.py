@@ -15,6 +15,7 @@
     apps/desktop/src-tauri/tauri.conf.json  version
     docs/install.md                  **受け取る人が読む「いまの版」**
     docs/install.ja.md               同上
+    server.json                      **MCP の公式一覧に出す版**（0.1.43）
 
 **2026-09-18、install の手順が v0.1.8 のままだった**（実際は 0.1.11）——
 **落とすファイル名まで古い**ので、**そのまま打つと見つからない。**
@@ -96,6 +97,9 @@ def main() -> None:
     )
 
     手順の版も直す(前の版, 新しい版)
+
+    # **MCP の公式一覧に出す版も揃える**（0.1.43）。ずれると、一覧が別の版を指す
+    置き換える("server.json", r'"version": "[^"]+"', f'"version": "{新しい版}"')
 
     # **Cargo.lock も直す。**CI は `--locked` なので、置いていくと弾かれる
     出た = subprocess.run(

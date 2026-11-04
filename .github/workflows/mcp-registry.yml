@@ -1,0 +1,115 @@
+name: mcp-registry
+
+# **MCP の公式一覧（https://registry.modelcontextprotocol.io）へ、割符の口を出す**（0.1.43）。
+#
+# MCP の受け手や一覧のサイトは、ここで口を探す。一覧は根の `server.json`（名前と版）を読む。
+# `server.json` の版はアプリの版と揃える —— `scripts/bump-version.py` が一緒に上げ、
+# `scripts/check-doc-version.py`（commit の前・CI・出す前の関門）がずれを止める。
+#
+# **リリースの workflow がタグの配布物を出し終えてから走る。**配布物の無い版を一覧に
+# 載せないため。手で走らせることもできる（初めて載せるとき・やり直すとき）。そのときは
+# 既定の枝の `server.json` の版を、その版のリリースがあるときだけ出す。
+#
+# **秘密は置かない。**`id-token: write` で GitHub の OIDC の証を取り、`meta-taro` の
+# リポジトリで走っていることを一覧に示す（`io.github.meta-taro/` の名前にはそれが要る）。
+
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    # タグを打って成功したリリースの後か、手で走らせたとき。
+    # リリースの workflow を手で走らせた分（タグなし）は、head_branch が枝の名前で `v…` でない
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          sparse-checkout: server.json
+          sparse-checkout-cone-mode: false
+
+      - name: 版がタグとリリースに合うか
+        id: version
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          HAVE="$(jq -r .version server.json)"
+          if [ -n "$TAG" ] && [ "v$HAVE" != "$TAG" ]; then
+            echo "::error::server.json は $HAVE ですが、タグは $TAG です"
+            exit 1
+          fi
+          # 配布物の無い版を載せると、人を無いリリースの頁へ送ることになる
+          if ! gh release view "v$HAVE" --json tagName >/dev/null; then
+            echo "::error::出ているリリース v$HAVE がありません"
+            exit 1
+          fi
+          echo "version=$HAVE" >> "$GITHUB_OUTPUT"
+
+      - name: 一覧にもう載っているか
+        id: listed
+        env:
+          WANT: ${{ steps.version.outputs.version }}
+        run: |
+          set -eu
+          # **読めない一覧を「載っていない」とみなさない。**推して出すと二重に出し、
+          # 何もしていない緑の実行は「済んだ」と読まれる
+          BODY=""
+          for wait in 0 30 60 120; do
+            [ "$wait" = 0 ] || sleep "$wait"
+            BODY="$(curl -fsS --max-time 20 \
+              'https://registry.modelcontextprotocol.io/v0/servers?search=io.github.meta-taro/warifu' \
+              || true)"
+            [ -n "$BODY" ] && break
+            echo "一覧が答えません。もう一度試します"
+          done
+          if [ -z "$BODY" ]; then
+            echo "::error::一覧が読めないので、何も出していません。一覧が答えるようになったら、この workflow を走らせ直してください"
+            exit 1
+          fi
+          NOW="$(echo "$BODY" | jq -r \
+            '.servers[] | select(.server.name == "io.github.meta-taro/warifu")
+             | select(._meta["io.modelcontextprotocol.registry/official"].isLatest)
+             | .server.version' | head -1)"
+          echo "いま載っている版: ${NOW:-（なし）}"
+          if [ "$NOW" = "$WANT" ]; then
+            echo "$WANT はもう載っています。することはありません"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: mcp-publisher を入れる
+        if: steps.listed.outputs.skip != 'true'
+        run: |
+          set -eu
+          # 版を固定する。publisher の新しい版で、タグの日の振る舞いが変わらないように
+          VER=1.8.1
+          curl -fsSL -o "$RUNNER_TEMP/mcp-publisher.tar.gz" \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v${VER}/mcp-publisher_linux_amd64.tar.gz"
+          tar -xzf "$RUNNER_TEMP/mcp-publisher.tar.gz" -C "$RUNNER_TEMP" mcp-publisher
+          "$RUNNER_TEMP/mcp-publisher" --version
+
+      - name: 一覧へ出す
+        if: steps.listed.outputs.skip != 'true'
+        run: |
+          set -eu
+          "$RUNNER_TEMP/mcp-publisher" login github-oidc
+          "$RUNNER_TEMP/mcp-publisher" publish
