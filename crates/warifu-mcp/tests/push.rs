@@ -59,7 +59,12 @@ fn 喋る机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<()> {
 }
 
 /// 口を立てて支度を済ませ、**`秒` の間に線に出た行を全部返す。**
-async fn 立てて聞く(名: &str, 札: &[&str], 秒: u64) -> Vec<String> {
+async fn 立てて聞く(
+    名: &str,
+    札: &[&str],
+    秒: u64,
+    起こし方: warifu_mcp::push::起こし方,
+) -> Vec<String> {
     use rmcp::ServiceExt as _;
 
     let 控え = 試験の控え(名);
@@ -77,6 +82,7 @@ async fn 立てて聞く(名: &str, 札: &[&str], 秒: u64) -> Vec<String> {
         ));
     }
     let 口 = Warifu::new(Vec::new(), RuleStore::new(), 関所, 1_756_000_000)
+        .起こし方を決める(起こし方)
         .この機械につながる_控えは(&場所, &控え)
         .await
         .expect("つながれること");
@@ -110,7 +116,8 @@ async fn 立てて聞く(名: &str, 札: &[&str], 秒: u64) -> Vec<String> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn 届いたら_本文を運ばずに知らせる() {
-    let 出た = 立てて聞く("on", &["chat.read"], 6).await;
+    // **全部で起こす席**（`--wake all`）。既定（呼ばれたときだけ）は下の試験
+    let 出た = 立てて聞く("on", &["chat.read"], 6, warifu_mcp::push::起こし方::全部).await;
 
     let 名乗り = 出た
         .iter()
@@ -144,7 +151,7 @@ async fn 届いたら_本文を運ばずに知らせる() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn 読む札が無ければ_知らせない() {
-    let 出た = 立てて聞く("off", &["chat.send"], 4).await;
+    let 出た = 立てて聞く("off", &["chat.send"], 4, warifu_mcp::push::起こし方::全部).await;
     assert!(
         出た.iter().any(|l| l.contains(r#""id":1"#)),
         "initialize の返事が無い（試験の対照）: {出た:#?}"
@@ -154,5 +161,27 @@ async fn 読む札が無ければ_知らせない() {
             .iter()
             .any(|l| l.contains("notifications/claude/channel")),
         "札が無いのに知らせた: {出た:#?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn 既定の起こし方では_呼ばれていない発言と入室で起こさない() {
+    // 試験の机が流すのは、呼んでいない発言 2 つと入室だけ（`喋る机を立てる`）
+    let 出た = 立てて聞く(
+        "quiet",
+        &["chat.read"],
+        4,
+        warifu_mcp::push::起こし方::default(),
+    )
+    .await;
+    assert!(
+        出た.iter().any(|l| l.contains(r#""id":1"#)),
+        "initialize の返事が無い（試験の対照）: {出た:#?}"
+    );
+    assert!(
+        !出た
+            .iter()
+            .any(|l| l.contains("notifications/claude/channel")),
+        "呼ばれていないのに起こした: {出た:#?}"
     );
 }

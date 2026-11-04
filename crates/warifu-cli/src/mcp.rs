@@ -70,6 +70,8 @@ pub struct 設定 {
     /// 1 台の PC で複数のエージェントが同じこの機械につながるので、
     /// 名乗らないと**どれが喋ったのか人に分からない**（2026-09-08）。
     pub 名乗り: Option<String>,
+    /// **この席をいつ起こすか**（0.1.43・`--wake mention|all|none`）。既定は呼ばれたときだけ。
+    pub 起こし方: warifu_mcp::push::起こし方,
 }
 
 /// 今の時刻（秒）。
@@ -160,6 +162,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
         許す: Vec::new(),
         この機械: warifu_desk::この機械の場所(),
         名乗り: 居場所から名乗る(),
+        起こし方: warifu_mcp::push::起こし方::default(),
     };
     while let Some(一つ) = args.next() {
         match 一つ.as_str() {
@@ -179,6 +182,12 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             "--as" => {
                 let 名 = args.next().ok_or("--as のあとに名前がありません")?;
                 設.名乗り = Some(名乗りを検める(&名)?);
+            }
+            "--wake" => {
+                let 値 = args
+                    .next()
+                    .ok_or("--wake のあとに mention・all・none のどれかを書いてください")?;
+                設.起こし方 = warifu_mcp::push::起こし方::読む(&値)?;
             }
             他 => return Err(format!("知らない指定です: {他}")),
         }
@@ -274,7 +283,8 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let 机の場所 = 設.この機械.clone();
     let mut 口 = Warifu::new(Vec::new(), RuleStore::new(), 関所, 今)
         .この機械を覚える(&設.この機械)
-        .札を読み直すには(std::sync::Arc::new(move || 人が押した札(&机の場所)));
+        .札を読み直すには(std::sync::Arc::new(move || 人が押した札(&机の場所)))
+        .起こし方を決める(設.起こし方);
     if let Some(名) = &設.名乗り {
         口 = 口.名乗る(名);
     }
@@ -456,5 +466,33 @@ mod 名乗りの試験 {
         std::fs::create_dir_all(外.join(".git")).expect("作れる");
         std::fs::create_dir_all(内.join(".git")).expect("作れる");
         assert_eq!(仕事場の名(&内.join("src")).as_deref(), Some("inner"));
+    }
+}
+
+#[cfg(test)]
+mod 起こし方の試験 {
+    use warifu_mcp::push::起こし方;
+
+    fn 読ませる(引数: &[&str]) -> Result<super::設定, String> {
+        super::読む(&mut 引数.iter().map(|a| (*a).to_owned()))
+    }
+
+    #[test]
+    fn 書かなければ_呼ばれたときだけ() {
+        assert_eq!(読ませる(&[]).unwrap().起こし方, 起こし方::宛てだけ);
+    }
+
+    #[test]
+    fn wake_で選び_知らない値と値なしは断る() {
+        assert_eq!(
+            読ませる(&["--wake", "all"]).unwrap().起こし方,
+            起こし方::全部
+        );
+        assert_eq!(
+            読ませる(&["--wake", "none"]).unwrap().起こし方,
+            起こし方::起こさない
+        );
+        assert!(読ませる(&["--wake", "loud"]).is_err());
+        assert!(読ませる(&["--wake"]).is_err());
     }
 }

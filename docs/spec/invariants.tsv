@@ -26,6 +26,7 @@ S04-16	戻る途中は、room_status の題字がそう言う	L0	apps/desktop/sr
 S04-17	戻れたら戻った先を見る。相手の居るルームは奪わない	L0	apps/desktop/src-tauri/src/come_back.rs 上げ直した直後の_自分しか居ない仮のルームは見続けず_戻った先を見る・見張りが戻っても_前に見ていたルームを奪わない・主催が鍵を配った部屋は_皆が戻る前で空でも見続ける	済（dev で帰り道を置いて上げ直し、room_status を見た）
 S04-18	@ で呼ばれた発言は知らせに本文ごと載る。呼ばれていない本文は載らない。運んでも読んだことにしない	L0	crates/warifu-mcp/src/push.rs 宛ての発言は_本文ごと運ぶ・運ぶ本文は_長ければ切って_続きは読む口を言う・運ぶ宛ての本文は_数を限る・宛てでなければ_本文は運ばない	
 S04-19	room_status はこの機械のエージェントの最後に読んだ時刻・読んでいない数・@ で呼ばれた数を出す。古い口には欄を書かない	L0	apps/desktop/src-tauri/src/desk.rs 読みは_読んだ所より後の他人の発言を数え_呼ばれた分も数える・crates/warifu-mcp/src/reading.rs 呼ばれたのに読んでいない席は_立ち上げ直し方まで言う・古い机が欄を返さなければ_行を足さない	済（dev の机で、呼ばれた 1 件を含む 2 件が読んでいないと出た・古い口の返りに欄が無い）
+S04-20	channels で起こすのは既定で @ で呼ばれたときだけ。--wake で席ごとに mention/all/none を選ぶ。起こさない発言も chat_read で読める	L0	crates/warifu-mcp/src/push.rs 起こし方は_既定で呼ばれたときだけ・起こし方の指定を読む・crates/warifu-mcp/tests/push.rs 既定の起こし方では_呼ばれていない発言と入室で起こさない・届いたら_本文を運ばずに知らせる（--wake all）	
 S02-1	発言の番号は立て直しても続く	L0	apps/desktop/src-tauri/src/desk.rs 立て直したら_控えの続きから番号を振る	済
 S02-2	部屋を替えても打ちかけの文は混ざらない	L0・L4	apps/desktop/src/lib/chat/draft.test.ts／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 部屋を替えても打ちかけの文は混ざらず_戻れば前の文が出る	済
 S02-3	人が自分で部屋を替えたら、宛先を据え置かない	L0	apps/desktop/src/lib/chat/keep.test.ts 人が自分で部屋を替えたなら、据え置かない	済

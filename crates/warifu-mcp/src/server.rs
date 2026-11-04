@@ -40,6 +40,8 @@ pub struct Warifu {
     名乗り: Option<String>,
     /// いまつながっているこの機械。切れていれば繋ぎ直す。
     chat: Arc<tokio::sync::Mutex<Option<Chat>>>,
+    /// **この席をいつ起こすか**（0.1.43・`--wake`）。既定は呼ばれたときだけ。
+    起こし方: crate::push::起こし方,
     /// **人が画面で押した札を、いま読み直す手**（2026-09-24）。
     ///
     /// # なぜ要るのか
@@ -114,6 +116,7 @@ impl Warifu {
             この機械の場所: None,
             名乗り: None,
             chat: Arc::new(tokio::sync::Mutex::new(None)),
+            起こし方: crate::push::起こし方::default(),
             札を読み直す: None,
             呼び: Arc::default(),
             inner: Arc::new(Mutex::new(Inner {
@@ -184,6 +187,15 @@ impl Warifu {
     #[must_use]
     pub fn 名乗る(mut self, 場所: &str) -> Self {
         self.名乗り = Some(場所.to_owned());
+        self
+    }
+
+    /// **この席をいつ起こすか**を決める（0.1.43・`--wake`）。
+    #[must_use]
+    pub const fn 起こし方を決める(
+        mut self, 起こし方: crate::push::起こし方
+    ) -> Self {
+        self.起こし方 = 起こし方;
         self
     }
 
@@ -299,6 +311,8 @@ impl Warifu {
             if self.通るか("chat.read").is_ok()
                 && let Some(知) =
                     crate::push::宛ても見て知らせを組む(&新しい, &この機械.呼ばれる名())
+                // **席ごとの起こし方**（0.1.43）。起こさない分も溜め箱には残り、chat_read で読める
+                && self.起こし方.起こすか(&知)
             {
                 let 通知 = ServerNotification::CustomNotification(CustomNotification::new(
                     crate::push::知らせの方法,
@@ -954,6 +968,7 @@ impl Warifu {
             }
         }
         行たち.extend(crate::reading::読みを並べる(&読み));
+        行たち.push(format!("この口の起こし方: {}", self.起こし方.言い方()));
         Ok(行たち.join("\n"))
     }
 
@@ -1221,8 +1236,10 @@ impl ServerHandler for Warifu {
              2026-09-20、機械を立ち上げ直したあとに\
              「どのエージェントが動いていたか分からない」が起きた。\
              口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。\
-             **会話に発言が届いたり、ルームに誰かが入ったりすると、`<channel>` で知らせが来ることがある**\
-             （channels を付けて立ち上げたとき・`warifu claude` で立ち上げると付く）。\
+             **`@` で呼ばれた発言が届くと、`<channel>` で知らせが来ることがある**\
+             （channels を付けて立ち上げたとき・`warifu claude` で立ち上げると付く。\
+             呼ばれていない発言や入室でも起こすかは、席ごとに `warifu mcp --wake mention|all|none` で決まる。\
+             いまの起こし方は room_status に出る）。\
              知らせの本文は `@` で呼ばれた分だけ —— ほかは chat_read で読む（呼ばれた分も chat_read にもう一度出る）。\
              返事が要るものにだけ返す。\
              **`@名前` で呼ばれた発言には `（あなた宛て）` が付く** —— まずそれに返す。\

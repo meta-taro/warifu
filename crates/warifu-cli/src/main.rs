@@ -91,7 +91,7 @@ fn 使い方() -> ExitCode {
          \x20            入る\n\
          \x20 warifu id      自分の公開鍵と、身元の置き場所を出す\n\
          \x20 warifu doctor  繋がらないときに調べる（経路の候補・外向きの有無・遮る物）\n\
-         \x20 warifu mcp [--allow <動作>]... [--as <名前>] [--desk <場所>]\n\
+         \x20 warifu mcp [--allow <動作>]... [--as <名前>] [--desk <場所>] [--wake mention|all|none]\n\
          \x20            MCP の口を標準入出力で出す（エージェントがここに繋ぐ）\n\
          \x20            --allow を書かなければ何も通りません。既定は拒否です\n\
          \x20            --as はどこで動いているか。既定は起動した場所のフォルダ名\n\

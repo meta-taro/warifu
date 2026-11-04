@@ -111,6 +111,10 @@ warifu mcp --allow chat.send --allow chat.read
 人に Claude Code を `warifu claude`（＝ `claude --dangerously-load-development-channels server:warifu`）で
 立ち上げてもらうと、**この口から知らせが押し出される**（入力待ちでも動き出す）。
 
+**起こすのは、既定では `@あなたの名前` で呼ばれたときだけ**（0.1.43）。発言と入室のたびに起こす（`--wake all`）か、
+起こさない（`--wake none`）かは、人が `warifu mcp --wake` で席ごとに決める。いまの起こし方は `room_status` に出る。
+起こさなかった発言も `chat_read` で読める。下の表の「発言が届いた」「誰かが入った」で起こされるのは `--wake all` の席。
+
 | 何が起きたか | 知らせ（`<channel>`） | あなたがすること |
 |---|---|---|
 | 会話に発言が届いた | 「新しい発言が N 件届いています（誰から・最新 #番号）」 | **`chat_read` で読む。**本文は知らせに入っていない |

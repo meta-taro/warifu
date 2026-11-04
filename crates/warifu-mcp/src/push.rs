@@ -88,6 +88,58 @@ pub struct 知らせ {
     pub 宛て: usize,
 }
 
+/// **この席をいつ起こすか**（0.1.43・内部の Issue 030 の 2）。`warifu mcp --wake` で席ごとに選ぶ。
+///
+/// 人数が多いルームで、全部の発言で全部の席を起こすと、どの席も自分宛てでない話に手を止める。
+/// **既定は呼ばれたときだけ。**ルームを見張る席は `all`、黙って作業させたい席は `none`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum 起こし方 {
+    /// `@名前` で呼ばれた発言が来たときだけ（既定）
+    #[default]
+    宛てだけ,
+    /// 発言と入室のたび（0.1.42 までの振る舞い）
+    全部,
+    /// 起こさない（`chat_read` / `chat_wait` で自分から読む）
+    起こさない,
+}
+
+impl 起こし方 {
+    /// `--wake` の値を読む（`mention` / `all` / `none`）。
+    ///
+    /// # Errors
+    /// 知らない値なら、選べる値を添えて断る。
+    pub fn 読む(値: &str) -> Result<Self, String> {
+        match 値 {
+            "mention" => Ok(Self::宛てだけ),
+            "all" => Ok(Self::全部),
+            "none" => Ok(Self::起こさない),
+            他 => Err(format!(
+                "--wake は mention・all・none のどれかです（{他} は知りません）"
+            )),
+        }
+    }
+
+    /// この知らせで起こすか。
+    #[must_use]
+    pub const fn 起こすか(self, 知: &知らせ) -> bool {
+        match self {
+            Self::宛てだけ => 知.宛て > 0,
+            Self::全部 => true,
+            Self::起こさない => false,
+        }
+    }
+
+    /// 人とエージェントが読む言い方（`room_status` に出す）。
+    #[must_use]
+    pub const fn 言い方(self) -> &'static str {
+        match self {
+            Self::宛てだけ => "@ で呼ばれたときだけ起こす（--wake mention・既定）",
+            Self::全部 => "発言と入室のたびに起こす（--wake all）",
+            Self::起こさない => "起こさない（--wake none）",
+        }
+    }
+}
+
 /// 知らせる出来事か。**発言と入退室だけ**（返事・名乗り・断りは知らせない）。
 #[must_use]
 pub fn 知らせるか(中身: &FromDesk) -> bool {
@@ -466,5 +518,33 @@ mod tests {
             );
             assert!(中身["meta"][鍵].is_string(), "値は文字にする: {鍵}");
         }
+    }
+
+    #[test]
+    fn 起こし方は_既定で呼ばれたときだけ() {
+        let 呼ばれた =
+            宛ても見て知らせを組む(&[言った(1, "@docs 見て")], &["docs".to_owned()]).unwrap();
+        let 呼ばれていない =
+            宛ても見て知らせを組む(&[言った(2, "ただの話")], &["docs".to_owned()]).unwrap();
+        let 入室だけ = 知らせを組む(&[入室("AAAA")]).unwrap();
+        let 既定 = 起こし方::default();
+        assert!(既定.起こすか(&呼ばれた));
+        assert!(!既定.起こすか(&呼ばれていない));
+        assert!(!既定.起こすか(&入室だけ));
+        assert!(起こし方::全部.起こすか(&呼ばれていない));
+        assert!(起こし方::全部.起こすか(&入室だけ));
+        assert!(!起こし方::起こさない.起こすか(&呼ばれた));
+    }
+
+    #[test]
+    fn 起こし方の指定を読む() {
+        assert_eq!(起こし方::読む("mention"), Ok(起こし方::宛てだけ));
+        assert_eq!(起こし方::読む("all"), Ok(起こし方::全部));
+        assert_eq!(起こし方::読む("none"), Ok(起こし方::起こさない));
+        assert!(
+            起こし方::読む("loud")
+                .unwrap_err()
+                .contains("mention・all・none")
+        );
     }
 }
