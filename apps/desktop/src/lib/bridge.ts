@@ -272,6 +272,13 @@ export const sendImage = (bytes: Uint8Array, kind: string) =>
   invoke<void>('send_image', { bytes: Array.from(bytes), kind });
 
 /**
+ * **届いた画像を、ダウンロードのフォルダへ保存する**（0.1.43）。返りは書いた場所。
+ * 同じ名があれば番号を足す（上書きしない）。
+ */
+export const saveImage = (bytes: Uint8Array, kind: string) =>
+  invoke<string>('save_image', { bytes: Array.from(bytes), kind });
+
+/**
  * いまこの機械に何人つながっているか。
  *
  * **「相手が居ない」と「話し相手が 1 人も居ない」は違う。**

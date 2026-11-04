@@ -207,6 +207,12 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 }),
                 // 口は居場所を使わない（同時編集の道具が使う・0.1.43）。返事も無い
                 ToDesk::居場所を聞く | ToDesk::居場所 { .. } => None,
+                // 覚えている画像を返す（0.1.43）
+                ToDesk::画像を見る { id } => Some(FromDesk::画像 {
+                    id,
+                    種類: "image/png".to_owned(),
+                    中身: "AQID".to_owned(),
+                }),
             };
             if let Some(返し) = 返し {
                 口.送る(&返し.書く()).await.expect("返せること");
@@ -262,6 +268,14 @@ async fn 口を全部_1回ずつ呼ぶ() {
         ),
     ));
     結果.push(("chat_read", format!("{:?}", 口.chat_read().await)));
+    結果.push((
+        "chat_image",
+        format!(
+            "{:?}",
+            口.chat_image(Parameters(warifu_mcp::ImageArgs { id: 1 }))
+                .await
+        ),
+    ));
     結果.push((
         "chat_status",
         format!(

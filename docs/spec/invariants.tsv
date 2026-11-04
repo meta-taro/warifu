@@ -69,6 +69,8 @@ S02-25	秘密らしいものは送る前に見る。エージェントは止め�
 S02-26	chat_send は渡せたのに失敗を返さない。詰まった線は待ちきらず「まだ」に数える	L0	apps/desktop/src-tauri/src/desk.rs 詰まった線は諦めて_他の相手には渡し_口の待ちより先に返る	済（実機の眠った相手では未確かめ）
 S02-27	長すぎる発言は、つなぐ前に長すぎると断る	L3	crates/warifu-mcp/tests/gate.rs 長すぎる本文は_この機械へ運ばず長すぎると言う	済
 S02-28	長い発言は畳んで開け閉めでき、改行の仕方はどの打つ欄にも出る	L0・L4	apps/desktop/src/lib/chat/bubble.test.ts 畳むか／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 長い発言だけ畳み…	一部（実画面は撮れていない）
+S02-15	画像は札の 1 行で流し、エージェントは番号で画像そのものを見られる。直近 20 枚だけ覚え、無い番号には無いと返す	L0	apps/desktop/src-tauri/src/desk.rs 画像は直近の枚数だけ覚え_番号で返し_落ちた分はそう言う・crates/warifu-mcp/tests/smoke.rs 口を全部_1回ずつ呼ぶ（chat_image）	済（dev で A から B へ送った画像を、B の机から番号で取り出し、送ったものとバイトまで同じだった）
+S02-16	人は大きく見た画像をダウンロードに保存できる。同じ名があれば番号を足し、上書きしない	L0	apps/desktop/src-tauri/src/save_image.rs 種類から拡張子を決め_同じ名があれば番号を足す	済（dev の画面で保存を押し、ダウンロードに同じ画像が書かれ、場所が画面に出た）
 S01-22	線が切れた相手は、その人が居たすべての部屋の名簿から外す（主催の部屋でも客の部屋でも・D83）。戻ってきたら Join で入り直す	L0	crates/warifu-app/src/room/tests.rs 主催の線が切れたら_客も名簿から外す／apps/desktop/src-tauri/src/lib.rs 汲む の終わり（試験なし）	済
 S08-1	ルームの id を名前の代わりに出さない。名簿に名前のある相手は名前で出す。名前の無い相手は「名無しさん」で出す	L4	apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 名簿に名前のある相手は_行の鍵の頭ではなく名前で出る／apps/desktop/src/lib/chat/Participants.svelte.test.ts 名乗りの無い自分は_鍵の頭ではなく連絡帳と同じ「あなた（この_PC_の人）」で出て_札を重ねない／apps/desktop/src/lib/meeting/Roster.svelte.test.ts 名前の無い人は鍵の頭でなく「名無しさん」で出し_title_に鍵の頭を添える／apps/desktop/src/lib/meeting/names.test.ts 出す名／apps/desktop/src/lib/pass/action.test.ts 口が聞く動作には_どれも言い方があり_内部名を出さない	一部（会話欄の差出人・入っている一覧の自分の行・名簿。連絡帳の行と映像の枠は部品の試験が無い）
 S08-2	状態は色だけで言わない。字か形を添える	L5		未担保（人が見る）

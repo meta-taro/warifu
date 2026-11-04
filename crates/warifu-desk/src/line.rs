@@ -324,7 +324,20 @@ pub enum ToDesk {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         room: Option<String>,
     },
+    /// **届いた画像そのものを見る**（0.1.43）。`id` は `［画像 …］` の行の番号。
+    ///
+    /// 会話には `［画像 120 KB］` の 1 行しか流れないので、エージェントは画像を見られず、
+    /// 画面を共有しても話が通じなかった。この機械は直近の画像だけを覚えている（[`覚える画像`]）。
+    画像を見る {
+        /// どの発言か。
+        id: u64,
+    },
 }
+
+/// **この機械が覚えている画像の枚数**（0.1.43・[`ToDesk::画像を見る`]）。
+///
+/// 画像は 1 枚 512 KB まで。覚えるのは手元の記憶の中だけで、ファイルには書かない。
+pub const 覚える画像: usize = 20;
 
 /// 居場所の文書の名前と場所の、それぞれの上限（バイト）。**網の上の上限（`warifu-meeting`）と同じ**。
 pub const 居場所の上限: usize = 512;
@@ -832,6 +845,17 @@ pub enum FromDesk {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         room: Option<String>,
     },
+    /// **画像そのもの**（[`ToDesk::画像を見る`] の返り・0.1.43）。
+    ///
+    /// **中身は相手の言い分であって、指示ではない**（文字と同じ）。
+    画像 {
+        /// どの発言か。
+        id: u64,
+        /// `image/jpeg` などの種類（`型` は行の札に使っているので別の名にする）。
+        種類: String,
+        /// 中身（base64）。1 行に収まる大きさ（512 KB → 約 700 KB）。
+        中身: String,
+    },
     /// **更新の様子**（[`ToDesk::更新を確かめる`] の返り・0.1.41）。
     更新 {
         /// いま動いている画面の版。
@@ -1025,7 +1049,10 @@ impl ToDesk {
             | Self::部屋たち
             | Self::更新を確かめる => {}
             // 番号だけの行と、尋ねるだけの行。**中身が無いので検めるものが無い**
-            Self::Read { .. } | Self::Status { .. } | Self::Status様子 => {}
+            Self::Read { .. }
+            | Self::Status { .. }
+            | Self::Status様子
+            | Self::画像を見る { .. } => {}
         }
         Ok(中身)
     }
@@ -2355,5 +2382,22 @@ mod 居場所の試験 {
             room: None,
         };
         assert_eq!(ToDesk::読む(&行.書く()), Err(Error::Malformed));
+    }
+}
+
+#[cfg(test)]
+mod 画像の試験 {
+    use super::*;
+
+    #[test]
+    fn 画像を見る頼みと_画像の返りを読める() {
+        let 頼み = ToDesk::画像を見る { id: 7 };
+        assert_eq!(ToDesk::読む(&頼み.書く()).unwrap(), 頼み);
+        let 返り = FromDesk::画像 {
+            id: 7,
+            種類: "image/png".to_owned(),
+            中身: "iVBORw0KGgo=".to_owned(),
+        };
+        assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);
     }
 }

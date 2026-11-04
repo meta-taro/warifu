@@ -55,6 +55,8 @@
     部屋?: string | null;
     /** 画像を送る。**渡されなければ、画像の口を出さない**（預かり所ごしなど、送れない所） */
     画像を送る?: (画像: File) => void;
+    /** **画像を保存する**（0.1.43）。返りは書いた場所。渡されなければ［保存］を出さない */
+    画像を保存?: (画像: string) => Promise<string>;
     /**
      * **画像が届く相手がいまいるか**（ルームにほかの機械の人がいるか）。
      *
@@ -136,6 +138,7 @@
     この機械の人数,
     送る,
     画像を送る,
+    画像を保存,
     画像の届く先がある = true,
     相手ごとではない = false,
     届く先,
@@ -178,6 +181,23 @@
   });
   /** 大きく見ている画像（`blob:` の URL）。 */
   let 大きく見る = $state<string | null>(null);
+  /** 保存した・できなかったの一言（大きく見ている間だけ出す）。 */
+  let 保存の知らせ = $state<string | null>(null);
+
+  async function 保存する(画像: string) {
+    if (!画像を保存) return;
+    try {
+      保存の知らせ = format(t('chat.image.saved'), { path: await 画像を保存(画像) });
+    } catch (e) {
+      const why = typeof e === 'object' && e && 'message' in e ? String(e.message) : String(e);
+      保存の知らせ = format(t('chat.image.saveFailed'), { why });
+    }
+  }
+
+  function 閉じる() {
+    大きく見る = null;
+    保存の知らせ = null;
+  }
   // **開いた長い発言**（会話の何番目か）。畳むのは長い発言だけ（`畳むか`）
   let 開いた = $state(new Set<number>());
   function 開け閉め(i: number): void {
@@ -601,13 +621,30 @@
     role="dialog"
     aria-modal="true"
     tabindex="-1"
-    onclick={() => (大きく見る = null)}
-    onkeydown={(e) => e.key === 'Escape' && (大きく見る = null)}
+    onclick={閉じる}
+    onkeydown={(e) => e.key === 'Escape' && 閉じる()}
   >
     <img src={大きく見る} alt="" />
-    <button type="button" class="quiet close" onclick={() => (大きく見る = null)}>
-      {t('chat.image.close')}
-    </button>
+    <div class="lightbox-actions">
+      {#if 画像を保存}
+        <button
+          type="button"
+          class="quiet"
+          onclick={(e) => {
+            e.stopPropagation();
+            if (大きく見る) void 保存する(大きく見る);
+          }}
+        >
+          <Icon name="download" />{t('chat.image.save')}
+        </button>
+      {/if}
+      <button type="button" class="quiet" onclick={閉じる}>
+        {t('chat.image.close')}
+      </button>
+    </div>
+    {#if 保存の知らせ}
+      <p class="lightbox-note" role="status">{保存の知らせ}</p>
+    {/if}
   </div>
 {/if}
 
@@ -659,11 +696,25 @@
     max-height: 100%;
     object-fit: contain;
   }
-  .lightbox .close {
+  .lightbox-actions {
     position: absolute;
     top: var(--space-3);
     right: var(--space-3);
+    display: flex;
+    gap: var(--space-2);
+  }
+  .lightbox-actions button {
     color: #fff;
+  }
+  .lightbox-note {
+    position: absolute;
+    bottom: var(--space-3);
+    left: var(--space-3);
+    right: var(--space-3);
+    margin: 0;
+    color: #fff;
+    text-align: center;
+    overflow-wrap: anywhere;
   }
   .card {
     display: flex;

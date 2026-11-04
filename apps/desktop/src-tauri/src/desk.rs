@@ -17,7 +17,7 @@
 //! - **この機械は同じ機械の中だけ。**口の権限は `warifu-desk` が持つ（Unix は 0600）
 //! - **届いた文字は相手の言い分。**ここは運ぶだけで、解釈しない
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -814,6 +814,12 @@ async fn 応じる(
                 名乗り.as_deref().unwrap_or("名乗りなし")
             );
             let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **画像そのものを返す**（0.1.43）。会話には札の 1 行しか流れないので
+        ToDesk::画像を見る { id } => {
+            let 返り = 画像を返す(&直近の画像.lock().expect("毒されていない"), id);
+            let _ = 口.送る(&返り.書く()).await;
             Ok(())
         }
         // **そこまで読んだ**（**D76**）。返事は要らない —— 数えるだけ
@@ -2002,6 +2008,65 @@ const fn 自分あてか(出所: u64, 自分: u64) -> bool {
     出所 & !宛先の帯 == 自分
 }
 
+/// 直近の画像（番号・種類・中身）。**手元の記憶の中だけ**で、ファイルには書かない（0.1.43）。
+static 直近の画像: Mutex<VecDeque<(u64, String, Vec<u8>)>> = Mutex::new(VecDeque::new());
+
+/// **画像が来たことを行にし、画像そのものを番号で覚える**（0.1.43）。
+///
+/// 会話に流すのは 1 行の札だけ。エージェントは札の番号で `chat_image` を呼んで、画像そのものを見る。
+pub fn 画像を聞いた(
+    from: &str, 種類: &str, 中身: &[u8], 部屋: Option<String>
+) -> FromDesk {
+    let id = 番号を振る();
+    let 行 = FromDesk::Heard {
+        id,
+        from: from.to_owned(),
+        body: 画像の札(id, 中身.len()),
+        at: 日付つき時刻(),
+        room: 部屋,
+    };
+    控える(&行);
+    画像を覚える(
+        &mut 直近の画像.lock().expect("毒されていない"),
+        (id, 種類.to_owned(), 中身.to_vec()),
+    );
+    行
+}
+
+/// 画像が来たことを、エージェントへ 1 行で言う形。**どうすれば見られるかも言う。**
+fn 画像の札(id: u64, バイト: usize) -> String {
+    format!(
+        "［画像 {} KB —— chat_image で id {id} を指すと見られます］",
+        バイト.div_ceil(1024)
+    )
+}
+
+/// 覚える。**古い順に落とし、[`warifu_desk::覚える画像`] 枚より多く持たない。**
+fn 画像を覚える(棚: &mut VecDeque<(u64, String, Vec<u8>)>, 一枚: (u64, String, Vec<u8>)) {
+    棚.push_back(一枚);
+    while 棚.len() > warifu_desk::覚える画像 {
+        棚.pop_front();
+    }
+}
+
+/// 番号の画像を探して、返す行にする。**もう落ちていれば、そう言う。**
+fn 画像を返す(棚: &VecDeque<(u64, String, Vec<u8>)>, id: u64) -> FromDesk {
+    use base64::Engine as _;
+    match 棚.iter().find(|(番号, ..)| *番号 == id) {
+        Some((_, 種類, 中身)) => FromDesk::画像 {
+            id,
+            種類: 種類.clone(),
+            中身: base64::engine::general_purpose::STANDARD.encode(中身),
+        },
+        None => FromDesk::Denied {
+            why: format!(
+                "id {id} の画像は、この機械にありません（覚えているのは直近の {} 枚だけ・画像でない発言の番号かもしれません）",
+                warifu_desk::覚える画像
+            ),
+        },
+    }
+}
+
 /// 会話に出た文字を、この機械へ配る形にする。
 #[must_use]
 pub fn 聞いた(from: &str, body: &str) -> FromDesk {
@@ -2959,6 +3024,24 @@ mod tests {
                 "B のエージェント".to_owned()
             ]
         );
+    }
+
+    #[test]
+    fn 画像は直近の枚数だけ覚え_番号で返し_落ちた分はそう言う() {
+        use super::{画像を覚える, 画像を返す};
+        let mut 棚 = VecDeque::new();
+        for id in 1..=(warifu_desk::覚える画像 as u64 + 1) {
+            画像を覚える(&mut 棚, (id, "image/png".to_owned(), vec![1, 2, 3]));
+        }
+        assert_eq!(棚.len(), warifu_desk::覚える画像);
+        let FromDesk::画像 { id, 種類, 中身 } = 画像を返す(&棚, 2) else {
+            panic!("2 番はまだ覚えている");
+        };
+        assert_eq!((id, 種類.as_str(), 中身.as_str()), (2, "image/png", "AQID"));
+        let FromDesk::Denied { why } = 画像を返す(&棚, 1) else {
+            panic!("1 番は落ちている");
+        };
+        assert!(why.contains("直近の"), "{why}");
     }
 
     #[test]

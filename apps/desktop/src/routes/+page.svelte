@@ -214,6 +214,7 @@
     remember,
     sendText,
     sendImage,
+    saveImage,
     sendToContact,
     postbox,
     cliState,
@@ -2582,6 +2583,15 @@
    */
   const 画像の口を出す = $derived(送り方.種類 === 'ルーム');
 
+  /** **届いた画像を保存する**（0.1.43）。`blob:` の URL から中身を取り出して本体へ渡す */
+  async function 画像を保存する(画像: string): Promise<string> {
+    const 塊 = await (await fetch(画像)).blob();
+    const 道 = await saveImage(new Uint8Array(await 塊.arrayBuffer()), 塊.type);
+    // 本体の外（ブラウザだけで開いた画面）では保存できない。黙って成功にしない
+    if (道 === null) throw new Error('この画面からは保存できません');
+    return 道;
+  }
+
   /**
    * **画像を送る。**縮めてから（`chat/image.ts`）ルームの相手へ渡し、自分の行にも出す。
    */
@@ -3756,6 +3766,7 @@
       送る={(body, 秘密を承知) => void 話す(body, 秘密を承知)}
       画像を送る={画像の口を出す ? (f) => void 画像を話す(f) : undefined}
       画像の届く先がある={画像を送れる}
+      画像を保存={画像を保存する}
       {届く先}
       {届く先の顔}
       顔の画={顔の画たち}
@@ -4309,6 +4320,7 @@
           送る={(body, 秘密を承知) => void 話す(body, 秘密を承知)}
           画像を送る={画像の口を出す ? (f) => void 画像を話す(f) : undefined}
       画像の届く先がある={画像を送れる}
+      画像を保存={画像を保存する}
           相手ごとではない={送り方.種類 === 'ルーム'}
           打てない訳={打てない訳(送り方, {
             エージェントがつながっている: 選んだエージェントがつながっているか,

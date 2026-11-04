@@ -762,6 +762,23 @@ impl Chat {
         }
     }
 
+    /// **届いた画像そのものを取る**（0.1.43）。返るのは種類と中身（base64）。
+    ///
+    /// # Errors
+    /// その番号の画像がもう無いとき、この機械が古い・閉じている・返事をしないとき。
+    pub async fn 画像(&self, id: u64) -> Result<(String, String), crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::画像を見る { id }, 画像の返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::画像 { 種類, 中身, .. } => Ok((種類, 中身)),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// 1 行送って、その返事を 1 つ待つ。**形は送る前に検める**（待たせる前に落とす）。
     async fn 頼んで待つ(
         &self,
@@ -1112,6 +1129,9 @@ fn 言うの返事(中身: &FromDesk) -> bool {
 fn 札の答え(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Asked { .. } | FromDesk::Denied { .. })
 }
+fn 画像の返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::画像 { .. } | FromDesk::Denied { .. })
+}
 fn 様子の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::様子 { .. } | FromDesk::Denied { .. })
 }
@@ -1380,6 +1400,8 @@ fn 仕分ける(
             | FromDesk::名付けた { .. }
             // **更新の様子も返事である**（0.1.41）
             | FromDesk::更新 { .. }
+            // **画像そのものも返事である**（0.1.43）。煙の試験が「返事をしません」で見つけた（同じ穴）
+            | FromDesk::画像 { .. }
     );
     // **種類の合わない返事は、その呼びのものではない**（時間切れの呼びの遅れた返事）。
     // 待っている人が居ないときと同じに扱う
@@ -1686,7 +1708,9 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             // **更新の様子も会話の行ではない**（0.1.41）
             | FromDesk::更新 { .. }
             // **居場所も会話の行ではない**（0.1.43・同時編集）。口は聞かないので、本来は来ない
-            | FromDesk::居場所 { .. } => String::new(),
+            | FromDesk::居場所 { .. }
+            // **画像そのものも会話の行ではない**（0.1.43・`chat_image` の返り）
+            | FromDesk::画像 { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),

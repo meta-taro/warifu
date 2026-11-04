@@ -6536,6 +6536,7 @@ dependencies = [
 name = "warifu-desktop"
 version = "0.1.42"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "fast_qr",
  "serde",

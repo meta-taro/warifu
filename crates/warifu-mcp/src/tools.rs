@@ -160,6 +160,13 @@ pub struct ProfileArgs {
     pub bio: String,
 }
 
+/// [`crate::Warifu::chat_image`] の引数（0.1.43）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ImageArgs {
+    /// どの画像か（`chat_read` に出る `［画像 … id N …］` の N）。
+    pub id: u64,
+}
+
 /// [`crate::Warifu::chat_status`] の引数。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct StatusArgs {

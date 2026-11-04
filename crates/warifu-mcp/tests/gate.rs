@@ -275,6 +275,8 @@ fn 出している口を_数えて名前で押さえる() {
     // 0.1.40 に room_list / room_leave / room_rename を足した（内部の Issue 026）——
     // 一覧は見るだけなので **chat.read**。抜ける・名前を付けるは部屋の形を変えるので
     // **別の札 room.leave / room.rename**（1 回ごとに消える）。
+    // 0.1.43 に chat_image を足した —— **札は chat.read**。会話に届いた画像を見るだけで、
+    // chat_read で読める札の行の中身そのものである（新しく読めるものの種類は増えない）。
     let mut 名前 = Warifu::tool_names();
     名前.sort();
 
@@ -286,6 +288,7 @@ fn 出している口を_数えて名前で押さえる() {
             "calendar_slots",
             "changes",
             "chat_export",
+            "chat_image",
             "chat_read",
             "chat_send",
             "chat_status",
@@ -1052,6 +1055,7 @@ fn 外へ出る引数名は_asciiだけ() {
         &schemars::schema_for!(warifu_mcp::StatusArgs),
     );
     名を検める("inbox_open", &schemars::schema_for!(warifu_mcp::OpenArgs));
+    名を検める("chat_image", &schemars::schema_for!(warifu_mcp::ImageArgs));
     名を検める(
         "profile_set",
         &schemars::schema_for!(warifu_mcp::ProfileArgs),

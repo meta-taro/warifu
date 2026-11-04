@@ -66,6 +66,9 @@ export type MessageKey =
   | 'chat.image.attach'
   | 'chat.image.alt'
   | 'chat.image.close'
+  | 'chat.image.save'
+  | 'chat.image.saved'
+  | 'chat.image.saveFailed'
   | 'chat.image.nobody'
   | 'chat.send'
   | 'chat.secret.found'
@@ -573,7 +576,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': '画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）',
     'chat.image.alt': '{who} が送った画像',
     'chat.image.close': '閉じる',
-    'chat.image.nobody': '画像はルームの相手に届きます。いまはほかの機械の人がいません（この PC のエージェントには画像は届きません）。',
+    'chat.image.save': 'ダウンロードに保存',
+    'chat.image.saved': '保存しました: {path}',
+    'chat.image.saveFailed': '保存できませんでした: {why}',
+    'chat.image.nobody': '画像はルームの相手に届きます。いまはほかの機械の人がいません。',
     'chat.send': '送る',
     'chat.secret.found': '秘密らしいもの（{what}）が入っています。送ると取り消せません',
     'chat.secret.hint': '割符の会話は、届いた各機械に写しが残ります。その部分を消してから送るか、確かめたうえで送ってください。',
@@ -1032,7 +1038,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': 'Send an image (you can also paste or drag one in; large images are shrunk before sending)',
     'chat.image.alt': 'Image from {who}',
     'chat.image.close': 'Close',
-    'chat.image.nobody': 'Images go to the people in the room. Nobody from another machine is here right now (agents on this PC do not receive images).',
+    'chat.image.save': 'Save to Downloads',
+    'chat.image.saved': 'Saved: {path}',
+    'chat.image.saveFailed': 'Could not save: {why}',
+    'chat.image.nobody': 'Images go to the people in the room. Nobody from another machine is here right now.',
     'chat.send': 'Send',
     'chat.secret.found': 'This looks like it contains a secret ({what}). Once sent, it cannot be taken back',
     'chat.secret.hint': 'Every device that receives a warifu message keeps a copy. Remove that part before sending, or send only after checking it.',
@@ -1489,7 +1498,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': '发送图片（也可以粘贴或拖进来；大图会先缩小再发送）',
     'chat.image.alt': '{who} 发来的图片',
     'chat.image.close': '关闭',
-    'chat.image.nobody': '图片会送到房间里的人。现在没有其他机器的人在（这台电脑的代理收不到图片）。',
+    'chat.image.save': '保存到下载',
+    'chat.image.saved': '已保存：{path}',
+    'chat.image.saveFailed': '无法保存：{why}',
+    'chat.image.nobody': '图片会送到房间里的人。现在没有其他机器的人在。',
     'chat.send': '发送',
     'chat.secret.found': '似乎包含机密信息（{what}）。发送后无法撤回',
     'chat.secret.hint': 'warifu 的消息会在每台收到的设备上留下副本。请删除该部分后再发送，或确认无误后再发送。',
@@ -1950,7 +1962,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.image.attach': '이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)',
     'chat.image.alt': '{who}이(가) 보낸 이미지',
     'chat.image.close': '닫기',
-    'chat.image.nobody': '이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다(이 PC의 에이전트에는 이미지가 가지 않습니다).',
+    'chat.image.save': '다운로드에 저장',
+    'chat.image.saved': '저장했습니다: {path}',
+    'chat.image.saveFailed': '저장하지 못했습니다: {why}',
+    'chat.image.nobody': '이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다.',
     'chat.send': '보내기',
     'chat.secret.found': '비밀로 보이는 내용（{what}）이 들어 있습니다. 보내면 취소할 수 없습니다',
     'chat.secret.hint': 'warifu 대화는 받은 각 기기에 사본이 남습니다. 그 부분을 지우고 보내거나, 확인한 뒤 보내 주세요.',
@@ -2420,7 +2435,7 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '「誰でも入れるようになりました」と読める訳にしないこと。' +
     'また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。',
   'chat.image.nobody':
-    '「いまは」を落とさないこと —— 相手が入れば送れる。エージェントに届かないのは決めごと（絵を渡さない）であって、故障ではない。',
+    '「いまは」を落とさないこと —— 相手が入れば送れる。',
   'chat.mention.me':
     '自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。',
   'chat.mention.pick':

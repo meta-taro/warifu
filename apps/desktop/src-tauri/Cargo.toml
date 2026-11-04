@@ -19,6 +19,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+# 画像をエージェントへ渡す 1 行に詰める（0.1.43・`desk::画像を見る`）。rmcp が既に使っている版
+base64 = "0.22"
 
 # 判定と進行は workspace 側のクレートが持つ。**ここには規則を書かない**（baseline §9）。
 # この crate がやるのは「画面から呼べる形に直す」ことだけである。

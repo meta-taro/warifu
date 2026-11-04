@@ -111,6 +111,7 @@ mod room_name;
 #[cfg(test)]
 mod room_sim;
 mod roster_sync;
+mod save_image;
 mod schedule;
 mod self_check;
 mod snapshot;
@@ -2725,10 +2726,11 @@ fn 汲む(
                             (名.clone(), 型.clone(), 中身.clone(), meeting.to_string()),
                         );
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
-                        // **エージェントには絵を渡さない。**画像が来たことだけを 1 行で見せる
+                        // **会話には札の 1 行だけ流し、画像は番号で覚える**（0.1.43）。
+                        // エージェントは札の番号で `chat_image` を呼んで、画像そのものを見る
                         desk::配る(
                             &app.state::<Bridge>(),
-                            desk::聞いた_部屋で(&名, &画像の札(中身.len()), Some(meeting.to_string())),
+                            desk::画像を聞いた(&名, 型, 中身, Some(meeting.to_string())),
                         );
                         let 主催 = conferences.lock().await.contains_key(&notice.meeting())
                             && roster_sync::主催か(部屋の主催.as_ref(), &me);
@@ -3791,11 +3793,6 @@ async fn send_text(
     Ok(())
 }
 
-/// 画像が来たことを、エージェントへ 1 行で言う形。**絵そのものは渡さない。**
-fn 画像の札(バイト: usize) -> String {
-    format!("［画像 {} KB］", バイト.div_ceil(1024))
-}
-
 /// **ルームの相手へ、画像を送る**（チャット）。
 ///
 /// 画面で縮めてから渡してくる（長い辺 1600px・JPEG）。**ここは数えて運ぶだけ。**
@@ -3848,7 +3845,7 @@ async fn send_image(bridge: State<'_, Bridge>, bytes: Vec<u8>, kind: String) -> 
             code: Some("image.malformed".into()),
         });
     }
-    let Notice::Image { 中身, .. } = &知らせ else {
+    let Notice::Image { 中身, 型, .. } = &知らせ else {
         unreachable!("いま組み立てた");
     };
     記録!(
@@ -3857,10 +3854,9 @@ async fn send_image(bridge: State<'_, Bridge>, bytes: Vec<u8>, kind: String) -> 
         送り先.len()
     );
     if desk::エージェントの数(&bridge) > 0 {
-        let 話 = desk::聞いた(
-            &key_to_string(bridge.device.public_key()),
-            &画像の札(中身.len()),
-        );
+        // **自分が送った画像も、この機械のエージェントが見られるように覚える**（0.1.43）
+        let 話 =
+            desk::画像を聞いた(&key_to_string(bridge.device.public_key()), 型, 中身, None);
         desk::配る(&bridge, 話);
     }
     for tx in &送り先 {
@@ -4422,6 +4418,7 @@ pub fn run() {
             leave,
             send_text,
             send_image,
+            save_image::save_image,
             log,
             contacts,
             remember,
