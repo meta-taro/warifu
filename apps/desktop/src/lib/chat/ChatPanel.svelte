@@ -19,11 +19,12 @@
   import { tick, untrack, type Snippet } from 'svelte';
   import { 画像を拾う } from './image';
   import { 時刻の札 } from './history';
+  import Markdown from './Markdown.svelte';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
   import { 吹き出しの形, 畳むか } from './bubble';
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
-  import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, type 打ちかけ } from './mention';
+  import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, type 打ちかけ } from './mention';
 
   interface Props {
     locale: Locale;
@@ -447,10 +448,11 @@
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
             {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}
           </div>
-          <div class="bubble" class:folded={長い && !開いた.has(i)}>{#each 本文を分ける(line.body, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
-                class="mention"
-                class:me={自分の呼ばれる名.includes(片.呼び)}>{片.文}</span
-              >{:else}{片.文}{/if}{/each}{#if line.画像}<button
+          <div class="bubble" class:folded={長い && !開いた.has(i)}><Markdown
+              本文={line.body}
+              {見分ける名}
+              {自分の呼ばれる名}
+            />{#if line.画像}<button
                 type="button"
                 class="pic"
                 onclick={() => (大きく見る = line.画像 ?? null)}
@@ -838,8 +840,8 @@
   .bubble {
     max-width: min(80%, 42em);
     padding: 6px 10px;
-    /* **打った改行を、そのまま見せる。**折り返しも効かせる */
-    white-space: pre-wrap;
+    /* 打った改行は、本文の塊の側（`Markdown.svelte`）で見せる。ここで pre-wrap にすると、
+       塊と塊のあいだの改行まで空の行に見える。折り返しは効かせる */
     overflow-wrap: anywhere;
     word-break: break-word;
     color: var(--text-primary);
@@ -932,17 +934,7 @@
     color: var(--warning-fg);
     background: var(--warning-bg);
   }
-  /* **`@名前` で呼んだ所**（0.1.35）。誰に話しかけたかが一目で分かるように */
-  .mention {
-    color: var(--info-fg);
-    font-weight: 600;
-  }
-  /* 自分が呼ばれた所は、地も付けて目に入れる */
-  .mention.me {
-    padding: 0 2px;
-    background: var(--info-bg);
-    border-radius: var(--radius-sm);
-  }
+  /* `@名前` の色は `Markdown.svelte` が持つ（吹き出しの本文はそちらで描く・0.1.44） */
   /* **自分が呼ばれた発言。**吹き出しの左に帯を付ける */
   .line.to-me .bubble {
     box-shadow: inset 3px 0 0 var(--accent);

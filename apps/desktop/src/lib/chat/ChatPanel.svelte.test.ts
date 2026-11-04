@@ -70,6 +70,25 @@ describe('ChatPanel', () => {
     expect(行('調べます').querySelector('.kind')?.textContent).toBe(ja['avatar.owner.agent']);
   });
 
+  it('発言のマークダウンは表や見出しとして見せ、タグは字のまま出す（0.1.44）', () => {
+    const { container } = render(ChatPanel, {
+      ...素,
+      会話: [
+        {
+          who: '山田さん',
+          body: '## 題\n\n| 問い | 場所 |\n|---|---|\n| 仕様 | **試験書** |\n\n<img src=x onerror=alert(1)>',
+          mine: false,
+        },
+      ],
+    });
+    const 吹き出し = container.querySelector('.bubble') as HTMLElement;
+    expect(吹き出し.querySelector('table td strong')?.textContent).toBe('試験書');
+    expect(吹き出し.textContent).not.toContain('|---|');
+    // 届いた文で要素を作らない
+    expect(吹き出し.querySelector('img')).toBeNull();
+    expect(吹き出し.textContent).toContain('<img src=x onerror=alert(1)>');
+  });
+
   it('Enter で前後の空白を落として送り、欄を空ける。届く先が無ければ送る押し所は押せない', async () => {
     const 送る = vi.fn();
     const { rerender } = render(ChatPanel, { ...素, 送る });
