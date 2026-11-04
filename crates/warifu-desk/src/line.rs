@@ -90,6 +90,11 @@ pub enum ToDesk {
         /// 同じ理由で opt-in。名乗った口にだけ机は `まだ` の欄を付ける（空なら欄を書かない）。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         届かない先も聞く: bool,
+        /// **様子に「この機械のエージェントがどこまで読んだか」を付けてほしい**（0.1.43）。
+        ///
+        /// 同じ理由で opt-in。名乗った口にだけ机は `読み` の欄を付ける（空なら欄を書かない）。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        読みも聞く: bool,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -539,6 +544,23 @@ pub enum 頼みの返り {
     },
 }
 
+/// **この機械のエージェント 1 人の読み**（[`FromDesk::様子`] の `読み`・0.1.43）。
+///
+/// 割符の中だけの数である。網の向こうへは出さない（既読を作らない・**D94**）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct 読みの様子 {
+    /// 呼び名（`エージェント` の欄と同じ）
+    pub 名: String,
+    /// 最後に読んだ時（`HH:MM`）。**一度も読んでいなければ `None`**
+    #[serde(default)]
+    pub 最後に読んだ: Option<String>,
+    /// まだ読んでいない発言の数（この機械が覚えている分だけ・自分の発言は数えない）
+    pub 読んでいない: usize,
+    /// そのうち `@名前` で呼ばれた数。**ここが 0 でないまま時が過ぎるのが、起きない席である**
+    pub 宛てで読んでいない: usize,
+}
+
 /// この機械 → エージェント。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "型", rename_all = "snake_case", deny_unknown_fields)]
@@ -648,6 +670,12 @@ pub enum FromDesk {
         /// 古いこの機械は空で返す（`serde(default)`）。
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         食い違い: Vec<String>,
+        /// **この機械のエージェントごとの読み**（0.1.43）。`Listen` で `読みも聞く` と名乗った口にだけ付ける。
+        ///
+        /// 知らせ（channels）を受けずに動いている席は、呼ばれても読みに来ない。口からは
+        /// 受けられるかが見分けられないので、**最後に読んだ時と、読んでいない数**で人が見分ける。
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        読み: Vec<読みの様子>,
     },
     /// **出したルームキー**（[`ToDesk::招く`] の返り）。
     ///
@@ -1217,6 +1245,7 @@ mod 様子の試験 {
     fn 様子の返りは_経路と名簿と待っているリンクを持つ() {
         let 元 = FromDesk::様子 {
             食い違い: Vec::new(),
+            読み: Vec::new(),
             ルーム: Some("ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned()),
             名簿: vec!["PEERCAAAAAAA…".to_owned()],
             経路: Some("direct".to_owned()),
@@ -1245,6 +1274,7 @@ mod 様子の試験 {
             出た,
             FromDesk::様子 {
                 食い違い: Vec::new(),
+                読み: Vec::new(),
                 ルーム: None,
                 名簿: vec![],
                 経路: None,
@@ -1290,6 +1320,7 @@ mod 様子の試験 {
         // `経路` は在るが、画面の文言と一致する保証が無い
         let 元 = FromDesk::様子 {
             食い違い: Vec::new(),
+            読み: Vec::new(),
             ルーム: None,
             名簿: vec![],
             経路: None,
@@ -1313,6 +1344,7 @@ mod 様子の試験 {
         // **「まだ居ない」も様子である。**黙るのは答えではない
         let 元 = FromDesk::様子 {
             食い違い: Vec::new(),
+            読み: Vec::new(),
             ルーム: None,
             名簿: vec![],
             経路: None,
@@ -1385,6 +1417,7 @@ mod tests {
             部屋も聞く: false,
             点検も聞く: false,
             届かない先も聞く: false,
+            読みも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1400,6 +1433,7 @@ mod tests {
             部屋も聞く: false,
             点検も聞く: false,
             届かない先も聞く: false,
+            読みも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1415,6 +1449,7 @@ mod tests {
                 部屋も聞く: false,
                 点検も聞く: false,
                 届かない先も聞く: false,
+                読みも聞く: false,
             }
         );
     }
@@ -1428,6 +1463,7 @@ mod tests {
                 部屋も聞く: false,
                 点検も聞く: false,
                 届かない先も聞く: false,
+                読みも聞く: false,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -1443,6 +1479,7 @@ mod tests {
             部屋も聞く: false,
             点検も聞く: false,
             届かない先も聞く: false,
+            読みも聞く: false,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
@@ -1462,6 +1499,7 @@ mod tests {
                 部屋も聞く: false,
                 点検も聞く: false,
                 届かない先も聞く: false,
+                読みも聞く: false,
             }
         );
     }
@@ -1474,6 +1512,7 @@ mod tests {
             部屋も聞く: false,
             点検も聞く: false,
             届かない先も聞く: false,
+            読みも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
     }
@@ -1534,6 +1573,7 @@ mod tests {
             部屋も聞く: true,
             点検も聞く: true,
             届かない先も聞く: false,
+            読みも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
         let 行 = r#"{"型":"listen","場所":"docs"}"#;
@@ -1543,6 +1583,7 @@ mod tests {
                 部屋も聞く: false,
                 点検も聞く: false,
                 届かない先も聞く: false,
+                読みも聞く: false,
                 ..
             }
         ));
@@ -1553,6 +1594,7 @@ mod tests {
             部屋も聞く: false,
             点検も聞く: false,
             届かない先も聞く: false,
+            読みも聞く: false,
         };
         assert!(!聞かない.書く().contains("部屋も聞く"));
         assert!(!聞かない.書く().contains("点検も聞く"));

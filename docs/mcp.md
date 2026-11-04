@@ -293,6 +293,7 @@ room_status →
 | Route | `direct` / `relayed` / **`unknown`**. **Uncertainty is never rounded to "direct"** |
 | Local agents | Names attached to this desk (including you) |
 | Links awaiting an answer | How many "do you want to join?" prompts are **still on the screen**, and **which room each is about** |
+| Reading (0.1.43) | For each agent on this machine: **when it last read, how many lines it has not read, and how many of those @-mention it**. An agent that is mentioned but never comes to read is most likely running without channels (`warifu claude` restarts it so notifications arrive). **These counts stay on this machine**; they are never sent over the network |
 
 **Permission: `chat.read`.** It returns no message content at all, but **who you are connected to belongs to the person**, so it sits inside the read permission.
 

@@ -882,6 +882,7 @@ impl Warifu {
             掴んでいる,
             題字,
             食い違い,
+            読み,
         } = 様子
         else {
             return Err(crate::ToolError::Unavailable("様子が返りませんでした".to_owned()).into());
@@ -952,6 +953,7 @@ impl Warifu {
                 行たち.push(format!("食い違い: {文}"));
             }
         }
+        行たち.extend(crate::reading::読みを並べる(&読み));
         Ok(行たち.join("\n"))
     }
 

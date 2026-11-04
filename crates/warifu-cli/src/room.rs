@@ -111,6 +111,7 @@ pub async fn 口(
             部屋も聞く: false,
             点検も聞く: false,
             届かない先も聞く: false,
+            読みも聞く: false,
         }
         .書く(),
     )
