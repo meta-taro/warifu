@@ -77,6 +77,7 @@
     type ルームの会話,
   } from '$lib/chat/rooms';
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
+  import { 受けたことにする, 受けたを足す, 返事で受けたことにする } from '$lib/chat/ack';
   import { 宛先の見出し } from '$lib/chat/destination';
   import { 残す形, 戻す } from '$lib/chat/history';
   import { 映像を始めてよいか } from '$lib/meeting/stage-one';
@@ -149,6 +150,8 @@
     EVENT_LEFT,
     EVENT_SIGNAL,
     EVENT_TEXT,
+    EVENT_ACK,
+    chatAck,
     EVENT_DESK,
     EVENT_IMAGE,
     EVENT_DESK_SEATS,
@@ -2039,7 +2042,7 @@
         }),
       );
       unsubs.push(
-        await onEvent<[string, string, string?]>(EVENT_TEXT, ([key, body, ルーム]) => {
+        await onEvent<[string, string, string?, string?]>(EVENT_TEXT, ([key, body, ルーム, 印]) => {
           log(話の記録('受信', 短く(key), body));
           // **この機械とルームの両方へ積む**（`issues/1`）。
           // 片方にしか積まないと、もう片方を見ている人には何も見えない。
@@ -2052,7 +2055,19 @@
             body,
             mine: false,
             at: いま時刻(),
+            // **行の印**（D130）。呼ばれた行に［受けました］を出すとき、どの行かを指す
+            ...(印 ? { 印 } : {}),
           });
+        }),
+      );
+      unsubs.push(
+        // **自分が呼んだ相手が受けた**（D130）。その部屋の、印の合う自分の行に足す
+        await onEvent<[string, string, string, string]>(EVENT_ACK, ([ルーム, 印, 誰, 方]) => {
+          const 名 = 画面での名(誰);
+          log(`受けた: ${名}（${方}）`);
+          let 次 = 受けたを足す(ルームの会話たち, ルーム, 印, 名, 方, Date.now());
+          次 = 受けたを足す(次, この機械のルーム(), 印, 名, 方, Date.now());
+          ルームの会話たち = 次;
         }),
       );
       unsubs.push(
@@ -2657,6 +2672,17 @@
     }
   }
 
+  /** **呼ばれた行に［受けました］を返す**（D130）。返せなかったら、そう言う */
+  async function 受けたと返す(部屋: string, 印: string) {
+    try {
+      await chatAck(部屋, 印);
+      ルームの会話たち = 受けたことにする(ルームの会話たち, 部屋, 印);
+      ルームの会話たち = 受けたことにする(ルームの会話たち, この機械のルーム(), 印);
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   async function 話す(body: string, 秘密を承知 = false) {
     if (!body.trim()) return;
     // **相手が居ないなら、預かり所へ。**置いていなければ、そう言って終わる（D71）
@@ -2669,7 +2695,7 @@
       return;
     }
     try {
-      await sendText(body, 宛先, 秘密を承知);
+      const 印 = await sendText(body, 宛先, 秘密を承知);
       // **中身は書かない。**長さと相手だけ（下ごしらえがバイト数を出しているのと釣り合う）
       log(話の記録('送信', 宛先 ?? (会議中 ? `${この部屋の相手を見る().length} 人` : 'この機械'), body));
       // **自分の言ったことも並べる。**送った側に何も残らないと、言ったか分からない
@@ -2683,7 +2709,13 @@
         mine: true,
         at: いま時刻(),
         届き: { 札: 札.札, 訳: 札.訳 },
+        // **行の印**（D130）。呼んだ相手から受けたが届いたら、この行に足す
+        ...(印 ? { 印 } : {}),
       };
+      // **返事を書いたので、この部屋で自分が呼ばれていた行は受けた**（本体が同じものを返している）
+      if (いまのルーム && 印) {
+        ルームの会話たち = 返事で受けたことにする(ルームの会話たち, いまのルーム, 自分の呼ばれる名);
+      }
       if (送り方.種類 === 'この機械') {
         // **そのエージェントにしか届いていない**（**D86**）。
         // ルームにもこの機械ぜんぶにも積まない —— **届いていない所に出すのは嘘である**
@@ -3794,6 +3826,7 @@
     <ChatPanel {画面での名簿}
       自分の呼ばれる名={自分の呼ばれる名}
       部屋={見ている}
+      受ける={見ている ? (印) => void 受けたと返す(見ている, 印) : undefined}
       見出しの右={見ている ? 映像の押し所 : undefined}
       {locale}
       {会話}
@@ -4348,6 +4381,7 @@
         <Divider {locale} bind:幅={連絡帳の右の幅} 覚える鍵="warifu.幅.連絡帳" 残す={640} />
         <ChatPanel {画面での名簿}
           部屋={見ている}
+          受ける={見ている ? (印) => void 受けたと返す(見ている, 印) : undefined}
       自分の呼ばれる名={自分の呼ばれる名}
           {locale}
           {会話}

@@ -25,6 +25,7 @@
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, type 打ちかけ } from './mention';
+  import { 受けを見る, 受ける押し所を出すか } from './ack';
 
   interface Props {
     locale: Locale;
@@ -127,6 +128,8 @@
      * 呼ばれた行に印を付ける。渡されなければ印は付かない
      */
     自分の呼ばれる名?: readonly string[];
+    /** **呼ばれた行に［受けました］を返す**（D130）。無ければ押し所を出さない。 */
+    受ける?: (印: string) => void;
     /** 会話の上に届く先を出すか。連絡帳はまんなかの欄に出すので出さない（0.1.36）。 */
     届く先を出す?: boolean;
   }
@@ -155,6 +158,7 @@
     自分の呼ばれる名 = [],
     届く先を出す = true,
     見出しの右,
+    受ける,
   }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
@@ -352,6 +356,12 @@
     呼べる名に広げる([...呼べる名, ...Object.values(画面での名簿), ...自分の呼ばれる名])
   );
   const 呼んでいる名 = $derived(宛ての名(下書き, 呼べる名に広げる(呼べる名)));
+  /** 「まだ受けていない（N 分）」を数えるための時計。1 分ごとに進める（D130） */
+  let 今 = $state(Date.now());
+  $effect(() => {
+    const 刻み = setInterval(() => (今 = Date.now()), 60_000);
+    return () => clearInterval(刻み);
+  });
   let 打つ欄: HTMLTextAreaElement | undefined = $state();
   let 呼びかけ = $state<打ちかけ | null>(null);
   let 選んでいる = $state(0);
@@ -422,6 +432,8 @@
     {#each 会話 as line, i (i)}
       {@const 形 = 吹き出しの形(line)}
       {@const 宛て = !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
+      {@const 受け = 受けを見る(line, 宛ての名(line.body, 見分ける名), 今)}
+      {@const 押せる = 受ける !== undefined && 受ける押し所を出すか(line, 宛て)}
       {@const 長い = !line.system && 畳むか(line.body)}
       {#if line.system}
         <!-- **会議からの知らせ**は吹き出しにしない。真ん中に小さく -->
@@ -467,9 +479,19 @@
               >{t(開いた.has(i) ? 'chat.less' : 'chat.more')}</button
             >
           {/if}
-          {#if 宛て || line.届き}
+          {#if 宛て || line.届き || 受け}
             <div class="foot">
               {#if 宛て}<span class="mark to-me-mark">{t('chat.mention.me')}</span>{/if}
+              {#if 押せる}<button type="button" class="ack" onclick={() => line.印 && 受ける?.(line.印)}
+                  >{t('chat.ack.press')}</button
+                >{/if}
+              {#if 受け?.種 === '受けた'}<span class="mark acked" title={t('chat.ack.how')}
+                  >{format(t('chat.ack.by'), { who: 受け.誰たち.map((u) => 見せる名(u.誰)).join('・') })}</span
+                >{:else if 受け?.種 === 'まだ'}<span
+                  class="mark"
+                  class:none={受け.知らせる}
+                  title={t('chat.ack.how')}>{format(t('chat.ack.waiting'), { n: String(受け.分) })}</span
+                >{/if}
               {#if line.届き}<span
                   class="mark"
                   class:none={line.届き.札 === 'mark.none'}
@@ -939,6 +961,25 @@
   .line.to-me .bubble {
     box-shadow: inset 3px 0 0 var(--accent);
     background: var(--accent-subtle);
+  }
+  /* **呼んだ相手が受けた**（D130）。通った色・字でも言う（色だけに頼らない） */
+  .mark.acked {
+    color: var(--success-fg);
+    background: var(--success-bg);
+  }
+  /* **受ける押し所。**呼ばれた行の足もとに、小さく */
+  .ack {
+    padding: 0 8px;
+    font: inherit;
+    font-size: var(--text-2xs-size);
+    color: var(--accent);
+    background: var(--accent-subtle);
+    border: 1px solid var(--accent-border);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+  }
+  .ack:hover {
+    background: var(--bg-hover);
   }
   .mark.to-me-mark {
     color: var(--info-fg);

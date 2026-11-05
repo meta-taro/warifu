@@ -129,6 +129,38 @@ describe('ChatPanel', () => {
     expect(screen.getByText(/@山田さん を呼びます（ルームの全員に見えます）/)).toBeTruthy();
   });
 
+  it('呼ばれた行にだけ［受けました］を出して押せば返し、自分が呼んだ行には受けた／まだを出す（D130・0.1.45）', async () => {
+    const 受ける = vi.fn();
+    const 分 = 60_000;
+    const 今 = Date.now();
+    render(ChatPanel, {
+      ...素,
+      受ける,
+      自分の呼ばれる名: ['わたし'],
+      会話: [
+        { who: '山田さん', body: '@わたし 見積を見てください', mine: false, 印: 'aa' },
+        { who: '山田さん', body: 'みなさんへ', mine: false, 印: 'bb' },
+        { who: 'わたし', body: '@山田さん 受注です', mine: true, 印: 'cc', 時: 今 - 40 * 分 },
+        {
+          who: 'わたし',
+          body: '@山田さん 請求です',
+          mine: true,
+          印: 'dd',
+          時: 今,
+          受け: [{ 誰: '山田さん', 方: '押した', 時: 今 }],
+        },
+      ],
+    });
+    const 押し所 = screen.getAllByRole('button', { name: ja['chat.ack.press'] });
+    expect(押し所).toHaveLength(1);
+    await fireEvent.click(押し所[0]);
+    expect(受ける).toHaveBeenCalledWith('aa');
+    // 30 分を過ぎた「まだ」は注意の色（字でも言う）
+    const まだ = screen.getByText('まだ受けていない（40 分）');
+    expect(まだ.classList.contains('none')).toBe(true);
+    expect(screen.getByText('山田さん が受けた')).toBeTruthy();
+  });
+
   it('秘密らしいものは、すぐ送らずに確かめる。直すなら欄に残り、「それでも送る」で初めて送る（0.1.42）', async () => {
     // 割符の会話は送ったら消せない（P2P）。止められるのは送る前だけ
     const 送る = vi.fn();

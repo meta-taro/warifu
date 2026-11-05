@@ -35,6 +35,10 @@ camera.busy	Another app is using the camera.	ほかのアプリがカメラを�
 camera.denied	Camera and microphone are not allowed. Allow them in your OS settings.	カメラとマイクが許可されていません。OS の設定で許可してください。	未允许使用摄像头和麦克风。请在系统设置中允许。	카메라와 마이크가 허용되지 않았습니다. OS 설정에서 허용해 주세요.				
 camera.missing	No camera or microphone found.	カメラかマイクが見つかりません。	找不到摄像头或麦克风。	카메라나 마이크를 찾을 수 없습니다.				
 camera.unknown	Could not use the camera.	カメラを使えませんでした。	无法使用摄像头。	카메라를 사용할 수 없습니다.				
+chat.ack.by	{who} got it	{who} が受けた	{who} 已收到	{who} 님이 확인함				
+chat.ack.how	Comes back when they press it, reply, or their agent reads it. Showing on their screen alone does not count (this is not a read receipt)	押した・返事を書いた・エージェントが読んだ、のどれかで返ります。画面に出ただけでは返りません（既読ではありません）	对方点击、回复或其代理读取后才会返回。仅显示在屏幕上不算（这不是已读回执）	상대가 누르거나 답하거나 에이전트가 읽었을 때만 돌아옵니다. 화면에 뜬 것만으로는 돌아오지 않습니다（읽음 표시가 아닙니다）				
+chat.ack.press	Got it	受けました	收到	확인했어요		自分が `@` で呼ばれた行に出る押し所。押すと呼んだ人に「受けた」が返る。「既読にする」と読ませないこと —— 画面に出ただけでは返らない（D130）。		
+chat.ack.waiting	Not acknowledged yet ({n} min)	まだ受けていない（{n} 分）	尚未确认（{n} 分钟）	아직 확인 안 함（{n}분）		自分が呼んだ相手が、まだ受けていないことを言う。「未読」と訳さないこと —— 読んだかは分からない。分かるのは、押す・返事・エージェントが読む、のどれも来ていないことだけ（D130）。		
 chat.agent	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{name}의 에이전트		会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。		
 chat.desk	An agent on this computer is connected. You can talk to it even with nobody else in the room.	この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。	这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。	이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.				

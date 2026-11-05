@@ -27,6 +27,8 @@ const SINCE: &str = "meeting.since";
 const IMAGE: &str = "meeting.image";
 /// **同時編集の居場所**（0.1.43）。誰がどの文書のどこに居るか。
 const PRESENCE: &str = "meeting.presence";
+/// **メンションされた行を受けた**（D130・0.1.45）。
+const ACK: &str = "meeting.ack";
 /// 居場所の文書の名前と場所の、それぞれの長さの上限（バイト）。**受け取る側でも数える**（D15）。
 ///
 /// 文書の名前は `<remote>#<相対パス>`、場所は小さな JSON（行・列・ブランチ）で、どちらも数百バイトに収まる。
@@ -307,6 +309,56 @@ pub enum Notice {
         /// 文書の中のどこか（空なら閉じた）。
         場所: String,
     },
+    /// **メンションされた行を受けた**（D130・0.1.45）。メンションされた側から送り手へ返す。
+    ///
+    /// **既読ではない**（D94 はそのまま）。人の画面に出ただけでは返さず、
+    /// 人が押したか・返事を書いたか・エージェントが読んだときだけ返す。
+    /// 指すのは行の印（[`Notice::文字の印`]）だけで、本文は運ばない。
+    /// 差出人と札の扱いは [`Notice::Text`] と同じ。
+    ///
+    /// 古い版（〜0.1.44）は知らない知らせとして読み飛ばす。
+    受けた {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰が受けたか。
+        from: PublicKey,
+        /// その機械の誰か（エージェントなら名。人なら `None`）。
+        話し手: Option<String>,
+        /// どの行か（[`Notice::文字の印`]）。
+        行: [u8; 32],
+        /// どう受けたか。
+        方: 受け方,
+    },
+}
+
+/// **どう受けたか**（[`Notice::受けた`]）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum 受け方 {
+    /// 人が［受けました］を押した。
+    押した,
+    /// 人がその部屋で返事を書いた。
+    返事,
+    /// エージェントがその行を読んだ（渡したことが確か）。
+    読んだ,
+}
+
+impl 受け方 {
+    fn 数(self) -> u8 {
+        match self {
+            Self::押した => 1,
+            Self::返事 => 2,
+            Self::読んだ => 3,
+        }
+    }
+
+    fn 数から(n: u8) -> Result<Self, Error> {
+        match n {
+            1 => Ok(Self::押した),
+            2 => Ok(Self::返事),
+            3 => Ok(Self::読んだ),
+            _ => Err(Error::Malformed),
+        }
+    }
 }
 
 impl Notice {
@@ -326,7 +378,8 @@ impl Notice {
             | Self::RoomSecret { meeting, .. }
             | Self::RoomName { meeting, .. }
             | Self::Since { meeting, .. }
-            | Self::Presence { meeting, .. } => *meeting,
+            | Self::Presence { meeting, .. }
+            | Self::受けた { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -413,6 +466,13 @@ impl Notice {
                 PRESENCE,
                 居場所を詰める(from, 話し手.as_deref(), 文書, 場所)?,
             ),
+            Self::受けた {
+                from,
+                話し手,
+                行,
+                方,
+                ..
+            } => (ACK, 受けたを詰める(from, 話し手.as_deref(), 行, *方)?),
             Self::Key { from, 鍵, .. } => {
                 鍵を検める(鍵)?;
                 let mut 荷物 = Vec::with_capacity(32 + 鍵.len());
@@ -531,6 +591,7 @@ impl Notice {
             }
             IMAGE => 画像を読む(meeting, 荷物),
             PRESENCE => 居場所を読む(meeting, 荷物),
+            ACK => 受けたを読む(meeting, 荷物),
             KEY => {
                 // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
                 let 頭: [u8; 32] = 荷物
@@ -803,5 +864,50 @@ fn 居場所を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error
         話し手,
         文書,
         場所,
+    })
+}
+
+/// `[差出人 32][札の長さ 1][札][行の印 32][受け方 1]`
+fn 受けたを詰める(
+    from: &PublicKey,
+    話し手: Option<&str>,
+    行: &[u8; 32],
+    方: 受け方,
+) -> Result<Vec<u8>, Error> {
+    札を検める(話し手)?;
+    let 札 = 話し手.unwrap_or_default();
+    let mut 荷物 = Vec::with_capacity(32 + 1 + 札.len() + 32 + 1);
+    荷物.extend_from_slice(&from.to_bytes());
+    荷物.push(u8::try_from(札.len()).map_err(|_| Error::Malformed)?);
+    荷物.extend_from_slice(札.as_bytes());
+    荷物.extend_from_slice(行);
+    荷物.push(方.数());
+    Ok(荷物)
+}
+
+/// [`受けたを詰める`] の逆。**組み立てる側と同じ検めをする**（相手が守る保証は無い）。
+fn 受けたを読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    let 頭: [u8; 32] = 荷物
+        .get(..32)
+        .ok_or(Error::Malformed)?
+        .try_into()
+        .map_err(|_| Error::Malformed)?;
+    let from = PublicKey::from_bytes(頭).map_err(|_| Error::Malformed)?;
+    let 札の終わり = 33 + usize::from(*荷物.get(32).ok_or(Error::Malformed)?);
+    if 荷物.len() != 札の終わり + 32 + 1 {
+        return Err(Error::Malformed);
+    }
+    let 札 = String::from_utf8(荷物[33..札の終わり].to_vec()).map_err(|_| Error::Malformed)?;
+    let 話し手 = (!札.is_empty()).then_some(札);
+    札を検める(話し手.as_deref())?;
+    let 行: [u8; 32] = 荷物[札の終わり..札の終わり + 32]
+        .try_into()
+        .map_err(|_| Error::Malformed)?;
+    Ok(Notice::受けた {
+        meeting,
+        from,
+        話し手,
+        行,
+        方: 受け方::数から(荷物[札の終わり + 32])?,
     })
 }

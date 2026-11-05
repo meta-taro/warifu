@@ -23,6 +23,8 @@ export type ClosedReason = 'left' | 'lost';
 export const EVENT_INTRODUCED = 'warifu://introduced';
 /** 文字が届いた。`[誰から, 中身]` で届く。 */
 export const EVENT_TEXT = 'warifu://text';
+/** **メンションした行を相手が受けた**（D130）。`[部屋, 行の印, 誰, 受け方]`。 */
+export const EVENT_ACK = 'warifu://ack';
 /**
  * **この PC のこの機械から出た発言**（`[公開鍵, 中身, 時刻]`）。
  *
@@ -261,8 +263,12 @@ export const leave = () => invoke<void>('leave');
  * 渡さなければ、ルームに居る全員とこの機械の AI 全員へ。
  */
 /** `force` は、秘密らしいものを人が確かめて［それでも送る］を押したとき（0.1.42）。無ければ本体も止める */
+/** 返りは送った行の印（D130）。ルームへ流さなかったときは `null`。 */
 export const sendText = (body: string, to?: string | null, force = false) =>
-  invoke<void>('send_text', { body, to: to ?? null, force });
+  invoke<string | null>('send_text', { body, to: to ?? null, force });
+
+/** **呼ばれた行に［受けました］を返す**（D130・0.1.45）。 */
+export const chatAck = (room: string, line: string) => invoke<void>('chat_ack', { room, line });
 
 /**
  * **ルームの相手へ画像を送る。**画面で縮めてから渡す（`chat/image.ts`）。

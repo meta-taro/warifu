@@ -95,6 +95,10 @@ export type MessageKey =
   | 'chat.less'
   | 'chat.mention.to'
   | 'chat.mention.me'
+  | 'chat.ack.press'
+  | 'chat.ack.by'
+  | 'chat.ack.waiting'
+  | 'chat.ack.how'
   | 'chat.mention.pick'
   | 'cli.old'
   | 'cli.ahead'
@@ -607,6 +611,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': 'たたむ',
     'chat.mention.to': '{who} を呼びます（ルームの全員に見えます）',
     'chat.mention.me': 'あなた宛て',
+    'chat.ack.press': '受けました',
+    'chat.ack.by': '{who} が受けた',
+    'chat.ack.waiting': 'まだ受けていない（{n} 分）',
+    'chat.ack.how': '押した・返事を書いた・エージェントが読んだ、のどれかで返ります。画面に出ただけでは返りません（既読ではありません）',
     'chat.mention.pick': '呼ぶ相手を選ぶ（↑↓ で選び、Enter で入れる）',
     'cli.old': 'この PC の warifu コマンドが古いままです（{ver}）。{path} を消してから、新しいものを置いてください（上書きすると、起動しなくなることがあります）。画面だけ上げても、コマンドは上がりません。',
     'cli.ahead': 'この PC の warifu コマンド（{ver}）のほうが新しいです。画面を上げてください。{path}',
@@ -1071,6 +1079,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': 'Show less',
     'chat.mention.to': 'Mentioning {who} (everyone in the room can see it)',
     'chat.mention.me': 'to you',
+    'chat.ack.press': 'Got it',
+    'chat.ack.by': '{who} got it',
+    'chat.ack.waiting': 'Not acknowledged yet ({n} min)',
+    'chat.ack.how': 'Comes back when they press it, reply, or their agent reads it. Showing on their screen alone does not count (this is not a read receipt)',
     'chat.mention.pick': 'Pick who to mention (↑↓ to move, Enter to insert)',
     'cli.old': 'The warifu command on this PC is still old ({ver}). Delete {path}, then put the new one in place (overwriting it can leave a command that will not start). Updating the app does not update the command.',
     'cli.ahead': 'The warifu command on this PC ({ver}) is newer than the app. Update the app. {path}',
@@ -1533,6 +1545,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': '收起',
     'chat.mention.to': '将提及 {who}（房间内所有人都能看到）',
     'chat.mention.me': '提到你',
+    'chat.ack.press': '收到',
+    'chat.ack.by': '{who} 已收到',
+    'chat.ack.waiting': '尚未确认（{n} 分钟）',
+    'chat.ack.how': '对方点击、回复或其代理读取后才会返回。仅显示在屏幕上不算（这不是已读回执）',
     'chat.mention.pick': '选择要提及的人（↑↓ 选择，Enter 插入）',
     'cli.old': '这台电脑上的 warifu 命令还是旧版（{ver}）。请先删除 {path}，再放入新的（直接覆盖可能导致无法启动）。只更新界面不会更新命令。',
     'cli.ahead': '这台电脑上的 warifu 命令（{ver}）比界面更新。请更新界面。{path}',
@@ -1999,6 +2015,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': '접기',
     'chat.mention.to': '{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)',
     'chat.mention.me': '나를 부름',
+    'chat.ack.press': '확인했어요',
+    'chat.ack.by': '{who} 님이 확인함',
+    'chat.ack.waiting': '아직 확인 안 함（{n}분）',
+    'chat.ack.how': '상대가 누르거나 답하거나 에이전트가 읽었을 때만 돌아옵니다. 화면에 뜬 것만으로는 돌아오지 않습니다（읽음 표시가 아닙니다）',
     'chat.mention.pick': '부를 상대 고르기 (↑↓ 로 고르고 Enter 로 넣기)',
     'cli.old': '이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}). {path} 를 지운 뒤 새것을 놓아 주세요(덮어쓰면 실행되지 않을 수 있습니다). 화면만 올려도 명령은 올라가지 않습니다.',
     'cli.ahead': '이 PC 의 warifu 명령({ver})이 화면보다 새롭습니다. 화면을 올려 주세요. {path}',
@@ -2446,6 +2466,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     'また「自動で再接続します」とも読ませないこと — **戻るのは相手の操作**であり、こちらは待っているだけである。',
   'chat.image.nobody':
     '「いまは」を落とさないこと —— 相手が入れば送れる。',
+  'chat.ack.press':
+    '自分が `@` で呼ばれた行に出る押し所。押すと呼んだ人に「受けた」が返る。「既読にする」と読ませないこと —— 画面に出ただけでは返らない（D130）。',
+  'chat.ack.waiting':
+    '自分が呼んだ相手が、まだ受けていないことを言う。「未読」と訳さないこと —— 読んだかは分からない。分かるのは、押す・返事・エージェントが読む、のどれも来ていないことだけ（D130）。',
   'chat.mention.me':
     '自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。',
   'chat.mention.pick':

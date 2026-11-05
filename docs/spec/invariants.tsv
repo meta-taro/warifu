@@ -74,6 +74,7 @@ S02-26	chat_send は渡せたのに失敗を返さない。詰まった線は待
 S02-27	長すぎる発言は、つなぐ前に長すぎると断る	L3	crates/warifu-mcp/tests/gate.rs 長すぎる本文は_この機械へ運ばず長すぎると言う	済
 S02-28	長い発言は畳んで開け閉めでき、改行の仕方はどの打つ欄にも出る	L0・L4	apps/desktop/src/lib/chat/bubble.test.ts 畳むか／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 長い発言だけ畳み…	一部（実画面は撮れていない）
 S02-29	発言のマークダウンを描き、HTML にはしない（タグは字のまま）。マークダウンの無い発言は打った改行ごとそのまま	L0・L4	apps/desktop/src/lib/chat/markdown.test.ts（14 本）／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 発言のマークダウンは表や見出しとして見せ、タグは字のまま出す	済（dev で表・箇条・符・タグを撮った）
+S02-30	@ で呼んだ行にだけ受けたが返り、画面に出ただけでは返らない。呼んだ側に誰が受けたか・まだかが出る	L0・L4	crates/warifu-meeting/tests/ack.rs（4 本）／apps/desktop/src-tauri/src/ack.rs tests（3 本）／apps/desktop/src/lib/chat/ack.test.ts（4 本）／apps/desktop/src/lib/chat/ChatPanel.svelte.test.ts 呼ばれた行にだけ［受けました］を出して押せば返し…	
 S02-15	画像は札の 1 行で流し、エージェントは番号で画像そのものを見られる。直近 20 枚だけ覚え、無い番号には無いと返す	L0	apps/desktop/src-tauri/src/desk.rs 画像は直近の枚数だけ覚え_番号で返し_落ちた分はそう言う・crates/warifu-mcp/tests/smoke.rs 口を全部_1回ずつ呼ぶ（chat_image）	済（dev で A から B へ送った画像を、B の机から番号で取り出し、送ったものとバイトまで同じだった）
 S02-16	人は大きく見た画像をダウンロードに保存できる。同じ名があれば番号を足し、上書きしない	L0	apps/desktop/src-tauri/src/save_image.rs 種類から拡張子を決め_同じ名があれば番号を足す	済（dev の画面で保存を押し、ダウンロードに同じ画像が書かれ、場所が画面に出た）
 S01-22	線が切れた相手は、その人が居たすべての部屋の名簿から外す（主催の部屋でも客の部屋でも・D83）。戻ってきたら Join で入り直す	L0	crates/warifu-app/src/room/tests.rs 主催の線が切れたら_客も名簿から外す／apps/desktop/src-tauri/src/lib.rs 汲む の終わり（試験なし）	済

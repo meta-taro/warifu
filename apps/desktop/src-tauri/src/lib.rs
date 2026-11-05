@@ -94,6 +94,7 @@ macro_rules! 記録 {
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
 mod absence;
+mod ack;
 mod bundle;
 mod call;
 mod chat_keep;
@@ -2671,7 +2672,12 @@ fn 汲む(
                         };
                         // **どのルームの発言かも渡す**（0.1.33）。渡さないと、画面は
                         // その瞬間に見ているルームへ積み、**別のルームの発言が混ざっていた**
-                        let _ = app.emit(EVENT_TEXT, (名.clone(), body.clone(), meeting.to_string()));
+                        // **行の印も渡す**（D130・0.1.45）。呼ばれた行に［受けました］を出すとき、どの行かを指す
+                        let 印 = notice.文字の印().unwrap_or_default();
+                        let _ = app.emit(
+                            EVENT_TEXT,
+                            (名.clone(), body.clone(), meeting.to_string(), ack::印を字に(&印)),
+                        );
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す。
                         // **`@` で呼ばれていたら、間を空けずに鳴らす**（0.1.35）
                         if warifu_desk::宛てられたか(body, &profile::人の呼ばれる名()) {
@@ -2684,10 +2690,12 @@ fn 汲む(
                         // **誰が言ったかは、画面と同じ名で渡す**（2026-10-16）。
                         // 鍵だけだと、相手の人と相手のエージェントが見分けられない
                         // **どの部屋で聞いたかも渡す**（0.1.40・内部の Issue 026）。口はその部屋へ返事を返す
-                        desk::配る(
-                            &app.state::<Bridge>(),
-                            desk::聞いた_部屋で(&名, body, Some(meeting.to_string())),
-                        );
+                        let 聞いた = desk::聞いた_部屋で(&名, body, Some(meeting.to_string()));
+                        // **呼んでいる行は控える**（D130）。この機械のエージェントが読んだら受けたを返す
+                        if let warifu_desk::FromDesk::Heard { id, .. } = &聞いた {
+                            ack::控える(*id, *meeting, 印, body);
+                        }
+                        desk::配る(&app.state::<Bridge>(), 聞いた);
                         // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
                         //
                         // 三者会議は星形である —— 参加者どうしは繋がっていないので、
@@ -2759,6 +2767,21 @@ fn 汲む(
                         }
                         let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
                         presence::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
+                    // **メンションされた行を受けた**（D130・0.1.45）。**名簿は動かさない。**
+                    // 差出人の確かめは文字と同じ（主催ごしの分だけ通す）。主催なら面々へ配る
+                    if let Notice::受けた { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 受けたの差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        ack::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
                     // **鍵の手渡し**（2026-10-20）。**名簿は動かさない。入るかは人が決める**
@@ -3683,7 +3706,7 @@ async fn send_text(
     body: String,
     to: Option<String>,
     force: Option<bool>,
-) -> Answer<()> {
+) -> Answer<Option<String>> {
     // **秘密らしいものは、人が確かめてから送る**（0.1.42）。会話は送ったら消せない（P2P）。
     // 画面が先に見て［それでも送る］を出すが、ここでも見る（画面の見落としで素通りさせない）。
     // 種類だけを返す。値は返さない
@@ -3726,7 +3749,7 @@ async fn send_text(
             });
         }
         記録!("送信: 文字（{} バイト）を 1 エージェントへ", body.len());
-        return Ok(());
+        return Ok(None);
     }
 
     let この機械に居る = desk::エージェントの数(&bridge) > 0;
@@ -3741,7 +3764,7 @@ async fn send_text(
                 "送信: 文字（{} バイト）をこの機械へ（会議はまだ無い）",
                 body.len()
             );
-            return Ok(());
+            return Ok(None);
         }
         return Err(Failure {
             message: "まだ会議がありません".into(),
@@ -3772,7 +3795,7 @@ async fn send_text(
                 "送信: 文字（{} バイト）をこの機械へ（ルームに人は居ない）",
                 body.len()
             );
-            return Ok(());
+            return Ok(None);
         }
         return Err(Failure {
             message: "まだ誰も居ません".into(),
@@ -3784,18 +3807,42 @@ async fn send_text(
         body.len(),
         送り先.len()
     );
+    let 文 = Notice::Text {
+        meeting,
+        // **自分が言ったと載せる**（D48）。相手はこれで誰の発言かが分かる
+        from: bridge.device.public_key(),
+        話し手: None,
+        body: body.clone(),
+    };
     for tx in &送り先 {
         // 届かない相手が居ても止めない。**送る側を待たせない**
-        let _ = tx
-            .send(Notice::Text {
-                meeting,
-                // **自分が言ったと載せる**（D48）。相手はこれで誰の発言かが分かる
-                from: bridge.device.public_key(),
-                話し手: None,
-                body: body.clone(),
-            })
-            .await;
+        let _ = tx.send(文.clone()).await;
     }
+    // **その部屋で呼ばれていた行は、返事を書いたので受けた**（D130）
+    ack::人が返事を書いた(&bridge, meeting).await;
+    // **行の印を画面へ返す**（D130）。呼んだ相手から受けたが来たら、この行の横に出す
+    Ok(文.文字の印().map(|印| ack::印を字に(&印)))
+}
+
+/// **人が［受けました］を押した**（D130・0.1.45）。呼ばれた行に受けたを返す。
+#[tauri::command]
+async fn chat_ack(bridge: State<'_, Bridge>, room: String, line: String) -> Answer<()> {
+    let 部屋 = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .find(|m| m.to_string() == room)
+        .copied()
+        .ok_or_else(|| Failure {
+            message: "そのルームに居ません".into(),
+            code: Some("ack.room".into()),
+        })?;
+    let 印 = ack::字を印に(&line).ok_or_else(|| Failure {
+        message: "どの行か読めません".into(),
+        code: Some("ack.line".into()),
+    })?;
+    ack::人が押した(&bridge, 部屋, 印).await;
     Ok(())
 }
 
@@ -4175,6 +4222,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::RoomSecret { .. } => "部屋の合言葉",
         Notice::RoomName { .. } => "ルームの名前",
         Notice::Presence { .. } => "居場所",
+        Notice::受けた { .. } => "受けた",
         _ => "知らない知らせ",
     }
 }
@@ -4423,6 +4471,7 @@ pub fn run() {
             should_offer_to,
             leave,
             send_text,
+            chat_ack,
             send_image,
             save_image::save_image,
             chat_keep::chat_keep,
@@ -4647,6 +4696,13 @@ mod 知らせの名の試験 {
                 話し手: None,
                 文書: "a".to_owned(),
                 場所: String::new(),
+            },
+            Notice::受けた {
+                meeting: 部屋,
+                from: 鍵(),
+                話し手: None,
+                行: [0; 32],
+                方: warifu_meeting::受け方::押した,
             },
         ]
     }
