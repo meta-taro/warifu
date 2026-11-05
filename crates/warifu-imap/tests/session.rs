@@ -228,3 +228,84 @@ fn 資格情報が欠けていれば受け取らない() {
         Error::NoCredentials
     );
 }
+
+/// 3 通ある受信箱で、新しい 2 通の見出しを返す台本（0.1.44）。
+fn 見出しの台本() -> Vec<u8> {
+    let h2 = "From: Yamada <a@example.com>\r\nSubject: one\r\n\r\n";
+    let h3 = "From: b@example.com\r\nSubject: two\r\n\r\n";
+    format!(
+        "* OK ready\r\n\
+         A0001 OK LOGIN completed\r\n\
+         * 3 EXISTS\r\n\
+         A0002 OK [READ-ONLY] EXAMINE completed\r\n\
+         * 2 FETCH (UID 20 FLAGS (\\Seen) INTERNALDATE \"05-Nov-2026 11:42:00 +0900\" BODY[HEADER] {{{}}}\r\n{})\r\n\
+         * 3 FETCH (UID 30 FLAGS () INTERNALDATE \"05-Nov-2026 12:00:00 +0900\" BODY[HEADER] {{{}}}\r\n{})\r\n\
+         A0003 OK FETCH completed\r\n",
+        h2.len(),
+        h2,
+        h3.len(),
+        h3
+    )
+    .into_bytes()
+}
+
+#[tokio::test]
+async fn 一覧は新しい順に見出しだけを返し_本文を取らず既読にもしない() {
+    let (流れ, 書かれた) = 台本::new(見出しの台本());
+    let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
+    let 行 = 受信箱.一覧(2).await.unwrap();
+
+    assert_eq!(行.len(), 2);
+    assert_eq!(
+        (行[0].uid, 行[0].件名.as_str(), 行[0].既読),
+        (30, "two", false)
+    );
+    assert_eq!(
+        (行[1].uid, 行[1].名.as_deref(), 行[1].既読),
+        (20, Some("Yamada"), true)
+    );
+    // サーバが受け取った時刻（2026-11-05 03:00:00Z）
+    assert_eq!(行[0].届いた, Some(1_793_847_600));
+
+    let 送った = String::from_utf8_lossy(&書かれた.lock().unwrap()).into_owned();
+    assert!(
+        送った.contains("FETCH 2:3 (UID FLAGS INTERNALDATE BODY.PEEK[HEADER])"),
+        "{送った}"
+    );
+    assert!(
+        !送った.contains("BODY[]"),
+        "本文を取りに行っています: {送った}"
+    );
+}
+
+#[tokio::test]
+async fn 受信箱が空なら一覧は何も取りに行かない() {
+    let 台 = "* OK ready\r\nA0001 OK LOGIN completed\r\n* 0 EXISTS\r\nA0002 OK [READ-ONLY] EXAMINE completed\r\n";
+    let (流れ, 書かれた) = 台本::new(台.as_bytes().to_vec());
+    let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
+    assert!(受信箱.一覧(50).await.unwrap().is_empty());
+    assert!(!String::from_utf8_lossy(&書かれた.lock().unwrap()).contains("FETCH"));
+}
+
+#[tokio::test]
+async fn 一通を開いても既読にせず_外の画像は数えるだけ() {
+    let 生 = "From: a@example.com\r\nContent-Type: text/html; charset=utf-8\r\n\r\n<p>mitsumori</p><img src=\"https://t.example.com/o.gif\">\r\n";
+    let 台 = format!(
+        "* OK ready\r\nA0001 OK LOGIN completed\r\n* 3 EXISTS\r\nA0002 OK [READ-ONLY] EXAMINE completed\r\n\
+         * 3 FETCH (UID 30 BODY[] {{{}}}\r\n{})\r\nA0003 OK FETCH completed\r\n",
+        生.len(),
+        生
+    );
+    let (流れ, 書かれた) = 台本::new(台.into_bytes());
+    let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
+    let 開いた = 受信箱.開く(30).await.unwrap();
+
+    assert_eq!(開いた.外の画像, 1);
+    assert!(
+        開いた.本文.contains("mitsumori") && !開いた.本文.contains("<img"),
+        "{}",
+        開いた.本文
+    );
+    let 送った = String::from_utf8_lossy(&書かれた.lock().unwrap()).into_owned();
+    assert!(送った.contains("UID FETCH 30 BODY.PEEK[]"), "{送った}");
+}

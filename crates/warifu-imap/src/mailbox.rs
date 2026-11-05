@@ -7,6 +7,7 @@ use futures::StreamExt as _;
 use tokio::io::{AsyncRead, AsyncWrite};
 use warifu_read::Received;
 
+use crate::convert::{人が読む形にする, 見出し, 見出しにする, 開いた通};
 use crate::{Account, Error, to_received};
 
 /// 一度に取り込む上限の既定。
@@ -101,6 +102,68 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
             届いた.push(to_received(生, received_at)?);
         }
         Ok(届いた)
+    }
+
+    /// **一覧**（0.1.44）。新しいほうから `件数` 通の、**ヘッダだけ**を返す（新しい順）。
+    ///
+    /// 本文は取らない（`BODY.PEEK[HEADER]`）。既読の印も付けない。
+    /// 時刻は**サーバが受け取った時刻**（`INTERNALDATE`）で、相手の `Date` ではない。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`]。ヘッダの読めない通は [`Error::Unparsable`] / [`Error::NoSender`] で止める。
+    pub async fn 一覧(&mut self, 件数: usize) -> Result<Vec<見出し>, Error> {
+        let 全部 = self.読むだけで開く().await?;
+        if 全部 == 0 || 件数 == 0 {
+            return Ok(Vec::new());
+        }
+        let 件数 = u32::try_from(件数).unwrap_or(u32::MAX);
+        let 先頭 = 全部.saturating_sub(件数) + 1;
+        let mut 流れ = self
+            .session
+            .fetch(
+                format!("{先頭}:{全部}"),
+                "(UID FLAGS INTERNALDATE BODY.PEEK[HEADER])",
+            )
+            .await
+            .map_err(|e| Error::Imap(e.to_string()))?;
+        let mut 行 = Vec::new();
+        while let Some(一通) = 流れ.next().await {
+            let 一通 = 一通.map_err(|e| Error::Imap(e.to_string()))?;
+            let (Some(uid), Some(ヘッダ)) = (一通.uid, 一通.header()) else {
+                return Err(Error::Imap("UID かヘッダが返りませんでした".to_owned()));
+            };
+            let 既読 = 一通
+                .flags()
+                .any(|f| matches!(f, async_imap::types::Flag::Seen));
+            let 届いた = 一通.internal_date().map(|d| d.timestamp());
+            行.push(見出しにする(uid, ヘッダ, 届いた, 既読)?);
+        }
+        行.reverse();
+        Ok(行)
+    }
+
+    /// **1 通を開く**（0.1.44）。`BODY.PEEK[]` で取るので**既読にしない。**
+    ///
+    /// 返りは**人が読む形**（文字の本文・外の画像の数・添付の名前）。エージェントへは渡さない。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`]（その UID が無いときも）/ [`Error::Unparsable`] / [`Error::NoSender`]。
+    pub async fn 開く(&mut self, uid: u32) -> Result<開いた通, Error> {
+        self.読むだけで開く().await?;
+        let mut 流れ = self
+            .session
+            .uid_fetch(uid.to_string(), "BODY.PEEK[]")
+            .await
+            .map_err(|e| Error::Imap(e.to_string()))?;
+        while let Some(一通) = 流れ.next().await {
+            let 一通 = 一通.map_err(|e| Error::Imap(e.to_string()))?;
+            if let Some(生) = 一通.body() {
+                return 人が読む形にする(生);
+            }
+        }
+        Err(Error::Imap(format!("UID {uid} の通がありません")))
     }
 
     /// **受信箱の通の数と、未読の数**（0.1.44）。件名も本文も取らない。

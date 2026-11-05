@@ -180,6 +180,7 @@ pbpaste | warifu relay-server set https://<relay-host>/relay   # with the token 
 - The machine hosting the room must record the same relay. Room keys issued after that carry the relay's address (keys issued before do not go through the relay)
 - The relay is used only when a direct path fails. **The relay operator can see who connected to whom and when** (not the content)
 - The CLI uses it with `--relay`. The environment variables `WARIFU_RELAY_URL` and `WARIFU_RELAY_TOKEN` take precedence
+- About 15 seconds after start, the app writes one `網の調べ:` (network check) line to its log. If the relay answers QUIC address discovery (7842/UDP), it says UDP v4 passes and the outside address was seen. The address itself is not written
 
 ## Updating
 

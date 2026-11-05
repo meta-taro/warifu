@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 warifu-core.workspace = true
-iroh.workspace = true
+iroh = { workspace = true, features = ["unstable-net-report"] }  # 網の調べ（UDP が通るか・QAD）を記録に出すため。API を開けるだけの印
 futures.workspace = true
 # 映像の包み（D125）を iroh の datagram で送るときの型
 bytes = "1"

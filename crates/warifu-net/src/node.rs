@@ -312,6 +312,17 @@ impl Node {
         self.key
     }
 
+    /// **網の調べ**（0.1.44）。iroh が起動のあとに調べた結果を、`待つ` だけ待って返す。
+    ///
+    /// 中継を使わないときは調べが走らないので、`None` が返る。
+    pub async fn 網の調べ(&self, 待つ: Duration) -> Option<crate::網の調べ> {
+        let mut 見張り = self.endpoint.net_report();
+        let 調べ = tokio::time::timeout(待つ, 見張り.initialized())
+            .await
+            .ok()?;
+        Some(crate::網の調べ::from_report(&調べ))
+    }
+
     /// 相手に渡す宛先。**経路が 1 本も見つかるまで待つ。**
     ///
     /// # Errors

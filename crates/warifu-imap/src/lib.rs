@@ -27,7 +27,9 @@ mod mailbox;
 mod tls;
 
 pub use account::Account;
-pub use convert::to_received;
+pub use convert::{
+    to_received, 人が読む形にする, 外の画像の数, 見出し, 見出しにする, 開いた通
+};
 pub use error::Error;
 pub use mailbox::{DEFAULT_LIMIT, Mailbox, 数};
 pub use tls::connect;

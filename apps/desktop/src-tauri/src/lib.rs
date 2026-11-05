@@ -637,6 +637,12 @@ impl Bridge {
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(番地が落ち着くまで)).await;
             ルーターの口開けを言う(&写し).await;
+            // **網の調べを 1 行出す**（0.1.44）。自前の中継に QAD を入れたとき、
+            // 効いたか（UDP が通る・外から見た番地が見えた）がどこにも出ていなかった
+            match 写し.網の調べ(std::time::Duration::from_secs(5)).await {
+                Some(調べ) => 記録!("網の調べ: {調べ}"),
+                None => 記録!("網の調べ: まだ出ていません（中継を使わないときは調べません）"),
+            }
             if let Ok(宛先) = 写し.address().await {
                 let いまの番地: Vec<String> = 宛先.ip_addrs().map(|a| a.to_string()).collect();
                 配った鍵の宛先を見比べる(&いまの番地);
