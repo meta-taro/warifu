@@ -407,6 +407,23 @@ pub(crate) async fn ルームを足す_見るのは奪わない(
     id
 }
 
+/// **建てた部屋を棚に置く。同じ id が既に在れば、そちらを残す**（足したら `true`）。
+///
+/// 画面を読み直すと `host_meeting` がもう一度走る（Cmd+R）。新しく建てた部屋で上書きすると、
+/// 繋がっている相手が名簿から消え、画面の人数が自分だけに戻っていた（11-05）。
+pub(crate) fn 建てた部屋を残す(
+    棚: &mut HashMap<MeetingId, Conference>,
+    c: Conference,
+) -> bool {
+    match 棚.entry(c.id()) {
+        std::collections::hash_map::Entry::Occupied(_) => false,
+        std::collections::hash_map::Entry::Vacant(v) => {
+            v.insert(c);
+            true
+        }
+    }
+}
+
 /// いま見ているルームの id。**無ければ `None`。**
 pub(crate) async fn いま見ているルーム(
     いま: &見ているルーム
@@ -1336,14 +1353,28 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
         Some(id) => Conference::host_with_id(私, capacity, id)?,
         None => Conference::host(私, capacity)?,
     };
+    let id = conference.id();
+    // **画面の読み直しで、在る部屋を建て直さない**（名簿が自分だけに戻る・11-05）
+    if !建てた部屋を残す(&mut *bridge.conferences.lock().await, conference) {
+        記録!(
+            "ルーム: 画面の読み直し。建ててある部屋をそのまま使います（名簿は {} 人）",
+            {
+                bridge
+                    .conferences
+                    .lock()
+                    .await
+                    .get(&id)
+                    .map_or(0, |c| c.members().len())
+            }
+        );
+        return Ok(id.to_string());
+    }
     // **起動の建て直しは、見ている部屋を奪わない**（**#39**）——
     // 人が［入る］を押した直後に、これが走って**自分の部屋へ戻していた**
-    let id = ルームを足す_見るのは奪わない(
-        &bridge.conferences,
-        &bridge.いまのルーム,
-        conference,
-    )
-    .await;
+    {
+        let mut 見ている = bridge.いまのルーム.lock().await;
+        *見ている = Some(見る部屋を決める(*見ている, id));
+    }
     // **自分が建てた部屋の主催は自分**（**#37**）
     bridge.主催たち.lock().await.insert(id, 私);
     影へ(
@@ -4906,5 +4937,41 @@ mod 生きている行の試験 {
             生きている行(4261.0, 1),
             "生きています（起動から 71 分・ルーム 1）"
         );
+    }
+}
+
+#[cfg(test)]
+mod 建て直しの試験 {
+    use super::建てた部屋を残す;
+    use std::collections::HashMap;
+    use warifu_app::Conference;
+
+    /// **画面を読み直すと `host_meeting` がもう一度走る**（Cmd+R・dev の読み直し）。
+    /// 同じ id の部屋を新しく建てて上書きすると、繋がっている相手が名簿から消えていた（11-05 に実物で）
+    #[test]
+    fn 同じ_id_の部屋が在れば_名簿ごと残す() {
+        let 鍵 = |n: u8| {
+            warifu_core::Seed::from_bytes([n; 32])
+                .profile("Personal")
+                .device("PC")
+                .public_key()
+        };
+        let (me, 相手) = (鍵(1), 鍵(2));
+        let mut 棚 = HashMap::new();
+        let mut 前 = Conference::host(me, 12).unwrap();
+        let id = 前.id();
+        前.admit(相手).unwrap();
+        棚.insert(id, 前);
+        let 建て直し = Conference::host_with_id(me, 12, id).unwrap();
+        assert!(
+            !建てた部屋を残す(&mut 棚, 建て直し),
+            "在る部屋は差し替えない"
+        );
+        assert_eq!(棚[&id].members().len(), 2);
+        // 無ければ足す
+        let 新しい = Conference::host(me, 12).unwrap();
+        let 新しい_id = 新しい.id();
+        assert!(建てた部屋を残す(&mut 棚, 新しい));
+        assert!(棚.contains_key(&新しい_id));
     }
 }
