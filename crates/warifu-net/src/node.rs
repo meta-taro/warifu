@@ -323,6 +323,44 @@ impl Node {
         Some(crate::網の調べ::from_report(&調べ))
     }
 
+    /// **中継との線の様子が変わるたびに `言う` を呼ぶ**（0.1.44）。同じ様子が続く間は呼ばない。
+    ///
+    /// iroh は断られてもつなぎ直し続ける（約 25 秒おき）。毎回言うと記録が埋まるので、変わったときだけ。
+    /// 結び目が閉じたら返る。
+    pub async fn 中継の様子を見張る(
+        &self, mut 言う: impl FnMut(&crate::中継の様子)
+    ) {
+        let mut 見張り = self.endpoint.home_relay_status();
+        let mut 前 = crate::中継の様子::まだ;
+        loop {
+            let 今 = 見張り.get().first().map_or(crate::中継の様子::まだ, |s| {
+                // 断られた訳は奥の原因に入っている。表の文に無ければ、原因の連なりごと（Debug）で見る
+                let 誤り = s.last_error().map(|e| {
+                    let 表 = format!("{e:#}");
+                    let 奥 = format!("{e:?}");
+                    if !表.contains("denied") && 奥.contains("denied") {
+                        奥
+                    } else {
+                        表
+                    }
+                });
+                crate::中継の様子::決める(s.is_connected(), 誤り)
+            });
+            // 落ちた理由の文が少し違うだけでは言い直さない（種類が変わったときだけ）。
+            // **「まだ」は前を消さない** —— つなぎ直しの合間に様子が空になり、断られるたびに
+            // 同じ行を書いていた（dev で 6 秒おきに 3 行出た）
+            if !matches!(今, crate::中継の様子::まだ)
+                && std::mem::discriminant(&今) != std::mem::discriminant(&前)
+            {
+                言う(&今);
+                前 = 今;
+            }
+            if 見張り.updated().await.is_err() {
+                return;
+            }
+        }
+    }
+
     /// 相手に渡す宛先。**経路が 1 本も見つかるまで待つ。**
     ///
     /// # Errors

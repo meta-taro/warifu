@@ -58,9 +58,100 @@ impl fmt::Display for 網の調べ {
     }
 }
 
+/// **中継との線の様子**（0.1.44）。変わったときだけ記録に 1 行書くために使う。
+///
+/// 中継に断られても、0.1.40 までは記録に何も出なかった（許可リストから漏れた機械が、
+/// 中継を使えていないことに本人も画面の前の人も気づけない）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum 中継の様子 {
+    /// まだ一度もつなぎに行っていない。
+    まだ,
+    /// つながっている。
+    つながった,
+    /// **中継に断られた**（許可リストに無い・トークンが違う）。iroh はつなぎ直し続けるが、同じ身元では通らない。
+    断られた(String),
+    /// それ以外の理由でつながっていない（網が届かない など）。
+    落ちた(String),
+}
+
+impl 中継の様子 {
+    /// iroh の見えるもの（つながっているか・最後の誤りの文）から決める。
+    ///
+    /// **断られたかを、誤りの文で見分けている**（`The relay denied our authentication (…)`）。
+    /// いま使っている iroh（1.0 / 1.1）には断られた理由を返す口が無いため。iroh を上げたら
+    /// `RelayStatus::auth_denied_reason` に替える（文の言い回しは版の約束の外）。
+    #[must_use]
+    pub fn 決める(つながっている: bool, 最後の誤り: Option<String>) -> Self {
+        if つながっている {
+            return Self::つながった;
+        }
+        match 最後の誤り {
+            Some(訳) if 訳.contains("denied our authentication") => {
+                Self::断られた(断られた訳(&訳))
+            }
+            Some(訳) => Self::落ちた(訳),
+            None => Self::まだ,
+        }
+    }
+
+    /// 記録に書く 1 行（`中継: ` に続く所）。`まだ` は書かない。
+    #[must_use]
+    pub fn 記録の文(&self) -> Option<String> {
+        match self {
+            Self::まだ => None,
+            Self::つながった => Some("つながりました".to_owned()),
+            Self::断られた(訳) => Some(format!(
+                "断られました（{訳}）。この機械の鍵が中継の許可リストに入っていない見込みです。`warifu id` の 1 行目を中継を立てた人に渡してください"
+            )),
+            Self::落ちた(訳) => Some(format!(
+                "つながっていません（{訳}）。直接つながれない相手には届きません"
+            )),
+        }
+    }
+}
+
+/// `… denied our authentication (not authorized) …` から、括弧の中（中継が言った理由）を取る。無ければ全文。
+fn 断られた訳(文: &str) -> String {
+    文.split_once("denied our authentication (")
+        .and_then(|(_, 後)| 後.split_once(')'))
+        .map_or_else(|| 文.to_owned(), |(訳, _)| 訳.to_owned())
+}
+
 #[cfg(test)]
 mod 試験 {
     use super::*;
+
+    #[test]
+    fn 中継の様子は_つながっていればつながった_断られたが落ちたより先() {
+        assert_eq!(
+            中継の様子::決める(true, Some("x".into())),
+            中継の様子::つながった
+        );
+        // ZenBook の中継で実際に出た文（11-05）
+        assert_eq!(
+            中継の様子::決める(
+                false,
+                Some(
+                    "connecting to relay: The relay denied our authentication (not authorized)"
+                        .into()
+                )
+            ),
+            中継の様子::断られた("not authorized".into())
+        );
+        assert_eq!(
+            中継の様子::決める(false, Some("timeout".into())),
+            中継の様子::落ちた("timeout".into())
+        );
+        assert_eq!(中継の様子::決める(false, None), 中継の様子::まだ);
+        assert!(中継の様子::まだ.記録の文().is_none());
+        let 文 = 中継の様子::断られた("not authorized".into())
+            .記録の文()
+            .unwrap();
+        assert!(
+            文.contains("断られました（not authorized）") && 文.contains("許可リスト"),
+            "{文}"
+        );
+    }
 
     #[test]
     fn qad_が答えたら_見えたと言う_番地そのものは出さない() {

@@ -956,7 +956,13 @@ impl Vault {
                 "中継の URL が空か、使えない字を含みます",
             ));
         }
-        let token = token.map(str::trim).filter(|t| !t.is_empty());
+        // **見えない字も落とす**（0.1.44）。Windows の PowerShell は、空の行をパイプすると
+        // 頭に BOM（U+FEFF）を付けて渡す。`trim` は BOM を落とさないので、空のはずが「トークンあり」で控えられた
+        let token = token
+            .map(|t| {
+                t.trim_matches(|c: char| c.is_whitespace() || c == '\u{feff}' || c.is_control())
+            })
+            .filter(|t| !t.is_empty());
         if token.is_some_and(壊す) {
             return Err(Error::malformed(&path, "トークンに使えない字を含みます"));
         }

@@ -60,13 +60,12 @@ pub fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             std::io::stdin().lock().read_line(&mut 行)?;
             let トークン = 行.trim();
             vault.save_relay_server(url, (!トークン.is_empty()).then_some(トークン))?;
+            // **控えた中身で言う**（0.1.44）。見えない字（BOM など）は控える側で落とすので、
+            // 打った字で数えると「トークンあり」と言いながら、なしで控えることになる
+            let 控えた = vault.relay_server()?.and_then(|(_, t)| t).is_some();
             eprintln!(
                 "自前の中継を控えました（トークン{}）。画面版は次の起動から使います。",
-                if トークン.is_empty() {
-                    "なし"
-                } else {
-                    "あり"
-                }
+                if 控えた { "あり" } else { "なし" }
             );
         }
         設定::見る => match vault.relay_server()? {

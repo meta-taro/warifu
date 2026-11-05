@@ -636,11 +636,26 @@ impl Bridge {
         //
         // **減ったのではなく、まだ出ていないだけ**である。
         let 写し = Arc::clone(&node);
+        let 使う中継 = 使う;
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_secs(番地が落ち着くまで)).await;
             ルーターの口開けを言う(&写し).await;
             // **網の調べを 1 行出す**（0.1.44）。自前の中継に QAD を入れたとき、
             // 効いたか（UDP が通る・外から見た番地が見えた）がどこにも出ていなかった
+            // **中継に断られたら、記録に 1 行**（0.1.44）。0.1.40 は断られても何も書かず、
+            // 許可リストから漏れた機械が中継を使えていないことに誰も気づけなかった（ZenBook で実測）
+            if 使う中継 {
+                let 見張る = Arc::clone(&写し);
+                tauri::async_runtime::spawn(async move {
+                    見張る
+                        .中継の様子を見張る(|様子| {
+                            if let Some(文) = 様子.記録の文() {
+                                記録!("中継: {文}");
+                            }
+                        })
+                        .await;
+                });
+            }
             match 写し.網の調べ(std::time::Duration::from_secs(5)).await {
                 Some(調べ) => 記録!("網の調べ: {調べ}"),
                 None => 記録!("網の調べ: まだ出ていません（中継を使わないときは調べません）"),

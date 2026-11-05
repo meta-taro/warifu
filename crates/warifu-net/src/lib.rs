@@ -49,7 +49,7 @@ mod upnp;
 
 pub use address::{Address, RELAY_MAX};
 pub use error::Error;
-pub use net_check::網の調べ;
+pub use net_check::{中継の様子, 網の調べ};
 pub use node::{
     MAX_MESSAGE, Node, Session, 中継の使い方, 包みの口, 口の様子, 口の決め方, 自前の中継を置く,
     通り道, 通り道の出来事,

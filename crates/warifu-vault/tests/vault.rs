@@ -2148,3 +2148,31 @@ fn 持っている印は上限を超えたら古い部屋から落ちる() {
     assert_eq!(並び.len(), warifu_vault::SEEN_MAX);
     assert_eq!(並び[0].0, "ROOM1");
 }
+
+/// **Windows の PowerShell で空の行をパイプしたら、BOM と改行だけが届く**（0.1.44）。
+/// これを「トークンあり」で控えていた。見えない字だけなら、トークンなしとして控える
+#[test]
+fn 自前の中継のトークンが見えない字だけなら_トークンなしで控える() {
+    let vault = Vault::at(仮の置き場("relay-bom"));
+    for 見えない in ["\u{feff}\r\n", "\u{feff}", " \r\n", "\n"] {
+        vault
+            .save_relay_server("https://relay.example.org/relay", Some(見えない))
+            .expect("書ける");
+        assert_eq!(
+            vault.relay_server().expect("読める"),
+            Some(("https://relay.example.org/relay".to_owned(), None)),
+            "{見えない:?} がトークンとして控えられました"
+        );
+    }
+    // 本物のトークンの前後の BOM と改行は落として控える
+    vault
+        .save_relay_server("https://relay.example.org/relay", Some("\u{feff}t0ken\r\n"))
+        .expect("書ける");
+    assert_eq!(
+        vault.relay_server().expect("読める"),
+        Some((
+            "https://relay.example.org/relay".to_owned(),
+            Some("t0ken".to_owned())
+        ))
+    );
+}
