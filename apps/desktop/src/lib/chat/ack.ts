@@ -24,21 +24,28 @@ export function 受けたを足す(
 ): ルームの会話 {
   const 行たち = 会話[部屋];
   if (!行たち) return 会話;
-  let 変えた = false;
-  const 次 = 行たち.map((行) => {
-    if (!行.mine || 行.印 !== 印) return 行;
-    if (行.受け?.some((u) => u.誰 === 誰)) return 行;
-    変えた = true;
-    return { ...行, 受け: [...(行.受け ?? []), { 誰, 方, 時: 今 }] };
-  });
-  return 変えた ? { ...会話, [部屋]: 次 } : 会話;
+  // **同じ文を 2 回言うと、印も同じになる**（差出人・札・本文から作るため）。
+  // 新しい行から、まだその相手の受けた が無い 1 行にだけ足す
+  for (let i = 行たち.length - 1; i >= 0; i--) {
+    const 行 = 行たち[i];
+    if (!行.mine || 行.印 !== 印) continue;
+    if (行.受け?.some((u) => u.誰 === 誰)) continue;
+    const 次 = [...行たち];
+    次[i] = { ...行, 受け: [...(行.受け ?? []), { 誰, 方, 時: 今 }] };
+    return { ...会話, [部屋]: 次 };
+  }
+  return 会話;
 }
 
-/** 自分が呼ばれた行を、受けた印にする（押した・返事を書いた）。 */
-export function 受けたことにする(会話: ルームの会話, 部屋: string, 印: string): ルームの会話 {
+/**
+ * 自分が呼ばれた行を、受けた印にする（押した・返事を書いた）。
+ * `時` を渡したら、その行だけ（同じ文で 2 回呼ばれると印が同じになるため）。
+ */
+export function 受けたことにする(会話: ルームの会話, 部屋: string, 印: string, 時?: number): ルームの会話 {
   const 行たち = 会話[部屋];
   if (!行たち) return 会話;
-  return { ...会話, [部屋]: 行たち.map((行) => (行.印 === 印 ? { ...行, 受けた: true as const } : 行)) };
+  const 当たる = (行: 会話行) => 行.印 === 印 && (時 === undefined || 行.時 === 時);
+  return { ...会話, [部屋]: 行たち.map((行) => (当たる(行) ? { ...行, 受けた: true as const } : 行)) };
 }
 
 /**
@@ -78,8 +85,10 @@ export type 受けの様子 =
  * 1 人でも受けていれば「受けた」と、受けた人を並べる（呼んだ全員か 1 人かは、名前で読める）。
  */
 export function 受けを見る(行: 会話行, 呼んだ名: readonly string[], 今: number): 受けの様子 | null {
-  if (!行.mine || 行.印 === undefined || 呼んだ名.length === 0) return null;
+  if (!行.mine || 行.印 === undefined) return null;
+  // **届いた受けたは、画面が名前を見分けられなくても出す**（本体が受け取った事実が先）
   if (行.受け && 行.受け.length > 0) return { 種: '受けた', 誰たち: 行.受け };
+  if (呼んだ名.length === 0) return null;
   if (行.時 === undefined) return null;
   const 分 = Math.max(0, Math.floor((今 - 行.時) / 60_000));
   return { 種: 'まだ', 分, 知らせる: 分 >= 知らせるまで };

@@ -38,6 +38,21 @@ export function 行の差出人名(行: 会話行, 名簿: Readonly<Record<strin
   return 引いた && 引いた.length > 0 ? 引いた : 行.who;
 }
 
+/** **エージェントの行の名札**（`@` で呼ばれる名を見分けるのに使う・D130）。人の行・形の違う行は `undefined`。 */
+export function エージェントの札(行: 会話行): string | undefined {
+  // 相手の機械のエージェントの行は `agent` の印を持たない（`短く(鍵)（札）` の形でだけ見分けられる）
+  if (!行.顔の種) return undefined;
+  return 相手の機械の名札を分ける(行.顔の種)?.札;
+}
+
+/**
+ * **「受けた」を返した相手の名**（D130）。エージェントなら名札、人なら画面での名。
+ * エージェントが読んだのに、その機械の人の名で出すと、人が読んだと取り違える。
+ */
+export function 受けた人の名(誰: string, 人の名: (鍵: string) => string): string {
+  return 相手の機械の名札を分ける(誰)?.札 ?? 人の名(誰);
+}
+
 /** 相手の機械のエージェントの名札（`短く(鍵)（札）`）を、鍵の頭と札に分ける。公開鍵は `（` を含まない。 */
 function 相手の機械の名札を分ける(種: string): { 頭: string; 札: string } | null {
   const 位置 = 種.indexOf('（');

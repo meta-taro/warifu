@@ -95,7 +95,7 @@
   import { 出す名, 呼び名 } from '$lib/meeting/names';
   import { 動作の言葉 } from '$lib/pass/action';
   import { 秘密を言う } from '$lib/chat/secret';
-  import { エージェントの名を言い換える } from '$lib/chat/name';
+  import { エージェントの名を言い換える, 受けた人の名 } from '$lib/chat/name';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
   import { 呼ぶ名 } from '$lib/contacts/claimed';
   import { 入室の音, 退室の音, 鳴らす } from '$lib/meeting/chime';
@@ -2063,7 +2063,7 @@
       unsubs.push(
         // **自分が呼んだ相手が受けた**（D130）。その部屋の、印の合う自分の行に足す
         await onEvent<[string, string, string, string]>(EVENT_ACK, ([ルーム, 印, 誰, 方]) => {
-          const 名 = 画面での名(誰);
+          const 名 = 受けた人の名(誰, 画面での名);
           log(`受けた: ${名}（${方}）`);
           let 次 = 受けたを足す(ルームの会話たち, ルーム, 印, 名, 方, Date.now());
           次 = 受けたを足す(次, この機械のルーム(), 印, 名, 方, Date.now());
@@ -2673,10 +2673,11 @@
   }
 
   /** **呼ばれた行に［受けました］を返す**（D130）。返せなかったら、そう言う */
-  async function 受けたと返す(部屋: string, 印: string) {
+  async function 受けたと返す(部屋: string, 印: string, 時?: number) {
     try {
       await chatAck(部屋, 印);
-      ルームの会話たち = 受けたことにする(ルームの会話たち, 部屋, 印);
+      ルームの会話たち = 受けたことにする(ルームの会話たち, 部屋, 印, 時);
+      // この機械の写しは足した時刻が違うことがあるので、印だけで合わせる
       ルームの会話たち = 受けたことにする(ルームの会話たち, この機械のルーム(), 印);
     } catch (e) {
       notice = 読める(e);
@@ -3826,7 +3827,7 @@
     <ChatPanel {画面での名簿}
       自分の呼ばれる名={自分の呼ばれる名}
       部屋={見ている}
-      受ける={見ている ? (印) => void 受けたと返す(見ている, 印) : undefined}
+      受ける={見ている ? (印, 時) => void 受けたと返す(見ている, 印, 時) : undefined}
       見出しの右={見ている ? 映像の押し所 : undefined}
       {locale}
       {会話}
@@ -4381,7 +4382,7 @@
         <Divider {locale} bind:幅={連絡帳の右の幅} 覚える鍵="warifu.幅.連絡帳" 残す={640} />
         <ChatPanel {画面での名簿}
           部屋={見ている}
-          受ける={見ている ? (印) => void 受けたと返す(見ている, 印) : undefined}
+          受ける={見ている ? (印, 時) => void 受けたと返す(見ている, 印, 時) : undefined}
       自分の呼ばれる名={自分の呼ばれる名}
           {locale}
           {会話}

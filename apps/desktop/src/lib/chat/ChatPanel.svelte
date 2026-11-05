@@ -9,7 +9,7 @@
   // `届く先がある` が決める。ここは出すだけ。
 
   import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
-  import { エージェントの名を言い換える, 行の差出人名 } from './name';
+  import { エージェントの名を言い換える, エージェントの札, 行の差出人名 } from './name';
   import type { 見出し } from './destination';
   import Avatar from '$lib/contacts/Avatar.svelte';
   import { 新しい行が来たとき, 底に着いた, 見えたときに送るか, type 位置 } from './scroll';
@@ -129,7 +129,7 @@
      */
     自分の呼ばれる名?: readonly string[];
     /** **呼ばれた行に［受けました］を返す**（D130）。無ければ押し所を出さない。 */
-    受ける?: (印: string) => void;
+    受ける?: (印: string, 時?: number) => void;
     /** 会話の上に届く先を出すか。連絡帳はまんなかの欄に出すので出さない（0.1.36）。 */
     届く先を出す?: boolean;
   }
@@ -353,7 +353,13 @@
   const 呼べる名 = $derived(届く先.map(見せる名));
   /** 印を付けて読む名前。届く相手のほか、名簿の名前と自分の名前も */
   const 見分ける名 = $derived(
-    呼べる名に広げる([...呼べる名, ...Object.values(画面での名簿), ...自分の呼ばれる名])
+    呼べる名に広げる([
+      ...呼べる名,
+      ...Object.values(画面での名簿),
+      ...自分の呼ばれる名,
+      // **このルームで話したエージェントの名札**（D130）。名簿には人しか居ないので、呼んだ行を見分けられなかった
+      ...会話.flatMap((l) => エージェントの札(l) ?? []),
+    ])
   );
   const 呼んでいる名 = $derived(宛ての名(下書き, 呼べる名に広げる(呼べる名)));
   /** 「まだ受けていない（N 分）」を数えるための時計。1 分ごとに進める（D130） */
@@ -482,7 +488,7 @@
           {#if 宛て || line.届き || 受け}
             <div class="foot">
               {#if 宛て}<span class="mark to-me-mark">{t('chat.mention.me')}</span>{/if}
-              {#if 押せる}<button type="button" class="ack" onclick={() => line.印 && 受ける?.(line.印)}
+              {#if 押せる}<button type="button" class="ack" onclick={() => line.印 && 受ける?.(line.印, line.時)}
                   >{t('chat.ack.press')}</button
                 >{/if}
               {#if 受け?.種 === '受けた'}<span class="mark acked" title={t('chat.ack.how')}

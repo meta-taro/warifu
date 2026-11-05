@@ -38,6 +38,9 @@ export function 呼べる名に広げる(名前たち: readonly string[]): strin
     広げた.push(名);
     const 頭 = /^(.+?)（[^（）]+）$/.exec(名.trim())?.[1];
     if (頭) 広げた.push(頭);
+    // **エージェントは名札で呼ばれる**（机が組む `{名札} のエージェント` の、名札だけ）
+    const 札 = /^(.+?) のエージェント$/.exec((頭 ?? 名).trim())?.[1];
+    if (札) 広げた.push(札);
   }
   return [...new Set(広げた)];
 }

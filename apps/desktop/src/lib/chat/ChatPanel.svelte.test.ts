@@ -154,7 +154,7 @@ describe('ChatPanel', () => {
     const 押し所 = screen.getAllByRole('button', { name: ja['chat.ack.press'] });
     expect(押し所).toHaveLength(1);
     await fireEvent.click(押し所[0]);
-    expect(受ける).toHaveBeenCalledWith('aa');
+    expect(受ける).toHaveBeenCalledWith('aa', undefined);
     // 30 分を過ぎた「まだ」は注意の色（字でも言う）
     const まだ = screen.getByText('まだ受けていない（40 分）');
     expect(まだ.classList.contains('none')).toBe(true);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { エージェントの名を言い換える, 行の差出人名 } from './name';
+import { エージェントの名を言い換える, エージェントの札, 受けた人の名, 行の差出人名 } from './name';
 import type { 会話行 } from '$lib/meeting/announce';
 
 const 行 = (o: Partial<会話行>): 会話行 => ({ who: '', body: '', mine: false, ...o });
@@ -61,5 +61,25 @@ describe('エージェントの名を言い換える', () => {
     expect(エージェントの名を言い換える('docs のエージェント（議事メモ）', 英)).toBe(
       'docs (agent)（議事メモ）',
     );
+  });
+});
+
+describe('エージェントの札', () => {
+  it('相手の機械のエージェントの行から、名札（呼ばれる名）を取る', () => {
+    // 相手の機械から届いた行は `agent` の印を持たない。名札の形で見分ける
+    expect(エージェントの札(行({ 顔の種: 'F5RHPB3RUJ2Q…（probe-b のエージェント）' }))).toBe(
+      'probe-b のエージェント',
+    );
+    // 人の行（鍵だけ）からは取らない
+    expect(エージェントの札(行({ 顔の種: 'KEY1' }))).toBeUndefined();
+    expect(エージェントの札(行({}))).toBeUndefined();
+  });
+});
+
+describe('受けた人の名', () => {
+  it('エージェントが読んだ受けたは、機械の人の名ではなくエージェントの名札で出す', () => {
+    const 人の名 = () => '名無しさん';
+    expect(受けた人の名('F5RHPB3RUJ2Q…（probe-b のエージェント）', 人の名)).toBe('probe-b のエージェント');
+    expect(受けた人の名('F5RHPB3RUJ2QFULLKEY', 人の名)).toBe('名無しさん');
   });
 });
