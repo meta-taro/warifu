@@ -19,6 +19,9 @@ use warifu_capability::{Action, Gate, Grant};
 use warifu_mcp::{Warifu, subject};
 use warifu_read::RuleStore;
 
+/// 1 つのアドレスから、一覧のたびに汲む通の数（0.1.44）。
+const 一度に汲む通: usize = 20;
+
 /// 札の効き目（秒）。**24 時間。**
 ///
 /// 短くすると、離エージェントのたびに人が出し直すことになる（D54 と同じ理由）。
@@ -273,8 +276,7 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // 受信箱と規則はまだ空。**空であることを、繋がっていることと混ぜない**
-    // （`issues/011` が決まるまで、inbox_* は「無い」を返す）
+    // 受信箱は最初は空で、`inbox_list` のたびに汲む（0.1.44）。規則はまだ空
     // **押した札を、断る直前に読み直せるようにする**（2026-09-24）。
     //
     // **押しても何も起きなかった** —— ここで 1 回読むだけだったので、
@@ -284,6 +286,10 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let mut 口 = Warifu::new(Vec::new(), RuleStore::new(), 関所, 今)
         .この機械を覚える(&設.この機械)
         .札を読み直すには(std::sync::Arc::new(move || 人が押した札(&机の場所)))
+        // **受信箱は、一覧のたびに控えたアドレスから汲み直す**（0.1.44）。札が無ければ汲みにも行かない
+        .受信箱を汲むには(std::sync::Arc::new(|| {
+            Box::pin(crate::mail::汲む(一度に汲む通))
+        }))
         .起こし方を決める(設.起こし方);
     if let Some(名) = &設.名乗り {
         口 = 口.名乗る(名);

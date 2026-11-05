@@ -143,6 +143,45 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
         Ok(行)
     }
 
+    /// **新しいほうから `件数` 通を、本文ごと取る**（0.1.44・エージェントの `inbox_list` のため）。新しい順に返す。
+    ///
+    /// `BODY.PEEK[]` なので**既読にしない。**時刻はサーバが受け取った時刻（`INTERNALDATE`）で、
+    /// 取れなければ `今` を使う（相手の `Date` は使わない）。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`] / [`Error::Unparsable`] / [`Error::NoSender`]。**1 通が読めなくても全部を止める**
+    /// （[`Mailbox::fetch_unseen`] と同じ。黙って捨てると、取り込めていない通が誰にも見えない）。
+    pub async fn 新しい順に取る(
+        &mut self,
+        件数: usize,
+        今: u64,
+    ) -> Result<Vec<Received>, Error> {
+        let 全部 = self.読むだけで開く().await?;
+        if 全部 == 0 || 件数 == 0 {
+            return Ok(Vec::new());
+        }
+        let 件数 = u32::try_from(件数).unwrap_or(u32::MAX);
+        let 先頭 = 全部.saturating_sub(件数) + 1;
+        let mut 流れ = self
+            .session
+            .fetch(format!("{先頭}:{全部}"), "(INTERNALDATE BODY.PEEK[])")
+            .await
+            .map_err(|e| Error::Imap(e.to_string()))?;
+        let mut 通 = Vec::new();
+        while let Some(一通) = 流れ.next().await {
+            let 一通 = 一通.map_err(|e| Error::Imap(e.to_string()))?;
+            let Some(生) = 一通.body() else { continue };
+            let 時 = 一通
+                .internal_date()
+                .and_then(|d| u64::try_from(d.timestamp()).ok())
+                .unwrap_or(今);
+            通.push(to_received(生, 時)?);
+        }
+        通.reverse();
+        Ok(通)
+    }
+
     /// **1 通を開く**（0.1.44）。`BODY.PEEK[]` で取るので**既読にしない。**
     ///
     /// 返りは**人が読む形**（文字の本文・外の画像の数・添付の名前）。エージェントへは渡さない。

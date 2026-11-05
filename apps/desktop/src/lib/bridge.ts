@@ -267,7 +267,7 @@ export const leave = () => invoke<void>('leave');
 export const sendText = (body: string, to?: string | null, force = false) =>
   invoke<string | null>('send_text', { body, to: to ?? null, force });
 
-/** **呼ばれた行に［受けました］を返す**（D130・0.1.45）。 */
+/** **呼ばれた行に［受けました］を返す**（D130・0.1.44）。 */
 export const chatAck = (room: string, line: string) => invoke<void>('chat_ack', { room, line });
 
 /**

@@ -53,7 +53,7 @@ mod tools;
 pub use chat::{Chat, 部屋の一覧の言い方};
 pub use handshake::{握手へ戻す, 握手を待つ口};
 pub use inflight::{呼びの札, 呼び中, 待つ上限, 閉じを待つ入力};
-pub use server::{Warifu, subject, 建てた版};
+pub use server::{Warifu, subject, 受信箱を汲む手, 建てた版};
 pub use tools::{
     AskArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs, InviteArgs,
     JoinArgs, KeyGiveArgs, OpenArgs, ProfileArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs,

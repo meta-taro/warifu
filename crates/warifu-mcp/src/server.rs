@@ -61,6 +61,9 @@ pub struct Warifu {
     /// **だから、断る前にもう一度読む。**
     /// **読む所は外から渡す** —— この層は置き場所を知らない（`warifu-vault` に依存しない）。
     札を読み直す: Option<Arc<dyn Fn() -> Vec<String> + Send + Sync>>,
+    /// **受信箱を汲み直す手**（0.1.44）。`inbox_list` のたびに呼ぶ。
+    /// **この層は IMAP を知らない**ので、汲み方は外から渡す（`warifu mcp` が控えたアドレスから汲む）。
+    受信箱を汲む: Option<受信箱を汲む手>,
     /// **いま走っている呼びの数**（2026-10-07・#50）。
     /// 入力が閉じても、これが 0 になるまで口を閉じない（[`crate::閉じを待つ入力`]）。
     呼び: Arc<crate::呼び中>,
@@ -118,6 +121,7 @@ impl Warifu {
             chat: Arc::new(tokio::sync::Mutex::new(None)),
             起こし方: crate::push::起こし方::default(),
             札を読み直す: None,
+            受信箱を汲む: None,
             呼び: Arc::default(),
             inner: Arc::new(Mutex::new(Inner {
                 messages,
@@ -178,6 +182,13 @@ impl Warifu {
         読む: Arc<dyn Fn() -> Vec<String> + Send + Sync>,
     ) -> Self {
         self.札を読み直す = Some(読む);
+        self
+    }
+
+    /// **受信箱を汲み直す手を渡す**（0.1.44）。`inbox_list` のたびに呼ぶ。
+    #[must_use]
+    pub fn 受信箱を汲むには(mut self, 汲む: 受信箱を汲む手) -> Self {
+        self.受信箱を汲む = Some(汲む);
         self
     }
 
@@ -352,6 +363,14 @@ impl Warifu {
     }
 }
 
+/// **受信箱を汲む手**（[`Warifu::受信箱を汲むには`]）。失敗は人が読める 1 文で返す。
+pub type 受信箱を汲む手 = Arc<
+    dyn Fn() -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<Vec<Received>, String>> + Send>,
+        > + Send
+        + Sync,
+>;
+
 #[tool_router]
 impl Warifu {
     /// 受信箱を metadata だけで並べる。**本文は 1 文字も返らない。**
@@ -359,8 +378,23 @@ impl Warifu {
     pub async fn inbox_list(&self) -> Result<String, ErrorData> {
         self.通るか("inbox.list")?;
 
+        // **汲み直す**（0.1.44）。汲めなかったら、前の一覧のまま、汲めなかったと言う（黙って空にしない）
+        let mut 汲めなかった = None;
+        if let Some(汲む) = self.受信箱を汲む.clone() {
+            match 汲む().await {
+                Ok(通) => self.inner.lock().expect("毒されていない").messages = 通,
+                Err(訳) => 汲めなかった = Some(訳),
+            }
+        }
+
         let inner = self.inner.lock().expect("毒されていない");
-        let mut 行 = vec!["番号\t送信元\t種別\t優先度\t要判断".to_owned()];
+        let mut 行 = Vec::new();
+        if let Some(訳) = 汲めなかった {
+            行.push(format!(
+                "（受信箱を汲み直せませんでした：{訳}。前に汲んだ分を出します）"
+            ));
+        }
+        行.push("番号\t送信元\t種別\t優先度\t要判断".to_owned());
         for (i, 一通) in inner.messages.iter().enumerate() {
             // **段は上げない。**View::Metadata には本文が入る場所が無い
             let m = inner.reader.read(一通);

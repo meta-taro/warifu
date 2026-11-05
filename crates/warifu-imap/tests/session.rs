@@ -309,3 +309,31 @@ async fn 一通を開いても既読にせず_外の画像は数えるだけ() {
     let 送った = String::from_utf8_lossy(&書かれた.lock().unwrap()).into_owned();
     assert!(送った.contains("UID FETCH 30 BODY.PEEK[]"), "{送った}");
 }
+
+#[tokio::test]
+async fn 新しい順に取ると_本文ごと取っても既読にせず_時刻はサーバの受け取り() {
+    let a = "From: a@example.com\r\nSubject: one\r\n\r\nhon-1\r\n";
+    let b = "From: b@example.com\r\nSubject: two\r\n\r\nhon-2\r\n";
+    let 台 = format!(
+        "* OK ready\r\nA0001 OK LOGIN completed\r\n* 3 EXISTS\r\nA0002 OK [READ-ONLY] EXAMINE completed\r\n\
+         * 2 FETCH (INTERNALDATE \"05-Nov-2026 11:42:00 +0900\" BODY[] {{{}}}\r\n{})\r\n\
+         * 3 FETCH (INTERNALDATE \"05-Nov-2026 12:00:00 +0900\" BODY[] {{{}}}\r\n{})\r\n\
+         A0003 OK FETCH completed\r\n",
+        a.len(),
+        a,
+        b.len(),
+        b
+    );
+    let (流れ, 書かれた) = 台本::new(台.into_bytes());
+    let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
+    let 通 = 受信箱.新しい順に取る(2, 1).await.unwrap();
+
+    assert_eq!(通.len(), 2);
+    assert_eq!(通[0].sender().as_str(), "b@example.com", "新しい順");
+    assert_eq!(通[0].received_at(), 1_793_847_600);
+    let 送った = String::from_utf8_lossy(&書かれた.lock().unwrap()).into_owned();
+    assert!(
+        送った.contains("FETCH 2:3 (INTERNALDATE BODY.PEEK[])"),
+        "{送った}"
+    );
+}

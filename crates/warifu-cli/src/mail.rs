@@ -195,6 +195,61 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+/// **エージェントの `inbox_list` のために、控えた全部の受信箱から新しい分を汲む**（0.1.44）。
+///
+/// 1 つのアドレスにつき新しいほうから `件数` 通。**読むだけ**（既読にしない）。
+/// 全部が汲めなかったときだけ失敗にする。一部が落ちたら、汲めた分を返し、落ちたことは標準エラーへ言う
+/// （標準出力は MCP のもの）。
+pub async fn 汲む(件数: usize) -> Result<Vec<warifu_read::Received>, String> {
+    let vault = Vault::default_location().map_err(|e| e.to_string())?;
+    let 控え = vault.mail_accounts().map_err(|e| e.to_string())?;
+    if 控え.is_empty() {
+        return Err("メールのアドレスを控えていません（warifu mail add <アドレス>）".to_owned());
+    }
+    let 今 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let mut 通 = Vec::new();
+    let mut 落ちた = Vec::new();
+    for c in &控え {
+        match 一つから汲む(c, 件数, 今).await {
+            Ok(mut 分) => 通.append(&mut 分),
+            Err(e) => {
+                eprintln!("warifu mcp: {} の受信箱を汲めませんでした（{e}）", c.user);
+                落ちた.push(c.user.clone());
+            }
+        }
+    }
+    if 落ちた.len() == 控え.len() {
+        return Err(format!(
+            "どの受信箱にもつながりませんでした（{}）",
+            落ちた.join("・")
+        ));
+    }
+    // 新しい順にそろえる（アドレスをまたいで）
+    通.sort_by_key(|r| std::cmp::Reverse(r.received_at()));
+    Ok(通)
+}
+
+async fn 一つから汲む(
+    c: &MailAccount,
+    件数: usize,
+    今: u64,
+) -> Result<Vec<warifu_read::Received>, Box<dyn std::error::Error>> {
+    let パスワード = keychain::読む(&c.user).map_err(
+        |_| "パスワードがキーチェーンにありません（warifu mail add でもう一度入れてください）",
+    )?;
+    let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
+    drop(パスワード);
+    let 流れ = warifu_imap::connect(&繋ぎ先).await?;
+    let mut 受信箱 = Mailbox::open(流れ, &繋ぎ先).await?;
+    let 通 = 受信箱.新しい順に取る(件数, 今).await?;
+    if let Err(e) = 受信箱.logout().await {
+        eprintln!("（閉じるときに落ちました: {e}）");
+    }
+    Ok(通)
+}
+
 /// 控えの中から 1 つを選んで確かめる。
 async fn 一つを確かめる(
     控え: &[MailAccount],

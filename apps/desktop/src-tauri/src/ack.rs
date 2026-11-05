@@ -1,4 +1,4 @@
-//! **メンションされた行を受けた**（D130・0.1.45）。
+//! **メンションされた行を受けた**（D130・0.1.44）。
 //!
 //! 既読ではない（D94 はそのまま）。人の画面に出ただけでは返さない。返すのは 3 つの時だけ ——
 //!
@@ -227,8 +227,9 @@ pub(crate) async fn 届いた(
 fn 二本目か(
     部屋: MeetingId, from: PublicKey, 話し手: Option<&str>, 行: &[u8; 32]
 ) -> bool {
-    static 見た: Mutex<BTreeMap<(String, [u8; 32], String, [u8; 32]), ()>> =
-        Mutex::new(BTreeMap::new());
+    /// （部屋・差出人・札・行の印）
+    type 見た鍵 = (String, [u8; 32], String, [u8; 32]);
+    static 見た: Mutex<BTreeMap<見た鍵, ()>> = Mutex::new(BTreeMap::new());
     let 鍵 = (
         部屋.to_string(),
         from.to_bytes(),

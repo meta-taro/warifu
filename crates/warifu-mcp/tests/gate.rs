@@ -1211,3 +1211,60 @@ fn 鍵の手渡しは_招く札が無ければ通らない() {
         .is_err()
     );
 }
+
+/// **一覧は、呼ばれるたびに受信箱を汲み直す**（0.1.44）。汲む手は外から渡す（この層は IMAP を知らない）。
+#[tokio::test]
+async fn 一覧は呼ばれるたびに汲み直した受信箱を並べる() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let 回数 = Arc::new(AtomicUsize::new(0));
+    let 数える = Arc::clone(&回数);
+    let 口 = Warifu::new(Vec::new(), 規則(), 札を出す(&["inbox.list"]), 1_756_000_000)
+        .受信箱を汲むには(Arc::new(move || {
+            数える.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async { Ok(受信箱()) })
+        }));
+
+    let 一覧 = 口.inbox_list().await.unwrap();
+    assert!(
+        一覧.contains("billing@例"),
+        "汲んだ通が並んでいません: {一覧}"
+    );
+    assert!(!一覧.contains(目印), "一覧に本文が漏れています: {一覧}");
+    口.inbox_list().await.unwrap();
+    assert_eq!(回数.load(Ordering::SeqCst), 2);
+}
+
+/// **汲めなかったら、前の一覧のまま「汲めなかった」と言う。**黙って空にしない
+#[tokio::test]
+async fn 汲めなかったら前の一覧を出して汲めなかったと言う() {
+    use std::sync::Arc;
+    let 口 = Warifu::new(受信箱(), 規則(), 札を出す(&["inbox.list"]), 1_756_000_000)
+        .受信箱を汲むには(Arc::new(|| {
+            Box::pin(async { Err("つながりませんでした".to_owned()) })
+        }));
+
+    let 一覧 = 口.inbox_list().await.unwrap();
+    assert!(一覧.contains("billing@例"), "前の一覧が消えました: {一覧}");
+    assert!(
+        一覧.contains("つながりませんでした"),
+        "汲めなかったことを言っていません: {一覧}"
+    );
+}
+
+/// **札が無ければ、汲みにも行かない**（関所の前で受信箱へつながない）
+#[tokio::test]
+async fn 札が無ければ汲みにも行かない() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let 回数 = Arc::new(AtomicUsize::new(0));
+    let 数える = Arc::clone(&回数);
+    let 口 = Warifu::new(Vec::new(), 規則(), 札を出す(&[]), 1_756_000_000).受信箱を汲むには(
+        Arc::new(move || {
+            数える.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async { Ok(Vec::new()) })
+        }),
+    );
+    assert!(口.inbox_list().await.is_err());
+    assert_eq!(回数.load(Ordering::SeqCst), 0);
+}

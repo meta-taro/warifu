@@ -104,6 +104,7 @@ mod contacts;
 mod desk;
 mod key_give;
 mod link;
+mod mail_watch;
 mod media_path;
 mod notify;
 mod postbox;
@@ -2672,7 +2673,7 @@ fn 汲む(
                         };
                         // **どのルームの発言かも渡す**（0.1.33）。渡さないと、画面は
                         // その瞬間に見ているルームへ積み、**別のルームの発言が混ざっていた**
-                        // **行の印も渡す**（D130・0.1.45）。呼ばれた行に［受けました］を出すとき、どの行かを指す
+                        // **行の印も渡す**（D130・0.1.44）。呼ばれた行に［受けました］を出すとき、どの行かを指す
                         let 印 = notice.文字の印().unwrap_or_default();
                         let _ = app.emit(
                             EVENT_TEXT,
@@ -2769,7 +2770,7 @@ fn 汲む(
                         presence::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
-                    // **メンションされた行を受けた**（D130・0.1.45）。**名簿は動かさない。**
+                    // **メンションされた行を受けた**（D130・0.1.44）。**名簿は動かさない。**
                     // 差出人の確かめは文字と同じ（主催ごしの分だけ通す）。主催なら面々へ配る
                     if let Notice::受けた { meeting, from, .. } = &notice {
                         let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
@@ -3824,7 +3825,7 @@ async fn send_text(
     Ok(文.文字の印().map(|印| ack::印を字に(&印)))
 }
 
-/// **人が［受けました］を押した**（D130・0.1.45）。呼ばれた行に受けたを返す。
+/// **人が［受けました］を押した**（D130・0.1.44）。呼ばれた行に受けたを返す。
 #[tauri::command]
 async fn chat_ack(bridge: State<'_, Bridge>, room: String, line: String) -> Answer<()> {
     let 部屋 = bridge
@@ -4428,6 +4429,8 @@ pub fn run() {
             });
             // **切れたまま戻らない人を知らせる**（0.1.28）
             tauri::async_runtime::spawn(absence::見張る(app.handle().clone()));
+            // **受信箱の見張り**（0.1.44）。控えたアドレスに新しい通が来たら、この機械のエージェントに数だけ言う
+            tauri::async_runtime::spawn(mail_watch::見張る(app.handle().clone()));
 
             // **窓が開いている間に来たリンク**を受ける
             {
