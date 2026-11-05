@@ -2,8 +2,11 @@
 //!
 //! ```text
 //!   warifu mail add <アドレス> [--host <IMAP のホスト>] [--port <番号>]
-//!   warifu mail check     つないで、受信箱の通の数と未読の数だけを出す
-//!   warifu mail remove    控えとキーチェーンの項目を消す
+//!   warifu mail list                 控えたアドレスを並べる（つながない）
+//!   warifu mail check [<アドレス>]    つないで、受信箱の通の数と未読の数だけを出す（省けば全部）
+//!   warifu mail remove [<アドレス>]   控えとキーチェーンの項目を消す（控えが 2 つ以上なら要る）
+//!
+//! アドレスはいくつでも控えられる。同じアドレスを add し直すと、繋ぎ先を置き換える。
 //! ```
 //!
 //! # ここで守ること
@@ -14,7 +17,7 @@
 //! - **中身を出さない。**`check` が出すのは数だけ（件名も本文も出さない）
 
 use warifu_imap::{Account, Mailbox, keychain};
-use warifu_vault::Vault;
+use warifu_vault::{MailAccount, Vault};
 
 /// IMAPS の既定のポート。
 const 既定のポート: u16 = 993;
@@ -31,10 +34,12 @@ pub enum 設定 {
         /// ポート。
         ポート: u16,
     },
-    /// つないで、数だけを出す。
-    確かめる,
-    /// 控えとキーチェーンの項目を消す。
-    消す,
+    /// 控えたアドレスを並べる。
+    並べる,
+    /// つないで、数だけを出す。`None` なら控えた全部。
+    確かめる(Option<String>),
+    /// 控えとキーチェーンの項目を消す。`None` は控えが 1 つのときだけ通る。
+    消す(Option<String>),
 }
 
 /// ドメインからホストを決められるか（Gmail だけ）。**会社のドメインは決め打ちしない。**
@@ -94,9 +99,13 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                 ポート,
             })
         }
-        Some("check") | None => Ok(設定::確かめる),
-        Some("remove") => Ok(設定::消す),
-        Some(他) => Err(format!("知らない指定です: {他}（add / check / remove）")),
+        Some("list") => Ok(設定::並べる),
+        Some("check") => Ok(設定::確かめる(args.next())),
+        None => Ok(設定::確かめる(None)),
+        Some("remove") => Ok(設定::消す(args.next())),
+        Some(他) => Err(format!(
+            "知らない指定です: {他}（add / list / check / remove）"
+        )),
     }
 }
 
@@ -114,18 +123,67 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("Google のアカウントなら、アプリパスワード（16 字）を入れてください。");
             eprintln!("入れた字は割符を通らず、そのまま macOS のキーチェーンに置かれます。");
             keychain::人に聞いて置く(利用者)?;
-            確かめる(&vault).await
+            一つを確かめる(&vault.mail_accounts()?, 利用者).await
         }
-        設定::確かめる => 確かめる(&vault).await,
-        設定::消す => {
-            let Some((_, _, 利用者)) = vault.mail()? else {
-                println!("控えはありません");
-                return Ok(());
+        設定::並べる => {
+            let 控え = vault.mail_accounts()?;
+            if 控え.is_empty() {
+                println!("控えはありません（warifu mail add <アドレス> で控えます）");
+            }
+            for c in 控え {
+                println!("{}\t{}:{}", c.user, c.host, c.port);
+            }
+            Ok(())
+        }
+        設定::確かめる(どれ) => {
+            let 控え = vault.mail_accounts()?;
+            if 控え.is_empty() {
+                return Err(
+                    "メールの繋ぎ先を控えていません（warifu mail add <アドレス> で控えます）"
+                        .into(),
+                );
+            }
+            if let Some(利用者) = どれ {
+                return 一つを確かめる(&控え, 利用者).await;
+            }
+            // **1 つが落ちても、残りは確かめる。**落ちた数を最後に返す
+            let mut 落ちた = 0;
+            for c in &控え {
+                if let Err(e) = 確かめる(c).await {
+                    println!("{}: つながりませんでした（{e}）", c.user);
+                    落ちた += 1;
+                }
+            }
+            if 落ちた > 0 {
+                return Err(
+                    format!("{} 件のうち {落ちた} 件がつながりませんでした", 控え.len()).into(),
+                );
+            }
+            Ok(())
+        }
+        設定::消す(どれ) => {
+            let 控え = vault.mail_accounts()?;
+            let 利用者 = match (どれ, 控え.as_slice()) {
+                (Some(u), _) => u.clone(),
+                (None, []) => {
+                    println!("控えはありません");
+                    return Ok(());
+                }
+                (None, [一つ]) => 一つ.user.clone(),
+                (None, _) => {
+                    return Err(format!(
+                        "控えが {} 件あります。消すアドレスを書いてください（warifu mail list で並びます）",
+                        控え.len()
+                    )
+                    .into());
+                }
             };
+            if !vault.forget_mail(&利用者)? {
+                return Err(format!("{利用者} は控えていません").into());
+            }
             let 消えた = keychain::消す(&利用者)?;
-            vault.forget_mail()?;
             println!(
-                "控えを消しました（キーチェーンの項目: {}）",
+                "{利用者} の控えを消しました（キーチェーンの項目: {}）",
                 if 消えた {
                     "消しました"
                 } else {
@@ -137,17 +195,27 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+/// 控えの中から 1 つを選んで確かめる。
+async fn 一つを確かめる(
+    控え: &[MailAccount],
+    利用者: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let c = 控え
+        .iter()
+        .find(|c| c.user.eq_ignore_ascii_case(利用者))
+        .ok_or_else(|| format!("{利用者} は控えていません（warifu mail list で並びます）"))?;
+    確かめる(c).await
+}
+
 /// つないで、数だけを出す。
-async fn 確かめる(vault: &Vault) -> Result<(), Box<dyn std::error::Error>> {
-    let Some((ホスト, ポート, 利用者)) = vault.mail()? else {
-        return Err(
-            "メールの繋ぎ先を控えていません（warifu mail add <アドレス> で控えます）".into(),
-        );
-    };
-    let パスワード = keychain::読む(&利用者).map_err(
-        |_| "キーチェーンにパスワードがありません（warifu mail add でもう一度入れてください）",
-    )?;
-    let 繋ぎ先 = Account::new(&ホスト, ポート, &利用者, &パスワード)?;
+async fn 確かめる(c: &MailAccount) -> Result<(), Box<dyn std::error::Error>> {
+    let パスワード = keychain::読む(&c.user).map_err(|_| {
+        format!(
+            "{} のパスワードがキーチェーンにありません（warifu mail add でもう一度入れてください）",
+            c.user
+        )
+    })?;
+    let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
     drop(パスワード);
     let 流れ = warifu_imap::connect(&繋ぎ先).await?;
     let mut 受信箱 = Mailbox::open(流れ, &繋ぎ先).await?;
@@ -157,8 +225,8 @@ async fn 確かめる(vault: &Vault) -> Result<(), Box<dyn std::error::Error>> {
         eprintln!("（閉じるときに落ちました: {e}）");
     }
     println!(
-        "つながりました（読むだけ・{ホスト}）。受信箱 {} 通、うち未読 {} 通",
-        数.全部, 数.未読
+        "{}: つながりました（読むだけ・{}）。受信箱 {} 通、うち未読 {} 通",
+        c.user, c.host, 数.全部, 数.未読
     );
     Ok(())
 }
@@ -204,8 +272,17 @@ mod tests {
 
     #[test]
     fn 何も付けなければ確かめる() {
-        assert_eq!(読ませる(&[]), Ok(設定::確かめる));
-        assert_eq!(読ませる(&["remove"]), Ok(設定::消す));
+        assert_eq!(読ませる(&[]), Ok(設定::確かめる(None)));
+        assert_eq!(読ませる(&["remove"]), Ok(設定::消す(None)));
+        assert_eq!(読ませる(&["list"]), Ok(設定::並べる));
+        assert_eq!(
+            読ませる(&["check", "b@example.com"]),
+            Ok(設定::確かめる(Some("b@example.com".into())))
+        );
+        assert_eq!(
+            読ませる(&["remove", "b@example.com"]),
+            Ok(設定::消す(Some("b@example.com".into())))
+        );
         assert!(読ませる(&["add", "not-an-address"]).is_err());
     }
 }

@@ -170,7 +170,18 @@ const ISSUED_ADDRS_HEADER: &str = "warifu-issued-addrs-v1";
 /// 中継を使うかの控えの見出し（**#5**・2026-09-18）。
 const RELAY_HEADER: &str = "warifu-relay-v1";
 const RELAY_SERVER_HEADER: &str = "warifu-relay-server-v1";
-const MAIL_HEADER: &str = "warifu-mail-v1";
+const MAIL_HEADER: &str = "warifu-mail-v2";
+
+/// 控えたメールの繋ぎ先 1 つ（0.1.44）。**パスワードは入らない**（キーチェーンにある）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MailAccount {
+    /// IMAP のホスト。
+    pub host: String,
+    /// ポート。
+    pub port: u16,
+    /// 利用者（メールアドレス）。
+    pub user: String,
+}
 
 /// 部屋の合言葉の控えの見出し（**D118**）。
 const ROOM_SECRET_HEADER: &str = "warifu-room-secret-v1";
@@ -1005,10 +1016,11 @@ impl Vault {
         self.dir.join("mail.tsv")
     }
 
-    /// **メールの繋ぎ先（IMAP のホスト・ポート・利用者）を控える**（0.1.44）。
+    /// **メールの繋ぎ先（IMAP のホスト・ポート・利用者）を控える**（0.1.44）。**いくつでも持てる。**
     ///
+    /// 同じ利用者（メールアドレス）がもうあれば、ホストとポートを置き換える。
     /// **パスワードはここに置かない。**OS のキーチェーンに置く（`warifu_imap::keychain`）。
-    /// 利用者（メールアドレス）は秘密ではないが人のものなので、0600 で置く。
+    /// 利用者は秘密ではないが人のものなので、0600 で置く。
     ///
     /// # Errors
     /// 空か、改行・タブなどを含むとき [`Error::Malformed`]、書けないとき [`Error::Io`]。
@@ -1022,22 +1034,36 @@ impl Vault {
                 "メールのホストか利用者が空か、使えない字を含みます",
             ));
         }
-        let out = format!(
-            "{MAIL_HEADER}
-host\t{host}\nport\t{port}\nuser\t{user}\n"
-        );
-        self.write_private(&path, &out, "メールの繋ぎ先を控える")
+        let mut 控え = self.mail_accounts()?;
+        let 新 = MailAccount {
+            host: host.to_owned(),
+            port,
+            user: user.to_owned(),
+        };
+        match 控え.iter_mut().find(|c| c.user.eq_ignore_ascii_case(user)) {
+            Some(c) => *c = 新,
+            None => 控え.push(新),
+        }
+        self.write_mail(&控え)
     }
 
-    /// 控えたメールの繋ぎ先（ホスト・ポート・利用者）。**無ければ `None`。**
+    fn write_mail(&self, 控え: &[MailAccount]) -> Result<(), Error> {
+        let mut out = format!("{MAIL_HEADER}\n");
+        for c in 控え {
+            out.push_str(&format!("{}\t{}\t{}\n", c.user, c.host, c.port));
+        }
+        self.write_private(&self.mail_path(), &out, "メールの繋ぎ先を控える")
+    }
+
+    /// 控えたメールの繋ぎ先。**無ければ空。**控えた順に並ぶ。
     ///
     /// # Errors
     /// 見出しが違う・欄が欠けているとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
-    pub fn mail(&self) -> Result<Option<(String, u16, String)>, Error> {
+    pub fn mail_accounts(&self) -> Result<Vec<MailAccount>, Error> {
         let path = self.mail_path();
         let text = match fs::read_to_string(&path) {
             Ok(t) => t,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
             Err(e) => return Err(Error::io(&path, "メールの繋ぎ先を読む")(e)),
         };
         let mut lines = text.lines();
@@ -1047,35 +1073,51 @@ host\t{host}\nport\t{port}\nuser\t{user}\n"
                 format!("見出しが違います（{MAIL_HEADER} を待っていました）"),
             ));
         }
-        let (mut host, mut port, mut user) = (None, None, None);
-        for line in lines {
-            match line.split_once('\t') {
-                Some(("host", v)) => host = Some(v.trim().to_owned()),
-                Some(("port", v)) => port = v.trim().parse::<u16>().ok(),
-                Some(("user", v)) => user = Some(v.trim().to_owned()),
-                _ => {}
-            }
-        }
-        match (host, port, user) {
-            (Some(h), Some(p), Some(u)) if !h.is_empty() && !u.is_empty() => Ok(Some((h, p, u))),
-            _ => Err(Error::malformed(
-                &path,
-                "ホスト・ポート・利用者のどれかが欠けています",
-            )),
-        }
+        lines
+            .filter(|l| !l.trim().is_empty())
+            .map(|l| {
+                let mut 欄 = l.split('\t');
+                match (
+                    欄.next(),
+                    欄.next(),
+                    欄.next().and_then(|p| p.trim().parse::<u16>().ok()),
+                ) {
+                    (Some(u), Some(h), Some(port)) if !u.is_empty() && !h.is_empty() => {
+                        Ok(MailAccount {
+                            host: h.trim().to_owned(),
+                            port,
+                            user: u.trim().to_owned(),
+                        })
+                    }
+                    _ => Err(Error::malformed(
+                        &path,
+                        "利用者・ホスト・ポートのどれかが欠けている行があります",
+                    )),
+                }
+            })
+            .collect()
     }
 
-    /// メールの繋ぎ先の控えを消す。**無くても止めない。**
+    /// メールの繋ぎ先を 1 つ忘れる。**返りは、在って消したか。**最後の 1 つなら控えのファイルごと消す。
     ///
     /// # Errors
-    /// 消せないとき [`Error::Io`]。
-    pub fn forget_mail(&self) -> Result<(), Error> {
-        let path = self.mail_path();
-        match fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(Error::io(&path, "メールの繋ぎ先を忘れる")(e)),
+    /// 読めない・消せないとき [`Error::Io`] / [`Error::Malformed`]。
+    pub fn forget_mail(&self, user: &str) -> Result<bool, Error> {
+        let mut 控え = self.mail_accounts()?;
+        let 前 = 控え.len();
+        控え.retain(|c| !c.user.eq_ignore_ascii_case(user.trim()));
+        if 控え.len() == 前 {
+            return Ok(false);
         }
+        if 控え.is_empty() {
+            let path = self.mail_path();
+            return match fs::remove_file(&path) {
+                Ok(()) => Ok(true),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(true),
+                Err(e) => Err(Error::io(&path, "メールの繋ぎ先を忘れる")(e)),
+            };
+        }
+        self.write_mail(&控え).map(|()| true)
     }
 
     /// **次の起動で取りに行く口を控える。**

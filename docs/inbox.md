@@ -39,8 +39,12 @@ warifu mail add <メールアドレス> --host imap.gmail.com   # Gmail のア�
 
 | | |
 |---|---|
-| `warifu mail check` | もう一度つないで、数だけを出す |
-| `warifu mail remove` | 控え（`mail.tsv`）とキーチェーンの項目を消す |
+| `warifu mail list` | 控えたアドレスを並べる（つながない） |
+| `warifu mail check [<アドレス>]` | もう一度つないで、数だけを出す（アドレスを省けば控えた全部） |
+| `warifu mail remove [<アドレス>]` | そのアドレスの控え（`mail.tsv` の 1 行）とキーチェーンの項目を消す（控えが 2 つ以上なら、アドレスが要る） |
+
+**アドレスはいくつでも控えられます。**会社の受信箱と自分の受信箱、のように `warifu mail add` を繰り返します。
+同じアドレスを add し直すと、繋ぎ先を置き換えます（パスワードも聞き直します）。
 
 **読むだけです。**受信箱は `EXAMINE` で開き、既読の印も付けません。いまは macOS だけです。
 

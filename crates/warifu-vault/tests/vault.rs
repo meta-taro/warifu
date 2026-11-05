@@ -1984,19 +1984,31 @@ fn 自前の中継は_url_とトークンを控え_消せる() {
 }
 
 #[test]
-fn メールの繋ぎ先は_ホスト_ポート_利用者だけを控え_消せる() {
+fn メールの繋ぎ先はいくつでも控え_同じアドレスは置き換え_1_つずつ消せる() {
+    use warifu_vault::MailAccount;
+    let 控え = |h: &str, u: &str| MailAccount {
+        host: h.to_owned(),
+        port: 993,
+        user: u.to_owned(),
+    };
     let vault = Vault::at(仮の置き場("mail"));
-    assert_eq!(vault.mail().expect("読める"), None);
+    assert!(vault.mail_accounts().expect("読める").is_empty());
     vault
-        .save_mail("imap.example.com", 993, "someone@example.com")
+        .save_mail("imap.example.com", 993, "a@example.com")
+        .expect("書ける");
+    vault
+        .save_mail("imap.example.org", 993, "b@example.org")
+        .expect("書ける");
+    // 同じアドレス（大文字小文字は問わない）は、足さずに置き換える
+    vault
+        .save_mail("mail.example.com", 993, "A@example.com")
         .expect("書ける");
     assert_eq!(
-        vault.mail().expect("読める"),
-        Some((
-            "imap.example.com".to_owned(),
-            993,
-            "someone@example.com".to_owned()
-        ))
+        vault.mail_accounts().expect("読める"),
+        vec![
+            控え("mail.example.com", "A@example.com"),
+            控え("imap.example.org", "b@example.org")
+        ]
     );
     #[cfg(unix)]
     {
@@ -2008,8 +2020,20 @@ fn メールの繋ぎ先は_ホスト_ポート_利用者だけを控え_消せ�
             & 0o777;
         assert_eq!(mode, 0o600, "0600 で置く");
     }
-    vault.forget_mail().expect("消せる");
-    assert_eq!(vault.mail().expect("読める"), None);
+    assert!(
+        !vault.forget_mail("c@example.com").expect("読める"),
+        "無いものは消さない"
+    );
+    assert!(vault.forget_mail("a@example.com").expect("消せる"));
+    assert_eq!(
+        vault.mail_accounts().expect("読める"),
+        vec![控え("imap.example.org", "b@example.org")]
+    );
+    assert!(vault.forget_mail("b@example.org").expect("消せる"));
+    assert!(
+        !vault.mail_path().exists(),
+        "最後の 1 つを消したら控えごと消す"
+    );
 }
 
 #[test]

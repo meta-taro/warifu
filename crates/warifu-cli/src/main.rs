@@ -122,7 +122,7 @@ fn 使い方() -> ExitCode {
          \x20 warifu relay-server [show|clear]      控えを見る（トークンは出さない）／消す\n\
          \x20 warifu mail add <アドレス> [--host <IMAP>] [--port <番号>]\n\
          \x20            既存の受信箱を、読むだけでつなぐ（パスワードは macOS が聞き、キーチェーンに置く）\n\
-         \x20 warifu mail [check|remove]          つないで通の数だけを出す／控えを消す\n\
+         \x20 warifu mail list|check|remove [<アドレス>] 並べる／数だけを出す／消す（いくつでも控えられる）\n\
          \n\
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
