@@ -42,6 +42,8 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+          # **Intel の Mac にも配る**（0.1.44）。Apple Silicon と Intel を 1 本にした universal を建てる
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: install
         run: pnpm install --frozen-lockfile
@@ -83,8 +85,20 @@ jobs:
       # **`warifu relay` も `warifu post` も `warifu mcp` も、2 台目の Mac では
       # 打てない状態だった**（Windows には最初から入れていた）。
       # 預かり所を通す確認も、エージェントを繋ぐ確認も、CLI が無いと始まらない。
+      # **Apple Silicon と Intel を 1 本にまとめる**（0.1.44・universal）。
+      # 置き場所は今までと同じ `target/release/warifu`（署名・公証・束に入れる段がそこを見る）
       - name: CLI を建てる
-        run: cargo build --release -p warifu-cli
+        run: |
+          set -euo pipefail
+          cargo build --release -p warifu-cli --target aarch64-apple-darwin
+          cargo build --release -p warifu-cli --target x86_64-apple-darwin
+          mkdir -p target/release
+          lipo -create -output target/release/warifu \
+            target/aarch64-apple-darwin/release/warifu \
+            target/x86_64-apple-darwin/release/warifu
+          # **両方入ったことを実物で言う。**片方だけなら落とす
+          lipo -archs target/release/warifu | tee /tmp/cli-archs.txt
+          grep -q x86_64 /tmp/cli-archs.txt && grep -q arm64 /tmp/cli-archs.txt
 
       # **CLI も Developer ID で署名する。**
       #
@@ -210,14 +224,14 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.conf.json
+        run: pnpm --filter @warifu/desktop tauri build --target universal-apple-darwin ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.conf.json
 
       - name: 配布物を作る（署名なし）
         if: steps.creds.outputs.ready != 'true'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.conf.json
+        run: pnpm --filter @warifu/desktop tauri build --target universal-apple-darwin ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.conf.json
 
       # **署名されたかを実物で確かめる。**「署名したつもり」で配らない。
       #
@@ -232,7 +246,7 @@ jobs:
       - name: 署名を検める
         run: |
           set -euo pipefail
-          dmg=$(find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' | head -1)
+          dmg=$(find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg -name '*.dmg' | head -1)
           test -n "$dmg"
           echo "── 配布物 ── $dmg"
 
@@ -272,6 +286,15 @@ jobs:
             exit 1
           fi
           "$app/Contents/Resources/warifu" version
+          # **画面も CLI も、Intel と Apple Silicon の両方が入っていること**（0.1.44・universal）
+          for bin in "$app/Contents/MacOS/"* "$app/Contents/Resources/warifu"; do
+            archs=$(lipo -archs "$bin")
+            echo "$bin: $archs"
+            case "$archs" in
+              *x86_64*arm64*|*arm64*x86_64*) ;;
+              *) echo "::error::$bin に Intel と Apple Silicon の両方が入っていません（$archs）"; hdiutil detach /tmp/verify -quiet; exit 1 ;;
+            esac
+          done
 
           hdiutil detach /tmp/verify -quiet
 
@@ -319,13 +342,13 @@ jobs:
       - name: 配るものを 1 か所へ
         run: |
           mkdir -p dist
-          cp apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg dist/
+          cp apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg dist/
           cp target/release/warifu dist/
           # **更新用の成果物**（**D81**）。`.app.tar.gz` と、その署名（`.sig`）。
           # `.dmg` では更新できない —— 更新は中身を差し替える形なので、包みが違う
           if [ "${{ steps.updater.outputs.ready }}" = "true" ]; then
-            cp apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz dist/
-            cp apps/desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig dist/
+            cp apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz dist/
+            cp apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig dist/
           fi
           ls -l dist
           # **何ができたかを実物で言う。**「建った」だけでは、配れるものが出たか分からない
@@ -540,14 +563,17 @@ jobs:
           arm = 一つだけ("out/*_arm64-setup.exe")
           arm_sig = 一つだけ("out/*_arm64-setup.exe.sig")
 
-          # **Intel の Mac 向けには建てていない。**同じものを指すと、
-          # 落ちてから動かないことになる —— **書かない**
+          # **Mac は universal 1 本**（0.1.44）。Apple Silicon と Intel の両方が同じものを指す
           札 = {
               "version": 版,
               "notes": os.environ["NOTES"].strip() or f"warifu {tag}",
               "pub_date": os.environ["PUB_DATE"],
               "platforms": {
                   "darwin-aarch64": {
+                      "signature": 署名(mac_sig),
+                      "url": f"{base}/{os.path.basename(mac)}",
+                  },
+                  "darwin-x86_64": {
                       "signature": 署名(mac_sig),
                       "url": f"{base}/{os.path.basename(mac)}",
                   },

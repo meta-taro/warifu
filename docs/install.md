@@ -2,7 +2,7 @@
 
 > 日本語版: [install.ja.md](install.ja.md)
 
-Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.43**.
+Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [GitHub Releases](https://github.com/meta-taro/warifu/releases). Current version: **v0.1.44**.
 
 **Read [`SECURITY.md`](../SECURITY.md) first if you are planning to rely on this for anything.** It is an alpha.
 
@@ -12,8 +12,8 @@ Builds live on the [download page](https://meta-taro.github.io/warifu/) and in [
 
 | | |
 |---|---|
-| **macOS / Apple Silicon (M1 or later)** | **Works.** Builds are `aarch64`. App and CLI are **signed and notarized** |
-| **macOS / Intel** | **No build shipped.** Build it locally (below) |
+| **macOS / Apple Silicon (M1 or later)** | **Works.** From 0.1.44 the build is `universal` (one `.dmg` and one CLI for both Apple Silicon and Intel). App and CLI are **signed and notarized** |
+| **macOS / Intel** | **Works from 0.1.44** (the same `universal` build). Up to 0.1.43 there was no Intel build |
 | **Windows (x64)** | **Works**, video and audio included. **Not code-signed**, and **first run needs a firewall rule** (below) |
 | **Linux** | **Not verified.** It compiles; nobody has run it end to end |
 
@@ -38,7 +38,7 @@ The `.dmg` contains **the app only**. The mailbox (`warifu relay`), agent endpoi
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.43+<commit>
+./warifu version          # → warifu 0.1.44+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # if ~/bin is on your PATH
 ```
 
@@ -56,7 +56,7 @@ rm -f ~/bin/warifu && cp ./warifu ~/bin/warifu && chmod +x ~/bin/warifu
 
 ### Intel Macs
 
-Build on the machine:
+From 0.1.44, use the same `_universal.dmg` and CLI as Apple Silicon. To build on the machine instead:
 
 ```bash
 git clone https://github.com/meta-taro/warifu.git
@@ -73,8 +73,8 @@ pnpm tauri build --bundles app
 
 | File | |
 |---|---|
-| **`warifu_0.1.43_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
-| `warifu_0.1.43_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
+| **`warifu_0.1.44_x64-setup.exe`** | **Use this.** Installs **per user**, so no administrator is needed |
+| `warifu_0.1.44_x64_en-US.msi` | Same contents, but **machine-wide** — it needs an administrator and fails with `Error 1406` / `Error 1925` without one. For deployment tooling (Intune, GPO) |
 | `warifu.exe` | The CLI. Runs from wherever you put it |
 
 ### SmartScreen will warn
@@ -90,8 +90,8 @@ Windows によって PC が保護されました
 **How you download it changes this** (measured 2026-09-16): a browser marks the file with `Zone.Identifier`, which is what triggers SmartScreen. `gh release download` does not mark it, so **the warning never appears** — the file is still unsigned either way.
 
 ```powershell
-gh release download v0.1.43 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.43_x64-setup.exe -Stream Zone.Identifier   # → not found
+gh release download v0.1.44 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.44_x64-setup.exe -Stream Zone.Identifier   # → not found
 ```
 
 ### **First run needs a firewall rule** (this one bites)
