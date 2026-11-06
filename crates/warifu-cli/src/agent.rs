@@ -176,6 +176,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             点検も聞く: false,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         }
         .書く(),
     )
@@ -220,6 +221,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                             点検も聞く: false,
                             届かない先も聞く: false,
                             読みも聞く: false,
+                            任されも聞く: false,
                         }
                         .書く(),
                     )
@@ -369,6 +371,7 @@ mod tests {
             body: "やあ".to_owned(),
             at: "18:00".to_owned(),
             room: None,
+            任された: false,
         }
         .書く();
         // **相手側を書いて閉じる。**閉じないと `一巡` が待ち続ける

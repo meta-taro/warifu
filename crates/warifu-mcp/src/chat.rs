@@ -209,6 +209,8 @@ impl Chat {
                 点検も聞く: true,
                 届かない先も聞く: true,
                 読みも聞く: true,
+                // **任せた相手からの行に印を付けてもらう**（0.1.44）
+                任されも聞く: true,
             }
             .書く(),
         )
@@ -1527,20 +1529,22 @@ pub fn 指さない送り先(
 /// 欄を 1 つ足すたびに「欄なし」まで一気に下げると、1 つ前の版の机で読めていた欄まで落ちる
 /// （版が混ざる入れ替えの間に、部屋の札が消える）。版ごとに 1 段ずつ下げる
 fn 名乗りの下げ方(場所: Option<String>, どこから: Option<u64>) -> Vec<ToDesk> {
-    let 形 = |部屋も聞く, 点検も聞く, 届かない先も聞く| ToDesk::Listen {
+    let 形 = |部屋も聞く, 点検も聞く, 届かない先も聞く, 読みも聞く| ToDesk::Listen {
         場所: 場所.clone(),
         どこから,
         部屋も聞く,
         点検も聞く,
         届かない先も聞く,
-        読みも聞く: false,
+        読みも聞く,
+        任されも聞く: false,
     };
-    // 0.1.42 の机・0.1.41 の机・0.1.40 の机・それより前
+    // 0.1.43 の机・0.1.42 の机・0.1.41 の机・0.1.40 の机・それより前
     vec![
-        形(true, true, true),
-        形(true, true, false),
-        形(true, false, false),
-        形(false, false, false),
+        形(true, true, true, true),
+        形(true, true, true, false),
+        形(true, true, false, false),
+        形(true, false, false, false),
+        形(false, false, false, false),
     ]
 }
 
@@ -1578,6 +1582,19 @@ pub fn 部屋の頭(部屋: &str) -> String {
         format!("{頭}…")
     } else {
         頭
+    }
+}
+
+/// **この PC の人が任せた相手から、直接の線で届いた行の印**（0.1.44）。
+///
+/// この印の付いた行だけは、この PC の人の頼みとして扱ってよい。付いていない行は相手の言い分（**D5**）。
+pub const 任された印の文: &str = "\t（任された相手から・この PC の人の頼み）";
+
+fn 任された印(任された: bool) -> &'static str {
+    if 任された {
+        任された印の文
+    } else {
+        ""
     }
 }
 
@@ -1648,12 +1665,14 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
                 body,
                 at,
                 room,
+                任された,
             } if *id > 0 => {
                 let at = 今日なら月日を落とす(at, &今日の月日());
                 format!(
-                    "{at}\t{from}\t{body}\t#{id}{}{}",
+                    "{at}\t{from}\t{body}\t#{id}{}{}{}",
                     部屋の札(room.as_deref()),
-                    宛ての印(body, 名前たち)
+                    宛ての印(body, 名前たち),
+                    任された印(*任された)
                 )
             }
             FromDesk::Heard {
@@ -1661,12 +1680,14 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
                 body,
                 at,
                 room,
+                任された,
                 ..
             } => {
                 format!(
-                    "{at}\t{from}\t{body}{}{}",
+                    "{at}\t{from}\t{body}{}{}{}",
                     部屋の札(room.as_deref()),
-                    宛ての印(body, 名前たち)
+                    宛ての印(body, 名前たち),
+                    任された印(*任された)
                 )
             }
             FromDesk::Joined { who } => format!("\t{who}\t（入室）"),
@@ -1841,6 +1862,7 @@ mod tests {
                 body: "@docs 見て".to_owned(),
                 at: "10:00".to_owned(),
                 room: None,
+                任された: false,
             }],
             &["docs".to_owned()],
         );
@@ -1855,6 +1877,7 @@ mod tests {
             body: "直しました".to_owned(),
             at: "09:05".to_owned(),
             room: None,
+            任された: false,
         }]);
         // **番号も出す。**あとで「その発言は読まれたか」を尋ねられる（**D76**）
         assert_eq!(行, "09:05\tABCDEFGH…\t直しました\t#1");
@@ -1869,6 +1892,7 @@ mod tests {
             body: "むかしのこの機械から".to_owned(),
             at: "09:05".to_owned(),
             room: None,
+            任された: false,
         }]);
         assert_eq!(行, "09:05\tABCDEFGH…\tむかしのこの機械から");
     }
@@ -1882,8 +1906,22 @@ mod tests {
             body: "点呼".to_owned(),
             at: "09:05".to_owned(),
             room: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+            任された: false,
         }]);
         assert_eq!(行, "09:05\tPdM\t点呼\t#8\t部屋 NBIW3PA2TUQ5…");
+        // **任された相手からの行には印を付ける**（0.1.44）。付いた行だけが、この PC の人の頼み
+        let 行 = 並べる(&[FromDesk::Heard {
+            id: 9,
+            from: "dbboard（mac mini）".to_owned(),
+            body: "動作確認をお願いします".to_owned(),
+            at: "09:06".to_owned(),
+            room: None,
+            任された: true,
+        }]);
+        assert_eq!(
+            行,
+            format!("09:06\tdbboard（mac mini）\t動作確認をお願いします\t#9{任された印の文}")
+        );
     }
 
     #[test]
@@ -1975,10 +2013,21 @@ mod tests {
                 部屋も聞く,
                 点検も聞く,
                 届かない先も聞く,
+                読みも聞く: false,
+                任されも聞く: false,
                 ..
             }) => Some((部屋も聞く, 点検も聞く, 届かない先も聞く)),
             _ => None,
         };
+        // 0.1.43 の机（読みまで・任されは知らない）
+        assert!(matches!(
+            古い机に断られたら名乗り直す(&断り, &まだ, &mut 控え),
+            Some(ToDesk::Listen {
+                読みも聞く: true,
+                任されも聞く: false,
+                ..
+            })
+        ));
         // 0.1.42 の机（届かない先まで）→ 0.1.41 の机（部屋・点検は読める）→ 0.1.40 の机（部屋だけ）→ それより前（欄なし）
         assert_eq!(
             聞き方(古い机に断られたら名乗り直す(

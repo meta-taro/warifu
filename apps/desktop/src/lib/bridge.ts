@@ -121,6 +121,20 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
 
 /** 自分の宛先。**これだけでは繋げない**（割符が要る・D31）。 */
 export const myAddress = () => invoke<string>('my_address');
+
+/**
+ * **任せる相手**（0.1.44・D5 の例外）。この機械の人が「この相手の機械からの頼みは、私の頼みとして扱う」と決めた相手。
+ * **画面からだけ書ける**（エージェントの口からは書けない）。`until` は UNIX 秒。
+ */
+export interface DelegateRow {
+  key: string;
+  until: number;
+}
+export const delegates = () => invoke<DelegateRow[]>('delegates');
+/** 任せる。日数を省けば 30 日。返りは期限（UNIX 秒）。 */
+export const delegateSet = (key: string, days: number | null = null) =>
+  invoke<number>('delegate_set', { key, days });
+export const delegateForget = (key: string) => invoke<void>('delegate_forget', { key });
 /** **画面の写しを返す**（0.1.34）。エージェントの `app_view` へ渡る */
 export const snapshotReply = (id: number, text: string) => invoke<void>('snapshot_reply', { id, text });
 

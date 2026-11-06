@@ -35,6 +35,7 @@ async fn エージェントが言ったことが_この機械に届き_返事が
             body,
             at: "09:05".to_owned(),
             room: None,
+            任された: false,
         };
         口.送る(&返し.書く()).await.unwrap();
     });

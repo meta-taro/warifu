@@ -101,6 +101,7 @@ mod chat_keep;
 mod cli;
 mod come_back;
 mod contacts;
+mod delegate;
 mod desk;
 mod key_give;
 mod link;
@@ -2764,7 +2765,13 @@ fn 汲む(
                         // **誰が言ったかは、画面と同じ名で渡す**（2026-10-16）。
                         // 鍵だけだと、相手の人と相手のエージェントが見分けられない
                         // **どの部屋で聞いたかも渡す**（0.1.40・内部の Issue 026）。口はその部屋へ返事を返す
-                        let 聞いた = desk::聞いた_部屋で(&名, body, Some(meeting.to_string()));
+                        // **任せた相手から直接の線で届いた発言なら、エージェントへ「任された」と渡す**（0.1.44・D5 の例外）。
+                        // 主催ごしの分は差出人を確かめられないので立てない（`delegate::任された発言か`）
+                        let 任された = delegate::控えを見て任されたか(from, &peer);
+                        if 任された {
+                            記録!("任せる相手: {} の発言を、任されたとしてエージェントへ渡します", 短く(&key_to_string(*from)));
+                        }
+                        let 聞いた = desk::聞いた_任されて(&名, body, Some(meeting.to_string()), 任された);
                         // **呼んでいる行は控える**（D130）。この機械のエージェントが読んだら受けたを返す
                         if let warifu_desk::FromDesk::Heard { id, .. } = &聞いた {
                             ack::控える(*id, *meeting, 印, body);
@@ -4550,6 +4557,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            delegate::delegates,
+            delegate::delegate_set,
+            delegate::delegate_forget,
             room_link,
             room_qr,
             my_address,

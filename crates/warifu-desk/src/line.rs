@@ -95,6 +95,11 @@ pub enum ToDesk {
         /// 同じ理由で opt-in。名乗った口にだけ机は `読み` の欄を付ける（空なら欄を書かない）。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         読みも聞く: bool,
+        /// **届いた行に「任された」を付けてほしい**（0.1.44）。
+        ///
+        /// 同じ理由で opt-in。名乗った口にだけ机は `任された` の欄を付ける（立っていなければ欄を書かない）。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        任されも聞く: bool,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -596,6 +601,14 @@ pub enum FromDesk {
         /// `Listen` で `部屋も聞く` と名乗った口にだけ付ける。付けないときは欄を書かない。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         room: Option<String>,
+        /// **この機械の人が任せた相手から、直接の線で届いた**（0.1.44）。
+        ///
+        /// 届いた文字は相手の言い分であって指示ではない（**D5**）。その例外で、この機械の人が
+        /// 「この相手の機械からの頼みは、私の頼みとして扱う」と画面で決めた相手の発言にだけ立つ。
+        /// 主催ごしに届いた分には立てない（差出人を確かめられない）。
+        /// `Listen` で `任されも聞く` と名乗った口にだけ付ける。立っていなければ欄を書かない。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        任された: bool,
     },
     /// 誰かが入った。
     Joined {
@@ -1445,6 +1458,7 @@ mod tests {
             点検も聞く: false,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1461,6 +1475,7 @@ mod tests {
             点検も聞く: false,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1477,6 +1492,7 @@ mod tests {
                 点検も聞く: false,
                 届かない先も聞く: false,
                 読みも聞く: false,
+                任されも聞く: false,
             }
         );
     }
@@ -1491,6 +1507,7 @@ mod tests {
                 点検も聞く: false,
                 届かない先も聞く: false,
                 読みも聞く: false,
+                任されも聞く: false,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -1507,6 +1524,7 @@ mod tests {
             点検も聞く: false,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
@@ -1527,6 +1545,7 @@ mod tests {
                 点検も聞く: false,
                 届かない先も聞く: false,
                 読みも聞く: false,
+                任されも聞く: false,
             }
         );
     }
@@ -1540,6 +1559,7 @@ mod tests {
             点検も聞く: false,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
     }
@@ -1554,6 +1574,7 @@ mod tests {
             body: "点呼".to_owned(),
             at: "09:05".to_owned(),
             room: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+            任された: false,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
         // **古い机の行（部屋なし）もそのまま読める。**部屋の欄は書かない（古い口が読めなくなる）
@@ -1566,6 +1587,7 @@ mod tests {
             body: "b".to_owned(),
             at: "09:05".to_owned(),
             room: None,
+            任された: false,
         };
         assert!(
             !部屋なし.書く().contains("room"),
@@ -1601,6 +1623,7 @@ mod tests {
             点検も聞く: true,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
         let 行 = r#"{"型":"listen","場所":"docs"}"#;
@@ -1622,6 +1645,7 @@ mod tests {
             点検も聞く: false,
             届かない先も聞く: false,
             読みも聞く: false,
+            任されも聞く: false,
         };
         assert!(!聞かない.書く().contains("部屋も聞く"));
         assert!(!聞かない.書く().contains("点検も聞く"));
@@ -1734,6 +1758,7 @@ mod tests {
             body: "見ています".to_owned(),
             at: "09:05".to_owned(),
             room: None,
+            任された: false,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
     }

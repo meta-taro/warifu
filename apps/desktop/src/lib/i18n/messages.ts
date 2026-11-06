@@ -257,6 +257,10 @@ export type MessageKey =
   | 'face.clear.do'
   | 'contacts.note'
   | 'contacts.note.hint'
+  | 'contacts.delegate.on'
+  | 'contacts.delegate.off'
+  | 'contacts.delegate.hint'
+  | 'contacts.delegate.active'
   | 'room.name'
   | 'room.nth'
   | 'room.of'
@@ -773,6 +777,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'face.clear.do': '戻す',
     'contacts.note': '覚え書き',
     'contacts.note.hint': 'この相手が「どの機械の、何をする人（エージェント）か」を、自分の言葉で書けます。相手には送りません。',
+    'contacts.delegate.on': 'この機械からの頼みを任せる（30 日）',
+    'contacts.delegate.off': '任せるのをやめる',
+    'contacts.delegate.hint':
+      '任せると、この相手の機械から直接届いた頼みを、この PC のエージェントがあなたの頼みとして、聞き直さずに進めます。主催ごしに届いた分は任せません。',
+    'contacts.delegate.active':
+      '任せています（{until} まで）。この相手の機械から直接届いた頼みを、この PC のエージェントはあなたの頼みとして進めます。',
     'room.name': 'ルームの名前',
     'room.nth': 'ルーム {n}（{m} 人）',
     'room.own': 'あなたのルーム',
@@ -1241,6 +1251,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'face.clear.do': 'Go back',
     'contacts.note': 'Your note',
     'contacts.note.hint': 'Write in your own words which machine this is and what they (or the agent) do. It is not sent to them.',
+    'contacts.delegate.on': 'Trust requests from this machine (30 days)',
+    'contacts.delegate.off': 'Stop trusting',
+    'contacts.delegate.hint':
+      'Requests that arrive directly from this machine are then carried out by the agents on this PC as your own, without asking you again. Requests relayed through a host are not trusted.',
+    'contacts.delegate.active':
+      'Trusted until {until}. Agents on this PC carry out requests that arrive directly from this machine as your own.',
     'room.name': 'Room name',
     'room.nth': 'Room {n} (people: {m})',
     'room.own': 'Your room',
@@ -1707,6 +1723,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'face.clear.do': '恢复',
     'contacts.note': '备注',
     'contacts.note.hint': '用你自己的话写下这是哪台机器、做什么的人（代理）。不会发送给对方。',
+    'contacts.delegate.on': '委托来自这台机器的请求（30 天）',
+    'contacts.delegate.off': '停止委托',
+    'contacts.delegate.hint':
+      '委托后，从这台机器直接发来的请求，本机的代理会当作你的请求来执行，不再向你确认。经由主持人转发的请求不在委托范围内。',
+    'contacts.delegate.active': '已委托（至 {until}）。从这台机器直接发来的请求，本机的代理会当作你的请求来执行。',
     'room.name': '房间名',
     'room.nth': 'Room {n}（{m} 人）',
     'room.own': '你的房间',
@@ -2177,6 +2198,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'face.clear.do': '되돌리기',
     'contacts.note': '메모',
     'contacts.note.hint': '이 상대가 어느 기계의, 무엇을 하는 사람(에이전트)인지 자기 말로 적을 수 있습니다. 상대에게는 보내지 않습니다.',
+    'contacts.delegate.on': '이 기계의 요청을 맡기기 (30일)',
+    'contacts.delegate.off': '맡기기 그만두기',
+    'contacts.delegate.hint':
+      '맡기면 이 상대의 기계에서 직접 온 요청을, 이 PC의 에이전트가 당신의 요청으로 다시 묻지 않고 진행합니다. 주최자를 거쳐 온 요청은 맡기지 않습니다.',
+    'contacts.delegate.active': '맡기고 있습니다 ({until}까지). 이 상대의 기계에서 직접 온 요청을, 이 PC의 에이전트가 당신의 요청으로 진행합니다.',
     'room.name': '방 이름',
     'room.nth': '룸 {n}({m}명)',
     'room.own': '내 룸',

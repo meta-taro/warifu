@@ -110,6 +110,10 @@ connect.step3	3. The dot turns green and what you type reaches it	3. これで�
 connect.title	Connect this agent	このエージェントをつなぐ	连接这个智能体	이 에이전트를 연결하기				
 connect.wake	React without waiting (woken by what arrives)	待たずに反応させる（届いた言葉で起こす）	不等待就反应（由送到的内容唤起）	기다리지 않고 반응하기(도착한 말로 깨우기)				
 contacts.claimed	They call themselves “{name}”.	本人は「{name}」と名乗っています。	对方自称“{name}”。	본인은 “{name}” 라고 밝히고 있습니다.				
+contacts.delegate.active	Trusted until {until}. Agents on this PC carry out requests that arrive directly from this machine as your own.	任せています（{until} まで）。この相手の機械から直接届いた頼みを、この PC のエージェントはあなたの頼みとして進めます。	已委托（至 {until}）。从这台机器直接发来的请求，本机的代理会当作你的请求来执行。	맡기고 있습니다 ({until}까지). 이 상대의 기계에서 직접 온 요청을, 이 PC의 에이전트가 당신의 요청으로 진행합니다.				
+contacts.delegate.hint	Requests that arrive directly from this machine are then carried out by the agents on this PC as your own, without asking you again. Requests relayed through a host are not trusted.	任せると、この相手の機械から直接届いた頼みを、この PC のエージェントがあなたの頼みとして、聞き直さずに進めます。主催ごしに届いた分は任せません。	委托后，从这台机器直接发来的请求，本机的代理会当作你的请求来执行，不再向你确认。经由主持人转发的请求不在委托范围内。	맡기면 이 상대의 기계에서 직접 온 요청을, 이 PC의 에이전트가 당신의 요청으로 다시 묻지 않고 진행합니다. 주최자를 거쳐 온 요청은 맡기지 않습니다.				
+contacts.delegate.off	Stop trusting	任せるのをやめる	停止委托	맡기기 그만두기				
+contacts.delegate.on	Trust requests from this machine (30 days)	この機械からの頼みを任せる（30 日）	委托来自这台机器的请求（30 天）	이 기계의 요청을 맡기기 (30일)				
 contacts.desk	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 contacts.desk.how	To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.	繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。	要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。	연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.				
 contacts.desk.none	No agent on this computer is connected. Connect one with `warifu mcp` and it appears here.	このエージェントは、いま繋がっていません。	这台电脑还没有连上智能体。用 `warifu mcp` 连接后会出现在这里。	이 PC에 연결된 에이전트가 없습니다. `warifu mcp` 로 연결하면 여기에 나옵니다.				

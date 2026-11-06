@@ -209,6 +209,9 @@
     stopAgent,
     currentRoom,
     myAddress,
+    delegates,
+    delegateSet,
+    delegateForget,
     rooms as ルームを読む,
     lookAtRoom,
     type RoomRow,
@@ -1754,6 +1757,7 @@
       // **残した会話を先に戻す**（0.1.44）。受け始めてから届いた分は、残した分の後ろに並ぶ。
       // **追わない**（中で会話を読む。追うと会話が変わるたびに、この起動が丸ごと走り直す）
       await untrack(() => 残した会話を戻す());
+      void 任せるを読み直す();
       try {
         // **メニューには、いま選んでいるテーマの印も付ける。**
         // 覚えているのは画面側なので、こちらから渡す
@@ -2621,6 +2625,30 @@
    * 消すと人には「送れない」としか見えない。押せないときは、なぜかを添える（`画像を送れる`）。
    */
   const 画像の口を出す = $derived(送り方.種類 === 'ルーム');
+
+  /**
+   * **任せている相手と期限**（鍵 → UNIX 秒・0.1.44・D5 の例外）。
+   * 書くのは画面だけ。エージェントの口からは書けない（自分で自分に許しを出せない）
+   */
+  let 任せている = $state<Record<string, number>>({});
+
+  async function 任せるを読み直す() {
+    try {
+      任せている = Object.fromEntries((await delegates() ?? []).map((d) => [d.key, d.until]));
+    } catch (e) {
+      log(`任せる相手を読めませんでした（${読める(e)}）`);
+    }
+  }
+
+  async function 任せるを変える(key: string, 任せる: boolean) {
+    try {
+      if (任せる) await delegateSet(key);
+      else await delegateForget(key);
+    } catch (e) {
+      notice = 読める(e);
+    }
+    await 任せるを読み直す();
+  }
 
   /** **残した会話を読み、いまの会話の前に置く**（0.1.44）。 */
   async function 残した会話を戻す() {
@@ -4374,6 +4402,9 @@
         ルームに呼ぶ={(id) => void ルームに呼ぶ(id)}
         住所を読む={async () => (await myAddress()) ?? null}
         鍵を渡してあるか={(key) => 渡してあるか(鍵たち, key)}
+        {任せている}
+        任せる={(key) => void 任せるを変える(key, true)}
+        任せるのをやめる={(key) => void 任せるを変える(key, false)}
         未読={(行) => {
           // **行ごとに、その行の会話を引く**（人は人のルーム、席は席のルーム）
           const 部屋 = 行の未読を数える部屋(行, いまのルーム);

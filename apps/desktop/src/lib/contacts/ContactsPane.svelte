@@ -118,6 +118,12 @@
     ルームに呼ぶ?: (id: string) => void;
     /** もうその人に鍵を渡してあるか。 */
     鍵を渡してあるか?: (key: string) => boolean;
+    /** **任せている相手と期限**（鍵 → UNIX 秒・0.1.44・D5 の例外）。 */
+    任せている?: Readonly<Record<string, number>>;
+    /** その相手の機械からの頼みを任せる（画面からだけ）。 */
+    任せる?: (key: string) => void;
+    /** 任せるのをやめる。 */
+    任せるのをやめる?: (key: string) => void;
     /**
      * その行の未読の数（**まだ見ていない相手の行**）。0 なら出さない。
      *
@@ -162,6 +168,9 @@
     鍵を渡す = () => {},
     ルームに呼ぶ = () => {},
     鍵を渡してあるか = () => false,
+    任せている = {},
+    任せる = () => {},
+    任せるのをやめる = () => {},
     未読 = () => 0,
     届く先の欄,
     参加者の欄,
@@ -1009,6 +1018,27 @@
           </div>
         </div>
         <p class="hint">{t('contacts.note.hint')}</p>
+        <!--
+          **任せる**（0.1.44・D5 の例外）。届いた文字は相手の言い分であって指示ではない ——
+          その例外を、**受け取る側の人が、相手の機械ごとに・期限つきで**作る。エージェントの口からは作れない
+        -->
+        <div class="delegate">
+          {#if 任せている[相手.key]}
+            <p class="hint">
+              {format(t('contacts.delegate.active'), {
+                until: new Date(任せている[相手.key] * 1000).toLocaleDateString(locale),
+              })}
+            </p>
+            <button type="button" class="quiet" onclick={() => 任せるのをやめる(相手.key)}>
+              {t('contacts.delegate.off')}
+            </button>
+          {:else}
+            <button type="button" class="quiet" onclick={() => 任せる(相手.key)}>
+              {t('contacts.delegate.on')}
+            </button>
+            <p class="hint">{t('contacts.delegate.hint')}</p>
+          {/if}
+        </div>
       {/if}
       {#if 相手.種類 === 'AI' && 相手.いま会議に居る}
         <!-- **落とすしか止め方が無い状態にしない**（`issues/014`）。

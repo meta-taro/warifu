@@ -38,6 +38,7 @@
 
 mod avatar;
 mod contacts;
+mod delegate;
 mod error;
 mod profile;
 mod schedule;
@@ -53,6 +54,7 @@ pub use avatar::{
     AVATAR_MAX_BYTES, AVATAR_MAX_SIDE, BadImage, 顔として読む, 顔のファイル名
 };
 pub use contacts::{Contact, Contacts, NOTE_MAX};
+pub use delegate::{DELEGATE_DEFAULT_SECS, DELEGATE_MAX, Delegate, 任せているか};
 pub use error::Error;
 pub use profile::{BIO_MAX, Bad, NAME_MAX, Profile, Profiles, Who};
 pub use schedule::{Appointment, SCHEDULE_NOTE_MAX, TITLE_MAX};

@@ -343,6 +343,8 @@ struct 聞き方 {
     居場所: bool,
     /// 様子に、この機械のエージェントの読みを付けてよいか（0.1.43）。
     読み: bool,
+    /// 届いた行に「任された」を付けてよいか（0.1.44・D5 の例外）。
+    任され: bool,
 }
 
 /// この機械につながった 1 人の面倒を見る。
@@ -383,7 +385,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
                         // **居場所は、聞くと言った線にだけ**（0.1.43）。エージェントには雑音になる
                         Ok((_, 一つ)) if !crate::presence::この線に渡すか(&一つ, 聞き方.居場所) => continue,
                         Ok((_, 一つ)) => {
-                            let 一つ = 部屋を落とすか(一つ, 聞き方.部屋);
+                            let 一つ = 任されを落とすか(部屋を落とすか(一つ, 聞き方.部屋), 聞き方.任され);
                             if 口.送る(&一つ.書く()).await.is_err() {
                                 break;
                             }
@@ -466,12 +468,14 @@ async fn 応じる(
             点検も聞く,
             届かない先も聞く,
             読みも聞く,
+            任されも聞く,
         } => {
             *聞き方 = 聞き方 {
                 部屋: 部屋も聞く,
                 点検: 点検も聞く,
                 届かない先: 届かない先も聞く,
                 読み: 読みも聞く,
+                任され: 任されも聞く,
                 // 先に `居場所を聞く` と言っていれば、名乗り直しても続ける
                 居場所: 聞き方.居場所,
             };
@@ -1210,6 +1214,7 @@ pub(crate) async fn 流す(
         body: body.to_owned(),
         at: 日付つき時刻(),
         room: 流す先.map(|m| m.to_string()),
+        任された: false,
     };
     // **エージェントの発言も控える**（2026-10-16）。控えないと、書き出した議事録から
     // この PC のエージェントが言ったことだけが抜ける
@@ -2040,6 +2045,7 @@ pub fn 画像を聞いた(
         body: 画像の札(id, 中身.len()),
         at: 日付つき時刻(),
         room: 部屋,
+        任された: false,
     };
     控える(&行);
     画像を覚える(
@@ -2092,15 +2098,48 @@ pub fn 聞いた(from: &str, body: &str) -> FromDesk {
 /// **どの部屋で聞いたかも載せて**行にする（0.1.40・内部の Issue 026）。
 /// 口はこの部屋を指して返事を返す。この機械の中の知らせは `None`。
 pub fn 聞いた_部屋で(from: &str, body: &str, 部屋: Option<String>) -> FromDesk {
+    聞いた_任されて(from, body, 部屋, false)
+}
+
+/// **任せた相手からの発言か**も載せて行にする（0.1.44・D5 の例外・`delegate`）。
+pub fn 聞いた_任されて(
+    from: &str,
+    body: &str,
+    部屋: Option<String>,
+    任された: bool,
+) -> FromDesk {
     let 行 = FromDesk::Heard {
         id: 番号を振る(),
         from: from.to_owned(),
         body: body.to_owned(),
         at: 日付つき時刻(),
         room: 部屋,
+        任された,
     };
     控える(&行);
     行
+}
+
+/// **任せる相手を知らない口には、「任された」を落として渡す**（0.1.44）。古い口は知らない欄で 1 行も読めなくなる。
+fn 任されを落とすか(行: FromDesk, 任されも聞く: bool) -> FromDesk {
+    match 行 {
+        FromDesk::Heard {
+            id,
+            from,
+            body,
+            at,
+            room,
+            任された: true,
+        } if !任されも聞く => FromDesk::Heard {
+            id,
+            from,
+            body,
+            at,
+            room,
+            任された: false,
+        },
+        他 => 他,
+    }
 }
 
 /// **部屋を知らない口には、部屋の欄を落として渡す。**古い口は知らない欄で 1 行も読めなくなる。
@@ -2112,12 +2151,14 @@ fn 部屋を落とすか(行: FromDesk, 部屋も聞く: bool) -> FromDesk {
             body,
             at,
             room: Some(_),
+            任された,
         } if !部屋も聞く => FromDesk::Heard {
             id,
             from,
             body,
             at,
             room: None,
+            任された,
         },
         FromDesk::Sent {
             to,
@@ -2694,6 +2735,7 @@ mod tests {
             body: body.to_owned(),
             at: "18:00".to_owned(),
             room: None,
+            任された: false,
         }
     }
 
@@ -2951,6 +2993,32 @@ mod tests {
     }
 
     #[test]
+    fn 任せる相手を知らない口には_任されたを落とし_部屋は残す() {
+        let 行 = FromDesk::Heard {
+            id: 1,
+            from: "A".to_owned(),
+            body: "動作確認をお願いします".to_owned(),
+            at: "09:00".to_owned(),
+            room: Some("NBIW".to_owned()),
+            任された: true,
+        };
+        // 古い口は知らない欄で 1 行も読めなくなる。落としても部屋は残す
+        assert_eq!(
+            任されを落とすか(行.clone(), false),
+            FromDesk::Heard {
+                id: 1,
+                from: "A".to_owned(),
+                body: "動作確認をお願いします".to_owned(),
+                at: "09:00".to_owned(),
+                room: Some("NBIW".to_owned()),
+                任された: false,
+            }
+        );
+        assert_eq!(任されを落とすか(行.clone(), true), 行);
+        assert!(!任されを落とすか(行, false).書く().contains("任された"));
+    }
+
+    #[test]
     fn 部屋を知らない口には_部屋の欄を落とす() {
         let 行 = FromDesk::Heard {
             id: 1,
@@ -2958,6 +3026,7 @@ mod tests {
             body: "b".to_owned(),
             at: "09:00".to_owned(),
             room: Some("NBIW".to_owned()),
+            任された: false,
         };
         assert!(matches!(
             部屋を落とすか(行.clone(), false),
@@ -3074,6 +3143,7 @@ mod tests {
                     body: body.to_owned(),
                     at: "09:00".to_owned(),
                     room: None,
+                    任された: false,
                 },
             )
         };
