@@ -264,8 +264,9 @@ export const leave = () => invoke<void>('leave');
  */
 /** `force` は、秘密らしいものを人が確かめて［それでも送る］を押したとき（0.1.42）。無ければ本体も止める */
 /** 返りは送った行の印（D130）。ルームへ流さなかったときは `null`。 */
-export const sendText = (body: string, to?: string | null, force = false) =>
-  invoke<string | null>('send_text', { body, to: to ?? null, force });
+/** `room` は**画面が出しているルーム**（0.1.44）。渡せば本体はそこへ送る。本体の見ている部屋とずれていても */
+export const sendText = (body: string, to?: string | null, force = false, room: string | null = null) =>
+  invoke<string | null>('send_text', { body, to: to ?? null, force, room });
 
 /** **呼ばれた行に［受けました］を返す**（D130・0.1.44）。 */
 export const chatAck = (room: string, line: string) => invoke<void>('chat_ack', { room, line });
@@ -274,8 +275,8 @@ export const chatAck = (room: string, line: string) => invoke<void>('chat_ack', 
  * **ルームの相手へ画像を送る。**画面で縮めてから渡す（`chat/image.ts`）。
  * 上限は Rust 側（`warifu_meeting::IMAGE_MAX`）でも数える。
  */
-export const sendImage = (bytes: Uint8Array, kind: string) =>
-  invoke<void>('send_image', { bytes: Array.from(bytes), kind });
+export const sendImage = (bytes: Uint8Array, kind: string, room: string | null = null) =>
+  invoke<void>('send_image', { bytes: Array.from(bytes), kind, room });
 
 /**
  * **届いた画像を、ダウンロードのフォルダへ保存する**（0.1.43）。返りは書いた場所。

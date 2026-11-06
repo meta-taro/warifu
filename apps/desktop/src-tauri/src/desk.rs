@@ -1897,7 +1897,12 @@ async fn 連絡先から呼ぶ(app: &AppHandle, 指定: &str) -> FromDesk {
     };
     let bridge = app.state::<Bridge>();
     match crate::call::呼ぶ(app, &bridge, 相手).await {
-        Ok(()) => FromDesk::呼んだ { 相手: 名前 },
+        Ok(()) => {
+            // **画面に読み直させる。**呼んだのは口なので、画面は部屋が増えたことにも、
+            // 本体が呼んだ先の部屋を見ていることにも気づけない（11-06・画面だけ元の部屋に残った）
+            let _ = app.emit(crate::EVENT_LOOK, ());
+            FromDesk::呼んだ { 相手: 名前 }
+        }
         Err(e) => FromDesk::Denied {
             why: format!("{名前} を呼べませんでした: {}", e.message),
         },

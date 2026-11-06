@@ -424,6 +424,33 @@ pub(crate) fn 建てた部屋を残す(
     }
 }
 
+/// **人が打った文字を、どのルームへ送るか**（0.1.44）。
+///
+/// 画面が出しているルームを `指定` で渡す。**渡されたら、本体が見ている部屋ではなくそちらへ送る。**
+/// 11-06、エージェントが口から人を呼ぶと本体だけが呼んだ先の部屋へ移り、画面は元の部屋を
+/// 出したまま —— 人が全員あてに打った文字が、呼んだ相手 1 人にだけ届いていた。
+///
+/// 指定された部屋に居なければ、**別の部屋へ流さずに断る。**
+pub(crate) fn 送る部屋を決める(
+    指定: Option<&str>,
+    居る部屋: &[MeetingId],
+    いま: Option<MeetingId>,
+) -> Result<Option<MeetingId>, Failure> {
+    let Some(指定) = 指定 else {
+        return Ok(いま);
+    };
+    let 居ない = || Failure {
+        message: "そのルームにはもう居ません（画面を読み直してください）".into(),
+        code: Some("chat.room_gone".into()),
+    };
+    let 部屋: MeetingId = 指定.parse().map_err(|_| 居ない())?;
+    if 居る部屋.contains(&部屋) {
+        Ok(Some(部屋))
+    } else {
+        Err(居ない())
+    }
+}
+
 /// いま見ているルームの id。**無ければ `None`。**
 pub(crate) async fn いま見ているルーム(
     いま: &見ているルーム
@@ -3753,6 +3780,7 @@ async fn send_text(
     body: String,
     to: Option<String>,
     force: Option<bool>,
+    room: Option<String>,
 ) -> Answer<Option<String>> {
     // **秘密らしいものは、人が確かめてから送る**（0.1.42）。会話は送ったら消せない（P2P）。
     // 画面が先に見て［それでも送る］を出すが、ここでも見る（画面の見落としで素通りさせない）。
@@ -3778,7 +3806,15 @@ async fn send_text(
     // **2026-09-07 に実物で踏んだ。**画面は「この機械 1 人」でボタンを押せるのに、
     // ここが会議の相手だけを見ていたので「まだ誰も居ません」と断っていた。
     // **人が打った部屋も載せる**（0.1.40）。口はそこへ返事を返す
-    let 見ている = いま見ているルーム(&bridge.いまのルーム).await;
+    // **画面が出している部屋へ送る**（本体の「見ている部屋」と食い違っていても）
+    let 見ている = {
+        let 居る部屋: Vec<MeetingId> = bridge.conferences.lock().await.keys().copied().collect();
+        送る部屋を決める(
+            room.as_deref(),
+            &居る部屋,
+            いま見ているルーム(&bridge.いまのルーム).await,
+        )?
+    };
     let 話 = desk::聞いた_部屋で(
         &key_to_string(bridge.device.public_key()),
         &body,
@@ -3901,7 +3937,12 @@ async fn chat_ack(bridge: State<'_, Bridge>, room: String, line: String) -> Answ
 /// **送り先は、いま見ているルームの相手だけ。**預かり所（相手が起動していないとき）へは
 /// 預けない —— 預かり所は文字のための所である。
 #[tauri::command]
-async fn send_image(bridge: State<'_, Bridge>, bytes: Vec<u8>, kind: String) -> Answer<()> {
+async fn send_image(
+    bridge: State<'_, Bridge>,
+    bytes: Vec<u8>,
+    kind: String,
+    room: Option<String>,
+) -> Answer<()> {
     if bytes.is_empty() || bytes.len() > warifu_meeting::IMAGE_MAX {
         return Err(Failure {
             message: format!(
@@ -3912,7 +3953,13 @@ async fn send_image(bridge: State<'_, Bridge>, bytes: Vec<u8>, kind: String) -> 
             code: Some("image.too_large".into()),
         });
     }
-    let Some(meeting) = いま見ているルーム(&bridge.いまのルーム).await else {
+    let 居る部屋: Vec<MeetingId> = bridge.conferences.lock().await.keys().copied().collect();
+    let Some(meeting) = 送る部屋を決める(
+        room.as_deref(),
+        &居る部屋,
+        いま見ているルーム(&bridge.いまのルーム).await,
+    )?
+    else {
         return Err(Failure {
             message: "画像はルームの中でだけ送れます".into(),
             code: Some("image.no_room".into()),
@@ -4937,6 +4984,42 @@ mod 生きている行の試験 {
             生きている行(4261.0, 1),
             "生きています（起動から 71 分・ルーム 1）"
         );
+    }
+}
+
+#[cfg(test)]
+mod 送る部屋の試験 {
+    use super::*;
+
+    fn 部屋(_: u8) -> MeetingId {
+        MeetingId::generate()
+    }
+
+    #[test]
+    fn 画面が出している部屋へ送る_本体の見ている部屋が別でも() {
+        let (全機, 呼んだ先) = (部屋(1), 部屋(2));
+        assert_ne!(全機, 呼んだ先);
+        let 決めた =
+            送る部屋を決める(Some(&全機.to_string()), &[全機, 呼んだ先], Some(呼んだ先)).unwrap();
+        assert_eq!(決めた, Some(全機));
+    }
+
+    #[test]
+    fn 居ない部屋を指されたら_ほかへ流さずに断る() {
+        let 居る = 部屋(1);
+        let e = 送る部屋を決める(Some(&部屋(9).to_string()), &[居る], Some(居る)).unwrap_err();
+        assert_eq!(e.code.as_deref(), Some("chat.room_gone"));
+        assert!(送る部屋を決める(Some("読めない"), &[部屋(1)], None).is_err());
+    }
+
+    #[test]
+    fn 指されなければ本体の見ている部屋() {
+        let 居る = 部屋(1);
+        assert_eq!(
+            送る部屋を決める(None, &[居る], Some(居る)).unwrap(),
+            Some(居る)
+        );
+        assert_eq!(送る部屋を決める(None, &[], None).unwrap(), None);
     }
 }
 
