@@ -99,3 +99,21 @@ export function 見ているルームの相手だけ<T extends { key: string }>(
   const 足りない = 顔ぶれ.filter((k) => k !== 自分の鍵 && !受けた鍵.has(k)).map(足す);
   return [...受けた, ...足りない];
 }
+
+/**
+ * **いずれかのルームに居る相手の鍵**（連絡帳の「いま居る」・0.1.44）。
+ *
+ * 入退室の知らせで受けた相手（`受けた`）と、機械が数えたルームごとの顔ぶれを合わせる。
+ * 画面だけ読み込み直すと知らせは来直さないので、`受けた` だけでは
+ * **同じルームに居る相手が、連絡帳で「居ない」になっていた。**自分は入れない。
+ */
+export function ルームに居る相手(
+  受けた: readonly string[],
+  ルームたち: readonly { member_keys: readonly string[] }[],
+  自分の鍵: string | null,
+): string[] {
+  const 鍵たち = new Set(受けた);
+  for (const r of ルームたち) for (const k of r.member_keys) 鍵たち.add(k);
+  if (自分の鍵) 鍵たち.delete(自分の鍵);
+  return [...鍵たち];
+}

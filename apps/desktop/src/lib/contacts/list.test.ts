@@ -149,6 +149,17 @@ describe('ルームの一覧', () => {
     expect(連絡先.find((r) => r.key === 'METKEYBBBBBBBBBBBBBBBBB')?.name).toBe('METKEYBBBBBB…');
   });
 
+  it('会っただけで今どのルームにも居ない相手を、ルームに居るとしない（見ている部屋の未読が全員に付いた）', () => {
+    const 区画 = 連絡帳を組む({
+      ...素,
+      会議の相手: [相手],
+      会った: [相手, もう一人],
+    });
+    const 連絡先 = 区画.find((s) => s.title === 'contacts.saved')?.行たち ?? [];
+    expect(連絡先.find((r) => r.key === 相手)?.いま会議に居る).toBe(true);
+    expect(連絡先.find((r) => r.key === もう一人)?.いま会議に居る).toBe(false);
+  });
+
   it('名前を付けたルームは、その名前で呼ぶ', () => {
     const 区画 = 連絡帳を組む({
       自分: 'ME',

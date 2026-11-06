@@ -221,7 +221,8 @@ export function 連絡帳を組む(素材: 素材): 区画[] {
         name: 呼び名(名簿, key),
         種類: '人' as const,
         住所を覚えている: 住所あり.has(key),
-        いま会議に居る: true,
+        // **会っただけの相手は、居ない。**true にしていたので、見ている部屋の未読が全員に付いた（0.1.44）
+        いま会議に居る: 会議に居る.has(key),
       })),
   ].sort((a, b) => a.name.localeCompare(b.name));
 
