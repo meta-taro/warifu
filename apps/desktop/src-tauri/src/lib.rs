@@ -3416,14 +3416,45 @@ async fn 他へ配る(
     言った人: PublicKey,
     notice: &Notice,
 ) {
-    let 送り口 = outbound.lock().await;
-    for (鍵, tx) in 送り口.iter() {
-        if *鍵 == 言った人.to_bytes() {
-            continue;
-        }
-        // **届かない相手で止めない。**1 人が落ちていても、ほかへは配る
-        let _ = tx.send(notice.clone()).await;
+    // **錠の中では送り口を写すだけ**（0.1.44）。錠を握ったまま送り待ちをすると、
+    // 詰まった相手 1 人で棚が塞がり、机の発言が口の 5 秒を超えて「返事をしません」になっていた
+    let 宛て: Vec<(mpsc::Sender<Notice>, Notice)> = outbound
+        .lock()
+        .await
+        .iter()
+        .filter(|(鍵, _)| **鍵 != 言った人.to_bytes())
+        .map(|(_, tx)| (tx.clone(), notice.clone()))
+        .collect();
+    // **届かない相手で止めない。**1 人が落ちていても、ほかへは配る
+    let _ = 時間を切って送る(宛て).await;
+}
+
+/// 相手ごとの送り待ちを切る長さ（机の `線を待てる` と同じ）。
+const 送り待ちを切る: std::time::Duration = std::time::Duration::from_millis(1500);
+
+/// **錠の外で、相手ごとに時間を切って並べて送る**（0.1.44）。返りは送れたかの並び（入れた順）。
+///
+/// 送り列（容量 32）が詰まった相手を待ち続けない。詰まった相手の分は落とす（線は別に見張っている）。
+async fn 時間を切って送る(宛て: Vec<(mpsc::Sender<Notice>, Notice)>) -> Vec<bool> {
+    let mut 組 = tokio::task::JoinSet::new();
+    for (番, (tx, 知らせ)) in 宛て.into_iter().enumerate() {
+        組.spawn(async move {
+            let 送れた = matches!(
+                tokio::time::timeout(送り待ちを切る, tx.send(知らせ)).await,
+                Ok(Ok(()))
+            );
+            (番, 送れた)
+        });
     }
+    let mut 結果 = Vec::new();
+    while let Some(済んだ) = 組.join_next().await {
+        // 送る仕事は panic しない（send と timeout だけ）。万一落ちたら送れなかったと数える
+        if let Ok(一つ) = 済んだ {
+            結果.push(一つ);
+        }
+    }
+    結果.sort_by_key(|(番, _)| *番);
+    結果.into_iter().map(|(_, 送れた)| 送れた).collect()
 }
 
 /// **この部屋の合言葉を用意する**（**D118**）。**主催だけが呼ぶ。**
@@ -3630,53 +3661,65 @@ async fn 紹介を配る(
         };
         plan
     };
-    let book = addresses.lock().await;
-    let out = outbound.lock().await;
-
-    let 送る = |to: PublicKey, who: PublicKey| {
-        let (Some(tx), Some(address)) = (out.get(&to.to_bytes()), book.get(&who.to_bytes())) else {
-            // **黙って送らない、をやめる**（**#37**）——
-            // **口が無いのか、住所を知らないのか**で、次に見る所が変わる
-            記録!(
-                "紹介: 送れません（{} へ {} の話。口 {} / 住所 {}）",
-                短く(&key_to_string(to)),
-                短く(&key_to_string(who)),
-                if out.contains_key(&to.to_bytes()) {
-                    "あり"
-                } else {
-                    "なし"
+    // **錠の中では送る中身を組むだけ**（0.1.44）。錠を握ったまま送り待ちをすると、
+    // 詰まった相手 1 人で棚が塞がり、机の発言が口の 5 秒を超えて「返事をしません」になっていた
+    let (既存への宛て, 新入りへの宛て) = {
+        let book = addresses.lock().await;
+        let out = outbound.lock().await;
+        let 組む = |to: PublicKey, who: PublicKey| {
+            let (Some(tx), Some(address)) = (out.get(&to.to_bytes()), book.get(&who.to_bytes()))
+            else {
+                // **黙って送らない、をやめる**（**#37**）——
+                // **口が無いのか、住所を知らないのか**で、次に見る所が変わる
+                記録!(
+                    "紹介: 送れません（{} へ {} の話。口 {} / 住所 {}）",
+                    短く(&key_to_string(to)),
+                    短く(&key_to_string(who)),
+                    if out.contains_key(&to.to_bytes()) {
+                        "あり"
+                    } else {
+                        "なし"
+                    },
+                    if book.contains_key(&who.to_bytes()) {
+                        "あり"
+                    } else {
+                        "なし"
+                    }
+                );
+                return None;
+            };
+            Some((
+                tx.clone(),
+                Notice::Introduce {
+                    meeting,
+                    who,
+                    address: address.clone(),
                 },
-                if book.contains_key(&who.to_bytes()) {
-                    "あり"
-                } else {
-                    "なし"
-                }
-            );
-            return None;
+            ))
         };
-        Some(tx.send(Notice::Introduce {
-            meeting,
-            who,
-            address: address.clone(),
-        }))
+        // 既存の面々へ「入った人」を／入った人へ「既存の面々」を
+        let 既存へ: Vec<_> = 配り先
+            .tell_existing
+            .iter()
+            .filter_map(|p| 組む(*p, newcomer))
+            .collect();
+        let 新入りへ: Vec<_> = 配り先
+            .tell_newcomer
+            .iter()
+            .filter_map(|p| 組む(newcomer, *p))
+            .collect();
+        (既存へ, 新入りへ)
     };
-
-    // 既存の面々へ「入った人」を
-    let mut 既存へ = 0usize;
-    for p in &配り先.tell_existing {
-        if let Some(f) = 送る(*p, newcomer) {
-            let _ = f.await;
-            既存へ += 1;
-        }
-    }
-    // 入った人へ「既存の面々」を
-    let mut 新入りへ = 0usize;
-    for p in &配り先.tell_newcomer {
-        if let Some(f) = 送る(newcomer, *p) {
-            let _ = f.await;
-            新入りへ += 1;
-        }
-    }
+    let 既存へ = 時間を切って送る(既存への宛て)
+        .await
+        .into_iter()
+        .filter(|送れた| *送れた)
+        .count();
+    let 新入りへ = 時間を切って送る(新入りへの宛て)
+        .await
+        .into_iter()
+        .filter(|送れた| *送れた)
+        .count();
     // **配れたことを言う**（2026-09-18）。
     //
     // **失敗だけ記録して成功を記録しないと、
@@ -5111,5 +5154,62 @@ mod 建て直しの試験 {
         let 新しい_id = 新しい.id();
         assert!(建てた部屋を残す(&mut 棚, 新しい));
         assert!(棚.contains_key(&新しい_id));
+    }
+}
+
+#[cfg(test)]
+mod 配る錠の試験 {
+    use super::*;
+
+    fn 鍵(n: u8) -> PublicKey {
+        warifu_core::Seed::from_bytes([n; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key()
+    }
+
+    fn 文字(meeting: MeetingId) -> Notice {
+        Notice::Text {
+            meeting,
+            from: 鍵(9),
+            話し手: None,
+            body: "配る".to_owned(),
+        }
+    }
+
+    // 2026-11-06 —— 主催が受けた発言をほかへ配る間、送り口の棚の錠を握ったまま
+    // 詰まった相手（送り列が満杯）を待っていた。机は同じ錠を待たされ、口の 5 秒を超えて
+    // 「この機械が返事をしません」になった（実際には錠が空いたあとに届いていた）。
+    #[tokio::test]
+    async fn 詰まった相手が居ても_錠を握り続けず_ほかの相手には届く() {
+        let (詰まり, _詰まりの受け) = mpsc::channel::<Notice>(1);
+        let (通る, mut 通るの受け) = mpsc::channel::<Notice>(8);
+        let 部屋 = MeetingId::generate();
+        詰まり.send(文字(部屋)).await.unwrap(); // 満杯にする（読まない）
+        let outbound: Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>> =
+            Arc::new(Mutex::new(HashMap::from([
+                (鍵(1).to_bytes(), 詰まり),
+                (鍵(2).to_bytes(), 通る),
+            ])));
+
+        let 配る = {
+            let outbound = Arc::clone(&outbound);
+            tokio::spawn(async move { 他へ配る(&outbound, 鍵(3), &文字(部屋)).await })
+        };
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        // **配っている最中でも、錠はすぐ取れる**（机が待たされない）
+        let 取れた =
+            tokio::time::timeout(std::time::Duration::from_millis(200), outbound.lock()).await;
+        assert!(取れた.is_ok(), "配る間、送り口の棚の錠を握り続けている");
+        drop(取れた);
+        // **ほかの相手には届く**
+        let 届いた =
+            tokio::time::timeout(std::time::Duration::from_secs(1), 通るの受け.recv()).await;
+        assert!(matches!(届いた, Ok(Some(Notice::Text { .. }))));
+        // **詰まった相手を、いつまでも待たない**
+        tokio::time::timeout(std::time::Duration::from_secs(5), 配る)
+            .await
+            .expect("詰まった相手を待ち続けている")
+            .unwrap();
     }
 }
