@@ -528,3 +528,59 @@ async fn 包みの口で_小さな包みが相手に届く() {
     let 届いた = 時間を切る(受ける口.受ける()).await.unwrap();
     assert_eq!(届いた, b"frame-1");
 }
+
+// 2026-11-06 —— 入り直した直後に線が 0.3 秒で終わり、両方の機械が「相手が閉じた」と記録していた。
+// **片方が経路を手放すと、もう片方には何が見えるか**を固定する（画面の left／lost の読み方）。
+//
+// - 結び目ごと手放す → こちらは「落ちた」（lost）。閉じた訳は「相手がアプリとして閉じた（code 0）」
+// - 映像の道（包みの口）が結び目を持ったまま、会話だけ手放す → こちらは「閉じた」（left）
+async fn 手放させる(包みの口も持つ: bool) -> (Result<Vec<u8>, Error>, Option<String>) {
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    let 待ち受け = tokio::spawn(async move {
+        let mut s = 受け手.accept(&Revocations::new()).await.unwrap();
+        let 口 = 包みの口も持つ.then(|| s.包みの口());
+        let _ = s.recv().await.unwrap();
+        // **finish も close も呼ばずに手放す**
+        drop(s);
+        (受け手, 口)
+    });
+
+    let mut session = 時間を切る(呼ぶ側.connect(&宛先, &Revocations::new()))
+        .await
+        .unwrap();
+    assert_eq!(session.閉じた訳(), None, "開いている間は訳が無い");
+    時間を切る(session.send(b"hi")).await.unwrap();
+    let _持ち手 = 時間を切る(待ち受け).await.unwrap();
+    let 届いた = 時間を切る(session.recv()).await;
+    (届いた, session.閉じた訳())
+}
+
+#[tokio::test]
+async fn 相手が結び目ごと手放すと_落ちたと見え_閉じた訳はアプリが閉じた() {
+    let (届いた, 訳) = 手放させる(false).await;
+    assert!(
+        matches!(届いた, Err(Error::Network { .. })),
+        "結び目ごと手放されると lost: {届いた:?}"
+    );
+    let 訳 = 訳.expect("閉じた訳を言える");
+    assert!(
+        訳.contains("closed by peer"),
+        "相手がアプリとして閉じた: {訳}"
+    );
+}
+
+#[tokio::test]
+async fn 包みの口が残ったまま会話だけ手放すと_閉じたと見え_結び目は開いたまま() {
+    let (届いた, 訳) = 手放させる(true).await;
+    assert!(
+        matches!(届いた, Err(Error::Closed)),
+        "会話だけ手放されると left: {届いた:?}"
+    );
+    assert_eq!(訳, None, "結び目は映像の道が持っているので、まだ開いている");
+}

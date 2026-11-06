@@ -2631,7 +2631,10 @@ fn 汲む(
                     let Some(notice) = outgoing else { break "left" };
                     let Ok(intent) = notice.to_intent() else { continue };
                     // **送れないのは経路が落ちたということ**
-                    if channel.send(&intent).await.is_err() { break "lost"; }
+                    if let Err(e) = channel.send(&intent).await {
+                        終わり方を記す(&channel, peer, &e);
+                        break "lost";
+                    }
                 }
                 // 相手から届くもの
                 incoming = channel.recv() => {
@@ -2639,8 +2642,14 @@ fn 汲む(
                     // （帰ったなら会議は終わり、落ちたなら**会議キーを作り直す**・D12）
                     let intent = match incoming {
                         Ok(i) => i,
-                        Err(warifu_intent::Error::Closed) => break "left",
-                        Err(_) => break "lost",
+                        Err(e @ warifu_intent::Error::Closed) => {
+                            終わり方を記す(&channel, peer, &e);
+                            break "left";
+                        }
+                        Err(e) => {
+                            終わり方を記す(&channel, peer, &e);
+                            break "lost";
+                        }
                     };
                     let Ok(notice) = Notice::from_intent(&intent) else {
                         // 会議のものでない口は、経路としては通る。**会議は受け取らない**
@@ -3252,6 +3261,21 @@ fn 汲む(
         記録!("経路が終わった: {}（{訳}）", 短く(&key_to_string(peer)));
         let _ = app.emit(EVENT_CLOSED, (key_to_string(peer), 訳));
     });
+}
+
+/// **線が終わった訳を、下の層の言い分のまま 1 行残す**（2026-11-06）。
+///
+/// left／lost だけでは、どちらの機械が閉じたのかを決められなかった（入り直した直後に 0.3 秒で
+/// 終わり、両方の機械が「相手が閉じた」と記録していた）。QUIC の閉じた訳（相手がアプリとして閉じた・
+/// こちらが閉じた・時間切れ・相手が消した）と、受け取り／送りの誤りをそのまま出す。番地は入らない。
+fn 終わり方を記す(channel: &Channel, peer: PublicKey, e: &warifu_intent::Error) {
+    記録!(
+        "経路の終わり方: {}（誤り: {e}／結び目: {}）",
+        短く(&key_to_string(peer)),
+        channel
+            .閉じた訳()
+            .unwrap_or_else(|| "まだ開いている".to_owned())
+    );
 }
 
 /// 下ごしらえの送り口が置かれるのを待つ回数（100 ms ずつ・最長 5 秒）。

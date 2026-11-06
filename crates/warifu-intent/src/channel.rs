@@ -43,6 +43,12 @@ impl Channel {
         self.session.is_open()
     }
 
+    /// **結び目が閉じた訳**（[`Session::閉じた訳`]）。まだ閉じていなければ `None`。
+    #[must_use]
+    pub fn 閉じた訳(&self) -> Option<String> {
+        self.session.閉じた訳()
+    }
+
     /// 口を 1 つ送る。
     ///
     /// # Errors
