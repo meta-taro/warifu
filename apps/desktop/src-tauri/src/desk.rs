@@ -1896,10 +1896,10 @@ async fn 連絡先から呼ぶ(app: &AppHandle, 指定: &str) -> FromDesk {
         };
     };
     let bridge = app.state::<Bridge>();
-    match crate::call::呼ぶ(app, &bridge, 相手).await {
+    match crate::call::呼ぶ(app, &bridge, 相手, crate::call::見る部屋::そのまま).await {
         Ok(()) => {
-            // **画面に読み直させる。**呼んだのは口なので、画面は部屋が増えたことにも、
-            // 本体が呼んだ先の部屋を見ていることにも気づけない（11-06・画面だけ元の部屋に残った）
+            // **画面に読み直させる。**呼んだのは口なので、画面は部屋が増えたことに気づけない
+            // （見ている部屋は動かさない。人が見ているものを口が変えない）
             let _ = app.emit(crate::EVENT_LOOK, ());
             FromDesk::呼んだ { 相手: 名前 }
         }

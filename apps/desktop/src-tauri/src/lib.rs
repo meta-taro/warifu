@@ -1695,7 +1695,7 @@ async fn call_contact(app: AppHandle, bridge: State<'_, Bridge>, key: String) ->
         message: "公開鍵として読めません".into(),
         code: None,
     })?;
-    call::呼ぶ(&app, &bridge, 相手).await
+    call::呼ぶ(&app, &bridge, 相手, call::見る部屋::移す).await
 }
 
 /// **貼られた鍵が、いつまで使えるか。**繋がずに読む（**#18**・2026-09-18）。
@@ -5010,6 +5010,27 @@ mod 送る部屋の試験 {
         let e = 送る部屋を決める(Some(&部屋(9).to_string()), &[居る], Some(居る)).unwrap_err();
         assert_eq!(e.code.as_deref(), Some("chat.room_gone"));
         assert!(送る部屋を決める(Some("読めない"), &[部屋(1)], None).is_err());
+    }
+
+    #[tokio::test]
+    async fn 口から呼んで足した部屋は_人が見ている部屋を奪わない() {
+        let 私 = warifu_core::Seed::from_bytes([1; 32])
+            .profile("Personal")
+            .device("PC")
+            .public_key();
+        let 棚: ルームたち = Arc::new(Mutex::new(HashMap::new()));
+        let 全機 = MeetingId::generate();
+        let いま: 見ているルーム = Arc::new(Mutex::new(Some(全機)));
+        let 呼んだ先 = MeetingId::generate();
+        let r = warifu_meeting::Roster::with_capacity(私, 12).unwrap();
+        ルームを足す_見るのは奪わない(
+            &棚,
+            &いま,
+            Conference::joined(私, 呼んだ先, r),
+        )
+        .await;
+        assert_eq!(*いま.lock().await, Some(全機), "見ている部屋はそのまま");
+        assert!(棚.lock().await.contains_key(&呼んだ先), "部屋は足してある");
     }
 
     #[test]

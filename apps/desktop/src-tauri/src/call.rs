@@ -41,11 +41,27 @@ fn 居ません() -> Failure {
     }
 }
 
+/// 呼んだあと、本体の「見ている部屋」を呼んだ先へ移すか。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum 見る部屋 {
+    /// 移す。**人が画面で押したとき**（画面もその部屋へ移る）
+    移す,
+    /// 移さない。**エージェントが口から呼んだとき**（0.1.44）。
+    /// 11-06、口から呼ぶと本体だけが呼んだ先へ移り、画面は元の部屋のまま ——
+    /// 人の行も未読も、呼んだ先の部屋を指すようになった
+    そのまま,
+}
+
 /// 覚えた相手を呼ぶ。
-pub async fn 呼ぶ(app: &AppHandle, bridge: &Bridge, 相手: PublicKey) -> Answer<()> {
+pub async fn 呼ぶ(
+    app: &AppHandle,
+    bridge: &Bridge,
+    相手: PublicKey,
+    見る: 見る部屋,
+) -> Answer<()> {
     // **住所を知らないなら、繋ぎに行かずにすぐ返す。**押した人を待たせない（D49）
     let 住所 = contacts::住所を引く(相手)?;
-    住所へ呼ぶ(app, bridge, 相手, &住所, None).await
+    住所へ呼ぶ_見る部屋を選んで(app, bridge, 相手, &住所, None, 見る).await
 }
 
 /// **住所を手に持っているときに呼ぶ。**
@@ -63,6 +79,17 @@ pub async fn 住所へ呼ぶ(
     相手: PublicKey,
     住所: &str,
     戻りたい: Option<warifu_meeting::MeetingId>,
+) -> Answer<()> {
+    住所へ呼ぶ_見る部屋を選んで(app, bridge, 相手, 住所, 戻りたい, 見る部屋::移す).await
+}
+
+async fn 住所へ呼ぶ_見る部屋を選んで(
+    app: &AppHandle,
+    bridge: &Bridge,
+    相手: PublicKey,
+    住所: &str,
+    戻りたい: Option<warifu_meeting::MeetingId>,
+    見る: 見る部屋,
 ) -> Answer<()> {
     let 住所 = 住所.to_owned();
     記録!(
@@ -119,12 +146,20 @@ pub async fn 住所へ呼ぶ(
     // 影へ流す分を先に写しておく（名簿は部屋へ渡して手放す）
     let (影の名簿, 影の定員) = (roster.members().to_vec(), roster.capacity());
     let events = {
-        crate::ルームを足す(
-            &bridge.conferences,
-            &bridge.いまのルーム,
-            Conference::joined(bridge.device.public_key(), meeting, roster),
-        )
-        .await;
+        let 部屋 = Conference::joined(bridge.device.public_key(), meeting, roster);
+        match 見る {
+            見る部屋::移す => {
+                crate::ルームを足す(&bridge.conferences, &bridge.いまのルーム, 部屋).await
+            }
+            見る部屋::そのまま => {
+                crate::ルームを足す_見るのは奪わない(
+                    &bridge.conferences,
+                    &bridge.いまのルーム,
+                    部屋,
+                )
+                .await
+            }
+        };
         // **呼んだ相手を、この部屋の主催として覚える**（`connect` と同じ・**#37**）。
         // 覚えないと、ゲストなのに「あなたが建てた」と出て、
         // **帰り道の見張りが「自分の部屋」とみなし、次に主催が落ちても戻らない**
