@@ -31,6 +31,7 @@
     つながりの言い方,
   } from '$lib/meeting/stage';
   import PaneRail from '$lib/shell/PaneRail.svelte';
+  import MailPane from '$lib/mail/MailPane.svelte';
   import { 既定の面, 押した後の面, 会話が見えているか, type 面 as 面の型 } from '$lib/shell/panes';
   import ContactsPane from '$lib/contacts/ContactsPane.svelte';
   import CropDialog from '$lib/contacts/CropDialog.svelte';
@@ -4520,6 +4521,11 @@
         </div>
       </div>
     </div>
+  {/if}
+
+  <!-- **受信箱**（0.1.45・読むだけ・DESIGN §1） -->
+  {#if 面 === 'メール'}
+    <div class="pane mail" role="tabpanel"><MailPane {locale} /></div>
   {/if}
 
   <!-- 予定。**まだ動かないことを、理由つきで出す**（§2 原則 7） -->

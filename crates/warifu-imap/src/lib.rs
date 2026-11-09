@@ -32,4 +32,4 @@ pub use convert::{
 };
 pub use error::Error;
 pub use mailbox::{DEFAULT_LIMIT, Mailbox, 数};
-pub use tls::connect;
+pub use tls::{Stream, connect};

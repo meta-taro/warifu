@@ -10,6 +10,9 @@ use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
 use crate::{Account, Error};
 
+/// 繋いだ流れ（TLS の上の TCP）。呼ぶ側が型を書けるように名前を付ける（0.1.45）。
+pub type Stream = TlsStream<TcpStream>;
+
 /// TLS で繋ぐ（IMAPS。既定は 993）。
 ///
 /// 使うのは **既にこのワークスペースの木にあるもの**（`rustls` / `ring` / `webpki-roots`。
@@ -19,7 +22,7 @@ use crate::{Account, Error};
 /// # 失敗
 ///
 /// [`Error::Network`]。**下の層の理由を捨てない。**
-pub async fn connect(account: &Account) -> Result<TlsStream<TcpStream>, Error> {
+pub async fn connect(account: &Account) -> Result<Stream, Error> {
     let mut 根 = RootCertStore::empty();
     根.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 

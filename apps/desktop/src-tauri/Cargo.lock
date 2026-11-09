@@ -6702,6 +6702,7 @@ dependencies = [
  "warifu-meeting",
  "warifu-net",
  "warifu-postbox",
+ "warifu-read",
  "warifu-seal",
  "warifu-turn",
  "warifu-vault",

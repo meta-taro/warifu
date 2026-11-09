@@ -738,3 +738,15 @@ export type FirewallState = {
 };
 
 export const firewallState = () => invoke<FirewallState>('firewall_state');
+
+/** 受信箱の一覧（0.1.45・ヘッダだけ・仕分けの札つき・既読にしない）。 */
+export type 受信箱の答え = {
+  行たち: import('$lib/mail/order').メールの行[];
+  落ちた: string[];
+  控え無し: boolean;
+};
+export const mailList = () => invoke<受信箱の答え>('mail_list');
+
+/** 開いた 1 通（文字だけ。外の画像は読み込まず数だけ）。 */
+export type 開いたメール = { 本文: string; 外の画像: number; 添付: string[] };
+export const mailOpen = (user: string, uid: number) => invoke<開いたメール>('mail_open', { user, uid });

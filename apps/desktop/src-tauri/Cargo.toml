@@ -35,6 +35,7 @@ warifu-door = { path = "../../../crates/warifu-door" }
 warifu-vault = { path = "../../../crates/warifu-vault" }
 # 受信箱の見張り（0.1.45）—— 読むだけ・パスワードはキーチェーン
 warifu-imap = { path = "../../../crates/warifu-imap" }
+warifu-read = { path = "../../../crates/warifu-read" }
 warifu-capability = { path = "../../../crates/warifu-capability" }
 warifu-desk = { path = "../../../crates/warifu-desk" }
 warifu-postbox = { path = "../../../crates/warifu-postbox" }

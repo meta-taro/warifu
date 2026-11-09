@@ -129,6 +129,28 @@ export type MessageKey =
   | 'pane.contacts'
   | 'pane.meeting'
   | 'pane.schedule'
+  | 'pane.mail'
+  | 'mail.title'
+  | 'mail.readonly'
+  | 'mail.reload'
+  | 'mail.loading'
+  | 'mail.none'
+  | 'mail.failed'
+  | 'mail.empty'
+  | 'mail.pick'
+  | 'mail.opening'
+  | 'mail.images'
+  | 'mail.attachments'
+  | 'mail.noSubject'
+  | 'mail.noRule'
+  | 'mail.tag.spoof'
+  | 'mail.tag.spam'
+  | 'mail.tag.billing'
+  | 'mail.tag.order'
+  | 'mail.tag.inquiry'
+  | 'mail.tag.notice'
+  | 'mail.tag.ad'
+  | 'mail.tag.unsorted'
   | 'contacts.this'
   | 'contacts.me'
   | 'contacts.unread'
@@ -651,6 +673,28 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': '連絡帳',
     'pane.meeting': 'ルーム',
     'pane.schedule': '予定',
+    'pane.mail': 'メール',
+    'mail.title': '受信箱',
+    'mail.readonly': '読むだけです。開いても既読にしません。ここから送ることはできません。',
+    'mail.reload': '読み直す',
+    'mail.loading': '受信箱を読んでいます…',
+    'mail.none': 'メールのアドレスを控えていません。ターミナルで warifu mail add <アドレス> を打つと、読むだけでつなぎます。',
+    'mail.failed': '読めなかった受信箱があります: {list}',
+    'mail.empty': '受信箱に通がありません。',
+    'mail.pick': '左の一覧から 1 通選ぶと、本文を文字だけで出します（既読にはしません）。',
+    'mail.opening': '開いています…',
+    'mail.images': '外の画像 {n} 枚は読み込んでいません。',
+    'mail.attachments': '添付: {names}',
+    'mail.noSubject': '（件名なし）',
+    'mail.noRule': 'どの規則にも当たりませんでした。',
+    'mail.tag.spoof': 'なりすまし疑い',
+    'mail.tag.spam': '迷惑',
+    'mail.tag.billing': '請求',
+    'mail.tag.order': '受注',
+    'mail.tag.inquiry': '問い合わせ',
+    'mail.tag.notice': '知らせ',
+    'mail.tag.ad': '広告',
+    'mail.tag.unsorted': '未分類',
     'contacts.this': 'この PC',
     'contacts.me': 'あなた',
     'contacts.me.row': 'あなた（この PC の人）',
@@ -1127,6 +1171,28 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': 'Contacts',
     'pane.meeting': 'Room',
     'pane.schedule': 'Schedule',
+    'pane.mail': 'Mail',
+    'mail.title': 'Inbox',
+    'mail.readonly': 'Read-only. Opening a message does not mark it as read. You cannot send from here.',
+    'mail.reload': 'Reload',
+    'mail.loading': 'Reading the inbox…',
+    'mail.none': 'No mail address is set up. Run warifu mail add <address> in a terminal to connect read-only.',
+    'mail.failed': 'Some inboxes could not be read: {list}',
+    'mail.empty': 'The inbox is empty.',
+    'mail.pick': 'Pick a message on the left to show its text (it stays unread).',
+    'mail.opening': 'Opening…',
+    'mail.images': '{n} external images were not loaded.',
+    'mail.attachments': 'Attachments: {names}',
+    'mail.noSubject': '(no subject)',
+    'mail.noRule': 'No rule matched.',
+    'mail.tag.spoof': 'Possible spoofing',
+    'mail.tag.spam': 'Spam',
+    'mail.tag.billing': 'Billing',
+    'mail.tag.order': 'Order',
+    'mail.tag.inquiry': 'Inquiry',
+    'mail.tag.notice': 'Notice',
+    'mail.tag.ad': 'Bulk',
+    'mail.tag.unsorted': 'Unsorted',
     'contacts.this': 'This computer',
     'contacts.me': 'You',
     'contacts.me.row': 'You (the person at this PC)',
@@ -1601,6 +1667,28 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': '通讯录',
     'pane.meeting': '房间',
     'pane.schedule': '日程',
+    'pane.mail': '邮件',
+    'mail.title': '收件箱',
+    'mail.readonly': '只读。打开邮件不会标为已读。这里不能发送。',
+    'mail.reload': '重新读取',
+    'mail.loading': '正在读取收件箱…',
+    'mail.none': '尚未登记邮箱地址。在终端运行 warifu mail add <地址> 即可只读连接。',
+    'mail.failed': '有收件箱无法读取：{list}',
+    'mail.empty': '收件箱是空的。',
+    'mail.pick': '在左侧选择一封邮件即可显示正文文字（不会标为已读）。',
+    'mail.opening': '正在打开…',
+    'mail.images': '未加载 {n} 张外部图片。',
+    'mail.attachments': '附件：{names}',
+    'mail.noSubject': '（无主题）',
+    'mail.noRule': '没有匹配的规则。',
+    'mail.tag.spoof': '疑似冒充',
+    'mail.tag.spam': '垃圾邮件',
+    'mail.tag.billing': '账单',
+    'mail.tag.order': '订单',
+    'mail.tag.inquiry': '咨询',
+    'mail.tag.notice': '通知',
+    'mail.tag.ad': '群发',
+    'mail.tag.unsorted': '未分类',
     'contacts.this': '这台电脑',
     'contacts.me': '你',
     'contacts.me.row': '你（这台电脑的人）',
@@ -2078,6 +2166,28 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': '연락처',
     'pane.meeting': '방',
     'pane.schedule': '일정',
+    'pane.mail': '메일',
+    'mail.title': '받은편지함',
+    'mail.readonly': '읽기 전용입니다. 열어도 읽음으로 표시하지 않습니다. 여기서는 보낼 수 없습니다.',
+    'mail.reload': '다시 읽기',
+    'mail.loading': '받은편지함을 읽는 중…',
+    'mail.none': '메일 주소가 등록되어 있지 않습니다. 터미널에서 warifu mail add <주소> 를 실행하면 읽기 전용으로 연결합니다.',
+    'mail.failed': '읽지 못한 받은편지함이 있습니다: {list}',
+    'mail.empty': '받은편지함이 비어 있습니다.',
+    'mail.pick': '왼쪽 목록에서 한 통을 고르면 본문을 글자로만 보여 줍니다(읽음으로 표시하지 않음).',
+    'mail.opening': '여는 중…',
+    'mail.images': '외부 이미지 {n}장은 불러오지 않았습니다.',
+    'mail.attachments': '첨부: {names}',
+    'mail.noSubject': '(제목 없음)',
+    'mail.noRule': '해당하는 규칙이 없습니다.',
+    'mail.tag.spoof': '사칭 의심',
+    'mail.tag.spam': '스팸',
+    'mail.tag.billing': '청구',
+    'mail.tag.order': '주문',
+    'mail.tag.inquiry': '문의',
+    'mail.tag.notice': '알림',
+    'mail.tag.ad': '광고',
+    'mail.tag.unsorted': '미분류',
     'contacts.this': '이 PC',
     'contacts.me': '당신',
     'contacts.me.row': '당신（이 PC 의 사람）',
@@ -2508,6 +2618,20 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '自分が呼んだ相手が、まだ受けていないことを言う。「未読」と訳さないこと —— 読んだかは分からない。分かるのは、押す・返事・エージェントが読む、のどれも来ていないことだけ（D130）。',
   'chat.mention.me':
     '自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。',
+  'pane.mail':
+    '左の帯の面の名前（受信箱を読む面）。',
+  'mail.readonly':
+    '「送れない」を必ず残す（D49：送る経路が無い）。',
+  'mail.none':
+    'コマンドは訳さない。',
+  'mail.images':
+    '読み込まない理由は、開いたことを送り手に知らせないため。',
+  'mail.tag.spoof':
+    '「なりすまし」と断定しないこと —— 疑いである。',
+  'mail.tag.order':
+    '客から受けた注文。こちらが買った注文の知らせではない。',
+  'mail.tag.notice':
+    '自動で送られた知らせ。',
   'chat.mention.line':
     '発言の上に、`@` で呼んだ相手を並べる行の見出し（差出人 → 呼んだ相手）。「宛先」「送り先」と読ませないこと —— 発言はルームの全員に届いている。呼んだ相手を示すだけ。',
   'chat.mention.all':

@@ -98,6 +98,7 @@ mod ack;
 mod bundle;
 mod call;
 mod chat_keep;
+mod mail_view;
 mod recent_keep;
 mod cli;
 mod come_back;
@@ -4625,6 +4626,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            mail_view::mail_list,
+            mail_view::mail_open,
             delegate::delegates,
             delegate::delegate_set,
             delegate::delegate_forget,

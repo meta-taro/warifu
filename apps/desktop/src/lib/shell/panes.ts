@@ -15,13 +15,14 @@
 import type { 画面の状態 } from '$lib/meeting/stage';
 
 /** 面。 */
-export type 面 = '連絡帳' | '会議' | '予定';
+export type 面 = '連絡帳' | 'メール' | '会議' | '予定';
 
 /** 起動して最初に出る面。**会議ではない。** */
 export const 既定の面: 面 = '連絡帳';
 
 /** 並び。**固定する**（押すたびに位置が変わると探させる）。 */
-export const 面の並び: readonly 面[] = ['連絡帳', '会議', '予定'] as const;
+/** **メールは連絡帳の隣**（0.1.45）。読むだけの受信箱（DESIGN §1） */
+export const 面の並び: readonly 面[] = ['連絡帳', 'メール', '会議', '予定'] as const;
 
 /**
  * その面を、見ていないときに畳んでよいか。
@@ -93,6 +94,6 @@ export function 使える面か(面: 面): { 使える: boolean; 訳: string | n
  */
 export function 会話が見えているか(面: 面, 選んだ相手: string | null, 自分の鍵: string | null): boolean {
   if (面 === '会議') return true;
-  if (面 === '予定') return false;
+  if (面 === '予定' || 面 === 'メール') return false;
   return 選んだ相手 !== null && 選んだ相手 !== 自分の鍵;
 }

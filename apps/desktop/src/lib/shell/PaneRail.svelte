@@ -29,6 +29,7 @@
 
   const 見た目: Record<面, { icon: IconName; label: MessageKey }> = {
     連絡帳: { icon: 'book', label: 'pane.contacts' },
+    メール: { icon: 'mail', label: 'pane.mail' },
     会議: { icon: 'people', label: 'pane.meeting' },
     予定: { icon: 'calendar', label: 'pane.schedule' },
   };

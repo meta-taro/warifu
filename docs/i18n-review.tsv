@@ -224,6 +224,27 @@ link.relay.missing	Video and sound are not reaching the other side. Restart the 
 link.relayed	Relayed	中継	中继	중계				
 link.screenless	They joined without a screen (text only). Video and audio are not available.	相手は画面なしで入っています（文字だけ）。映像と音は使えません。	对方是以无界面方式加入的（仅文字）。无法使用视频和音频。	상대는 화면 없이 들어와 있습니다(문자만). 영상과 음성은 사용할 수 없습니다.				
 link.unknown	Unknown	不明	未知	알 수 없음				
+mail.attachments	Attachments: {names}	添付: {names}	附件：{names}	첨부: {names}				
+mail.empty	The inbox is empty.	受信箱に通がありません。	收件箱是空的。	받은편지함이 비어 있습니다.				
+mail.failed	Some inboxes could not be read: {list}	読めなかった受信箱があります: {list}	有收件箱无法读取：{list}	읽지 못한 받은편지함이 있습니다: {list}				
+mail.images	{n} external images were not loaded.	外の画像 {n} 枚は読み込んでいません。	未加载 {n} 张外部图片。	외부 이미지 {n}장은 불러오지 않았습니다.		読み込まない理由は、開いたことを送り手に知らせないため。		
+mail.loading	Reading the inbox…	受信箱を読んでいます…	正在读取收件箱…	받은편지함을 읽는 중…				
+mail.noRule	No rule matched.	どの規則にも当たりませんでした。	没有匹配的规则。	해당하는 규칙이 없습니다.				
+mail.noSubject	(no subject)	（件名なし）	（无主题）	(제목 없음)				
+mail.none	No mail address is set up. Run warifu mail add <address> in a terminal to connect read-only.	メールのアドレスを控えていません。ターミナルで warifu mail add <アドレス> を打つと、読むだけでつなぎます。	尚未登记邮箱地址。在终端运行 warifu mail add <地址> 即可只读连接。	메일 주소가 등록되어 있지 않습니다. 터미널에서 warifu mail add <주소> 를 실행하면 읽기 전용으로 연결합니다.		コマンドは訳さない。		
+mail.opening	Opening…	開いています…	正在打开…	여는 중…				
+mail.pick	Pick a message on the left to show its text (it stays unread).	左の一覧から 1 通選ぶと、本文を文字だけで出します（既読にはしません）。	在左侧选择一封邮件即可显示正文文字（不会标为已读）。	왼쪽 목록에서 한 통을 고르면 본문을 글자로만 보여 줍니다(읽음으로 표시하지 않음).				
+mail.readonly	Read-only. Opening a message does not mark it as read. You cannot send from here.	読むだけです。開いても既読にしません。ここから送ることはできません。	只读。打开邮件不会标为已读。这里不能发送。	읽기 전용입니다. 열어도 읽음으로 표시하지 않습니다. 여기서는 보낼 수 없습니다.		「送れない」を必ず残す（D49：送る経路が無い）。		
+mail.reload	Reload	読み直す	重新读取	다시 읽기				
+mail.tag.ad	Bulk	広告	群发	광고				
+mail.tag.billing	Billing	請求	账单	청구				
+mail.tag.inquiry	Inquiry	問い合わせ	咨询	문의				
+mail.tag.notice	Notice	知らせ	通知	알림		自動で送られた知らせ。		
+mail.tag.order	Order	受注	订单	주문		客から受けた注文。こちらが買った注文の知らせではない。		
+mail.tag.spam	Spam	迷惑	垃圾邮件	스팸				
+mail.tag.spoof	Possible spoofing	なりすまし疑い	疑似冒充	사칭 의심		「なりすまし」と断定しないこと —— 疑いである。		
+mail.tag.unsorted	Unsorted	未分類	未分类	미분류				
+mail.title	Inbox	受信箱	收件箱	받은편지함				
 mark.kept	Waiting to be received	受信待ち	等待接收	수신 대기	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
 mark.kept.hint	It arrives once they can receive it. Until then the poste restante holds it sealed.	相手が受け取れるようになったら届きます。それまでは受け取り先が封のまま預かっています。	等对方能够接收时就会送到。在那之前由寄存处封着保管。	상대가 받을 수 있게 되면 도착합니다. 그때까지는 보관소가 봉한 채로 맡아 둡니다.				
 mark.none	Not sent	送れていません	未发送	보내지 못함				
@@ -271,6 +292,7 @@ notices.empty	No notices yet	まだお知らせはありません	还没有通�
 notices.title	Notices	お知らせ	通知	알림				
 pane.contacts	Contacts	連絡帳	通讯录	연락처				
 pane.divider	Divider (drag left or right to resize; double-click to reset)	仕切り（左右にドラッグで幅を変える・ダブルクリックで元の幅）	分隔线（左右拖动调整宽度，双击恢复原宽度）	구분선 (좌우로 끌어 너비 조절, 더블클릭하면 원래 너비)				
+pane.mail	Mail	メール	邮件	메일		左の帯の面の名前（受信箱を読む面）。		
 pane.meeting	Room	ルーム	房间	방				
 pane.schedule	Schedule	予定	日程	일정				
 pass.action.calendar.freebusy	Seeing free/busy times	予定の空き	查看日程空闲时间	일정의 빈 시간 보기				
