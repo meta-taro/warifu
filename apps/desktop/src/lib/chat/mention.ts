@@ -12,18 +12,30 @@
 const 呼ぶ印 = ['@', '＠'];
 const 呼ぶ印か = (c: string | undefined) => c !== undefined && 呼ぶ印.includes(c);
 
+/**
+ * **全員を呼ぶ印**（0.1.45）。`@all`（大文字小文字を問わない）と `@全員`。届く先は変わらない。
+ * `warifu-desk` の `全員の呼び` と同じ。
+ */
+export const 全員の呼び = ['all', '全員'] as const;
+
 /** 名前の後ろに続いていたら「別の名前」とみなす字。 */
 const 続きの字 = /[A-Za-z0-9_]/;
 
 /** 見る名前に揃える。**1 文字の名前は見ない**（当たりすぎる）。長い順に並べる。 */
 function 揃える(名前たち: readonly string[]): string[] {
-  const 並び = [...new Set(名前たち.map((n) => n.trim()).filter((n) => [...n].length >= 2))];
+  const 並び = [
+    ...new Set([...名前たち.map((n) => n.trim()).filter((n) => [...n].length >= 2), ...全員の呼び])
+  ];
   return 並び.sort((a, b) => b.length - a.length);
 }
 
 /** 本文の `i` から `@名` が始まっていて、後ろが名前の続きでないか。 */
 function ここで呼んでいるか(本文: string, i: number, 名: string): boolean {
-  if (!呼ぶ印か(本文[i]) || !本文.startsWith(名, i + 1)) return false;
+  if (!呼ぶ印か(本文[i])) return false;
+  const 打った = 本文.slice(i + 1, i + 1 + 名.length);
+  // `@ALL` も `@all` として読む（全員の呼びだけ。人の名前は打ったとおりに見る）
+  const 当たる = 名 === 'all' ? 打った.toLowerCase() === 名 : 打った === 名;
+  if (!当たる) return false;
   const 次 = 本文[i + 1 + 名.length];
   return 次 === undefined || !続きの字.test(次);
 }
