@@ -438,14 +438,24 @@ jobs:
             echo "::warning::更新用の鍵が無いので、自動アップデートの成果物は作りません"
           fi
 
+      # **CLI を先に建てて、画面の束に入れる**（0.1.46・`tauri.cli.windows.conf.json`）。
+      # Windows の束に CLI が無く、画面だけ上がって席の口が古いまま残った
+      - name: CLI を建てる
+        run: cargo build --release -p warifu-cli
+
       - name: 画面を建てる
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }}
+        run: pnpm --filter @warifu/desktop tauri build ${{ steps.updater.outputs.flag }} --config src-tauri/tauri.cli.windows.conf.json
 
-      - name: CLI を建てる
-        run: cargo build --release -p warifu-cli
+      - name: 束に CLI が入ったか
+        shell: bash
+        run: |
+          if ! find apps/desktop/src-tauri/target -path '*cli*' -name 'warifu.exe' | grep -q .; then
+            echo "::error::束に warifu.exe が入っていません（tauri.cli.windows.conf.json）"
+            exit 1
+          fi
 
       # **1 か所へ集めてから上げる**（Mac 側と同じ理由 —— 深い木にしない）
       - name: 配るものを 1 か所へ

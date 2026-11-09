@@ -347,6 +347,7 @@ fn 招く口は_札が無ければ通らない() {
             warifu_mcp::InviteArgs {
                 count: Some(1),
                 ttl_secs: None,
+                room: None,
             },
         )));
     let 文 = format!("{:?}", 出た.expect_err("札が無いので通らない"));

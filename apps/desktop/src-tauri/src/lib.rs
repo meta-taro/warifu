@@ -1221,8 +1221,11 @@ fn 束の中のcli(app: &AppHandle) -> Option<std::path::PathBuf> {
     if let Some(場所) = std::env::var_os("WARIFU_CLI_BUNDLE") {
         return Some(std::path::PathBuf::from(場所)).filter(|p| p.is_file());
     }
+    // **Windows は束の `cli\` に置く**（0.1.46・`tauri.cli.windows.conf.json`）。束の頭に置くと、インストーラーが
+    // `%LOCALAPPDATA%\warifu\warifu.exe` へ直に書き、席の口が使っていると更新ごと止まりうる。
+    // 入れ替えは画面が `cli::置く`（名前を変えて退けてから置く）で行う
     let 名 = if cfg!(windows) {
-        "warifu.exe"
+        "cli/warifu.exe"
     } else {
         "warifu"
     };

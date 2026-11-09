@@ -77,11 +77,16 @@ pub struct WaitPassArgs {
 /// **どの部屋かを書く場所が無いのは意図。**いま見ている部屋に出る ——
 /// 書けると、**画面が見ていない部屋へ人を入れられる。**
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct InviteArgs {
     /// 何本出すか。**1 本＝1 人**（**D12**）。省くと 1 本。
     pub count: Option<u8>,
     /// いつまで使えるか（秒）。省くと 24 時間。
     pub ttl_secs: Option<u64>,
+    /// **この部屋の鍵でなければ出さない**（0.1.46・部屋の id かその頭）。省くと、これまでどおり
+    /// 主催している部屋を割符が選ぶ。書いた部屋の主催でなければ断る（別の部屋の鍵を黙って返さない）。
+    #[serde(default)]
+    pub room: Option<String>,
 }
 
 /// [`crate::Warifu::room_key_give`] の引数（2026-10-20）。

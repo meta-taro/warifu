@@ -68,15 +68,30 @@ pub fn 見比べる(場所: &Path, 画面の版: &str, cliの出力: &str) -> CL
 /// CLI を探す場所。**入れ方の案内と同じ順で見る。**
 #[must_use]
 pub fn 探す場所(home: &Path) -> Vec<PathBuf> {
-    let 名 = if cfg!(windows) {
-        "warifu.exe"
-    } else {
-        "warifu"
-    };
+    let 手元 = std::env::var_os("LOCALAPPDATA").map(PathBuf::from);
+    探す場所_で(home, 手元.as_deref(), cfg!(windows))
+}
+
+/// [`探す場所`] の中身（純粋・OS を引数で受ける）。
+///
+/// **Windows の置き場を見ていなかった**（0.1.46）。Windows の人は `%LOCALAPPDATA%\warifu\`（画面と同じ所）や
+/// `%USERPROFILE%\bin\` に置くので、`~/.local/bin` だけを見ていると「無い」になり、CLI が古くても
+/// 画面は何も言わなかった（画面は 0.1.45、席の口は 0.1.44 のまま、に誰も気づけなかった）。
+#[must_use]
+pub fn 探す場所_で(home: &Path, 手元のアプリ: Option<&Path>, windows: bool) -> Vec<PathBuf> {
+    if windows {
+        let mut 並び = Vec::new();
+        if let Some(手元) = 手元のアプリ {
+            並び.push(手元.join("warifu").join("warifu.exe"));
+        }
+        並び.push(home.join("bin").join("warifu.exe"));
+        並び.push(home.join(".local/bin").join("warifu.exe"));
+        return 並び;
+    }
     vec![
-        home.join(".local/bin").join(名),
-        PathBuf::from("/usr/local/bin").join(名),
-        PathBuf::from("/opt/homebrew/bin").join(名),
+        home.join(".local/bin").join("warifu"),
+        PathBuf::from("/usr/local/bin").join("warifu"),
+        PathBuf::from("/opt/homebrew/bin").join("warifu"),
     ]
 }
 
@@ -100,16 +115,34 @@ pub fn 置き換える場所(様子: &CLIの様子) -> Option<&Path> {
 /// # Errors
 /// 束の中に無いとき、消せない・置けないとき（権限の無い場所など）。
 pub fn 置く(束の中: &Path, 置き場所: &Path) -> std::io::Result<()> {
+    置く_で(束の中, 置き場所, cfg!(windows))
+}
+
+/// [`置く`] の中身。`退ける` が真なら、元の CLI を消さずに名前を変えてから置く（0.1.46・Windows）。
+///
+/// Windows は**使っている実行ファイルを消せない**（席の口が動いていると、置き換えが失敗した）。
+/// 名前を変えることはできるので、`warifu.exe.old` へ退けてから新しいものを置く。
+/// 動いている席は退けたほうを使い続け、立ち上げ直せば新しいほうを使う。
+///
+/// # Errors
+/// [`置く`] と同じ。
+pub fn 置く_で(束の中: &Path, 置き場所: &Path, 退ける: bool) -> std::io::Result<()> {
     if !束の中.is_file() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("{} がありません", 束の中.display()),
         ));
     }
-    match std::fs::remove_file(置き場所) {
-        Ok(()) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(e),
+    if 退ける {
+        if 置き場所.exists() {
+            std::fs::rename(置き場所, 退け先(置き場所))?;
+        }
+    } else {
+        match std::fs::remove_file(置き場所) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
     }
     std::fs::copy(束の中, 置き場所)?;
     #[cfg(unix)]
@@ -120,9 +153,67 @@ pub fn 置く(束の中: &Path, 置き場所: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// 退ける先の名。前に退けたものが残っていれば消す。**消せなければ**（まだ使われている）、番号を付けて別の名にする。
+fn 退け先(置き場所: &Path) -> PathBuf {
+    let 名 = 置き場所
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let 先 = 置き場所.with_file_name(format!("{名}.old"));
+    if !先.exists() || std::fs::remove_file(&先).is_ok() {
+        return 先;
+    }
+    (1..)
+        .map(|n| 置き場所.with_file_name(format!("{名}.old{n}")))
+        .find(|p| !p.exists() || std::fs::remove_file(p).is_ok())
+        .unwrap_or(先)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_では_手元のアプリと_bin_も探す() {
+        let 並び = 探す場所_で(
+            Path::new("/home/x"),
+            Some(Path::new("/home/x/AppData/Local")),
+            true,
+        );
+        assert_eq!(
+            並び,
+            vec![
+                PathBuf::from("/home/x/AppData/Local/warifu/warifu.exe"),
+                PathBuf::from("/home/x/bin/warifu.exe"),
+                PathBuf::from("/home/x/.local/bin/warifu.exe"),
+            ]
+        );
+        assert!(探す場所_で(Path::new("/home/x"), None, false)[0].ends_with(".local/bin/warifu"));
+    }
+
+    #[test]
+    fn 退けて置くと_元の_cli_は_old_に残り_新しいものが置かれる() {
+        let 場所 = 試しの場所("退ける");
+        let 束の中 = 場所.join("束の warifu.exe");
+        let 置き場所 = 場所.join("warifu.exe");
+        std::fs::write(&束の中, "新しい").expect("書ける");
+        std::fs::write(&置き場所, "古い").expect("書ける");
+        // 前に退けたものが残っていても置ける
+        std::fs::write(場所.join("warifu.exe.old"), "もっと古い").expect("書ける");
+
+        置く_で(&束の中, &置き場所, true).expect("置ける");
+
+        assert_eq!(std::fs::read_to_string(&置き場所).expect("読める"), "新しい");
+        assert_eq!(
+            std::fs::read_to_string(場所.join("warifu.exe.old")).expect("読める"),
+            "古い"
+        );
+        // 置き場所に何も無くても置ける（初めて置く）
+        std::fs::remove_file(&置き場所).expect("消せる");
+        置く_で(&束の中, &置き場所, true).expect("置ける");
+        assert_eq!(std::fs::read_to_string(&置き場所).expect("読める"), "新しい");
+        let _ = std::fs::remove_dir_all(&場所);
+    }
 
     /// 試験ごとに別の置き場所（並んで走っても混ざらない）。
     fn 試しの場所(名: &str) -> PathBuf {

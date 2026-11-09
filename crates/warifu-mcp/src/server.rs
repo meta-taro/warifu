@@ -446,6 +446,21 @@ pub trait メールの控え: Send + Sync {
     fn 外す(&self, アドレス: &str) -> Result<bool, String>;
 }
 
+/// **ルームキーがその部屋のものか**（0.1.46）。鍵の末尾 `#<部屋の id>` が、頼んだ id（頭だけでもよい）で始まるか。
+#[must_use]
+pub fn 鍵の部屋が合うか(鍵: &str, 頼んだ: &str) -> bool {
+    let 頼んだ = 頼んだ.trim().trim_end_matches('…');
+    if 頼んだ.is_empty() {
+        return true;
+    }
+    鍵.rsplit_once('#').is_some_and(|(_, 部屋)| {
+        部屋
+            .trim()
+            .to_ascii_uppercase()
+            .starts_with(&頼んだ.to_ascii_uppercase())
+    })
+}
+
 /// 秘密が入っていない口に添える、人への頼み方。
 fn 秘密の入れ方(口: &メールの口) -> String {
     let 何 = if 口.種類 == "resend" {
@@ -751,7 +766,8 @@ impl Warifu {
 
     /// **ルームキーを出す**（**#32 の段 2**・2026-09-21）。
     #[tool(
-        description = "この機械が主催しているルーム（見ているルームを主催していればそこ、でなければ主催している別のルーム、無ければ建てる）へ入るためのルームキーを出す。**1 本につき 1 人**で、\
+        description = "この機械が主催しているルーム（見ているルームを主催していればそこ、でなければ主催している別のルーム、無ければ建てる）へ入るためのルームキーを出す。\
+                       room に部屋の id（頭だけでもよい）を書くと、その部屋の主催でなければ断る（別の部屋の鍵は返さない）。**1 本につき 1 人**で、\
                        渡した相手だけが入れる。既定は 24 時間で切れる。\
                        **渡した相手だけに渡すこと** —— 鍵は持参人式で、\
                        その文字列を持っている者が期限まで入れる。\
@@ -772,6 +788,24 @@ impl Warifu {
         let この機械 = self.この機械().await?;
         let 何本 = args.count.unwrap_or(1);
         let (鍵たち, いつまで) = この機械.招く(何本, args.ttl_secs).await?;
+        // **頼んだ部屋と違う部屋の鍵なら、返さずに断る**（0.1.46）。ゲストの席が頼むと、
+        // 自分が主催する別の部屋の鍵が出て、招いた人が別の部屋へ入った
+        if let Some(頼んだ) = args.room.as_deref()
+            && let Some(違う) = 鍵たち.iter().find(|k| !鍵の部屋が合うか(k, 頼んだ))
+        {
+            let 出た部屋 = 違う
+                .rsplit('#')
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(12)
+                .collect::<String>();
+            return Err(ToolError::BadArgs(format!(
+                "この機械は部屋 {} の主催ではないので、その部屋の鍵は出せません（割符が選んだのは別の部屋 {出た部屋}… でした。その鍵は渡していません）。その部屋の主催の席に頼んでください",
+                頼んだ.trim()
+            ))
+            .into());
+        }
         // **本数と期限を先に言う。**渡す側が、期限を計算しなくてよいように
         let 頭 = format!(
             "ルームキーを {} 本出しました（**{} まで使えます**）。\
@@ -1536,5 +1570,21 @@ fn この機械が無い() -> ToolError {
 impl From<ToolError> for ErrorData {
     fn from(e: ToolError) -> Self {
         ErrorData::invalid_request(e.to_string(), None)
+    }
+}
+
+#[cfg(test)]
+mod 鍵の部屋の試験 {
+    use super::鍵の部屋が合うか;
+
+    #[test]
+    fn 頼んだ部屋の鍵かを_末尾の部屋で見る() {
+        let 鍵 = "WARIFU1-AAAA#BBBB#NBIW3PA2TUQ52DTJNVXSQOL3G4";
+        assert!(鍵の部屋が合うか(鍵, "NBIW3PA2TUQ5"));
+        assert!(鍵の部屋が合うか(鍵, "NBIW3PA2TUQ5…"));
+        assert!(鍵の部屋が合うか(鍵, "nbiw3pa2"));
+        assert!(!鍵の部屋が合うか(鍵, "4TOOFXPUM2QS"));
+        assert!(!鍵の部屋が合うか("壊れた鍵", "NBIW"));
+        assert!(鍵の部屋が合うか(鍵, " "), "空なら選ばせる");
     }
 }

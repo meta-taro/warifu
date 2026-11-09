@@ -327,7 +327,8 @@ async fn 口を全部_1回ずつ呼ぶ() {
             "{:?}",
             口.room_invite(Parameters(InviteArgs {
                 count: Some(1),
-                ttl_secs: Some(3600)
+                ttl_secs: Some(3600),
+                room: None,
             }))
             .await
         ),
