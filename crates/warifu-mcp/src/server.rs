@@ -388,6 +388,8 @@ pub struct メールの口 {
     pub 送る: bool,
     /// 秘密（パスワード・API キー）がキーチェーンに入っているか。
     pub 秘密がある: bool,
+    /// 新しい通の知らせ方（0.1.46・all / important / none）。送るだけの口は空。
+    pub 知らせ: String,
 }
 
 /// **メールの口の控えを読み書きする手**（0.1.45）。`warifu mcp` が置き場所とキーチェーンから作る。
@@ -407,6 +409,7 @@ pub trait メールの控え: Send + Sync {
         アドレス: &str,
         ホスト: Option<&str>,
         ポート: Option<u16>,
+        知らせ: Option<&str>,
     ) -> Result<メールの口, String>;
     /// 控えから外す。キーチェーンの秘密は消さない。返りは、在って外したか。
     ///
@@ -440,7 +443,7 @@ pub type 受信箱を汲む手 = Arc<
 impl Warifu {
     /// **控えたメールの口を並べる**（0.1.45）。秘密は出さない（入っているかだけ）。
     #[tool(
-        description = "この PC の割符が控えたメールの口（受信箱・送る口）を並べる。アドレス・種類（gmail / imap / resend）・繋ぎ先・読めるか・送れるか・秘密（パスワード・API キー）が入っているか。秘密そのものは出さない。札は inbox.list。"
+        description = "この PC の割符が控えたメールの口（受信箱・送る口）を並べる。アドレス・種類（gmail / imap / resend）・繋ぎ先・読めるか・送れるか・秘密（パスワード・API キー）が入っているか・新しい通の知らせ方（all / important / none）。秘密そのものは出さない。札は inbox.list。"
     )]
     pub async fn mail_account_list(&self) -> Result<String, ErrorData> {
         self.通るか("inbox.list")?;
@@ -452,10 +455,10 @@ impl Warifu {
         if 口たち.is_empty() {
             return Ok("控えたメールの口はありません（mail_account_add で控えます）".to_owned());
         }
-        let mut 行 = vec!["アドレス\t種類\t繋ぎ先\t読む\t送る\t秘密".to_owned()];
+        let mut 行 = vec!["アドレス\t種類\t繋ぎ先\t読む\t送る\t秘密\t知らせ".to_owned()];
         for 口 in &口たち {
             行.push(format!(
-                "{}\t{}\t{}\t{}\t{}\t{}",
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}",
                 口.アドレス,
                 口.種類,
                 口.繋ぎ先,
@@ -469,7 +472,8 @@ impl Warifu {
                     "入っている"
                 } else {
                     "まだ"
-                }
+                },
+                口.知らせ
             ));
         }
         Ok(行.join("\n"))
@@ -477,7 +481,7 @@ impl Warifu {
 
     /// **メールの口を控える**（0.1.45）。秘密は受け取らない。
     #[tool(
-        description = "メールの口を控える（同じアドレスは置き換える）。kind は gmail（Google Workspace を含む・読む・送る）／imap（読むだけ・host が要る）／resend（送るだけ・API）。**パスワードと API キーは渡せない**（欄が無い）—— 秘密は人が割符の画面か `warifu mail secret <アドレス>` で入れる。人に頼まれたときに使う。札は mail.account。"
+        description = "メールの口を控える（同じアドレスは置き換える）。kind は gmail（Google Workspace を含む・読む・送る）／imap（読むだけ・host が要る）／resend（送るだけ・API）。notify は新しい通をこの PC のエージェントへどう知らせるか：important（既定・受注／問い合わせ／請求／未分類／なりすまし疑いだけ）／all／none（見張らない）。**パスワードと API キーは渡せない**（欄が無い）—— 秘密は人が割符の画面か `warifu mail secret <アドレス>` で入れる。人に頼まれたときに使う。札は mail.account。"
     )]
     pub async fn mail_account_add(
         &self,
@@ -489,10 +493,21 @@ impl Warifu {
             .clone()
             .ok_or_else(|| ToolError::Unavailable("この口ではメールの控えを書けません".into()))?;
         let 口 = 控え
-            .足す(&args.kind, &args.address, args.host.as_deref(), args.port)
+            .足す(
+                &args.kind,
+                &args.address,
+                args.host.as_deref(),
+                args.port,
+                args.notify.as_deref(),
+            )
             .map_err(ToolError::BadArgs)?;
+        let 知らせ = if 口.知らせ.is_empty() {
+            String::new()
+        } else {
+            format!("・知らせ {}", 口.知らせ)
+        };
         let mut 文 = format!(
-            "{}（{}・{}）を控えました。",
+            "{}（{}・{}{知らせ}）を控えました。",
             口.アドレス, 口.種類, 口.繋ぎ先
         );
         if !口.秘密がある {

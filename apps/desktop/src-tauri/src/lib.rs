@@ -87,7 +87,7 @@ macro_rules! 記録 {
     ($($arg:tt)*) => {{
         // **crate:: で書く。**別のモジュールから呼ばれても同じ所を指す
         let 行 = format!("[warifu +{:.3}s] {}", $crate::起動からの秒(), format!($($arg)*));
-        eprintln!("{行}");
+        $crate::標準エラーへ(&mut ::std::io::stderr(), &行);
         $crate::書き置く(&行);
     }};
 }
@@ -98,8 +98,6 @@ mod ack;
 mod bundle;
 mod call;
 mod chat_keep;
-mod mail_view;
-mod recent_keep;
 mod cli;
 mod come_back;
 mod contacts;
@@ -107,12 +105,14 @@ mod delegate;
 mod desk;
 mod key_give;
 mod link;
+mod mail_view;
 mod mail_watch;
 mod media_path;
 mod notify;
 mod postbox;
 mod presence;
 mod profile;
+mod recent_keep;
 mod room_name;
 #[cfg(test)]
 mod room_sim;
@@ -123,6 +123,16 @@ mod self_check;
 mod snapshot;
 mod voice;
 mod window_place;
+
+/// **標準エラーへ 1 行書く。書けなくても止めない**（0.1.46）。
+///
+/// `eprintln!` は書けないと panic する。ターミナルから立ち上げて、そのターミナルが先に閉じていると
+/// 標準エラーの先が無く、起動の直後に panic した。panic の係も記録を書くので、二重の panic で落ちた。
+/// 記録のために画面を落とさない。
+pub(crate) fn 標準エラーへ(先: &mut impl std::io::Write, 行: &str) {
+    // 書けないのは先が閉じているときだけ。記録は warifu.log にも書くので、ここは捨ててよい
+    let _ = writeln!(先, "{行}");
+}
 
 /// **決まった場所へ書き置く。**
 ///
@@ -1285,7 +1295,7 @@ fn set_menu_locale(app: AppHandle, locale: String, theme: Option<String>) -> Ans
     if !menu::LOCALES.contains(&locale.as_str()) {
         // 落とす先は英語だが、**黙って落とさない。**画面側と綴りがずれたときに
         // 「なぜか英語のまま」になるのを、ここで読めるようにしておく
-        eprintln!("知らないロケール '{locale}' が来たので英語にします");
+        記録!("知らないロケール '{locale}' が来たので英語にします");
     }
     // **いま選んでいるテーマに印を付ける。**画面側が持っている値をそのまま受ける
     // （Rust からは `localStorage` を読めない）
@@ -1295,10 +1305,10 @@ fn set_menu_locale(app: AppHandle, locale: String, theme: Option<String>) -> Ans
         Ok(m) => {
             if let Err(e) = handle.set_menu(m) {
                 // **握り潰さない。**差し替えに失敗したこと自体が読めないと、原因を追えない
-                eprintln!("メニューを差し替えられませんでした: {e}");
+                記録!("メニューを差し替えられませんでした: {e}");
             }
         }
-        Err(e) => eprintln!("メニューを組めませんでした: {e}"),
+        Err(e) => 記録!("メニューを組めませんでした: {e}"),
     })?;
     Ok(())
 }
@@ -5217,5 +5227,30 @@ mod 配る錠の試験 {
             .await
             .expect("詰まった相手を待ち続けている")
             .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod 標準エラーの試験 {
+    use super::標準エラーへ;
+
+    /// 先が閉じた標準エラーの代わり。どの書き込みも失敗する。
+    struct 閉じた先;
+
+    impl std::io::Write for 閉じた先 {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe))
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(std::io::Error::from(std::io::ErrorKind::BrokenPipe))
+        }
+    }
+
+    #[test]
+    fn 標準エラーの先が閉じていても_落ちない() {
+        標準エラーへ(&mut 閉じた先, "起動しました");
+        let mut 書けた = Vec::new();
+        標準エラーへ(&mut 書けた, "起動しました");
+        assert_eq!(書けた, "起動しました\n".as_bytes());
     }
 }

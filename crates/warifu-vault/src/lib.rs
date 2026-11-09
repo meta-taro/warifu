@@ -241,6 +241,43 @@ impl MailKind {
     }
 }
 
+/// **新しい通が来たとき、この機械のエージェントへどう知らせるか**（0.1.46）。
+///
+/// 控えの 5 つ目の欄。欄が無い控え（0.1.45 まで）は [`MailNotify::Important`]。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MailNotify {
+    /// 新しい通はすべて知らせる。
+    All,
+    /// 人が見るべき札（受注・問い合わせ・請求・未分類・なりすまし疑い）だけ知らせる。
+    #[default]
+    Important,
+    /// 見張らない（知らせない）。
+    Off,
+}
+
+impl MailNotify {
+    /// 控えに書く名前。
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Important => "important",
+            Self::Off => "none",
+        }
+    }
+
+    /// 名前から。知らない名前は `None`。
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.trim() {
+            "all" => Some(Self::All),
+            "important" => Some(Self::Important),
+            "none" => Some(Self::Off),
+            _ => None,
+        }
+    }
+}
+
 /// 控えたメールの繋ぎ先 1 つ（0.1.44）。**パスワードは入らない**（キーチェーンにある）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MailAccount {
@@ -252,6 +289,8 @@ pub struct MailAccount {
     pub user: String,
     /// 種類（0.1.45）。
     pub kind: MailKind,
+    /// 新しい通の知らせ方（0.1.46）。
+    pub notify: MailNotify,
 }
 
 /// 部屋の合言葉の控えの見出し（**D118**）。
@@ -1126,28 +1165,50 @@ impl Vault {
             ));
         }
         let mut 控え = self.mail_accounts()?;
-        let 新 = MailAccount {
+        let mut 新 = MailAccount {
             host: host.to_owned(),
             port,
             user: user.to_owned(),
             kind,
+            notify: MailNotify::default(),
         };
+        // 控え直しても、人が決めた知らせ方は変えない
         match 控え.iter_mut().find(|c| c.user.eq_ignore_ascii_case(user)) {
-            Some(c) => *c = 新,
+            Some(c) => {
+                新.notify = c.notify;
+                *c = 新;
+            }
             None => 控え.push(新),
         }
         self.write_mail(&控え)
+    }
+
+    /// **新しい通の知らせ方を変える**（0.1.46）。返りは、その口が在ったか。
+    ///
+    /// # Errors
+    /// 読めない・書けないとき [`Error::Io`] / [`Error::Malformed`]。
+    pub fn set_mail_notify(&self, user: &str, notify: MailNotify) -> Result<bool, Error> {
+        let mut 控え = self.mail_accounts()?;
+        let Some(c) = 控え
+            .iter_mut()
+            .find(|c| c.user.eq_ignore_ascii_case(user.trim()))
+        else {
+            return Ok(false);
+        };
+        c.notify = notify;
+        self.write_mail(&控え).map(|()| true)
     }
 
     fn write_mail(&self, 控え: &[MailAccount]) -> Result<(), Error> {
         let mut out = format!("{MAIL_HEADER}\n");
         for c in 控え {
             out.push_str(&format!(
-                "{}\t{}\t{}\t{}\n",
+                "{}\t{}\t{}\t{}\t{}\n",
                 c.user,
                 c.host,
                 c.port,
-                c.kind.name()
+                c.kind.name(),
+                c.notify.name()
             ));
         }
         self.write_private(&self.mail_path(), &out, "メールの繋ぎ先を控える")
@@ -1181,8 +1242,11 @@ impl Vault {
                     欄.next(),
                     欄.next().and_then(|p| p.trim().parse::<u16>().ok()),
                     欄.next(),
+                    欄.next(),
                 ) {
-                    (Some(u), Some(h), Some(port), 種類) if !u.is_empty() && !h.is_empty() => {
+                    (Some(u), Some(h), Some(port), 種類, 知らせ)
+                        if !u.is_empty() && !h.is_empty() =>
+                    {
                         // 種類の欄が無い（v2）なら繋ぎ先から決める。知らない種類は読み違えないよう断る
                         let kind = match 種類 {
                             None => MailKind::from_host(h),
@@ -1190,11 +1254,19 @@ impl Vault {
                                 Error::malformed(&path, format!("知らない種類です: {k}"))
                             })?,
                         };
+                        // 知らせ方の欄が無い（0.1.45 まで）なら既定。知らない名前は断る
+                        let notify = match 知らせ {
+                            None => MailNotify::default(),
+                            Some(n) => MailNotify::from_name(n).ok_or_else(|| {
+                                Error::malformed(&path, format!("知らない知らせ方です: {n}"))
+                            })?,
+                        };
                         Ok(MailAccount {
                             host: h.trim().to_owned(),
                             port,
                             user: u.trim().to_owned(),
                             kind,
+                            notify,
                         })
                     }
                     _ => Err(Error::malformed(

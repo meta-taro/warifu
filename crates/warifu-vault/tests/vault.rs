@@ -1991,6 +1991,7 @@ fn メールの繋ぎ先はいくつでも控え_同じアドレスは置き換�
         port: 993,
         user: u.to_owned(),
         kind: warifu_vault::MailKind::Imap,
+        notify: warifu_vault::MailNotify::Important,
     };
     let vault = Vault::at(仮の置き場("mail"));
     assert!(vault.mail_accounts().expect("読める").is_empty());
@@ -2075,6 +2076,55 @@ fn 前の版の控え_v2_も読める_種類は繋ぎ先から決める() {
     let 控え = vault.mail_accounts().expect("読める");
     assert_eq!(控え[0].kind, MailKind::Gmail);
     assert_eq!(控え[1].kind, MailKind::Imap);
+}
+
+#[test]
+fn 新しい通の知らせ方を控え_控え直しても変えない_欄の無い控えは既定() {
+    use warifu_vault::{MailKind, MailNotify};
+    let vault = Vault::at(仮の置き場("mail-notify"));
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    // 0.1.45 の控え（4 つの欄）
+    std::fs::write(
+        vault.mail_path(),
+        "warifu-mail-v3\na@example.com\timap.gmail.com\t993\tgmail\n",
+    )
+    .expect("書ける");
+    assert_eq!(
+        vault.mail_accounts().expect("読める")[0].notify,
+        MailNotify::Important
+    );
+    assert!(
+        vault
+            .set_mail_notify("A@example.com", MailNotify::All)
+            .expect("書ける")
+    );
+    assert!(
+        !vault
+            .set_mail_notify("b@example.com", MailNotify::Off)
+            .expect("読める")
+    );
+    vault
+        .save_mail_kind(MailKind::Gmail, "imap.gmail.com", 993, "a@example.com")
+        .expect("書ける");
+    assert_eq!(
+        vault.mail_accounts().expect("読める")[0].notify,
+        MailNotify::All,
+        "控え直しても人が決めた知らせ方は残す"
+    );
+    let 中 = std::fs::read_to_string(vault.mail_path()).expect("読める");
+    assert!(中.contains("\tgmail\tall\n"), "{中}");
+    for n in [MailNotify::All, MailNotify::Important, MailNotify::Off] {
+        assert_eq!(MailNotify::from_name(n.name()), Some(n));
+    }
+    std::fs::write(
+        vault.mail_path(),
+        "warifu-mail-v3\na@example.com\timap.gmail.com\t993\tgmail\tsometimes\n",
+    )
+    .expect("書ける");
+    assert!(
+        vault.mail_accounts().is_err(),
+        "知らない知らせ方は読み違えない"
+    );
 }
 
 #[test]

@@ -20,7 +20,7 @@
 //! - **中身を出さない。**`check` が出すのは数だけ（件名も本文も出さない）
 
 use warifu_imap::{Account, Mailbox, keychain};
-use warifu_vault::{MailAccount, MailKind, Vault};
+use warifu_vault::{MailAccount, MailKind, MailNotify, Vault};
 
 /// IMAPS の既定のポート。
 const 既定のポート: u16 = 993;
@@ -38,6 +38,15 @@ pub enum 設定 {
         ポート: u16,
         /// 種類（0.1.45）。Gmail・IMAP は繋ぎ先から、Resend は `--resend` で。
         種類: MailKind,
+        /// 新しい通の知らせ方（0.1.46・`--notify`）。省けば今の設定のまま（新しい口は important）。
+        知らせ: Option<MailNotify>,
+    },
+    /// 新しい通の知らせ方を変える（0.1.46・`warifu mail notify <アドレス> <all|important|none>`）。
+    知らせ方 {
+        /// どのアドレスか。
+        利用者: String,
+        /// 知らせ方。
+        知らせ: MailNotify,
     },
     /// 秘密（パスワード・API キー）を入れ直す（0.1.45）。
     秘密を入れる(String),
@@ -72,6 +81,12 @@ fn 決まったホスト(利用者: &str) -> Option<&'static str> {
     ドメインのホスト(利用者.rsplit_once('@')?.1)
 }
 
+/// `--notify` の値を読む。
+fn 知らせ方を読む(v: &str) -> Result<MailNotify, String> {
+    MailNotify::from_name(v)
+        .ok_or_else(|| format!("知らせ方を読めません: {v}（all / important / none）"))
+}
+
 /// 引数を読む。
 pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String> {
     match args.next().as_deref() {
@@ -83,9 +98,15 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                 return Err(format!("メールアドレスとして読めません: {利用者}"));
             }
             let (mut ホスト, mut ポート, mut 送るだけ) = (None, 既定のポート, false);
+            let mut 知らせ = None;
             while let Some(a) = args.next() {
                 match a.as_str() {
                     "--resend" => 送るだけ = true,
+                    "--notify" => {
+                        知らせ = Some(知らせ方を読む(
+                            &args.next().ok_or("--notify に値が付いていません")?,
+                        )?);
+                    }
                     "--host" => ホスト = Some(args.next().ok_or("--host に値が付いていません")?),
                     "--port" => {
                         let v = args.next().ok_or("--port に値が付いていません")?;
@@ -102,11 +123,15 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                 }
             }
             if 送るだけ {
+                if 知らせ.is_some() {
+                    return Err("--resend は送るだけの口なので、--notify は要りません".into());
+                }
                 return Ok(設定::足す {
                     利用者,
                     ホスト: "api.resend.com".to_owned(),
                     ポート: 443,
                     種類: MailKind::Resend,
+                    知らせ,
                 });
             }
             let ホスト = match ホスト.or_else(|| 決まったホスト(&利用者).map(str::to_owned))
@@ -129,6 +154,20 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                 ホスト,
                 ポート,
                 種類,
+                知らせ,
+            })
+        }
+        Some("notify") => {
+            let 利用者 = args
+                .next()
+                .ok_or("notify のあとにメールアドレスがありません")?;
+            let 知らせ = 知らせ方を読む(
+                &args
+                    .next()
+                    .ok_or("notify のあとに知らせ方がありません（all / important / none）")?,
+            )?;
+            Ok(設定::知らせ方 {
+                利用者, 知らせ
             })
         }
         Some("secret") => Ok(設定::秘密を入れる(
@@ -154,7 +193,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             Ok(設定::仕分けを数える { 利用者, 件数 })
         }
         Some(他) => Err(format!(
-            "知らない指定です: {他}（add / list / check / remove / sort / secret）"
+            "知らない指定です: {他}（add / list / check / remove / sort / secret / notify）"
         )),
     }
 }
@@ -168,8 +207,12 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             ホスト,
             ポート,
             種類,
+            知らせ,
         } => {
             vault.save_mail_kind(*種類, ホスト, *ポート, 利用者)?;
+            if let Some(n) = 知らせ {
+                vault.set_mail_notify(利用者, *n)?;
+            }
             秘密を聞く(*種類, 利用者)?;
             if 種類.reads() {
                 一つを確かめる(&vault.inboxes()?, 利用者).await
@@ -180,6 +223,29 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                 );
                 Ok(())
             }
+        }
+        設定::知らせ方 {
+            利用者, 知らせ
+        } => {
+            let 控え = vault.mail_accounts()?;
+            let c = 控え
+                .iter()
+                .find(|c| c.user.eq_ignore_ascii_case(利用者))
+                .ok_or_else(|| {
+                    format!("{利用者} は控えていません（warifu mail list で並びます）")
+                })?;
+            if !c.kind.reads() {
+                return Err(
+                    format!("{} は送るだけの口なので、知らせることがありません", c.user).into(),
+                );
+            }
+            vault.set_mail_notify(利用者, *知らせ)?;
+            println!(
+                "{}: 新しい通の知らせ方を {} にしました（割符の画面が次に見に行くときから効きます）",
+                c.user,
+                知らせ.name()
+            );
+            Ok(())
         }
         設定::秘密を入れる(利用者) => {
             let 控え = vault.mail_accounts()?;
@@ -200,8 +266,13 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             }
             for c in 控え {
                 let 入った = keychain::入っているか(c.kind.secret_service(), &c.user);
+                let 知らせ = if c.kind.reads() {
+                    format!("\t知らせ: {}", c.notify.name())
+                } else {
+                    String::new()
+                };
                 println!(
-                    "{}\t{}\t{}:{}\t秘密: {}",
+                    "{}\t{}\t{}:{}\t秘密: {}{知らせ}",
                     c.user,
                     c.kind.name(),
                     c.host,
@@ -347,6 +418,11 @@ fn 口にする(c: &MailAccount) -> warifu_mcp::メールの口 {
         読む: c.kind.reads(),
         送る: c.kind.sends(),
         秘密がある: keychain::入っているか(c.kind.secret_service(), &c.user),
+        知らせ: if c.kind.reads() {
+            c.notify.name().to_owned()
+        } else {
+            String::new()
+        },
     }
 }
 
@@ -367,12 +443,22 @@ impl warifu_mcp::メールの控え for 控えの手 {
         アドレス: &str,
         ホスト: Option<&str>,
         ポート: Option<u16>,
+        知らせ: Option<&str>,
     ) -> Result<warifu_mcp::メールの口, String> {
         let (種類, ホスト, ポート) = 控える形(種類, アドレス, ホスト, ポート)?;
+        let 知らせ = 知らせ.map(知らせ方を読む).transpose()?;
+        if 知らせ.is_some() && !種類.reads() {
+            return Err("resend は送るだけの口なので、notify は要りません".into());
+        }
         let vault = Vault::default_location().map_err(|e| e.to_string())?;
         vault
             .save_mail_kind(種類, &ホスト, ポート, アドレス)
             .map_err(|e| e.to_string())?;
+        if let Some(n) = 知らせ {
+            vault
+                .set_mail_notify(アドレス, n)
+                .map_err(|e| e.to_string())?;
+        }
         let 控え = vault.mail_accounts().map_err(|e| e.to_string())?;
         控え
             .iter()
@@ -621,8 +707,53 @@ mod tests {
                 利用者: "a@example.com".into(),
                 ホスト: "imap.gmail.com".into(),
                 ポート: 994,
-                種類: MailKind::Gmail
+                種類: MailKind::Gmail,
+                知らせ: None,
             })
+        );
+    }
+
+    #[test]
+    fn 知らせ方は_add_の_notify_か_notify_で決め_知らない値と_resend_には断る() {
+        assert_eq!(
+            読ませる(&[
+                "add",
+                "a@example.com",
+                "--host",
+                "imap.gmail.com",
+                "--notify",
+                "all"
+            ]),
+            Ok(設定::足す {
+                利用者: "a@example.com".into(),
+                ホスト: "imap.gmail.com".into(),
+                ポート: 993,
+                種類: MailKind::Gmail,
+                知らせ: Some(MailNotify::All),
+            })
+        );
+        assert_eq!(
+            読ませる(&["notify", "a@example.com", "none"]),
+            Ok(設定::知らせ方 {
+                利用者: "a@example.com".into(),
+                知らせ: MailNotify::Off,
+            })
+        );
+        assert!(読ませる(&["notify", "a@example.com", "sometimes"]).is_err());
+        assert!(読ませる(&["notify", "a@example.com"]).is_err());
+        assert!(
+            読ませる(&[
+                "add",
+                "a@example.com",
+                "--host",
+                "imap.gmail.com",
+                "--notify"
+            ])
+            .is_err()
+        );
+        assert!(
+            読ませる(&["add", "b@example.com", "--resend", "--notify", "all"]).is_err(),
+            "送るだけの口に知らせ方は無い"
         );
     }
 
@@ -650,7 +781,8 @@ mod tests {
                 利用者: "b@example.com".into(),
                 ホスト: "api.resend.com".into(),
                 ポート: 443,
-                種類: MailKind::Resend
+                種類: MailKind::Resend,
+                知らせ: None,
             })
         );
         assert_eq!(

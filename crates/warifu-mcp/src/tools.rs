@@ -299,6 +299,10 @@ pub struct MailAccountAddArgs {
     /// ポート（省けば IMAP は 993）。
     #[serde(default)]
     pub port: Option<u16>,
+    /// 新しい通をこの PC のエージェントへどう知らせるか（0.1.46）：`important`（既定・受注／問い合わせ／
+    /// 請求／未分類／なりすまし疑いだけ）／`all`（すべて）／`none`（見張らない）。省けば今の設定のまま。
+    #[serde(default)]
+    pub notify: Option<String>,
 }
 
 /// [`crate::Warifu::mail_account_remove`] の引数（0.1.45）。

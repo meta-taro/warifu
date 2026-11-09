@@ -142,7 +142,7 @@ warifu の口は、もう入っています。入れ直します。
 | `room.invite` | **`room_key_give`** | **ルームキーを、指定した相手の機械にだけ、割符の線で直接渡す**（下の「鍵を手渡す」） |
 | **（要りません）** | **`pass_ask`** / **`pass_wait`** | **足りない札を人に頼む**／人が答えるまで待つ（**D119**。頼むことを禁じると頼めなくなるため） |
 | `inbox.list` | **`mail_account_list`** | 控えたメールの口（受信箱・送る口）を並べる。種類（gmail / imap / resend）・読むか・送るか・**秘密が入っているかだけ**（字は出ません・0.1.45） |
-| `mail.account` | `mail_account_add` / `mail_account_remove` | メールの口を控える・外す（0.1.45）。**パスワードと API キーの欄はありません**（渡そうとしても断ります）。秘密は人が画面の［メール］か `warifu mail secret <アドレス>` で入れます。外してもキーチェーンの秘密は消しません |
+| `mail.account` | `mail_account_add` / `mail_account_remove` | メールの口を控える・外す（0.1.45）。**パスワードと API キーの欄はありません**（渡そうとしても断ります）。秘密は人が画面の［メール］か `warifu mail secret <アドレス>` で入れます。外してもキーチェーンの秘密は消しません。`notify`（0.1.46）で新しい通の知らせ方（`important` 既定／`all`／`none`）を決めます |
 | `inbox.list` | `inbox_list` | 受信箱の metadata だけ（本文は出ません）。`warifu mail add` で控えた全部のアドレスから、呼ぶたびに新しい 20 通ずつを汲み直します（読むだけ・0.1.44）。新しい通が来ると、割符が「N 通届きました」とだけ知らせます |
 | `inbox.open.summary` | `inbox_open` | 要約まで |
 | `inbox.open.structured` | `inbox_open` | 構造化した項目まで |

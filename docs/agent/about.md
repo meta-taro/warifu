@@ -63,7 +63,7 @@
 | `inbox_list` | 受信箱を metadata だけで並べる（本文は返らない） | `inbox.list` |
 | `inbox_open` | 1 通の段を上げて読む | 段ごとに別の札 |
 | `mail_account_list` | 控えたメールの口（受信箱・送る口）を並べる。種類（gmail / imap / resend）・読むか・送るか・秘密が入っているか（**秘密そのものは出さない**） | `inbox.list` |
-| `mail_account_add` | メールの口を控える（gmail＝読む・送る／imap＝読むだけ／resend＝送るだけ）。**パスワードと API キーは渡せない**（欄が無い）。秘密は人が画面の［メール］か `warifu mail secret <アドレス>` で入れる。人に頼まれたときに使う | `mail.account` |
+| `mail_account_add` | メールの口を控える（gmail＝読む・送る／imap＝読むだけ／resend＝送るだけ）。**パスワードと API キーは渡せない**（欄が無い）。秘密は人が画面の［メール］か `warifu mail secret <アドレス>` で入れる。`notify` で新しい通の知らせ方（important 既定／all／none）を決める。人に頼まれたときに使う | `mail.account` |
 | `mail_account_remove` | メールの口を控えから外す（キーチェーンの秘密は消さない） | `mail.account` |
 | `calendar_slots` | 空いている枠を出す（題名や場所は返らない） | `calendar.freebusy` |
 | `rules_list` | 承認済みの読み取り規則を出す | `rules.list` |

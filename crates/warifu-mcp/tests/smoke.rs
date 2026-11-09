@@ -268,6 +268,7 @@ async fn 口を全部_1回ずつ呼ぶ() {
                 kind: "gmail".to_owned(),
                 host: None,
                 port: None,
+                notify: None,
             }))
             .await
         ),
