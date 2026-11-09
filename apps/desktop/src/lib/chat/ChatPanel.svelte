@@ -853,6 +853,7 @@
        動きを控える設定の人には効かせない（DESIGN §6） */
     scroll-behavior: smooth;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--space-2);
     background: var(--bg-app);
     border: 1px solid var(--border);
@@ -916,7 +917,10 @@
   .to {
     display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
+    /* 相手が多いと 1 行に収まらない。札の間で折り返す（1 行に固定していたら、欄が横に流れた・0.1.46）。
+       矢印は先頭の札と同じ行に残る（折り返すのは札と札の間だけ） */
+    flex-wrap: wrap;
+    max-width: 100%;
     gap: 4px;
     min-width: 0;
     font-size: var(--text-xs-size);

@@ -259,6 +259,7 @@
     gap: var(--space-2);
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--space-4);
     background: var(--bg-elevated);
     border: 1px solid var(--border);

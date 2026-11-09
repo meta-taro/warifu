@@ -4651,6 +4651,7 @@
   .pane.schedule {
     flex-direction: column;
     overflow-y: auto;
+    overflow-x: hidden;
   }
   .pane.schedule > :global(.card) {
     width: 100%;
@@ -4987,6 +4988,7 @@
       row-gap: 0;
       min-height: 0;
       overflow-y: auto;
+      overflow-x: hidden;
       /* **チャットの高さを「見えている高さ」で測るための容れ物**（`100cqh`）。
          高さは上の grid が決めているので、中身で伸び縮みしない */
       container-type: size;
@@ -5173,6 +5175,7 @@
   .notice-log {
     max-height: 50vh;
     overflow-y: auto;
+    overflow-x: hidden;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -5205,6 +5208,7 @@
     /* **窓の外へ出さない。**溢れるならここの中だけで動く（映像は動かない） */
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 
   /*
@@ -5494,6 +5498,7 @@
     .pane {
       flex-direction: column;
       overflow-y: auto;
+      overflow-x: hidden;
     }
     /* 連絡帳の会話は、狭いときは幅いっぱい（300px の柱にしない） */
     .pane.contacts > :global(.card) {

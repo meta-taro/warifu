@@ -1282,6 +1282,7 @@
     gap: 2px;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--space-3);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
@@ -1299,6 +1300,7 @@
     gap: var(--space-2);
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--space-3);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
