@@ -8,10 +8,11 @@
 
   import { onMount } from 'svelte';
 
-  import { mailList, mailOpen, type 開いたメール } from '$lib/bridge';
+  import { mailAccounts, mailList, mailOpen, mailSecretSet, type 控えた口, type 開いたメール } from '$lib/bridge';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
+  import { 本文を見やすく } from './body';
   import { 並べる, 畳む札か, type メールの行 } from './order';
 
   interface Props {
@@ -31,6 +32,46 @@
   let 開けない = $state<string | null>(null);
 
   const 組たち = $derived(並べる(行たち));
+
+  // **控えた口**（0.1.45）。秘密は入っているかだけを見る。入れるのは人がここで打つ（エージェントは入れられない）
+  let 口たち = $state<控えた口[]>([]);
+  let 入れている = $state<string | null>(null);
+  let 打った = $state('');
+  let 置いている = $state(false);
+  let 置けない = $state<string | null>(null);
+  let 置いた = $state<string | null>(null);
+
+  async function 口を読み直す() {
+    try {
+      口たち = (await mailAccounts()) ?? [];
+    } catch (e) {
+      置けない = String((e as { message?: string })?.message ?? e);
+    }
+  }
+
+  function 入れ始める(user: string) {
+    入れている = user;
+    打った = '';
+    置けない = null;
+    置いた = null;
+  }
+
+  async function 秘密を置く(user: string) {
+    置いている = true;
+    置けない = null;
+    try {
+      await mailSecretSet(user, 打った);
+      置いた = user;
+      入れている = null;
+      await 口を読み直す();
+    } catch (e) {
+      置けない = String((e as { message?: string })?.message ?? e);
+    } finally {
+      // **打った字は残さない**（置けても置けなくても消す）
+      打った = '';
+      置いている = false;
+    }
+  }
 
   const 札の名: Record<string, MessageKey> = {
     なりすまし疑い: 'mail.tag.spoof',
@@ -84,6 +125,7 @@
 
   onMount(() => {
     void 読み直す();
+    void 口を読み直す();
   });
 </script>
 
@@ -94,6 +136,47 @@
       <button type="button" class="quiet" onclick={() => void 読み直す()} disabled={読んでいる}>{t('mail.reload')}</button>
     </header>
     <p class="hint">{t('mail.readonly')}</p>
+
+    <details class="accounts" open={口たち.some((口) => !口.秘密がある)}>
+      <summary>{t('mail.accounts.title')}<span class="count">{口たち.length}</span></summary>
+      {#if 口たち.length === 0}
+        <p class="hint">{t('mail.accounts.none')}</p>
+      {/if}
+      <ul>
+        {#each 口たち as 口 (口.user)}
+          <li class="account">
+            <span class="who" title={口.user}>{口.user}</span>
+            <span class="kind">{t(`mail.kind.${口.kind}`)}</span>
+            <span class="secret" class:missing={!口.秘密がある}
+              >{t(口.秘密がある ? 'mail.secret.ok' : 'mail.secret.missing')}</span
+            >
+            {#if 置いた === 口.user}<span class="saved">{t('mail.secret.saved')}</span>{/if}
+            {#if 口.送る && !口.読む}<span class="hint">{t('mail.send.later')}</span>{/if}
+            {#if 入れている === 口.user}
+              <form class="secret-form" onsubmit={(e) => { e.preventDefault(); void 秘密を置く(口.user); }}>
+                <p class="hint">{t(口.kind === 'resend' ? 'mail.secret.hint.apikey' : 'mail.secret.hint.password')}</p>
+                <input
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label={t('mail.secret.enter')}
+                  bind:value={打った}
+                />
+                <div class="buttons">
+                  <button type="submit" disabled={置いている || 打った.trim() === ''}>{t('mail.secret.save')}</button>
+                  <button type="button" class="quiet" onclick={() => { 入れている = null; 打った = ''; }}>{t('mail.secret.cancel')}</button>
+                </div>
+                {#if 置けない}<p class="warn" role="alert">{置けない}</p>{/if}
+              </form>
+            {:else}
+              <button type="button" class="quiet small" onclick={() => 入れ始める(口.user)}
+                >{t(口.秘密がある ? 'mail.secret.redo' : 'mail.secret.enter')}</button
+              >
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </details>
 
     {#if 読んでいる}
       <p class="hint">{t('mail.loading')}</p>
@@ -156,7 +239,7 @@
       {:else if 中身}
         {#if 中身.外の画像 > 0}<p class="note">{format(t('mail.images'), { n: String(中身.外の画像) })}</p>{/if}
         {#if 中身.添付.length > 0}<p class="note">{format(t('mail.attachments'), { names: 中身.添付.join('・') })}</p>{/if}
-        <pre class="body">{中身.本文}</pre>
+        <pre class="body">{本文を見やすく(中身.本文)}</pre>
       {/if}
     {/if}
   </section>
@@ -214,6 +297,57 @@
     color: var(--warning-fg);
     background: var(--warning-bg);
     border-radius: var(--radius-md);
+  }
+  .accounts {
+    padding: 6px 8px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-md);
+  }
+  .account {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-xs-size);
+  }
+  .account:first-child {
+    border-top: 0;
+  }
+  .account .who {
+    flex: 1 1 100%;
+    font-size: var(--text-sm-size);
+    color: var(--text-primary);
+  }
+  .kind {
+    color: var(--text-secondary);
+  }
+  .secret {
+    padding: 0 6px;
+    color: var(--success-fg);
+    background: var(--success-bg);
+    border-radius: var(--radius-full);
+  }
+  .secret.missing {
+    color: var(--warning-fg);
+    background: var(--warning-bg);
+  }
+  .saved {
+    color: var(--success-fg);
+  }
+  .small {
+    font-size: var(--text-xs-size);
+  }
+  .secret-form {
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .buttons {
+    display: flex;
+    gap: 6px;
   }
   .group {
     border-top: 1px solid var(--border);

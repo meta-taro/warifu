@@ -281,3 +281,30 @@ pub struct ContactNameArgs {
     /// 付ける呼び名（64 文字まで）。「担当プロダクト（デバイス名）」の形にそろえる。
     pub name: String,
 }
+
+/// [`crate::Warifu::mail_account_add`] の引数（0.1.45）。
+///
+/// **パスワード・API キーの欄は無い。**秘密は人が画面か `warifu mail secret` で入れる。
+/// 知らない欄は断る（秘密を書いて渡そうとしても、ここで止まる）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MailAccountAddArgs {
+    /// メールアドレス（受信箱の利用者、または送るときの From）。
+    pub address: String,
+    /// 種類：`gmail`（読む・送る）／`imap`（読むだけ）／`resend`（送るだけ）。
+    pub kind: String,
+    /// IMAP のホスト（`imap` のときだけ要る。`gmail` は imap.gmail.com、`resend` は要らない）。
+    #[serde(default)]
+    pub host: Option<String>,
+    /// ポート（省けば IMAP は 993）。
+    #[serde(default)]
+    pub port: Option<u16>,
+}
+
+/// [`crate::Warifu::mail_account_remove`] の引数（0.1.45）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MailAccountRemoveArgs {
+    /// 控えから外すメールアドレス。
+    pub address: String,
+}

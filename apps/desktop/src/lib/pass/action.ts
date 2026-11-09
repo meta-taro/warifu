@@ -20,6 +20,7 @@ const 言い方: Record<string, MessageKey> = {
   'rules.list': 'pass.action.rules.list',
   'calendar.freebusy': 'pass.action.calendar.freebusy',
   'inbox.list': 'pass.action.inbox.list',
+  'mail.account': 'pass.action.mail.account',
   'inbox.open.summary': 'pass.action.inbox.open.summary',
   'inbox.open.structured': 'pass.action.inbox.open.structured',
   'inbox.open.raw': 'pass.action.inbox.open.raw',

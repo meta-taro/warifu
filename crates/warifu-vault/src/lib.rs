@@ -172,7 +172,74 @@ const ISSUED_ADDRS_HEADER: &str = "warifu-issued-addrs-v1";
 /// 中継を使うかの控えの見出し（**#5**・2026-09-18）。
 const RELAY_HEADER: &str = "warifu-relay-v1";
 const RELAY_SERVER_HEADER: &str = "warifu-relay-server-v1";
-const MAIL_HEADER: &str = "warifu-mail-v2";
+const MAIL_HEADER: &str = "warifu-mail-v3";
+/// 0.1.44 の控え（種類の欄が無い）。読めるが、書くときは v3 にする。
+const MAIL_HEADER_V2: &str = "warifu-mail-v2";
+
+/// メールの口の種類（0.1.45）。**読むか・送るか**が違う。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MailKind {
+    /// IMAP で読むだけ。
+    Imap,
+    /// Gmail（Google Workspace を含む）。IMAP で読み、SMTP で送る。同じアプリパスワード 1 つ。
+    Gmail,
+    /// Resend。API で送るだけ（受信箱は無い）。
+    Resend,
+}
+
+impl MailKind {
+    /// 控えに書く名前。
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Imap => "imap",
+            Self::Gmail => "gmail",
+            Self::Resend => "resend",
+        }
+    }
+
+    /// 名前から。知らない名前は `None`。
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name.trim() {
+            "imap" => Some(Self::Imap),
+            "gmail" => Some(Self::Gmail),
+            "resend" => Some(Self::Resend),
+            _ => None,
+        }
+    }
+
+    /// 受信箱を読めるか。
+    #[must_use]
+    pub const fn reads(self) -> bool {
+        matches!(self, Self::Imap | Self::Gmail)
+    }
+
+    /// 送れるか（送る口そのものは 0.1.46 以降）。
+    #[must_use]
+    pub const fn sends(self) -> bool {
+        matches!(self, Self::Gmail | Self::Resend)
+    }
+
+    /// 秘密（パスワード・API キー）を置くキーチェーンのサービスの名。受信箱と送る口を混ぜない。
+    #[must_use]
+    pub const fn secret_service(self) -> &'static str {
+        match self {
+            Self::Imap | Self::Gmail => "warifu-mail",
+            Self::Resend => "warifu-resend",
+        }
+    }
+
+    /// v2 の控え（種類が無い）を読むときの決め方。Gmail の繋ぎ先なら Gmail、ほかは IMAP。
+    fn from_host(host: &str) -> Self {
+        let h = host.trim().to_ascii_lowercase();
+        if h == "imap.gmail.com" || h == "imap.googlemail.com" {
+            Self::Gmail
+        } else {
+            Self::Imap
+        }
+    }
+}
 
 /// 控えたメールの繋ぎ先 1 つ（0.1.44）。**パスワードは入らない**（キーチェーンにある）。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -183,6 +250,8 @@ pub struct MailAccount {
     pub port: u16,
     /// 利用者（メールアドレス）。
     pub user: String,
+    /// 種類（0.1.45）。
+    pub kind: MailKind,
 }
 
 /// 部屋の合言葉の控えの見出し（**D118**）。
@@ -1033,6 +1102,20 @@ impl Vault {
     /// # Errors
     /// 空か、改行・タブなどを含むとき [`Error::Malformed`]、書けないとき [`Error::Io`]。
     pub fn save_mail(&self, host: &str, port: u16, user: &str) -> Result<(), Error> {
+        self.save_mail_kind(MailKind::from_host(host), host, port, user)
+    }
+
+    /// **種類を決めて控える**（0.1.45）。同じ利用者がもうあれば、置き換える。
+    ///
+    /// # Errors
+    /// [`Vault::save_mail`] と同じ。
+    pub fn save_mail_kind(
+        &self,
+        kind: MailKind,
+        host: &str,
+        port: u16,
+        user: &str,
+    ) -> Result<(), Error> {
         let path = self.mail_path();
         let 壊す = |s: &str| s.is_empty() || s.chars().any(|c| c.is_control() || c.is_whitespace());
         let (host, user) = (host.trim(), user.trim());
@@ -1047,6 +1130,7 @@ impl Vault {
             host: host.to_owned(),
             port,
             user: user.to_owned(),
+            kind,
         };
         match 控え.iter_mut().find(|c| c.user.eq_ignore_ascii_case(user)) {
             Some(c) => *c = 新,
@@ -1058,7 +1142,13 @@ impl Vault {
     fn write_mail(&self, 控え: &[MailAccount]) -> Result<(), Error> {
         let mut out = format!("{MAIL_HEADER}\n");
         for c in 控え {
-            out.push_str(&format!("{}\t{}\t{}\n", c.user, c.host, c.port));
+            out.push_str(&format!(
+                "{}\t{}\t{}\t{}\n",
+                c.user,
+                c.host,
+                c.port,
+                c.kind.name()
+            ));
         }
         self.write_private(&self.mail_path(), &out, "メールの繋ぎ先を控える")
     }
@@ -1075,7 +1165,8 @@ impl Vault {
             Err(e) => return Err(Error::io(&path, "メールの繋ぎ先を読む")(e)),
         };
         let mut lines = text.lines();
-        if lines.next().unwrap_or_default().trim() != MAIL_HEADER {
+        let 見出し = lines.next().unwrap_or_default().trim();
+        if 見出し != MAIL_HEADER && 見出し != MAIL_HEADER_V2 {
             return Err(Error::malformed(
                 &path,
                 format!("見出しが違います（{MAIL_HEADER} を待っていました）"),
@@ -1089,12 +1180,21 @@ impl Vault {
                     欄.next(),
                     欄.next(),
                     欄.next().and_then(|p| p.trim().parse::<u16>().ok()),
+                    欄.next(),
                 ) {
-                    (Some(u), Some(h), Some(port)) if !u.is_empty() && !h.is_empty() => {
+                    (Some(u), Some(h), Some(port), 種類) if !u.is_empty() && !h.is_empty() => {
+                        // 種類の欄が無い（v2）なら繋ぎ先から決める。知らない種類は読み違えないよう断る
+                        let kind = match 種類 {
+                            None => MailKind::from_host(h),
+                            Some(k) => MailKind::from_name(k).ok_or_else(|| {
+                                Error::malformed(&path, format!("知らない種類です: {k}"))
+                            })?,
+                        };
                         Ok(MailAccount {
                             host: h.trim().to_owned(),
                             port,
                             user: u.trim().to_owned(),
+                            kind,
                         })
                     }
                     _ => Err(Error::malformed(
@@ -1104,6 +1204,18 @@ impl Vault {
                 }
             })
             .collect()
+    }
+
+    /// **読める受信箱だけ**（0.1.45）。送るだけの口（Resend）は入らない。
+    ///
+    /// # Errors
+    /// [`Vault::mail_accounts`] と同じ。
+    pub fn inboxes(&self) -> Result<Vec<MailAccount>, Error> {
+        Ok(self
+            .mail_accounts()?
+            .into_iter()
+            .filter(|c| c.kind.reads())
+            .collect())
     }
 
     /// メールの繋ぎ先を 1 つ忘れる。**返りは、在って消したか。**最後の 1 つなら控えのファイルごと消す。

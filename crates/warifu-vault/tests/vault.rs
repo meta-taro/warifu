@@ -1990,6 +1990,7 @@ fn メールの繋ぎ先はいくつでも控え_同じアドレスは置き換�
         host: h.to_owned(),
         port: 993,
         user: u.to_owned(),
+        kind: warifu_vault::MailKind::Imap,
     };
     let vault = Vault::at(仮の置き場("mail"));
     assert!(vault.mail_accounts().expect("読める").is_empty());
@@ -2034,6 +2035,46 @@ fn メールの繋ぎ先はいくつでも控え_同じアドレスは置き換�
         !vault.mail_path().exists(),
         "最後の 1 つを消したら控えごと消す"
     );
+}
+
+#[test]
+fn メールの種類を控え_送るだけの口は受信箱に数えない() {
+    use warifu_vault::MailKind;
+    let vault = Vault::at(仮の置き場("mail-kind"));
+    vault
+        .save_mail_kind(MailKind::Gmail, "imap.gmail.com", 993, "a@example.com")
+        .expect("書ける");
+    vault
+        .save_mail_kind(MailKind::Resend, "api.resend.com", 443, "b@example.com")
+        .expect("書ける");
+    let 控え = vault.mail_accounts().expect("読める");
+    assert_eq!(
+        控え.iter().map(|c| c.kind).collect::<Vec<_>>(),
+        vec![MailKind::Gmail, MailKind::Resend]
+    );
+    assert!(MailKind::Gmail.reads() && MailKind::Gmail.sends());
+    assert!(MailKind::Imap.reads() && !MailKind::Imap.sends());
+    assert!(!MailKind::Resend.reads() && MailKind::Resend.sends());
+    let 箱 = vault.inboxes().expect("読める");
+    assert_eq!(箱.len(), 1, "Resend は送るだけなので受信箱ではない");
+    assert_eq!(箱[0].user, "a@example.com");
+    assert_eq!(MailKind::from_name("resend"), Some(MailKind::Resend));
+    assert_eq!(MailKind::from_name("pop3"), None);
+}
+
+#[test]
+fn 前の版の控え_v2_も読める_種類は繋ぎ先から決める() {
+    use warifu_vault::MailKind;
+    let vault = Vault::at(仮の置き場("mail-v2"));
+    std::fs::create_dir_all(vault.dir()).expect("作れる");
+    std::fs::write(
+        vault.mail_path(),
+        "warifu-mail-v2\na@example.com\timap.gmail.com\t993\nb@example.com\timap.example.com\t993\n",
+    )
+    .expect("書ける");
+    let 控え = vault.mail_accounts().expect("読める");
+    assert_eq!(控え[0].kind, MailKind::Gmail);
+    assert_eq!(控え[1].kind, MailKind::Imap);
 }
 
 #[test]

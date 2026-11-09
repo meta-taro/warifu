@@ -254,6 +254,34 @@ async fn 口を全部_1回ずつ呼ぶ() {
     ));
     結果.push(("rules_list", format!("{:?}", 口.rules_list().await)));
     結果.push(("inbox_list", format!("{:?}", 口.inbox_list().await)));
+    // メールの口の控え（0.1.45）。この試験では控えの手を渡していないので「読めません」が返る
+    結果.push((
+        "mail_account_list",
+        format!("{:?}", 口.mail_account_list().await),
+    ));
+    結果.push((
+        "mail_account_add",
+        format!(
+            "{:?}",
+            口.mail_account_add(Parameters(warifu_mcp::MailAccountAddArgs {
+                address: "a@example.com".to_owned(),
+                kind: "gmail".to_owned(),
+                host: None,
+                port: None,
+            }))
+            .await
+        ),
+    ));
+    結果.push((
+        "mail_account_remove",
+        format!(
+            "{:?}",
+            口.mail_account_remove(Parameters(warifu_mcp::MailAccountRemoveArgs {
+                address: "a@example.com".to_owned(),
+            }))
+            .await
+        ),
+    ));
 
     // **机を通る口**（ここが 2026-09-24 に落ちていた所）
     結果.push((

@@ -750,3 +750,9 @@ export const mailList = () => invoke<受信箱の答え>('mail_list');
 /** 開いた 1 通（文字だけ。外の画像は読み込まず数だけ）。 */
 export type 開いたメール = { 本文: string; 外の画像: number; 添付: string[] };
 export const mailOpen = (user: string, uid: number) => invoke<開いたメール>('mail_open', { user, uid });
+
+/** 控えたメールの口（0.1.45・秘密は入っているかだけ）。 */
+export type 控えた口 = { user: string; kind: 'gmail' | 'imap' | 'resend'; 繋ぎ先: string; 読む: boolean; 送る: boolean; 秘密がある: boolean };
+export const mailAccounts = () => invoke<控えた口[]>('mail_accounts');
+/** **人が画面で打った秘密を置く。**字は返らない・記録されない。 */
+export const mailSecretSet = (user: string, secret: string) => invoke<null>('mail_secret_set', { user, secret });

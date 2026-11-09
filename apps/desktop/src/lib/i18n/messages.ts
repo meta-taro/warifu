@@ -129,6 +129,22 @@ export type MessageKey =
   | 'pane.contacts'
   | 'pane.meeting'
   | 'pane.schedule'
+  | 'mail.accounts.title'
+  | 'mail.accounts.none'
+  | 'mail.kind.gmail'
+  | 'mail.kind.imap'
+  | 'mail.kind.resend'
+  | 'mail.secret.ok'
+  | 'mail.secret.missing'
+  | 'mail.secret.enter'
+  | 'mail.secret.redo'
+  | 'mail.secret.save'
+  | 'mail.secret.cancel'
+  | 'mail.secret.hint.password'
+  | 'mail.secret.hint.apikey'
+  | 'mail.secret.saved'
+  | 'mail.send.later'
+  | 'pass.action.mail.account'
   | 'pane.mail'
   | 'mail.title'
   | 'mail.readonly'
@@ -673,6 +689,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': '連絡帳',
     'pane.meeting': 'ルーム',
     'pane.schedule': '予定',
+    'mail.accounts.title': '控えた口',
+    'mail.accounts.none': '控えた口はありません。エージェントに mail_account_add で控えてもらうか、ターミナルで warifu mail add <アドレス> を打ちます。',
+    'mail.kind.gmail': 'Gmail（読む・送る）',
+    'mail.kind.imap': 'IMAP（読むだけ）',
+    'mail.kind.resend': 'Resend（送るだけ）',
+    'mail.secret.ok': '秘密: 入っている',
+    'mail.secret.missing': '秘密: まだ',
+    'mail.secret.enter': '秘密を入れる',
+    'mail.secret.redo': '入れ直す',
+    'mail.secret.save': 'キーチェーンに置く',
+    'mail.secret.cancel': 'やめる',
+    'mail.secret.hint.password': 'アプリパスワード（Gmail は 16 字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。',
+    'mail.secret.hint.apikey': 'Resend の API キー（re_ で始まる字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。',
+    'mail.secret.saved': '置きました',
+    'mail.send.later': '送ることは 0.1.46 からできます',
+    'pass.action.mail.account': 'メールの口を控える・外す',
     'pane.mail': 'メール',
     'mail.title': '受信箱',
     'mail.readonly': '読むだけです。開いても既読にしません。ここから送ることはできません。',
@@ -1171,6 +1203,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': 'Contacts',
     'pane.meeting': 'Room',
     'pane.schedule': 'Schedule',
+    'mail.accounts.title': 'Mail accounts',
+    'mail.accounts.none': 'No mail accounts yet. Ask the agent to add one with mail_account_add, or run warifu mail add <address>.',
+    'mail.kind.gmail': 'Gmail (read & send)',
+    'mail.kind.imap': 'IMAP (read only)',
+    'mail.kind.resend': 'Resend (send only)',
+    'mail.secret.ok': 'Secret: stored',
+    'mail.secret.missing': 'Secret: not yet',
+    'mail.secret.enter': 'Enter secret',
+    'mail.secret.redo': 'Replace',
+    'mail.secret.save': 'Save to Keychain',
+    'mail.secret.cancel': 'Cancel',
+    'mail.secret.hint.password': 'Type the app password (16 characters for Gmail). It is never logged or given to the agent; it goes only into the macOS Keychain.',
+    'mail.secret.hint.apikey': 'Type the Resend API key (starts with re_). It is never logged or given to the agent; it goes only into the macOS Keychain.',
+    'mail.secret.saved': 'Saved',
+    'mail.send.later': 'Sending arrives in 0.1.46',
+    'pass.action.mail.account': 'Adding or removing mail accounts',
     'pane.mail': 'Mail',
     'mail.title': 'Inbox',
     'mail.readonly': 'Read-only. Opening a message does not mark it as read. You cannot send from here.',
@@ -1667,6 +1715,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': '通讯录',
     'pane.meeting': '房间',
     'pane.schedule': '日程',
+    'mail.accounts.title': '已登记的邮箱',
+    'mail.accounts.none': '还没有登记邮箱。可让代理用 mail_account_add 登记，或运行 warifu mail add <地址>。',
+    'mail.kind.gmail': 'Gmail（收·发）',
+    'mail.kind.imap': 'IMAP（只读）',
+    'mail.kind.resend': 'Resend（只发）',
+    'mail.secret.ok': '密钥：已保存',
+    'mail.secret.missing': '密钥：尚未保存',
+    'mail.secret.enter': '输入密钥',
+    'mail.secret.redo': '重新输入',
+    'mail.secret.save': '保存到钥匙串',
+    'mail.secret.cancel': '取消',
+    'mail.secret.hint.password': '请输入应用专用密码（Gmail 为 16 位）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。',
+    'mail.secret.hint.apikey': '请输入 Resend 的 API 密钥（以 re_ 开头）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。',
+    'mail.secret.saved': '已保存',
+    'mail.send.later': '0.1.46 起可以发送',
+    'pass.action.mail.account': '登记或移除邮箱',
     'pane.mail': '邮件',
     'mail.title': '收件箱',
     'mail.readonly': '只读。打开邮件不会标为已读。这里不能发送。',
@@ -2166,6 +2230,22 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pane.contacts': '연락처',
     'pane.meeting': '방',
     'pane.schedule': '일정',
+    'mail.accounts.title': '등록한 메일',
+    'mail.accounts.none': '등록한 메일이 없습니다. 에이전트에게 mail_account_add 로 등록을 부탁하거나 warifu mail add <주소> 를 실행하세요.',
+    'mail.kind.gmail': 'Gmail(읽기·보내기)',
+    'mail.kind.imap': 'IMAP(읽기만)',
+    'mail.kind.resend': 'Resend(보내기만)',
+    'mail.secret.ok': '비밀: 저장됨',
+    'mail.secret.missing': '비밀: 아직',
+    'mail.secret.enter': '비밀 입력',
+    'mail.secret.redo': '다시 입력',
+    'mail.secret.save': '키체인에 저장',
+    'mail.secret.cancel': '취소',
+    'mail.secret.hint.password': '앱 비밀번호(Gmail 은 16자)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.',
+    'mail.secret.hint.apikey': 'Resend API 키(re_ 로 시작)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.',
+    'mail.secret.saved': '저장했습니다',
+    'mail.send.later': '보내기는 0.1.46 부터 가능합니다',
+    'pass.action.mail.account': '메일 등록·삭제',
     'pane.mail': '메일',
     'mail.title': '받은편지함',
     'mail.readonly': '읽기 전용입니다. 열어도 읽음으로 표시하지 않습니다. 여기서는 보낼 수 없습니다.',
@@ -2632,6 +2712,16 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '客から受けた注文。こちらが買った注文の知らせではない。',
   'mail.tag.notice':
     '自動で送られた知らせ。',
+  'mail.accounts.none':
+    'コマンド名と口の名前は訳さない。',
+  'mail.secret.ok':
+    'パスワード・API キーが OS のキーチェーンに入っていること。中身は見せない。',
+  'mail.secret.hint.password':
+    '「エージェントに渡らない」を必ず残す。',
+  'mail.secret.hint.apikey':
+    '「エージェントに渡らない」を必ず残す。',
+  'pass.action.mail.account':
+    '秘密（パスワード・API キー）は含まない。アドレスと繋ぎ先だけ。',
   'chat.mention.line':
     '発言の上に、`@` で呼んだ相手を並べる行の見出し（差出人 → 呼んだ相手）。「宛先」「送り先」と読ませないこと —— 発言はルームの全員に届いている。呼んだ相手を示すだけ。',
   'chat.mention.all':

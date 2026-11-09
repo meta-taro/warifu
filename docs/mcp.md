@@ -110,6 +110,8 @@ It prints **the permissions you have now and the ones you are about to have**, s
 | `room.invite` | `room_invite` | **A room key for a room this machine hosts** (the room you are viewing if you host it, else another room you host, else a new one) (one key = one person; **never paste it anywhere public**) |
 | `room.invite` | **`room_key_give`** | **Hands a room key to one peer's machine, directly over the warifu link** (see "Handing over a key" below) |
 | **(none needed)** | **`pass_ask`** / **`pass_wait`** | **Ask a human for a missing permission** / wait until they answer (**D119** — forbidding the ask would make asking impossible) |
+| `inbox.list` | **`mail_account_list`** | Lists saved mail accounts (inboxes and send-only accounts): kind (gmail / imap / resend), whether it reads or sends, and **only whether a secret is stored** — never the secret itself (0.1.45) |
+| `mail.account` | `mail_account_add` / `mail_account_remove` | Save or remove a mail account (0.1.45). **There is no field for passwords or API keys** (they are rejected). A person enters secrets in the app (Mail → enter secret) or with `warifu mail secret <address>`. Removing an account does not delete its Keychain item |
 | `inbox.list` | `inbox_list` | Inbox metadata only (no bodies). Each call re-reads the newest 20 messages from every address saved with `warifu mail add` (read-only, 0.1.44). When new mail arrives, warifu tells you only how many arrived |
 | `inbox.open.summary` / `.structured` / `.raw` / `.attachments` | `inbox_open` | Progressively more of a message |
 | `calendar.freebusy` | `calendar_slots` | Free slots only (never the titles) |

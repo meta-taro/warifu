@@ -224,10 +224,15 @@ link.relay.missing	Video and sound are not reaching the other side. Restart the 
 link.relayed	Relayed	中継	中继	중계				
 link.screenless	They joined without a screen (text only). Video and audio are not available.	相手は画面なしで入っています（文字だけ）。映像と音は使えません。	对方是以无界面方式加入的（仅文字）。无法使用视频和音频。	상대는 화면 없이 들어와 있습니다(문자만). 영상과 음성은 사용할 수 없습니다.				
 link.unknown	Unknown	不明	未知	알 수 없음				
+mail.accounts.none	No mail accounts yet. Ask the agent to add one with mail_account_add, or run warifu mail add <address>.	控えた口はありません。エージェントに mail_account_add で控えてもらうか、ターミナルで warifu mail add <アドレス> を打ちます。	还没有登记邮箱。可让代理用 mail_account_add 登记，或运行 warifu mail add <地址>。	등록한 메일이 없습니다. 에이전트에게 mail_account_add 로 등록을 부탁하거나 warifu mail add <주소> 를 실행하세요.		コマンド名と口の名前は訳さない。		
+mail.accounts.title	Mail accounts	控えた口	已登记的邮箱	등록한 메일				
 mail.attachments	Attachments: {names}	添付: {names}	附件：{names}	첨부: {names}				
 mail.empty	The inbox is empty.	受信箱に通がありません。	收件箱是空的。	받은편지함이 비어 있습니다.				
 mail.failed	Some inboxes could not be read: {list}	読めなかった受信箱があります: {list}	有收件箱无法读取：{list}	읽지 못한 받은편지함이 있습니다: {list}				
 mail.images	{n} external images were not loaded.	外の画像 {n} 枚は読み込んでいません。	未加载 {n} 张外部图片。	외부 이미지 {n}장은 불러오지 않았습니다.		読み込まない理由は、開いたことを送り手に知らせないため。		
+mail.kind.gmail	Gmail (read & send)	Gmail（読む・送る）	Gmail（收·发）	Gmail(읽기·보내기)				
+mail.kind.imap	IMAP (read only)	IMAP（読むだけ）	IMAP（只读）	IMAP(읽기만)				
+mail.kind.resend	Resend (send only)	Resend（送るだけ）	Resend（只发）	Resend(보내기만)				
 mail.loading	Reading the inbox…	受信箱を読んでいます…	正在读取收件箱…	받은편지함을 읽는 중…				
 mail.noRule	No rule matched.	どの規則にも当たりませんでした。	没有匹配的规则。	해당하는 규칙이 없습니다.				
 mail.noSubject	(no subject)	（件名なし）	（无主题）	(제목 없음)				
@@ -236,6 +241,16 @@ mail.opening	Opening…	開いています…	正在打开…	여는 중…
 mail.pick	Pick a message on the left to show its text (it stays unread).	左の一覧から 1 通選ぶと、本文を文字だけで出します（既読にはしません）。	在左侧选择一封邮件即可显示正文文字（不会标为已读）。	왼쪽 목록에서 한 통을 고르면 본문을 글자로만 보여 줍니다(읽음으로 표시하지 않음).				
 mail.readonly	Read-only. Opening a message does not mark it as read. You cannot send from here.	読むだけです。開いても既読にしません。ここから送ることはできません。	只读。打开邮件不会标为已读。这里不能发送。	읽기 전용입니다. 열어도 읽음으로 표시하지 않습니다. 여기서는 보낼 수 없습니다.		「送れない」を必ず残す（D49：送る経路が無い）。		
 mail.reload	Reload	読み直す	重新读取	다시 읽기				
+mail.secret.cancel	Cancel	やめる	取消	취소				
+mail.secret.enter	Enter secret	秘密を入れる	输入密钥	비밀 입력				
+mail.secret.hint.apikey	Type the Resend API key (starts with re_). It is never logged or given to the agent; it goes only into the macOS Keychain.	Resend の API キー（re_ で始まる字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。	请输入 Resend 的 API 密钥（以 re_ 开头）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。	Resend API 키(re_ 로 시작)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.		「エージェントに渡らない」を必ず残す。		
+mail.secret.hint.password	Type the app password (16 characters for Gmail). It is never logged or given to the agent; it goes only into the macOS Keychain.	アプリパスワード（Gmail は 16 字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。	请输入应用专用密码（Gmail 为 16 位）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。	앱 비밀번호(Gmail 은 16자)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.		「エージェントに渡らない」を必ず残す。		
+mail.secret.missing	Secret: not yet	秘密: まだ	密钥：尚未保存	비밀: 아직				
+mail.secret.ok	Secret: stored	秘密: 入っている	密钥：已保存	비밀: 저장됨		パスワード・API キーが OS のキーチェーンに入っていること。中身は見せない。		
+mail.secret.redo	Replace	入れ直す	重新输入	다시 입력				
+mail.secret.save	Save to Keychain	キーチェーンに置く	保存到钥匙串	키체인에 저장				
+mail.secret.saved	Saved	置きました	已保存	저장했습니다				
+mail.send.later	Sending arrives in 0.1.46	送ることは 0.1.46 からできます	0.1.46 起可以发送	보내기는 0.1.46 부터 가능합니다				
 mail.tag.ad	Bulk	広告	群发	광고				
 mail.tag.billing	Billing	請求	账单	청구				
 mail.tag.inquiry	Inquiry	問い合わせ	咨询	문의				
@@ -307,6 +322,7 @@ pass.action.inbox.open.attachments	Reading email attachments	メールの添付	
 pass.action.inbox.open.raw	Reading full email text	メールの本文	读取邮件正文	메일 본문 읽기				
 pass.action.inbox.open.structured	Reading email key fields	メールの要点	读取邮件要点	메일 요점 읽기				
 pass.action.inbox.open.summary	Reading email summaries	メールの要約	读取邮件摘要	메일 요약 읽기				
+pass.action.mail.account	Adding or removing mail accounts	メールの口を控える・外す	登记或移除邮箱	메일 등록·삭제		秘密（パスワード・API キー）は含まない。アドレスと繋ぎ先だけ。		
 pass.action.profile.write	Editing the profile	名乗りの書き換え	修改个人资料	프로필 수정				
 pass.action.room.handoff	Handing over room keys	ルームキーの手渡し	转交房间密钥	룸 키 전달		エージェントが、人に聞かずにルームキーを相手へ渡すこと。「受け取る」と読める訳にしないこと。渡すのはこの PC の側である。		
 pass.action.room.invite	Issuing room keys	ルームキーの発行	签发房间密钥	룸 키 발급				

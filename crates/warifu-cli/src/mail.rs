@@ -5,6 +5,8 @@
 //!   warifu mail list                 控えたアドレスを並べる（つながない）
 //!   warifu mail check [<アドレス>]    つないで、受信箱の通の数と未読の数だけを出す（省けば全部）
 //!   warifu mail remove [<アドレス>]   控えとキーチェーンの項目を消す（控えが 2 つ以上なら要る）
+//!   warifu mail add <アドレス> --resend   送るだけの口（Resend）を控え、API キーをキーチェーンに置く（0.1.45）
+//!   warifu mail secret <アドレス>      パスワード・API キーを入れ直す（macOS が聞く・0.1.45）
 //!   warifu mail sort [<アドレス>] [--last <通>]  新しいほうからヘッダだけを読み、札ごとの数を出す（0.1.45）
 //!
 //! アドレスはいくつでも控えられる。同じアドレスを add し直すと、繋ぎ先を置き換える。
@@ -18,7 +20,7 @@
 //! - **中身を出さない。**`check` が出すのは数だけ（件名も本文も出さない）
 
 use warifu_imap::{Account, Mailbox, keychain};
-use warifu_vault::{MailAccount, Vault};
+use warifu_vault::{MailAccount, MailKind, Vault};
 
 /// IMAPS の既定のポート。
 const 既定のポート: u16 = 993;
@@ -34,7 +36,11 @@ pub enum 設定 {
         ホスト: String,
         /// ポート。
         ポート: u16,
+        /// 種類（0.1.45）。Gmail・IMAP は繋ぎ先から、Resend は `--resend` で。
+        種類: MailKind,
     },
+    /// 秘密（パスワード・API キー）を入れ直す（0.1.45）。
+    秘密を入れる(String),
     /// 控えたアドレスを並べる。
     並べる,
     /// つないで、数だけを出す。`None` なら控えた全部。
@@ -76,9 +82,10 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             if !利用者.contains('@') || 利用者.starts_with('-') {
                 return Err(format!("メールアドレスとして読めません: {利用者}"));
             }
-            let (mut ホスト, mut ポート) = (None, 既定のポート);
+            let (mut ホスト, mut ポート, mut 送るだけ) = (None, 既定のポート, false);
             while let Some(a) = args.next() {
                 match a.as_str() {
+                    "--resend" => 送るだけ = true,
                     "--host" => ホスト = Some(args.next().ok_or("--host に値が付いていません")?),
                     "--port" => {
                         let v = args.next().ok_or("--port に値が付いていません")?;
@@ -94,6 +101,14 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                     }
                 }
             }
+            if 送るだけ {
+                return Ok(設定::足す {
+                    利用者,
+                    ホスト: "api.resend.com".to_owned(),
+                    ポート: 443,
+                    種類: MailKind::Resend,
+                });
+            }
             let ホスト = match ホスト.or_else(|| 決まったホスト(&利用者).map(str::to_owned))
             {
                 Some(h) => h,
@@ -104,12 +119,22 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
                     );
                 }
             };
+            let 種類 = if ホスト.eq_ignore_ascii_case("imap.gmail.com") {
+                MailKind::Gmail
+            } else {
+                MailKind::Imap
+            };
             Ok(設定::足す {
                 利用者,
                 ホスト,
                 ポート,
+                種類,
             })
         }
+        Some("secret") => Ok(設定::秘密を入れる(
+            args.next()
+                .ok_or("secret のあとにメールアドレスがありません")?,
+        )),
         Some("list") => Ok(設定::並べる),
         Some("check") => Ok(設定::確かめる(args.next())),
         None => Ok(設定::確かめる(None)),
@@ -129,7 +154,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             Ok(設定::仕分けを数える { 利用者, 件数 })
         }
         Some(他) => Err(format!(
-            "知らない指定です: {他}（add / list / check / remove / sort）"
+            "知らない指定です: {他}（add / list / check / remove / sort / secret）"
         )),
     }
 }
@@ -142,13 +167,31 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             利用者,
             ホスト,
             ポート,
+            種類,
         } => {
-            vault.save_mail(ホスト, *ポート, 利用者)?;
-            eprintln!("このあと macOS がパスワードを 2 回たずねます（打った字は画面に出ません）。");
-            eprintln!("Google のアカウントなら、アプリパスワード（16 字）を入れてください。");
-            eprintln!("入れた字は割符を通らず、そのまま macOS のキーチェーンに置かれます。");
-            keychain::人に聞いて置く(利用者)?;
-            一つを確かめる(&vault.mail_accounts()?, 利用者).await
+            vault.save_mail_kind(*種類, ホスト, *ポート, 利用者)?;
+            秘密を聞く(*種類, 利用者)?;
+            if 種類.reads() {
+                一つを確かめる(&vault.inboxes()?, 利用者).await
+            } else {
+                println!(
+                    "{利用者}: 送る口（{}）を控えました。送ることは 0.1.46 からできます",
+                    種類.name()
+                );
+                Ok(())
+            }
+        }
+        設定::秘密を入れる(利用者) => {
+            let 控え = vault.mail_accounts()?;
+            let c = 控え
+                .iter()
+                .find(|c| c.user.eq_ignore_ascii_case(利用者))
+                .ok_or_else(|| {
+                    format!("{利用者} は控えていません（warifu mail list で並びます）")
+                })?;
+            秘密を聞く(c.kind, &c.user)?;
+            println!("{} の秘密を入れました（キーチェーン）", c.user);
+            Ok(())
         }
         設定::並べる => {
             let 控え = vault.mail_accounts()?;
@@ -156,12 +199,24 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                 println!("控えはありません（warifu mail add <アドレス> で控えます）");
             }
             for c in 控え {
-                println!("{}\t{}:{}", c.user, c.host, c.port);
+                let 入った = keychain::入っているか(c.kind.secret_service(), &c.user);
+                println!(
+                    "{}\t{}\t{}:{}\t秘密: {}",
+                    c.user,
+                    c.kind.name(),
+                    c.host,
+                    c.port,
+                    if 入った {
+                        "入っている"
+                    } else {
+                        "まだ（warifu mail secret <アドレス>）"
+                    }
+                );
             }
             Ok(())
         }
         設定::確かめる(どれ) => {
-            let 控え = vault.mail_accounts()?;
+            let 控え = vault.inboxes()?;
             if 控え.is_empty() {
                 return Err(
                     "メールの繋ぎ先を控えていません（warifu mail add <アドレス> で控えます）"
@@ -187,7 +242,7 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             Ok(())
         }
         設定::仕分けを数える { 利用者, 件数 } => {
-            let 控え = vault.mail_accounts()?;
+            let 控え = vault.inboxes()?;
             let 見る: Vec<&MailAccount> = 控え
                 .iter()
                 .filter(|c| {
@@ -223,10 +278,14 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                     .into());
                 }
             };
+            let 種類 = 控え
+                .iter()
+                .find(|c| c.user.eq_ignore_ascii_case(&利用者))
+                .map_or(MailKind::Imap, |c| c.kind);
             if !vault.forget_mail(&利用者)? {
                 return Err(format!("{利用者} は控えていません").into());
             }
-            let 消えた = keychain::消す(&利用者)?;
+            let 消えた = keychain::消す_口(種類.secret_service(), &利用者)?;
             println!(
                 "{利用者} の控えを消しました（キーチェーンの項目: {}）",
                 if 消えた {
@@ -240,6 +299,113 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+/// **MCP の口へ渡す、メールの口の控え**（0.1.45）。置き場所とキーチェーンから読み書きする。秘密は扱わない。
+pub struct 控えの手;
+
+/// 種類の名と、IMAP のホストから、控える形を決める（純粋）。
+///
+/// # Errors
+/// 知らない種類・アドレスに見えない・imap でホストが無いとき。
+pub fn 控える形(
+    種類: &str,
+    アドレス: &str,
+    ホスト: Option<&str>,
+    ポート: Option<u16>,
+) -> Result<(MailKind, String, u16), String> {
+    let 種類 = MailKind::from_name(種類)
+        .ok_or_else(|| format!("知らない種類です: {種類}（gmail / imap / resend）"))?;
+    if !アドレス.contains('@')
+        || アドレス.starts_with('-')
+        || アドレス.chars().any(char::is_whitespace)
+    {
+        return Err(format!("メールアドレスとして読めません: {アドレス}"));
+    }
+    Ok(match 種類 {
+        MailKind::Gmail => (
+            種類,
+            "imap.gmail.com".to_owned(),
+            ポート.unwrap_or(既定のポート),
+        ),
+        MailKind::Resend => (種類, "api.resend.com".to_owned(), 443),
+        MailKind::Imap => (
+            種類,
+            ホスト
+                .filter(|h| !h.trim().is_empty())
+                .ok_or("imap には host（IMAP のホスト）が要ります")?
+                .trim()
+                .to_owned(),
+            ポート.unwrap_or(既定のポート),
+        ),
+    })
+}
+
+fn 口にする(c: &MailAccount) -> warifu_mcp::メールの口 {
+    warifu_mcp::メールの口 {
+        アドレス: c.user.clone(),
+        種類: c.kind.name().to_owned(),
+        繋ぎ先: format!("{}:{}", c.host, c.port),
+        読む: c.kind.reads(),
+        送る: c.kind.sends(),
+        秘密がある: keychain::入っているか(c.kind.secret_service(), &c.user),
+    }
+}
+
+impl warifu_mcp::メールの控え for 控えの手 {
+    fn 並べる(&self) -> Result<Vec<warifu_mcp::メールの口>, String> {
+        let vault = Vault::default_location().map_err(|e| e.to_string())?;
+        Ok(vault
+            .mail_accounts()
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(口にする)
+            .collect())
+    }
+
+    fn 足す(
+        &self,
+        種類: &str,
+        アドレス: &str,
+        ホスト: Option<&str>,
+        ポート: Option<u16>,
+    ) -> Result<warifu_mcp::メールの口, String> {
+        let (種類, ホスト, ポート) = 控える形(種類, アドレス, ホスト, ポート)?;
+        let vault = Vault::default_location().map_err(|e| e.to_string())?;
+        vault
+            .save_mail_kind(種類, &ホスト, ポート, アドレス)
+            .map_err(|e| e.to_string())?;
+        let 控え = vault.mail_accounts().map_err(|e| e.to_string())?;
+        控え
+            .iter()
+            .find(|c| c.user.eq_ignore_ascii_case(アドレス.trim()))
+            .map(口にする)
+            .ok_or_else(|| "控えたはずの口が見つかりません".to_owned())
+    }
+
+    fn 外す(&self, アドレス: &str) -> Result<bool, String> {
+        let vault = Vault::default_location().map_err(|e| e.to_string())?;
+        vault.forget_mail(アドレス).map_err(|e| e.to_string())
+    }
+}
+
+/// **秘密を人に聞いて、キーチェーンに置く。**割符は字を見ない（`security` が聞く）。
+fn 秘密を聞く(種類: MailKind, 利用者: &str) -> Result<(), Box<dyn std::error::Error>> {
+    eprintln!("このあと macOS が 2 回たずねます（打った字は画面に出ません）。");
+    match 種類 {
+        MailKind::Resend => eprintln!("Resend の API キー（re_ で始まる字）を入れてください。"),
+        MailKind::Gmail => {
+            eprintln!("Google のアカウントのアプリパスワード（16 字）を入れてください。")
+        }
+        MailKind::Imap => eprintln!("メールのパスワードを入れてください。"),
+    }
+    eprintln!("入れた字は割符を通らず、そのまま macOS のキーチェーンに置かれます。");
+    let 名札 = match 種類 {
+        MailKind::Resend => "warifu 送る口（Resend）",
+        _ => "warifu メール（IMAP）",
+    };
+    keychain::人に聞いて置く_口(種類.secret_service(), 利用者, 名札)?;
+    Ok(())
+}
+
 /// **エージェントの `inbox_list` のために、控えた全部の受信箱から新しい分を汲む**（0.1.44）。
 ///
 /// 1 つのアドレスにつき新しいほうから `件数` 通。**読むだけ**（既読にしない）。
@@ -247,7 +413,7 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
 /// （標準出力は MCP のもの）。
 pub async fn 汲む(件数: usize) -> Result<Vec<warifu_read::Received>, String> {
     let vault = Vault::default_location().map_err(|e| e.to_string())?;
-    let 控え = vault.mail_accounts().map_err(|e| e.to_string())?;
+    let 控え = vault.inboxes().map_err(|e| e.to_string())?;
     if 控え.is_empty() {
         return Err("メールのアドレスを控えていません（warifu mail add <アドレス>）".to_owned());
     }
@@ -411,6 +577,7 @@ async fn 確かめる(c: &MailAccount) -> Result<(), Box<dyn std::error::Error>>
 
 #[cfg(test)]
 mod tests {
+    use warifu_vault::MailKind;
     #[test]
     fn 数の表は札と理由の数だけで_差出人も件名も出さない() {
         let 手 = warifu_read::手がかり {
@@ -453,9 +620,45 @@ mod tests {
             Ok(設定::足す {
                 利用者: "a@example.com".into(),
                 ホスト: "imap.gmail.com".into(),
-                ポート: 994
+                ポート: 994,
+                種類: MailKind::Gmail
             })
         );
+    }
+
+    #[test]
+    fn mcp_から控える形は種類で決まり_imap_はホストが要る() {
+        use super::控える形;
+        assert_eq!(
+            控える形("gmail", "a@example.com", None, None),
+            Ok((MailKind::Gmail, "imap.gmail.com".into(), 993))
+        );
+        assert_eq!(
+            控える形("resend", "b@example.com", Some("x"), Some(1)),
+            Ok((MailKind::Resend, "api.resend.com".into(), 443))
+        );
+        assert!(控える形("imap", "c@example.com", None, None).is_err());
+        assert!(控える形("pop3", "c@example.com", None, None).is_err());
+        assert!(控える形("gmail", "not-an-address", None, None).is_err());
+    }
+
+    #[test]
+    fn resend_は送る口として控え_secret_は入れ直す() {
+        assert_eq!(
+            読ませる(&["add", "b@example.com", "--resend"]),
+            Ok(設定::足す {
+                利用者: "b@example.com".into(),
+                ホスト: "api.resend.com".into(),
+                ポート: 443,
+                種類: MailKind::Resend
+            })
+        );
+        assert_eq!(
+            読ませる(&["secret", "b@example.com"]),
+            Ok(設定::秘密を入れる("b@example.com".into()))
+        );
+        // API キーも引数では受けない
+        assert!(読ませる(&["add", "b@example.com", "--resend", "re_123"]).is_err());
     }
 
     #[test]

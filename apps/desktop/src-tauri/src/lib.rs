@@ -4628,6 +4628,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             mail_view::mail_list,
             mail_view::mail_open,
+            mail_view::mail_accounts,
+            mail_view::mail_secret_set,
             delegate::delegates,
             delegate::delegate_set,
             delegate::delegate_forget,

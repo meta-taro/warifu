@@ -64,6 +64,8 @@ pub struct Warifu {
     /// **受信箱を汲み直す手**（0.1.44）。`inbox_list` のたびに呼ぶ。
     /// **この層は IMAP を知らない**ので、汲み方は外から渡す（`warifu mcp` が控えたアドレスから汲む）。
     受信箱を汲む: Option<受信箱を汲む手>,
+    /// **メールの口の控え**（0.1.45）。この層は置き場所を知らないので、外から渡す。
+    メールの控え: Option<Arc<dyn メールの控え>>,
     /// **いま走っている呼びの数**（2026-10-07・#50）。
     /// 入力が閉じても、これが 0 になるまで口を閉じない（[`crate::閉じを待つ入力`]）。
     呼び: Arc<crate::呼び中>,
@@ -122,6 +124,7 @@ impl Warifu {
             起こし方: crate::push::起こし方::default(),
             札を読み直す: None,
             受信箱を汲む: None,
+            メールの控え: None,
             呼び: Arc::default(),
             inner: Arc::new(Mutex::new(Inner {
                 messages,
@@ -189,6 +192,13 @@ impl Warifu {
     #[must_use]
     pub fn 受信箱を汲むには(mut self, 汲む: 受信箱を汲む手) -> Self {
         self.受信箱を汲む = Some(汲む);
+        self
+    }
+
+    /// **メールの口の控えを渡す**（0.1.45）。
+    #[must_use]
+    pub fn メールの控えを渡す(mut self, 控え: Arc<dyn メールの控え>) -> Self {
+        self.メールの控え = Some(控え);
         self
     }
 
@@ -363,6 +373,61 @@ impl Warifu {
     }
 }
 
+/// 控えたメールの口 1 つ（0.1.45）。**秘密は入らない**（入っているかだけ）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct メールの口 {
+    /// メールアドレス。
+    pub アドレス: String,
+    /// 種類（gmail / imap / resend）。
+    pub 種類: String,
+    /// 繋ぎ先（`ホスト:ポート`）。
+    pub 繋ぎ先: String,
+    /// 読めるか（受信箱）。
+    pub 読む: bool,
+    /// 送れるか（送る口そのものは 0.1.46 以降）。
+    pub 送る: bool,
+    /// 秘密（パスワード・API キー）がキーチェーンに入っているか。
+    pub 秘密がある: bool,
+}
+
+/// **メールの口の控えを読み書きする手**（0.1.45）。`warifu mcp` が置き場所とキーチェーンから作る。
+pub trait メールの控え: Send + Sync {
+    /// 控えた口を並べる。
+    ///
+    /// # Errors
+    /// 控えを読めないとき。
+    fn 並べる(&self) -> Result<Vec<メールの口>, String>;
+    /// 控える（同じアドレスは置き換える）。**秘密は受け取らない。**
+    ///
+    /// # Errors
+    /// 種類が違う・アドレスが読めない・書けないとき。
+    fn 足す(
+        &self,
+        種類: &str,
+        アドレス: &str,
+        ホスト: Option<&str>,
+        ポート: Option<u16>,
+    ) -> Result<メールの口, String>;
+    /// 控えから外す。キーチェーンの秘密は消さない。返りは、在って外したか。
+    ///
+    /// # Errors
+    /// 控えを読めない・書けないとき。
+    fn 外す(&self, アドレス: &str) -> Result<bool, String>;
+}
+
+/// 秘密が入っていない口に添える、人への頼み方。
+fn 秘密の入れ方(口: &メールの口) -> String {
+    let 何 = if 口.種類 == "resend" {
+        "API キー"
+    } else {
+        "パスワード（Gmail はアプリパスワード）"
+    };
+    format!(
+        "{} の{何}は、まだ入っていません。**エージェントは入れられません。**この PC の人に、割符の画面の［メール］で［秘密を入れる］を押すか、ターミナルで `warifu mail secret {}` を打ってもらってください。",
+        口.アドレス, 口.アドレス
+    )
+}
+
 /// **受信箱を汲む手**（[`Warifu::受信箱を汲むには`]）。失敗は人が読める 1 文で返す。
 pub type 受信箱を汲む手 = Arc<
     dyn Fn() -> std::pin::Pin<
@@ -373,6 +438,92 @@ pub type 受信箱を汲む手 = Arc<
 
 #[tool_router]
 impl Warifu {
+    /// **控えたメールの口を並べる**（0.1.45）。秘密は出さない（入っているかだけ）。
+    #[tool(
+        description = "この PC の割符が控えたメールの口（受信箱・送る口）を並べる。アドレス・種類（gmail / imap / resend）・繋ぎ先・読めるか・送れるか・秘密（パスワード・API キー）が入っているか。秘密そのものは出さない。札は inbox.list。"
+    )]
+    pub async fn mail_account_list(&self) -> Result<String, ErrorData> {
+        self.通るか("inbox.list")?;
+        let 控え = self
+            .メールの控え
+            .clone()
+            .ok_or_else(|| ToolError::Unavailable("この口ではメールの控えを読めません".into()))?;
+        let 口たち = 控え.並べる().map_err(ToolError::Unavailable)?;
+        if 口たち.is_empty() {
+            return Ok("控えたメールの口はありません（mail_account_add で控えます）".to_owned());
+        }
+        let mut 行 = vec!["アドレス\t種類\t繋ぎ先\t読む\t送る\t秘密".to_owned()];
+        for 口 in &口たち {
+            行.push(format!(
+                "{}\t{}\t{}\t{}\t{}\t{}",
+                口.アドレス,
+                口.種類,
+                口.繋ぎ先,
+                if 口.読む { "読む" } else { "" },
+                if 口.送る {
+                    "送る（0.1.46 から）"
+                } else {
+                    ""
+                },
+                if 口.秘密がある {
+                    "入っている"
+                } else {
+                    "まだ"
+                }
+            ));
+        }
+        Ok(行.join("\n"))
+    }
+
+    /// **メールの口を控える**（0.1.45）。秘密は受け取らない。
+    #[tool(
+        description = "メールの口を控える（同じアドレスは置き換える）。kind は gmail（Google Workspace を含む・読む・送る）／imap（読むだけ・host が要る）／resend（送るだけ・API）。**パスワードと API キーは渡せない**（欄が無い）—— 秘密は人が割符の画面か `warifu mail secret <アドレス>` で入れる。人に頼まれたときに使う。札は mail.account。"
+    )]
+    pub async fn mail_account_add(
+        &self,
+        Parameters(args): Parameters<crate::tools::MailAccountAddArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("mail.account")?;
+        let 控え = self
+            .メールの控え
+            .clone()
+            .ok_or_else(|| ToolError::Unavailable("この口ではメールの控えを書けません".into()))?;
+        let 口 = 控え
+            .足す(&args.kind, &args.address, args.host.as_deref(), args.port)
+            .map_err(ToolError::BadArgs)?;
+        let mut 文 = format!(
+            "{}（{}・{}）を控えました。",
+            口.アドレス, 口.種類, 口.繋ぎ先
+        );
+        if !口.秘密がある {
+            文.push_str(&秘密の入れ方(&口));
+        }
+        Ok(文)
+    }
+
+    /// **メールの口を控えから外す**（0.1.45）。キーチェーンの秘密は消さない。
+    #[tool(
+        description = "メールの口を控えから外す。キーチェーンに入っている秘密は消さない（消すのは人が `warifu mail remove <アドレス>` で）。人に頼まれたときに使う。札は mail.account。"
+    )]
+    pub async fn mail_account_remove(
+        &self,
+        Parameters(args): Parameters<crate::tools::MailAccountRemoveArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("mail.account")?;
+        let 控え = self
+            .メールの控え
+            .clone()
+            .ok_or_else(|| ToolError::Unavailable("この口ではメールの控えを書けません".into()))?;
+        if 控え.外す(&args.address).map_err(ToolError::Unavailable)? {
+            Ok(format!(
+                "{} を控えから外しました。キーチェーンの秘密は残っています（消すなら人が warifu mail remove）。",
+                args.address
+            ))
+        } else {
+            Ok(format!("{} は控えていません。", args.address))
+        }
+    }
+
     /// 受信箱を metadata だけで並べる。**本文は 1 文字も返らない。**
     #[tool(description = "受信箱を metadata だけで並べる。本文は返らない。")]
     pub async fn inbox_list(&self) -> Result<String, ErrorData> {

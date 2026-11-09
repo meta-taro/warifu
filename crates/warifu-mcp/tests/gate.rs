@@ -299,6 +299,9 @@ fn 出している口を_数えて名前で押さえる() {
             "contacts_list",
             "inbox_list",
             "inbox_open",
+            "mail_account_add",
+            "mail_account_list",
+            "mail_account_remove",
             "pass_ask",
             "pass_wait",
             "profile_set",
@@ -1059,6 +1062,14 @@ fn 外へ出る引数名は_asciiだけ() {
         &schemars::schema_for!(warifu_mcp::StatusArgs),
     );
     名を検める("inbox_open", &schemars::schema_for!(warifu_mcp::OpenArgs));
+    名を検める(
+        "mail_account_add",
+        &schemars::schema_for!(warifu_mcp::MailAccountAddArgs),
+    );
+    名を検める(
+        "mail_account_remove",
+        &schemars::schema_for!(warifu_mcp::MailAccountRemoveArgs),
+    );
     名を検める("chat_image", &schemars::schema_for!(warifu_mcp::ImageArgs));
     名を検める(
         "profile_set",

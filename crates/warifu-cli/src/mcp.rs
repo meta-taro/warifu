@@ -60,6 +60,8 @@ const 許せる動作: &[&str] = &[
     // **部屋を抜ける・名前を付ける**（0.1.40・内部の Issue 026）。部屋の形を変えるので、読む札とは分ける
     "room.leave",
     "room.rename",
+    // **メールの口を控える・外す**（0.1.45）。秘密は扱わない（人が画面か warifu mail secret で入れる）
+    "mail.account",
 ];
 
 /// `warifu mcp` の設定。
@@ -290,6 +292,7 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         .受信箱を汲むには(std::sync::Arc::new(|| {
             Box::pin(crate::mail::汲む(一度に汲む通))
         }))
+        .メールの控えを渡す(std::sync::Arc::new(crate::mail::控えの手))
         .起こし方を決める(設.起こし方);
     if let Some(名) = &設.名乗り {
         口 = 口.名乗る(名);

@@ -63,7 +63,7 @@ pub(crate) async fn 見張る(app: AppHandle) {
 }
 
 async fn 一回り(app: &AppHandle, 覚え: &mut 見張りの覚え) {
-    let 控え = match warifu_vault::Vault::default_location().and_then(|v| v.mail_accounts()) {
+    let 控え = match warifu_vault::Vault::default_location().and_then(|v| v.inboxes()) {
         Ok(c) => c,
         Err(e) => {
             記録!("メールの見張り: 控えを読めません（{e}）");
