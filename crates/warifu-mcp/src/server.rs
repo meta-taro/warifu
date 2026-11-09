@@ -66,6 +66,8 @@ pub struct Warifu {
     受信箱を汲む: Option<受信箱を汲む手>,
     /// **メールの口の控え**（0.1.45）。この層は置き場所を知らないので、外から渡す。
     メールの控え: Option<Arc<dyn メールの控え>>,
+    /// **画面に控えてある、このエージェントの名乗り**を読む手（0.1.46）。繋ぐたびに呼ばれる名へ足す。
+    控えた名を読む: Option<Arc<dyn Fn() -> Vec<String> + Send + Sync>>,
     /// **いま走っている呼びの数**（2026-10-07・#50）。
     /// 入力が閉じても、これが 0 になるまで口を閉じない（[`crate::閉じを待つ入力`]）。
     呼び: Arc<crate::呼び中>,
@@ -125,6 +127,7 @@ impl Warifu {
             札を読み直す: None,
             受信箱を汲む: None,
             メールの控え: None,
+            控えた名を読む: None,
             呼び: Arc::default(),
             inner: Arc::new(Mutex::new(Inner {
                 messages,
@@ -153,7 +156,9 @@ impl Warifu {
     ) -> std::io::Result<Self> {
         self.この機械の場所 = Some(場所.to_path_buf());
         let 名乗り = self.名乗り.clone();
-        *self.chat.lock().await = Some(Chat::つながる(場所, 名乗り).await?);
+        let chat = Chat::つながる(場所, 名乗り).await?;
+        self.控えた名を足す(&chat);
+        *self.chat.lock().await = Some(chat);
         Ok(self)
     }
 
@@ -171,7 +176,9 @@ impl Warifu {
     ) -> std::io::Result<Self> {
         self.この機械の場所 = Some(場所.to_path_buf());
         let 名乗り = self.名乗り.clone();
-        *self.chat.lock().await = Some(Chat::つながる_控えは(場所, 名乗り, Some(控え)).await?);
+        let chat = Chat::つながる_控えは(場所, 名乗り, Some(控え)).await?;
+        self.控えた名を足す(&chat);
+        *self.chat.lock().await = Some(chat);
         Ok(self)
     }
 
@@ -193,6 +200,26 @@ impl Warifu {
     pub fn 受信箱を汲むには(mut self, 汲む: 受信箱を汲む手) -> Self {
         self.受信箱を汲む = Some(汲む);
         self
+    }
+
+    /// **画面に控えてある名乗りを読む手を渡す**（0.1.46）。
+    ///
+    /// 口は繋ぎ直すと、呼ばれる名がフォルダ名だけに戻る。`profile_set` で書いた名前は画面が控えて
+    /// いるので、繋ぐたびにそこから足す。渡さなければ、これまでどおり。
+    #[must_use]
+    pub fn 控えた名を読むには(
+        mut self,
+        読む: Arc<dyn Fn() -> Vec<String> + Send + Sync>,
+    ) -> Self {
+        self.控えた名を読む = Some(読む);
+        self
+    }
+
+    /// 繋いだばかりの口へ、控えた名乗りを足す。
+    fn 控えた名を足す(&self, chat: &Chat) {
+        if let Some(読む) = &self.控えた名を読む {
+            chat.呼ばれる名を足す(&読む());
+        }
     }
 
     /// **メールの口の控えを渡す**（0.1.45）。
@@ -368,6 +395,7 @@ impl Warifu {
         let 新しく = Chat::つながる(場所, self.名乗り.clone())
             .await
             .map_err(|_| この機械が無い())?;
+        self.控えた名を足す(&新しく);
         *エージェント = Some(新しく.clone());
         Ok(新しく)
     }

@@ -59,13 +59,20 @@ pub fn 消す引数(利用者: &str) -> Vec<String> {
         .collect()
 }
 
+/// **この OS で秘密を置けない理由**（0.1.46）。人が読む文。いまは macOS だけ置ける。
+pub const 置けない訳: &str = "この OS では、まだメールのパスワードと API キーを置けません（いまは macOS だけです。Windows の資格情報マネージャーへの対応は、このあとの版で入ります）";
+
+/// この OS で秘密を置けるか（0.1.46）。置けない OS では、控える前に止める（行き止まりを作らない）。
+#[must_use]
+pub const fn 使えるか() -> bool {
+    cfg!(target_os = "macos")
+}
+
 fn この_os_で使えるか() -> Result<(), Error> {
-    if cfg!(target_os = "macos") {
+    if 使えるか() {
         Ok(())
     } else {
-        Err(Error::Keychain(
-            "この OS のキーチェーンには、まだ対応していません（macOS だけ）".into(),
-        ))
+        Err(Error::Keychain(置けない訳.into()))
     }
 }
 
@@ -251,6 +258,17 @@ pub fn 消す_口(サービスの名: &str, 利用者: &str) -> Result<bool, Err
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 置けるのは_macos_だけで_置けない_os_では行き止まりにせず訳を言う() {
+        assert_eq!(使えるか(), cfg!(target_os = "macos"));
+        assert!(置けない訳.contains("macOS だけ"));
+        if !使えるか() {
+            let e = 字から置く(サービス, "a@example.com", "試験", "abcdefgh")
+                .expect_err("置けない OS では断る");
+            assert!(e.to_string().contains("macOS だけ"), "{e}");
+        }
+    }
 
     #[test]
     fn 置くときは_w_を最後に置き_パスワードを引数に載せない() {

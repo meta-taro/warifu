@@ -102,6 +102,26 @@ pub fn 名乗りを検める(名: &str) -> Result<String, String> {
     Ok(名)
 }
 
+/// **画面に控えてある、このエージェントの名前**（`profile_set` で書いたもの）。無ければ空。
+fn 控えた名乗り(名乗り: Option<&str>) -> Vec<String> {
+    let Some(名乗り) = 名乗り else {
+        return Vec::new();
+    };
+    match warifu_vault::Vault::default_location().and_then(|v| v.profiles()) {
+        Ok(面々) => 名乗りの名(&面々, 名乗り),
+        // 読めなければ足さない（フォルダ名では呼べる）。口は止めない
+        Err(_) => Vec::new(),
+    }
+}
+
+/// 控えの中から、この名乗りのエージェントが書いた名前を拾う（純粋）。
+fn 名乗りの名(面々: &warifu_vault::Profiles, 名乗り: &str) -> Vec<String> {
+    面々
+        .find(&warifu_vault::Who::Desk(名乗り.to_owned()))
+        .map(|p| vec![p.name().to_owned()])
+        .unwrap_or_default()
+}
+
 /// 起動した場所から名乗る。**まず仕事場（リポジトリ）の名前、無ければフォルダ名。**
 ///
 /// **人が書かなくても、どこで動いているかは分かる。**
@@ -293,6 +313,11 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             Box::pin(crate::mail::汲む(一度に汲む通))
         }))
         .メールの控えを渡す(std::sync::Arc::new(crate::mail::控えの手))
+        // **繋ぐたびに、画面に控えた名乗りを呼ばれる名へ足す**（0.1.46）
+        .控えた名を読むには({
+            let 名乗り = 設.名乗り.clone();
+            std::sync::Arc::new(move || 控えた名乗り(名乗り.as_deref()))
+        })
         .起こし方を決める(設.起こし方);
     if let Some(名) = &設.名乗り {
         口 = 口.名乗る(名);
@@ -429,6 +454,28 @@ mod 名乗りの試験 {
             仕事場の名(&根).as_deref(),
             根.file_name().and_then(|n| n.to_str())
         );
+    }
+
+    #[test]
+    fn 画面に控えた名乗りを_呼ばれる名に足す() {
+        use super::名乗りの名;
+        use warifu_vault::{Profile, Profiles, Who};
+        let mut 面々 = Profiles::new();
+        面々.put(
+            Profile::new(
+                Who::Desk("vegas-gift のエージェント".into()),
+                "ベガスギフト",
+                "",
+            )
+            .expect("作れる"),
+        );
+        面々.put(Profile::new(Who::Me, "人", "").expect("作れる"));
+        assert_eq!(
+            名乗りの名(&面々, "vegas-gift のエージェント"),
+            vec!["ベガスギフト".to_owned()]
+        );
+        // 名乗っていない席・人の名前は足さない
+        assert!(名乗りの名(&面々, "warifu のエージェント").is_empty());
     }
 
     #[test]

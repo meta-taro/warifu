@@ -99,6 +99,10 @@ pub(crate) async fn 見張る(app: AppHandle) {
 }
 
 async fn 一回り(app: &AppHandle, 覚え: &mut 見張りの覚え) {
+    // 秘密を置けない OS では見に行けない（毎回同じ失敗を記録に積まない）
+    if !warifu_imap::keychain::使えるか() {
+        return;
+    }
     let 控え = match warifu_vault::Vault::default_location().and_then(|v| v.inboxes()) {
         Ok(c) => c,
         Err(e) => {

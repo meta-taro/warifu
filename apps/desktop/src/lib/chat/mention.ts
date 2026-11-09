@@ -30,8 +30,19 @@ function 揃える(名前たち: readonly string[]): string[] {
 }
 
 /** 本文の `i` から `@名` が始まっていて、後ろが名前の続きでないか。 */
+/**
+ * その位置が `` ` `` で囲んだ所（コード）の中か。前の `` ` `` が奇数なら中（0.1.46）。
+ * 説明の中で `` `@all` `` と書いただけで全員が呼ばれていた。`warifu-desk` の規則と同じ。
+ */
+function コードの中か(本文: string, i: number): boolean {
+  let 数 = 0;
+  for (let j = 0; j < i; j++) if (本文[j] === '`') 数++;
+  return 数 % 2 === 1;
+}
+
 function ここで呼んでいるか(本文: string, i: number, 名: string): boolean {
   if (!呼ぶ印か(本文[i])) return false;
+  if (コードの中か(本文, i)) return false;
   const 打った = 本文.slice(i + 1, i + 1 + 名.length);
   // `@ALL` も `@all` として読む（全員の呼びだけ。人の名前は打ったとおりに見る）
   const 当たる = 名 === 'all' ? 打った.toLowerCase() === 名 : 打った === 名;

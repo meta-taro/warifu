@@ -201,6 +201,11 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
 /// 行う。
 pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let vault = Vault::default_location()?;
+    // **置けない OS では、控える前に止める**（0.1.46）。控えだけ残ると「もう一度入れてください」の行き止まりになる
+    if matches!(設, 設定::足す { .. } | 設定::秘密を入れる(_)) && !keychain::使えるか()
+    {
+        return Err(keychain::置けない訳.into());
+    }
     match 設 {
         設定::足す {
             利用者,
@@ -445,6 +450,9 @@ impl warifu_mcp::メールの控え for 控えの手 {
         ポート: Option<u16>,
         知らせ: Option<&str>,
     ) -> Result<warifu_mcp::メールの口, String> {
+        if !keychain::使えるか() {
+            return Err(keychain::置けない訳.to_owned());
+        }
         let (種類, ホスト, ポート) = 控える形(種類, アドレス, ホスト, ポート)?;
         let 知らせ = 知らせ.map(知らせ方を読む).transpose()?;
         if 知らせ.is_some() && !種類.reads() {
