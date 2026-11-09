@@ -3,7 +3,7 @@
 > **English:** [install.md](install.md)
 
 配布物は [ダウンロードのページ](https://meta-taro.github.io/warifu/) と
-[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.44**。
+[GitHub Releases](https://github.com/meta-taro/warifu/releases) に置いてあります。いまの版は **v0.1.45**。
 
 **何かを預ける前に、[`SECURITY.ja.md`](../SECURITY.ja.md) を読んでください。**アルファ版です。
 
@@ -13,8 +13,8 @@
 
 | | |
 |---|---|
-| **macOS / Apple Silicon（M1 以降）** | **動きます。**0.1.44 から配布物は `universal`（Apple Silicon と Intel の両方が入った `.dmg` と CLI が 1 つずつ）。**画面も CLI も署名・公証済み** |
-| **macOS / Intel** | **0.1.44 から動きます**（同じ `universal` の配布物）。0.1.43 までは Intel 向けがありませんでした |
+| **macOS / Apple Silicon（M1 以降）** | **動きます。**0.1.45 から配布物は `universal`（Apple Silicon と Intel の両方が入った `.dmg` と CLI が 1 つずつ）。**画面も CLI も署名・公証済み** |
+| **macOS / Intel** | **0.1.45 から動きます**（同じ `universal` の配布物）。0.1.43 までは Intel 向けがありませんでした |
 | **Windows（x64）** | **動きます**（映像も音声も）。**署名していません**。**初回はファイアウォールの規則が要ります**（下記） |
 | **Linux** | **確かめていません。**建ちはしますが、通した人が居ません |
 
@@ -41,7 +41,7 @@ spctl -a -vv -t exec /Applications/warifu.app
 
 ```bash
 chmod +x ./warifu
-./warifu version          # → warifu 0.1.44+<commit>
+./warifu version          # → warifu 0.1.45+<commit>
 mkdir -p ~/bin && mv ./warifu ~/bin/     # ~/bin が PATH に入っていれば
 ```
 
@@ -67,7 +67,7 @@ rm -f ~/bin/warifu && cp ./warifu ~/bin/warifu && chmod +x ~/bin/warifu
 
 ### Intel の Mac
 
-0.1.44 からは、Apple Silicon と同じ `_universal.dmg` と CLI を使います。その機械の上で建てるなら：
+0.1.45 からは、Apple Silicon と同じ `_universal.dmg` と CLI を使います。その機械の上で建てるなら：
 
 ```bash
 git clone https://github.com/meta-taro/warifu.git
@@ -84,8 +84,8 @@ pnpm tauri build --bundles app
 
 | ファイル | |
 |---|---|
-| **`warifu_0.1.44_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
-| `warifu_0.1.44_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
+| **`warifu_0.1.45_x64-setup.exe`** | **これを使ってください。****利用者ごとに入る**ので管理者権限が要りません |
+| `warifu_0.1.45_x64_en-US.msi` | 中身は同じですが**機械ぜんぶに入れる形**で、管理者が居ないと `Error 1406` / `Error 1925` で止まります。**配布の仕組み（Intune・GPO）で配る人向け** |
 | `warifu.exe` | CLI。置いた場所から、そのまま打てます |
 
 ### SmartScreen が出ます
@@ -104,8 +104,8 @@ Windows によって PC が保護されました
 （**署名が無いのは、どちらでも同じ**です）。
 
 ```powershell
-gh release download v0.1.44 -p 'warifu_*_x64-setup.exe'
-Get-Item .\warifu_0.1.44_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
+gh release download v0.1.45 -p 'warifu_*_x64-setup.exe'
+Get-Item .\warifu_0.1.45_x64-setup.exe -Stream Zone.Identifier   # → 見つかりません
 ```
 
 ### **初回はファイアウォールの規則が要ります**（ここで詰まります）
