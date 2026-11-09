@@ -45,3 +45,53 @@ export function 畳むか(本文: string): boolean {
   const 字数 = [...本文.replace(/\n/g, '')].length;
   return 行数 > 畳む行数 || 字数 > 畳む字数;
 }
+
+/** 色合いを見分けるのに使う、鍵の頭の長さ（相手の機械のエージェントの名札も頭 12 字で来る）。 */
+const 機械の頭の長さ = 12;
+
+/** **機械に振る色合い**（0.1.46）。隣どうしが見分けられるよう、45 度ずつ離した 8 つ。 */
+export const 機械の色合いたち = [20, 65, 110, 155, 200, 245, 290, 335] as const;
+
+/**
+ * その行が**どの機械から来たか**（鍵の頭 12 字）。ほかの機械から来た発言だけ。
+ * この機械から出た発言・会議からの知らせ・種の無い行は `null`。
+ */
+export function 機械の頭(行: 会話行): string | null {
+  if (行.system || 行.mine || 行.agent) return null;
+  const 種 = 行.顔の種;
+  if (!種 || 種.startsWith('desk:')) return null;
+  return 種.slice(0, 機械の頭の長さ);
+}
+
+/** 鍵の頭から、まず選ぶ色の番号（FNV-1a。どの PC で見ても同じ）。 */
+function 先に選ぶ番号(頭: string): number {
+  let h = 0x811c9dc5;
+  for (const c of 頭) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h % 機械の色合いたち.length;
+}
+
+/**
+ * **会話に出てくる機械ごとに色合いを振る**（0.1.46）。吹き出しの地を機械ごとに少し変える。
+ *
+ * 鍵の頭から決まる色をまず選び、同じ会話の中で別の機械がもう使っていれば、空いている次の色へずらす
+ * （出てきた順）。人もエージェントも、同じ機械なら同じ色合い。色だけでは言わない —— 名と顔は今までどおり。
+ */
+export function 機械に色を振る(行たち: readonly 会話行[]): Map<string, number> {
+  const 振った = new Map<string, number>();
+  const 使った = new Set<number>();
+  for (const 行 of 行たち) {
+    const 頭 = 機械の頭(行);
+    if (頭 === null || 振った.has(頭)) continue;
+    let 番 = 先に選ぶ番号(頭);
+    // 8 台を越えたら重なってよい（見分けの助けで、名前は出ている）
+    for (let 試す = 0; 試す < 機械の色合いたち.length && 使った.has(番); 試す++) {
+      番 = (番 + 1) % 機械の色合いたち.length;
+    }
+    使った.add(番);
+    振った.set(頭, 機械の色合いたち[番]);
+  }
+  return 振った;
+}

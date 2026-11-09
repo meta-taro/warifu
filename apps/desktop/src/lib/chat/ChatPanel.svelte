@@ -21,7 +21,7 @@
   import { 時刻の札 } from './history';
   import Markdown from './Markdown.svelte';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
-  import { 吹き出しの形, 畳むか } from './bubble';
+  import { 吹き出しの形, 機械に色を振る, 機械の頭, 畳むか } from './bubble';
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
@@ -350,6 +350,8 @@
   // **`@名前` で呼ぶ**（0.1.35・メンション）。人数が多いと、誰に話しかけたか分からない。
   // **呼んでも届く先は変わらない**（ルームの全員に見える）。そのことを打つ欄の下で言う
   /** 呼べる名前。いま届く相手を、画面と同じ名前で */
+  /** **機械ごとの吹き出しの色合い**（0.1.46）。会話に出てくる順に、別の機械とは別の色を振る。 */
+  const 機械の色 = $derived(機械に色を振る(会話));
   const 呼べる名 = $derived(届く先.map(見せる名));
   /** 印を付けて読む名前。届く相手のほか、名簿の名前と自分の名前も */
   const 見分ける名 = $derived(
@@ -442,6 +444,8 @@
       {@const 受け = 受けを見る(line, 呼んだ, 今)}
       {@const 押せる = 受ける !== undefined && 受ける押し所を出すか(line, 宛て)}
       {@const 長い = !line.system && 畳むか(line.body)}
+      {@const 機械 = 機械の頭(line)}
+      {@const 色合い = 機械 === null ? null : (機械の色.get(機械) ?? null)}
       {#if line.system}
         <!-- **会議からの知らせ**は吹き出しにしない。真ん中に小さく -->
         <p class="line system">
@@ -457,6 +461,8 @@
           class:mine={line.mine}
           class:agent={形.主 === 'エージェント'}
           class:to-me={宛て}
+          class:tinted={色合い !== null}
+          style={色合い !== null ? `--machine-hue: ${色合い}` : undefined}
         >
           <div class="head">
             {#if 差出人の顔(line)}<Avatar 種={差出人の顔(line) ?? ''} 大きさ={14} 名="" />{/if}
@@ -896,6 +902,14 @@
     background: var(--bg-subtle);
     border-style: dashed;
     border-color: var(--border-strong);
+  }
+  /* **機械ごとに吹き出しの地を少し変える**（0.1.46）。どの機械から来たかを、名前を読む前に見分ける。
+     地に色を 2 割ほど混ぜる（字との対比を崩さない）。色だけでは言わない —— 名と顔は今までどおり */
+  .line.tinted .bubble {
+    background: color-mix(in oklab, var(--bg-elevated) 78%, oklch(68% 0.14 var(--machine-hue)));
+  }
+  .line.tinted.agent:not(.to-me) .bubble {
+    background: color-mix(in oklab, var(--bg-subtle) 78%, oklch(68% 0.14 var(--machine-hue)));
   }
   /* **呼んだ相手**（0.1.45）。差出人の名の右に「→ 相手」。吹き出しの外に出し、本文と混ぜない */
   /* 矢印と相手は**離さない**（狭い欄で折り返すと、矢印だけが前の行に残った） */
