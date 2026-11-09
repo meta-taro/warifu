@@ -146,3 +146,24 @@ export function 候補を入れる(
   const 新 = 下書き.slice(0, 頭) + 入れる + 後;
   return { 下書き: 新, 位置: /^\s/.test(後) ? 頭 + 入れる.length + 1 : 頭 + 入れる.length };
 }
+
+/**
+ * **頭に並んだ `@名` を外す**（0.1.45）。呼んだ相手は吹き出しの上の宛ての行に出すので、本文で繰り返さない。
+ *
+ * 外すのは、本文の頭に**呼びだけが並んでいる**ときのその並び（`@PdM @連動 本文` → `本文`）。
+ * 文の途中の呼び・知らない `@` は残す。呼びしか無い本文は空にしない（そのまま返す）。
+ */
+export function 頭の呼びを外す(本文: string, 名前たち: readonly string[]): string {
+  let i = 0;
+  let 外した = false;
+  for (;;) {
+    while (i < 本文.length && /\s/.test(本文[i])) i++;
+    const 片 = 本文を分ける(本文.slice(i), 名前たち)[0];
+    if (!片?.呼び) break;
+    i += 片.文.length;
+    外した = true;
+  }
+  if (!外した) return 本文;
+  const 残り = 本文.slice(i).trimStart();
+  return 残り === '' ? 本文 : 残り;
+}

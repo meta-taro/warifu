@@ -24,7 +24,7 @@
   import { 吹き出しの形, 畳むか } from './bubble';
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
-  import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, type 打ちかけ } from './mention';
+  import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
   import { 受けを見る, 受ける押し所を出すか } from './ack';
 
   interface Props {
@@ -438,7 +438,8 @@
     {#each 会話 as line, i (i)}
       {@const 形 = 吹き出しの形(line)}
       {@const 宛て = !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
-      {@const 受け = 受けを見る(line, 宛ての名(line.body, 見分ける名), 今)}
+      {@const 呼んだ = line.system ? [] : 宛ての名(line.body, 見分ける名)}
+      {@const 受け = 受けを見る(line, 呼んだ, 今)}
       {@const 押せる = 受ける !== undefined && 受ける押し所を出すか(line, 宛て)}
       {@const 長い = !line.system && 畳むか(line.body)}
       {#if line.system}
@@ -463,11 +464,18 @@
             {#if !line.mine}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b>{/if}
             <!-- **人か、エージェントか**を字で言う（色だけに頼らない） -->
             {#if 形.主 === 'エージェント'}<span class="kind">{t('avatar.owner.agent')}</span>{/if}
+            <!-- **誰が誰を呼んだか**（0.1.45）。本文の頭の `@名` はここへ移す。届く先は変わらない（全員に見えている） -->
+            {#if 呼んだ.length > 0}<span class="to" title={t('chat.mention.line')}
+                ><span class="arrow" aria-hidden="true">→</span><span class="sr">{t('chat.mention.line')}</span
+                >{#each 呼んだ as 名 (名)}<span class="who" class:me={自分の呼ばれる名.includes(名)}
+                    >{全員の呼び.some((w) => w === 名.toLowerCase()) ? t('chat.mention.all') : 見せる名(名)}</span
+                  >{/each}</span
+              >{/if}
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
             {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}
           </div>
           <div class="bubble" class:folded={長い && !開いた.has(i)}><Markdown
-              本文={line.body}
+              本文={呼んだ.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
               {自分の呼ばれる名}
             />{#if line.画像}<button
@@ -861,8 +869,9 @@
   }
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: 2px 6px;
     max-width: 100%;
   }
   .bubble {
@@ -887,6 +896,39 @@
     background: var(--bg-subtle);
     border-style: dashed;
     border-color: var(--border-strong);
+  }
+  /* **呼んだ相手**（0.1.45）。差出人の名の右に「→ 相手」。吹き出しの外に出し、本文と混ぜない */
+  /* 矢印と相手は**離さない**（狭い欄で折り返すと、矢印だけが前の行に残った） */
+  .to {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-width: 0;
+    font-size: var(--text-xs-size);
+    color: var(--text-secondary);
+  }
+  .to .arrow {
+    color: var(--text-tertiary);
+  }
+  .to .who {
+    padding: 0 6px;
+    color: var(--info-fg);
+    background: var(--info-bg);
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+  }
+  /* 自分が呼ばれた所は太くする（色だけに頼らない） */
+  .to .who.me {
+    font-weight: 600;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .kind {
     padding: 0 6px;

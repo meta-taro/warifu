@@ -60,6 +60,8 @@ chat.late	while away	留守中	离线期间	부재 중
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.less	Show less	たたむ	收起	접기				
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
+chat.mention.all	Everyone	全員	所有人	모두		`@all` / `@全員` で全員を呼んだとき、呼んだ相手の所に出る語。		
+chat.mention.line	To	宛て	提及	부른 사람		発言の上に、`@` で呼んだ相手を並べる行の見出し（差出人 → 呼んだ相手）。「宛先」「送り先」と読ませないこと —— 発言はルームの全員に届いている。呼んだ相手を示すだけ。		
 chat.mention.me	to you	あなた宛て	提到你	나를 부름		自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。		
 chat.mention.pick	Pick who to mention (↑↓ to move, Enter to insert)	呼ぶ相手を選ぶ（↑↓ で選び、Enter で入れる）	选择要提及的人（↑↓ 选择，Enter 插入）	부를 상대 고르기 (↑↓ 로 고르고 Enter 로 넣기)		`@` を打ったときに出る候補の一覧の説明。		
 chat.mention.to	Mentioning {who} (everyone in the room can see it)	{who} を呼びます（ルームの全員に見えます）	将提及 {who}（房间内所有人都能看到）	{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)	★	呼んでも**届く先は変わらない**ことを必ず残す。「{who} にだけ送ります」と読める訳にすると、人は見られたくないことを書く。		

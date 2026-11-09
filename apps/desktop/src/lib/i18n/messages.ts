@@ -94,6 +94,8 @@ export type MessageKey =
   | 'chat.more'
   | 'chat.less'
   | 'chat.mention.to'
+  | 'chat.mention.line'
+  | 'chat.mention.all'
   | 'chat.mention.me'
   | 'chat.ack.press'
   | 'chat.ack.by'
@@ -615,6 +617,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': 'たたむ',
     'chat.mention.to': '{who} を呼びます（ルームの全員に見えます）',
     'chat.mention.me': 'あなた宛て',
+    'chat.mention.line': '宛て',
+    'chat.mention.all': '全員',
     'chat.ack.press': '受けました',
     'chat.ack.by': '{who} が受けた',
     'chat.ack.waiting': 'まだ受けていない（{n} 分）',
@@ -1089,6 +1093,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': 'Show less',
     'chat.mention.to': 'Mentioning {who} (everyone in the room can see it)',
     'chat.mention.me': 'to you',
+    'chat.mention.line': 'To',
+    'chat.mention.all': 'Everyone',
     'chat.ack.press': 'Got it',
     'chat.ack.by': '{who} got it',
     'chat.ack.waiting': 'Not acknowledged yet ({n} min)',
@@ -1561,6 +1567,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': '收起',
     'chat.mention.to': '将提及 {who}（房间内所有人都能看到）',
     'chat.mention.me': '提到你',
+    'chat.mention.line': '提及',
+    'chat.mention.all': '所有人',
     'chat.ack.press': '收到',
     'chat.ack.by': '{who} 已收到',
     'chat.ack.waiting': '尚未确认（{n} 分钟）',
@@ -2036,6 +2044,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.less': '접기',
     'chat.mention.to': '{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)',
     'chat.mention.me': '나를 부름',
+    'chat.mention.line': '부른 사람',
+    'chat.mention.all': '모두',
     'chat.ack.press': '확인했어요',
     'chat.ack.by': '{who} 님이 확인함',
     'chat.ack.waiting': '아직 확인 안 함（{n}분）',
@@ -2498,6 +2508,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '自分が呼んだ相手が、まだ受けていないことを言う。「未読」と訳さないこと —— 読んだかは分からない。分かるのは、押す・返事・エージェントが読む、のどれも来ていないことだけ（D130）。',
   'chat.mention.me':
     '自分が `@` で呼ばれた行に付く小さな印。「あなただけに届いた」とは読ませないこと —— 行はルームの全員に見えている。',
+  'chat.mention.line':
+    '発言の上に、`@` で呼んだ相手を並べる行の見出し（差出人 → 呼んだ相手）。「宛先」「送り先」と読ませないこと —— 発言はルームの全員に届いている。呼んだ相手を示すだけ。',
+  'chat.mention.all':
+    '`@all` / `@全員` で全員を呼んだとき、呼んだ相手の所に出る語。',
   'chat.mention.pick':
     '`@` を打ったときに出る候補の一覧の説明。',
   'chat.mention.to':

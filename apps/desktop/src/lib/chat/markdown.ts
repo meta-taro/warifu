@@ -31,6 +31,17 @@ const 見出し = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const 罫 = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const 引用 = /^\s*>\s?(.*)$/;
 const 箇条 = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/;
+/**
+ * **日本語の箇条書き**（0.1.45）。エージェントも人も「・」で書く。`- ` ではないので箇条にならず、
+ * 長い報告が 1 つの塊に潰れて読めなかった。行頭の「・」「•」は後ろに空白が無くても箇条にする。
+ */
+const 和の箇条 = /^(\s*)([・•])\s*(.+)$/;
+
+/** 箇条の頭か。`[字下げ, 印, 中身]`。 */
+function 箇条の頭(行: string): [string, string, string] | null {
+  const m = 箇条.exec(行) ?? 和の箇条.exec(行);
+  return m ? [m[1], m[2], m[3]] : null;
+}
 const 表の区切り = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
 
 /** 本文を塊に分ける。 */
@@ -60,7 +71,7 @@ function 一塊を読む(行たち: string[], i: number): { 塊: 塊; 次: numbe
   if (表の頭か(行たち, i)) return 表を読む(行たち, i);
   if (罫.test(行)) return { 塊: { 種: '罫' }, 次: i + 1 };
   if (引用.test(行)) return 引用を読む(行たち, i);
-  if (箇条.test(行)) return 箇条を読む(行たち, i);
+  if (箇条の頭(行)) return 箇条を読む(行たち, i);
   return 段を読む(行たち, i);
 }
 
@@ -103,10 +114,10 @@ function 引用を読む(行たち: string[], i: number): { 塊: 塊; 次: numbe
 
 function 箇条を読む(行たち: string[], i: number): { 塊: 塊; 次: number } {
   const 項たち: 項[] = [];
-  const 番号つき = /\d/.test(箇条.exec(行たち[i])?.[2] ?? '');
+  const 番号つき = /\d/.test(箇条の頭(行たち[i])?.[1] ?? '');
   let j = i;
-  for (let m = 箇条.exec(行たち[j] ?? ''); m; m = 箇条.exec(行たち[j] ?? '')) {
-    項たち.push({ 深さ: Math.floor(m[1].replaceAll('\t', '  ').length / 2), 印: m[2], 字: 字に分ける(m[3]) });
+  for (let m = 箇条の頭(行たち[j] ?? ''); m; m = 箇条の頭(行たち[j] ?? '')) {
+    項たち.push({ 深さ: Math.floor(m[0].replaceAll('\t', '  ').length / 2), 印: m[1], 字: 字に分ける(m[2]) });
     j++;
   }
   return { 塊: { 種: '箇条', 番号つき, 項: 項たち }, 次: j };
@@ -123,11 +134,12 @@ function 段を読む(行たち: string[], i: number): { 塊: 塊; 次: number }
 function 別の塊の頭か(行たち: string[], j: number): boolean {
   const 行 = 行たち[j];
   return (
-    囲い.test(行) || 見出し.test(行) || 引用.test(行) || 箇条.test(行) || 表の頭か(行たち, j)
+    囲い.test(行) || 見出し.test(行) || 引用.test(行) || 箇条の頭(行) !== null || 表の頭か(行たち, j)
   );
 }
 
-const 字の印 = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|\[([^\]\n]+)\]\(([^)\s]+)\)/g;
+// 【見出し】は太字にする（0.1.45・括弧は残す）。エージェントが報告の頭に付ける形
+const 字の印 = /`([^`\n]+)`|\*\*([^*\n]+?)\*\*|\[([^\]\n]+)\]\(([^)\s]+)\)|(【[^】\n]+】)/g;
 
 /** 行の中を、ふつうの字・太字・符・繋ぎに分ける。 */
 export function 字に分ける(文: string): 字[] {
@@ -137,6 +149,7 @@ export function 字に分ける(文: string): 字[] {
     if (m.index > 頭) 字たち.push({ 種: '文', 文: 文.slice(頭, m.index) });
     if (m[1] !== undefined) 字たち.push({ 種: '符', 文: m[1] });
     else if (m[2] !== undefined) 字たち.push({ 種: '太', 文: m[2] });
+    else if (m[5] !== undefined) 字たち.push({ 種: '太', 文: m[5] });
     else 字たち.push({ 種: '繋', 文: m[3], 先: m[4] });
     頭 = m.index + m[0].length;
   }
