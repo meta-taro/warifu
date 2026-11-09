@@ -5,6 +5,7 @@
 //!   warifu mail list                 控えたアドレスを並べる（つながない）
 //!   warifu mail check [<アドレス>]    つないで、受信箱の通の数と未読の数だけを出す（省けば全部）
 //!   warifu mail remove [<アドレス>]   控えとキーチェーンの項目を消す（控えが 2 つ以上なら要る）
+//!   warifu mail sort [<アドレス>] [--last <通>]  新しいほうからヘッダだけを読み、札ごとの数を出す（0.1.45）
 //!
 //! アドレスはいくつでも控えられる。同じアドレスを add し直すと、繋ぎ先を置き換える。
 //! ```
@@ -40,7 +41,17 @@ pub enum 設定 {
     確かめる(Option<String>),
     /// 控えとキーチェーンの項目を消す。`None` は控えが 1 つのときだけ通る。
     消す(Option<String>),
+    /// 新しいほうから `件数` 通のヘッダだけを読み、札ごとの数を出す（0.1.45）。`None` なら控えた全部。
+    仕分けを数える {
+        /// どのアドレスか。
+        利用者: Option<String>,
+        /// 何通見るか。
+        件数: usize,
+    },
 }
+
+/// `sort` で見る既定の通の数。
+const 仕分けの既定の通: usize = 200;
 
 /// ドメインからホストを決められるか（Gmail だけ）。**会社のドメインは決め打ちしない。**
 fn ドメインのホスト(ドメイン: &str) -> Option<&'static str> {
@@ -103,8 +114,22 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
         Some("check") => Ok(設定::確かめる(args.next())),
         None => Ok(設定::確かめる(None)),
         Some("remove") => Ok(設定::消す(args.next())),
+        Some("sort") => {
+            let (mut 利用者, mut 件数) = (None, 仕分けの既定の通);
+            while let Some(a) = args.next() {
+                if a == "--last" {
+                    let v = args.next().ok_or("--last に値が付いていません")?;
+                    件数 = v
+                        .parse()
+                        .map_err(|_| format!("--last の値を読めません: {v}"))?;
+                } else {
+                    利用者 = Some(a);
+                }
+            }
+            Ok(設定::仕分けを数える { 利用者, 件数 })
+        }
         Some(他) => Err(format!(
-            "知らない指定です: {他}（add / list / check / remove）"
+            "知らない指定です: {他}（add / list / check / remove / sort）"
         )),
     }
 }
@@ -158,6 +183,26 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                 return Err(
                     format!("{} 件のうち {落ちた} 件がつながりませんでした", 控え.len()).into(),
                 );
+            }
+            Ok(())
+        }
+        設定::仕分けを数える { 利用者, 件数 } => {
+            let 控え = vault.mail_accounts()?;
+            let 見る: Vec<&MailAccount> = 控え
+                .iter()
+                .filter(|c| {
+                    利用者
+                        .as_ref()
+                        .is_none_or(|u| c.user.eq_ignore_ascii_case(u))
+                })
+                .collect();
+            if 見る.is_empty() {
+                return Err(
+                    "仕分けるアドレスを控えていません（warifu mail list で並びます）".into(),
+                );
+            }
+            for c in 見る {
+                仕分けを数える(c, *件数).await?;
             }
             Ok(())
         }
@@ -250,6 +295,84 @@ async fn 一つから汲む(
     Ok(通)
 }
 
+/// **ヘッダだけを読んで仕分け、札ごとの数と理由ごとの数を出す**（0.1.45）。
+///
+/// 出すのは数だけ。**差出人も件名も出さない**（理由に出るのは、当たった規則と件名の語だけ）。
+async fn 仕分けを数える(
+    c: &MailAccount,
+    件数: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let パスワード = keychain::読む(&c.user).map_err(|_| {
+        format!(
+            "{} のパスワードがキーチェーンにありません（warifu mail add でもう一度入れてください）",
+            c.user
+        )
+    })?;
+    let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
+    drop(パスワード);
+    let 流れ = warifu_imap::connect(&繋ぎ先).await?;
+    let mut 受信箱 = Mailbox::open(流れ, &繋ぎ先).await?;
+    let 行たち = 受信箱.一覧(件数).await?;
+    if let Err(e) = 受信箱.logout().await {
+        eprintln!("（閉じるときに落ちました: {e}）");
+    }
+    let 受け手 = warifu_imap::受け手を推す(&c.host);
+    let 分けた: Vec<warifu_read::仕分け> = 行たち
+        .iter()
+        .map(|行| warifu_read::仕分ける(&行.手がかり, 受け手))
+        .collect();
+    // **道具が読めているかの対照。**疑いが 0 でも、認証の結果を 1 通も読めていなければ「無い」とは言えない
+    let 読めた = 受け手.map_or(0, |名| {
+        行たち
+            .iter()
+            .filter(|行| {
+                行.手がかり.認証.first().is_some_and(|a| {
+                    a.split(';')
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .eq_ignore_ascii_case(名)
+                })
+            })
+            .count()
+    });
+    print!("{}", 数の表(&c.user, 受け手, &分けた));
+    println!("  認証の結果を読めた通: {読めた} / {}", 行たち.len());
+    Ok(())
+}
+
+/// 札ごとの数と、理由ごとの数を並べる（多い順）。
+fn 数の表(
+    利用者: &str, 受け手: Option<&str>, 分けた: &[warifu_read::仕分け]
+) -> String {
+    use std::collections::BTreeMap;
+    let mut 札の数: BTreeMap<warifu_read::札, usize> = BTreeMap::new();
+    let mut 理由の数: BTreeMap<String, usize> = BTreeMap::new();
+    for 分 in 分けた {
+        *札の数.entry(分.札).or_default() += 1;
+        for r in &分.理由 {
+            *理由の数.entry(format!("{}: {r}", 分.札.名())).or_default() += 1;
+        }
+    }
+    let mut 文 = format!(
+        "{利用者}: 新しいほうから {} 通（ヘッダだけ・既読にしない・認証の結果を付けたサーバ: {}）\n",
+        分けた.len(),
+        受け手.unwrap_or("分からないので読まない")
+    );
+    for (札, 数) in &札の数 {
+        文.push_str(&format!("  {}\t{数}\n", 札.名()));
+    }
+    let mut 理由: Vec<_> = 理由の数.into_iter().collect();
+    理由.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if !理由.is_empty() {
+        文.push_str("  理由:\n");
+    }
+    for (r, 数) in 理由 {
+        文.push_str(&format!("    {数}\t{r}\n"));
+    }
+    文
+}
+
 /// 控えの中から 1 つを選んで確かめる。
 async fn 一つを確かめる(
     控え: &[MailAccount],
@@ -288,6 +411,23 @@ async fn 確かめる(c: &MailAccount) -> Result<(), Box<dyn std::error::Error>>
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 数の表は札と理由の数だけで_差出人も件名も出さない() {
+        let 手 = warifu_read::手がかり {
+            差出人: "secret-sender@example.com".into(),
+            件名: "秘密の件名 注文".into(),
+            ..warifu_read::手がかり::default()
+        };
+        let 分 = vec![
+            warifu_read::仕分ける(&手, None),
+            warifu_read::仕分ける(&手, None),
+        ];
+        let 表 = super::数の表("a@example.com", None, &分);
+        assert!(表.contains("受注\t2"));
+        assert!(表.contains("2\t受注: 件名に「注文」"));
+        assert!(!表.contains("secret-sender") && !表.contains("秘密の件名"));
+    }
+
     use super::*;
 
     fn 読ませる(引数: &[&str]) -> Result<設定, String> {
@@ -330,6 +470,20 @@ mod tests {
         assert_eq!(読ませる(&[]), Ok(設定::確かめる(None)));
         assert_eq!(読ませる(&["remove"]), Ok(設定::消す(None)));
         assert_eq!(読ませる(&["list"]), Ok(設定::並べる));
+        assert_eq!(
+            読ませる(&["sort"]),
+            Ok(設定::仕分けを数える {
+                利用者: None,
+                件数: 200
+            })
+        );
+        assert_eq!(
+            読ませる(&["sort", "b@example.com", "--last", "50"]),
+            Ok(設定::仕分けを数える {
+                利用者: Some("b@example.com".into()),
+                件数: 50
+            })
+        );
         assert_eq!(
             読ませる(&["check", "b@example.com"]),
             Ok(設定::確かめる(Some("b@example.com".into())))

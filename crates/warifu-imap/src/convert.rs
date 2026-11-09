@@ -101,6 +101,43 @@ pub struct 見出し {
     pub 届いた: Option<i64>,
     /// 既読の印がサーバにあるか。
     pub 既読: bool,
+    /// **仕分けの手がかり**（0.1.45）。ヘッダだけから拾う。本文は入らない。
+    pub 手がかり: warifu_read::手がかり,
+}
+
+/// 認証の結果（`Authentication-Results`）を付けたと信じるサーバの名を、IMAP の繋ぎ先から推す（0.1.45）。
+///
+/// 分からない繋ぎ先は `None` —— 仕分けは認証の結果を読まない（誰が付けた結果か分からないため）。
+#[must_use]
+pub fn 受け手を推す(imap_host: &str) -> Option<&'static str> {
+    let h = imap_host.trim().to_ascii_lowercase();
+    (h == "imap.gmail.com" || h == "imap.googlemail.com").then_some("mx.google.com")
+}
+
+/// ヘッダから仕分けの手がかりを拾う。`Authentication-Results` は**上から順**に持つ。
+fn 手がかりを拾う(
+    msg: &mail_parser::Message<'_>,
+    差出人: &str,
+    名: Option<&str>,
+    件名: &str,
+) -> warifu_read::手がかり {
+    let mut 手 = warifu_read::手がかり {
+        差出人: 差出人.to_owned(),
+        名: 名.map(str::to_owned),
+        件名: 件名.to_owned(),
+        ..warifu_read::手がかり::default()
+    };
+    for (名前, 値) in msg.headers_raw() {
+        let 値 = 値.split_whitespace().collect::<Vec<_>>().join(" ");
+        match 名前.to_ascii_lowercase().as_str() {
+            "authentication-results" => 手.認証.push(値),
+            "list-unsubscribe" => 手.配信停止 = true,
+            "precedence" => 手.優先 = Some(値),
+            "x-spam-flag" => 手.迷惑の印 = Some(値),
+            _ => {}
+        }
+    }
+    手
 }
 
 /// ヘッダだけのバイト列から、一覧の 1 行を作る。
@@ -119,16 +156,20 @@ pub fn 見出しにする(
         .ok_or(Error::Unparsable)?;
     let 先 = msg.from().and_then(|a| a.first()).ok_or(Error::NoSender)?;
     let 差出人 = 先.address().ok_or(Error::NoSender)?.to_owned();
+    let 名 = 先
+        .name()
+        .map(str::to_owned)
+        .filter(|s| !s.trim().is_empty());
+    let 件名 = msg.subject().unwrap_or_default().to_owned();
+    let 手がかり = 手がかりを拾う(&msg, &差出人, 名.as_deref(), &件名);
     Ok(見出し {
         uid,
         差出人,
-        名: 先
-            .name()
-            .map(str::to_owned)
-            .filter(|s| !s.trim().is_empty()),
-        件名: msg.subject().unwrap_or_default().to_owned(),
+        名,
+        件名,
         届いた,
         既読,
+        手がかり,
     })
 }
 
@@ -214,6 +255,30 @@ mod 試験 {
         assert_eq!(行.件名, "hello");
         assert_eq!(行.届いた, Some(1_700_000_000));
         assert!(!行.既読);
+    }
+
+    #[test]
+    fn ヘッダから仕分けの手がかりを拾い_認証の結果は上から順に持つ() {
+        let h = b"Authentication-Results: mx.google.com;\r\n       dmarc=fail header.from=example.com\r\n\
+Authentication-Results: example.net; dmarc=pass\r\n\
+List-Unsubscribe: <mailto:u@example.com>\r\n\
+Precedence: bulk\r\n\
+X-Spam-Flag: NO\r\n\
+From: a@example.com\r\nSubject: s\r\n\r\n";
+        let 手 = 見出しにする(1, h, None, false).unwrap().手がかり;
+        assert_eq!(手.認証.len(), 2);
+        assert_eq!(
+            手.認証[0],
+            "mx.google.com; dmarc=fail header.from=example.com"
+        );
+        assert!(手.配信停止);
+        assert_eq!(手.優先.as_deref(), Some("bulk"));
+        assert_eq!(手.迷惑の印.as_deref(), Some("NO"));
+        assert_eq!(
+            warifu_read::仕分ける(&手, 受け手を推す("imap.gmail.com")).札,
+            warifu_read::札::なりすまし疑い
+        );
+        assert_eq!(受け手を推す("imap.example.com"), None);
     }
 
     #[test]

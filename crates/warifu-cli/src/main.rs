@@ -123,6 +123,7 @@ fn 使い方() -> ExitCode {
          \x20 warifu mail add <アドレス> [--host <IMAP>] [--port <番号>]\n\
          \x20            既存の受信箱を、読むだけでつなぐ（パスワードは macOS が聞き、キーチェーンに置く）\n\
          \x20 warifu mail list|check|remove [<アドレス>] 並べる／数だけを出す／消す（いくつでも控えられる）\n\
+         \x20 warifu mail sort [<アドレス>] [--last <通>]  ヘッダだけで仕分け、札ごとの数を出す\n\
          \n\
          つないだ後は、打った行が相手へ飛び、届いた行がそのまま出ます。\n\
          \n\
