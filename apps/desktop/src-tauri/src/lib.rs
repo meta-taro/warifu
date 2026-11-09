@@ -98,6 +98,7 @@ mod ack;
 mod bundle;
 mod call;
 mod chat_keep;
+mod recent_keep;
 mod cli;
 mod come_back;
 mod contacts;

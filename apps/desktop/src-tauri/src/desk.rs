@@ -302,6 +302,7 @@ fn 日付つき時刻() -> String {
 /// エージェントが繋がらない理由が誰にも分からない）。
 pub fn 開く(app: AppHandle) {
     番号を続ける();
+    直近の控えを開く(&app);
     版が上がったと告げる(&app);
     tauri::async_runtime::spawn(async move {
         let 場所 = この機械の場所();
@@ -2201,17 +2202,70 @@ pub fn 部屋を引く(候補: &[String], 指定: &str) -> Result<String, String
 
 /// **直近の発言として控える。**繋ぎ直した相手へ渡すため（`issues/019`）。
 ///
-/// 古いものから捨てる。**溜め込む所にしない。**
+/// 古いものから捨てる。**溜め込む所にしない。**控えたら手元にも残す（0.1.45・[`直近を残す`]）。
 fn 控える(行: &FromDesk) {
     let FromDesk::Heard { id, .. } = 行 else {
         return;
     };
-    let mut 棚 = 直近の発言.lock().expect("毒されていない");
-    棚.push((*id, 行.clone()));
-    if 棚.len() > 覚える発言 {
-        let 捨てる = 棚.len() - 覚える発言;
-        棚.drain(..捨てる);
+    {
+        let mut 棚 = 直近の発言.lock().expect("毒されていない");
+        棚.push((*id, 行.clone()));
+        if 棚.len() > 覚える発言 {
+            let 捨てる = 棚.len() - 覚える発言;
+            棚.drain(..捨てる);
+        }
     }
+    if let Some((置き場, 自分)) = 直近の置き場.get() {
+        直近を残す(置き場, *自分);
+    }
+}
+
+/// **直近の発言を残す先**（0.1.45）。立ち上げで決まる。**試験では決めない**（本物の置き場を書かない）。
+static 直近の置き場: std::sync::OnceLock<(std::path::PathBuf, warifu_core::PublicKey)> =
+    std::sync::OnceLock::new();
+
+/// 残すのは 1 度に 1 つ。**古い写しが新しい写しを上書きしない**よう、錠の中で写して書く。
+static 直近を書く錠: Mutex<()> = Mutex::new(());
+
+/// **直近の発言を手元に残す**（0.1.45）。
+///
+/// 記憶の中にしか無かったので、立ち上げ直す（版の入れ替えを含む）と、エージェントが
+/// まだ読んでいなかった発言が繋ぎ直しても渡らずに消えた。**残せなくても発言は止めない**（記録に残す）。
+fn 直近を残す(置き場: &std::path::Path, 自分: warifu_core::PublicKey) {
+    let _錠 = 直近を書く錠
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let 写し = 直近の発言.lock().expect("毒されていない").clone();
+    if let Err(e) = crate::recent_keep::書く(置き場, 自分, &写し) {
+        記録!("直近の発言を残せませんでした: {e}");
+    }
+}
+
+/// **残した直近の発言を戻す**（0.1.45）。立ち上げで 1 度だけ。読めなければ空で始める（記録に残す）。
+fn 直近を戻す(置き場: &std::path::Path, 自分: &warifu_core::Device) {
+    match crate::recent_keep::読む(置き場, 自分) {
+        Ok(mut 行たち) => {
+            let 飛ばす = 行たち.len().saturating_sub(覚える発言);
+            行たち.drain(..飛ばす);
+            記録!("残した直近の発言を戻しました（{} 行）", 行たち.len());
+            *直近の発言.lock().expect("毒されていない") = 行たち;
+        }
+        Err(e) => 記録!("{e}"),
+    }
+}
+
+/// 立ち上げたとき、残した直近の発言を戻し、以後の控えを手元へ残すようにする。
+fn 直近の控えを開く(app: &AppHandle) {
+    let 置き場 = match warifu_vault::Vault::default_location() {
+        Ok(v) => v.dir().to_path_buf(),
+        Err(e) => {
+            記録!("直近の発言の置き場所が分かりません。立ち上げ直すと読んでいない発言は渡せません: {e}");
+            return;
+        }
+    };
+    let bridge = app.state::<Bridge>();
+    直近を戻す(&置き場, &bridge.device);
+    let _ = 直近の置き場.set((置き場, bridge.device.public_key()));
 }
 
 /// **どこから聞かせるか。**`どこから` より後の発言を、古い順に返す。
@@ -2870,6 +2924,31 @@ mod tests {
         assert_eq!(棚.len(), 覚える発言);
         // **落ちたのは古いほう**（新しいほうを捨てると、いまの会話が消える）
         assert_eq!(棚.first().expect("空でない").0, 11);
+    }
+
+    #[test]
+    fn 立ち上げ直しても_読んでいない発言を_繋ぎ直した口へ渡せる() {
+        // 0.1.44 へ上げたとき、エージェントが読む前の 2 行が、繋ぎ直しても渡らずに消えた
+        let _順 = 発言も一つずつ();
+        let 置き場 = std::env::temp_dir().join(format!("warifu-desk-recent-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&置き場);
+        let 私 = warifu_core::Seed::from_bytes([7; 32])
+            .profile("Personal")
+            .device("PC");
+        控える(&発言(1427, "読んだ"));
+        控える(&発言(1428, "まだ読んでいない"));
+        控える(&発言(1429, "これも"));
+        直近を残す(&置き場, 私.public_key());
+
+        // 立ち上げ直し：記憶は空になる
+        直近の発言.lock().expect("毒されていない").clear();
+        直近を戻す(&置き場, &私);
+
+        let 渡す = 過去を選ぶ(&直近の発言.lock().expect("毒されていない"), Some(1427));
+        assert_eq!(
+            渡す,
+            vec![発言(1428, "まだ読んでいない"), 発言(1429, "これも")]
+        );
     }
 
     #[test]

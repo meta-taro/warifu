@@ -80,7 +80,7 @@ pub(crate) fn 書く(
 }
 
 #[cfg(unix)]
-fn 自分だけで書く(道: &Path, 中身: &[u8]) -> std::io::Result<()> {
+pub(crate) fn 自分だけで書く(道: &Path, 中身: &[u8]) -> std::io::Result<()> {
     use std::io::Write as _;
     use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
     // 中身を入れる前に権限を絞る（逆にすると、絞るまでの一瞬だけ他人に読める）
@@ -96,7 +96,7 @@ fn 自分だけで書く(道: &Path, 中身: &[u8]) -> std::io::Result<()> {
 }
 
 #[cfg(not(unix))]
-fn 自分だけで書く(道: &Path, 中身: &[u8]) -> std::io::Result<()> {
+pub(crate) fn 自分だけで書く(道: &Path, 中身: &[u8]) -> std::io::Result<()> {
     // Windows の ACL は unix の mode とは別物。中身は封をしてあるので、この機械の鍵が無ければ読めない
     std::fs::write(道, 中身)
 }
