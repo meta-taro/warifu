@@ -246,8 +246,8 @@ mail.readonly	Read-only. Opening a message does not mark it as read. You cannot 
 mail.reload	Reload	読み直す	重新读取	다시 읽기				
 mail.secret.cancel	Cancel	やめる	取消	취소				
 mail.secret.enter	Enter secret	秘密を入れる	输入密钥	비밀 입력				
-mail.secret.hint.apikey	Type the Resend API key (starts with re_). It is never logged or given to the agent; it goes only into the macOS Keychain.	Resend の API キー（re_ で始まる字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。	请输入 Resend 的 API 密钥（以 re_ 开头）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。	Resend API 키(re_ 로 시작)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.		「エージェントに渡らない」を必ず残す。		
-mail.secret.hint.password	Type the app password (16 characters for Gmail). It is never logged or given to the agent; it goes only into the macOS Keychain.	アプリパスワード（Gmail は 16 字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。	请输入应用专用密码（Gmail 为 16 位）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。	앱 비밀번호(Gmail 은 16자)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.		「エージェントに渡らない」を必ず残す。		
+mail.secret.hint.apikey	Type the Resend API key (starts with re_). It is never logged or given to the agent; it goes only into this PC's secret store (the Keychain on macOS, Credential Manager on Windows).	Resend の API キー（re_ で始まる字）を打ってください。字は割符の記録にも、エージェントにも渡らず、この PC の秘密の置き場（macOS はキーチェーン・Windows は資格情報マネージャー）にだけ置かれます。	请输入 Resend 的 API 密钥（以 re_ 开头）。不会记录，也不会交给代理，只保存在本机的凭据存储中（macOS 为钥匙串，Windows 为凭据管理器）。	Resend API 키(re_ 로 시작)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 이 PC 의 자격 증명 저장소(macOS 는 키체인, Windows 는 자격 증명 관리자)에만 저장됩니다.		「エージェントに渡らない」を必ず残す。		
+mail.secret.hint.password	Type the app password (16 characters for Gmail). It is never logged or given to the agent; it goes only into this PC's secret store (the Keychain on macOS, Credential Manager on Windows).	アプリパスワード（Gmail は 16 字）を打ってください。字は割符の記録にも、エージェントにも渡らず、この PC の秘密の置き場（macOS はキーチェーン・Windows は資格情報マネージャー）にだけ置かれます。	请输入应用专用密码（Gmail 为 16 位）。不会记录，也不会交给代理，只保存在本机的凭据存储中（macOS 为钥匙串，Windows 为凭据管理器）。	앱 비밀번호(Gmail 은 16자)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 이 PC 의 자격 증명 저장소(macOS 는 키체인, Windows 는 자격 증명 관리자)에만 저장됩니다.		「エージェントに渡らない」を必ず残す。		
 mail.secret.missing	Secret: not yet	秘密: まだ	密钥：尚未保存	비밀: 아직				
 mail.secret.ok	Secret: stored	秘密: 入っている	密钥：已保存	비밀: 저장됨		パスワード・API キーが OS のキーチェーンに入っていること。中身は見せない。		
 mail.secret.redo	Replace	入れ直す	重新输入	다시 입력				
@@ -299,6 +299,7 @@ meeting.start.action	Make a room	ルームをつくる	建一个房间	방 만�
 meeting.start.title	Make a room	ルームをつくる	建一个房间	방 만들기				
 meeting.status.both	Connected — video and audio, both ways	つながっています（映像と音を、送って受けています）	已连接（视频和声音，双向）	연결되어 있습니다 (영상과 소리를 주고받고 있습니다)				
 meeting.status.holding	Connected — your camera and microphone are on, but nothing is being sent	つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）	已连接（摄像头和麦克风已开启，但没有向对方发送任何内容）	연결되어 있습니다 (카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다)				
+meeting.status.hostLost	Disconnected from the host (still connected to the other machines). Messages relayed by the host will not arrive until you are back	主催と切れています（ほかの機械とはつながっています）。主催ごしの発言は、戻るまで届きません	与主持人的连接已断开（与其他机器仍连接）。经主持人转发的消息在恢复前不会到达	주최자와 연결이 끊겼습니다(다른 기기와는 연결되어 있습니다). 주최자를 거치는 메시지는 돌아올 때까지 도착하지 않습니다				
 meeting.status.live	Connected	つながっています	已连接	연결되어 있습니다				
 meeting.status.none	Not in a room yet	まだルームに入っていません	尚未进入房间	아직 룸에 없습니다				
 meeting.status.recvonly	Connected — you are receiving their video. You are not sending yours; press [Add video and sound] to send.	つながっています（相手の映像を受けています。あなたは送っていません —— ［映像と音を足す］を押すと送ります）	已连接（正在接收对方的视频。你没有发送自己的视频 —— 按［为这个房间加上影像］就会发送）	연결되어 있습니다 (상대의 영상을 받고 있습니다. 당신은 보내지 않았습니다 —— ［이 룸에 영상을 더하기］를 누르면 보냅니다)				

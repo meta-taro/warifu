@@ -495,6 +495,7 @@ export type MessageKey =
   | 'meeting.status.both'
   | 'meeting.status.holding'
   | 'meeting.status.textonly'
+  | 'meeting.status.hostLost'
   | 'setup.mic.none'
   | 'setup.camera.none'
   | 'edit.cut'
@@ -610,6 +611,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
       'つながっています（あなたは送っています。相手の映像は来ていません）',
     'meeting.status.both': 'つながっています（映像と音を、送って受けています）',
     'meeting.status.textonly': 'つながっています（いま文字だけです。カメラもマイクも使っていません）',
+    'meeting.status.hostLost': '主催と切れています（ほかの機械とはつながっています）。主催ごしの発言は、戻るまで届きません',
     'meeting.status.holding': 'つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）',
     'setup.mic.none': 'マイクが見つかりません',
     'setup.camera.none': 'カメラが見つかりません',
@@ -706,8 +708,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.secret.redo': '入れ直す',
     'mail.secret.save': 'キーチェーンに置く',
     'mail.secret.cancel': 'やめる',
-    'mail.secret.hint.password': 'アプリパスワード（Gmail は 16 字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。',
-    'mail.secret.hint.apikey': 'Resend の API キー（re_ で始まる字）を打ってください。字は割符の記録にも、エージェントにも渡らず、macOS のキーチェーンにだけ置かれます。',
+    'mail.secret.hint.password': 'アプリパスワード（Gmail は 16 字）を打ってください。字は割符の記録にも、エージェントにも渡らず、この PC の秘密の置き場（macOS はキーチェーン・Windows は資格情報マネージャー）にだけ置かれます。',
+    'mail.secret.hint.apikey': 'Resend の API キー（re_ で始まる字）を打ってください。字は割符の記録にも、エージェントにも渡らず、この PC の秘密の置き場（macOS はキーチェーン・Windows は資格情報マネージャー）にだけ置かれます。',
     'mail.secret.saved': '置きました',
     'mail.send.later': '送ることは 0.1.46 からできます',
     'pass.action.mail.account': 'メールの口を控える・外す',
@@ -1127,6 +1129,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
       'Connected — you are sending video. Theirs has not arrived.',
     'meeting.status.both': 'Connected — video and audio, both ways',
     'meeting.status.textonly': 'Connected — text only. Camera and microphone are not in use',
+    'meeting.status.hostLost': 'Disconnected from the host (still connected to the other machines). Messages relayed by the host will not arrive until you are back',
     'meeting.status.holding': 'Connected — your camera and microphone are on, but nothing is being sent',
     'setup.mic.none': 'No microphone found',
     'setup.camera.none': 'No camera found',
@@ -1223,8 +1226,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.secret.redo': 'Replace',
     'mail.secret.save': 'Save to Keychain',
     'mail.secret.cancel': 'Cancel',
-    'mail.secret.hint.password': 'Type the app password (16 characters for Gmail). It is never logged or given to the agent; it goes only into the macOS Keychain.',
-    'mail.secret.hint.apikey': 'Type the Resend API key (starts with re_). It is never logged or given to the agent; it goes only into the macOS Keychain.',
+    'mail.secret.hint.password': 'Type the app password (16 characters for Gmail). It is never logged or given to the agent; it goes only into this PC\'s secret store (the Keychain on macOS, Credential Manager on Windows).',
+    'mail.secret.hint.apikey': 'Type the Resend API key (starts with re_). It is never logged or given to the agent; it goes only into this PC\'s secret store (the Keychain on macOS, Credential Manager on Windows).',
     'mail.secret.saved': 'Saved',
     'mail.send.later': 'Sending arrives in 0.1.46',
     'pass.action.mail.account': 'Adding or removing mail accounts',
@@ -1642,6 +1645,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.sendonly': '已连接（你正在发送视频。对方的视频还没有到达）',
     'meeting.status.both': '已连接（视频和声音，双向）',
     'meeting.status.textonly': '已连接（现在只有文字。没有使用摄像头和麦克风）',
+    'meeting.status.hostLost': '与主持人的连接已断开（与其他机器仍连接）。经主持人转发的消息在恢复前不会到达',
     'meeting.status.holding': '已连接（摄像头和麦克风已开启，但没有向对方发送任何内容）',
     'setup.mic.none': '未找到麦克风',
     'setup.camera.none': '未找到摄像头',
@@ -1738,8 +1742,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.secret.redo': '重新输入',
     'mail.secret.save': '保存到钥匙串',
     'mail.secret.cancel': '取消',
-    'mail.secret.hint.password': '请输入应用专用密码（Gmail 为 16 位）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。',
-    'mail.secret.hint.apikey': '请输入 Resend 的 API 密钥（以 re_ 开头）。不会记录，也不会交给代理，只保存在 macOS 钥匙串中。',
+    'mail.secret.hint.password': '请输入应用专用密码（Gmail 为 16 位）。不会记录，也不会交给代理，只保存在本机的凭据存储中（macOS 为钥匙串，Windows 为凭据管理器）。',
+    'mail.secret.hint.apikey': '请输入 Resend 的 API 密钥（以 re_ 开头）。不会记录，也不会交给代理，只保存在本机的凭据存储中（macOS 为钥匙串，Windows 为凭据管理器）。',
     'mail.secret.saved': '已保存',
     'mail.send.later': '0.1.46 起可以发送',
     'pass.action.mail.account': '登记或移除邮箱',
@@ -2159,6 +2163,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'meeting.status.both': '연결되어 있습니다 (영상과 소리를 주고받고 있습니다)',
     'meeting.status.textonly':
       '연결되어 있습니다 (지금은 문자만입니다. 카메라와 마이크는 쓰지 않습니다)',
+    'meeting.status.hostLost': '주최자와 연결이 끊겼습니다(다른 기기와는 연결되어 있습니다). 주최자를 거치는 메시지는 돌아올 때까지 도착하지 않습니다',
     'meeting.status.holding':
       '연결되어 있습니다 (카메라와 마이크는 켜져 있지만 상대에게는 아무것도 보내지 않습니다)',
     'setup.mic.none': '마이크를 찾을 수 없습니다',
@@ -2256,8 +2261,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.secret.redo': '다시 입력',
     'mail.secret.save': '키체인에 저장',
     'mail.secret.cancel': '취소',
-    'mail.secret.hint.password': '앱 비밀번호(Gmail 은 16자)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.',
-    'mail.secret.hint.apikey': 'Resend API 키(re_ 로 시작)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 macOS 키체인에만 저장됩니다.',
+    'mail.secret.hint.password': '앱 비밀번호(Gmail 은 16자)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 이 PC 의 자격 증명 저장소(macOS 는 키체인, Windows 는 자격 증명 관리자)에만 저장됩니다.',
+    'mail.secret.hint.apikey': 'Resend API 키(re_ 로 시작)를 입력하세요. 기록되지 않고 에이전트에게도 전달되지 않으며 이 PC 의 자격 증명 저장소(macOS 는 키체인, Windows 는 자격 증명 관리자)에만 저장됩니다.',
     'mail.secret.saved': '저장했습니다',
     'mail.send.later': '보내기는 0.1.46 부터 가능합니다',
     'pass.action.mail.account': '메일 등록·삭제',

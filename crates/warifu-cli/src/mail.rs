@@ -218,6 +218,11 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             if let Some(n) = 知らせ {
                 vault.set_mail_notify(利用者, *n)?;
             }
+            // **Windows は端末で字を伏せて聞けない**（0.1.48）。控えだけ置いて、画面の押し所を言う
+            if !keychain::端末で聞けるか() {
+                println!("{利用者}: 控えました。{}", keychain::画面から入れる案内);
+                return Ok(());
+            }
             秘密を聞く(*種類, 利用者)?;
             if 種類.reads() {
                 一つを確かめる(&vault.inboxes()?, 利用者).await

@@ -54,3 +54,8 @@ jobs:
 
       - name: 画面版の Rust を型だけ検める（Windows）
         run: cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib --tests
+
+      # **メールの秘密を Windows の資格情報マネージャーに置く口を、本物で試す**（0.1.48）。
+      # 手元（macOS）では Windows の組み立てができないので、ここが最初の確かめになる
+      - name: メールの秘密の置き場を試す（Windows の資格情報マネージャー）
+        run: cargo test -p warifu-imap --lib keychain

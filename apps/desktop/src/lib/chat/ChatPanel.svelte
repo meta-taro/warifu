@@ -491,6 +491,9 @@
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
             {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}
           </div>
+          <!-- **吹き出しと「もっと見る」を 1 つの塊に**（0.1.48）。押し所は吹き出しの右下に付ける
+               （0.1.47 は欄の右端に寄せていて、左の吹き出しから遠く離れていた） -->
+          <div class="body">
           <div class="bubble" class:folded={長い && !開いた.has(i)}><Markdown
               本文={呼んだ.length > 0 || 写した.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
@@ -510,6 +513,7 @@
               >{t(開いた.has(i) ? 'chat.less' : 'chat.more')}</button
             >
           {/if}
+          </div>
           {#if 宛て || 写し || line.届き || 受け}
             <div class="foot">
               {#if 宛て}<span class="mark to-me-mark">{t('chat.mention.me')}</span>{/if}
@@ -896,8 +900,16 @@
     gap: 2px 6px;
     max-width: 100%;
   }
-  .bubble {
+  /* 吹き出しと「もっと見る」の塊。幅は吹き出しに合わせ、押し所はその右下に置く */
+  .body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     max-width: min(80%, 42em);
+    min-width: 0;
+  }
+  .bubble {
+    max-width: 100%;
     padding: 6px 10px;
     /* 打った改行は、本文の塊の側（`Markdown.svelte`）で見せる。ここで pre-wrap にすると、
        塊と塊のあいだの改行まで空の行に見える。折り返しは効かせる */
@@ -986,7 +998,7 @@
     overflow: hidden;
     mask-image: linear-gradient(to bottom, #000 60%, transparent);
   }
-  /* **畳む・開くは右端に置く**（ほかの機械からの左の吹き出しでも、右）。読み終えた目が行き着く所 */
+  /* **畳む・開くは吹き出しの右下に置く**（左の吹き出しでも右の吹き出しでも）。読み終えた目が行き着く所 */
   .more {
     align-self: flex-end;
     padding: 0 4px;

@@ -2679,6 +2679,12 @@ fn 汲む(
                         },
                     )
                     .await;
+                    // **名簿に居ない送り主へ「居ない」と告げるか**（0.1.48・決めるのは影の規則）。
+                    // 11-10、主催だけが線の切れを認めて外し、客は主催を相手に残したまま話し続けた。
+                    // 告げれば客は主催を外し、帰り道から入り直す（預かった分も 1 回だけ届く）
+                    let 居ないと告げよ = 影の手配.iter().any(|h| {
+                        matches!(h, warifu_app::room::手配::送る { 宛先, 知らせ: Notice::Leave { .. } } if *宛先 == peer)
+                    });
                     // **留守の間に預かった文字を、入り直した相手へ渡す**（Issue #1・0.1.41）。
                     // 主催が、線の切れた面々あての文字を影（本物の状態機械）で預かっている。
                     // 影の手配のうち、この相手への文字だけをこの線でそのまま送る（決めるのは影の規則）
@@ -2754,14 +2760,33 @@ fn 汲む(
                             if let Some(c) = 棚.get(meeting)
                                 && !c.members().contains(from)
                             {
-                                let 文 = format!(
-                                    "食い違い: 名簿に居ない {} から部屋 {} の発言が届きました（見出しの人数・届く先と合っていません）",
-                                    短く(&key_to_string(*from)),
-                                    短く(&meeting.to_string())
-                                );
+                                let 文 = if 居ないと告げよ {
+                                    format!(
+                                        "食い違い: 名簿に居ない {} から部屋 {} の発言が届きました。{} を入り直させています（居ないと告げました）",
+                                        短く(&key_to_string(*from)),
+                                        短く(&meeting.to_string()),
+                                        短く(&key_to_string(*from))
+                                    )
+                                } else {
+                                    format!(
+                                        "食い違い: 名簿に居ない {} から部屋 {} の発言が届きました（見出しの人数・届く先と合っていません）",
+                                        短く(&key_to_string(*from)),
+                                        短く(&meeting.to_string())
+                                    )
+                                };
                                 記録!("{文}");
                                 desk::配る(&app.state::<Bridge>(), desk::聞いた("割符", &文));
                             }
+                        }
+                        if 居ないと告げよ
+                            && let Ok(intent) = (Notice::Leave { meeting: *meeting }).to_intent()
+                        {
+                            記録!(
+                                "受信: {} は部屋 {} の名簿に居ないのに話しているので、居ないと告げます（入り直させる）",
+                                短く(&key_to_string(peer)),
+                                短く(&meeting.to_string())
+                            );
+                            let _ = channel.send(&intent).await;
                         }
                         // **札が付いていれば、そのエージェントの誰が言ったかまで画面へ渡す**
                         // （2026-09-08）。付いていなければ人が言ったもの。**名乗るのは差出人**（主催ごしでも）
@@ -4264,6 +4289,11 @@ pub struct RoomRow {
     /// 画面は「入ってきた相手」を、どのルームの人かを見ずに並べていた。
     /// 別のルームへ戻った相手まで「届く先」に出ていた（送るのはそのルームの人だけだった）。
     pub(crate) member_keys: Vec<String>,
+    /// **主催と文字の線があるか**（0.1.48）。自分が主催なら真。
+    ///
+    /// 客が主催と切れたまま、ほかの客とはつながっていると、題字は「つながっています」のままだった（11-10）。
+    /// 画面はこれが偽なら「主催と切れています」と言う。映像の道（ICE）ではなく文字の線で決める
+    pub(crate) host_linked: bool,
 }
 
 /// **いま居るルームを並べる。**
@@ -4301,8 +4331,27 @@ pub(crate) async fn ルームの並び(bridge: &Bridge) -> Vec<RoomRow> {
             host: 主催たち.get(&c.id()).is_none_or(|主催| *主催 == me),
             host_key: key_to_string(主催たち.get(&c.id()).copied().unwrap_or(me)),
             member_keys: c.members().iter().map(|k| key_to_string(*k)).collect(),
+            host_linked: true,
         })
         .collect();
+    let 主催の鍵: Vec<Option<[u8; 32]>> = 棚
+        .values()
+        .map(|c| {
+            主催たち
+                .get(&c.id())
+                .filter(|主催| **主催 != me)
+                .map(|k| k.to_bytes())
+        })
+        .collect();
+    // **錠は 1 つずつ。**主催たち・棚を放してから線の表を見る（ほかの所と錠の順を逆にしない）
+    drop(棚);
+    drop(主催たち);
+    {
+        let 線 = bridge.outbound.lock().await;
+        for (行, 主催) in 並び.iter_mut().zip(主催の鍵) {
+            行.host_linked = 主催.is_none_or(|k| 線.contains_key(&k));
+        }
+    }
     // **並びを固定する。**`HashMap` の順は読むたびに変わる
     並び.sort_by(|a, b| a.id.cmp(&b.id));
     並び

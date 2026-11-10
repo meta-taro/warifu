@@ -87,6 +87,7 @@ impl 機械 {
                     .iter()
                     .map(|k| crate::key_to_string(*k))
                     .collect(),
+                host_linked: true,
             })
             .collect()
     }

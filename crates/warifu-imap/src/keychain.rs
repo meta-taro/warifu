@@ -5,7 +5,10 @@
 //! 読むときは `security` の標準出力から受ける。**引数には載せない**（`ps` に見える）。
 //!
 //! 作った道具（`security`）が読める項目になるので、画面も CLI も同じ `security` を通して読む。
-//! 他の OS はまだ無い（無いと言って断る）。
+//!
+//! **Windows は資格情報マネージャー**（0.1.48・`keyring` の windows-native）。項目は
+//! 「サービス」と「利用者」で引く汎用の資格情報で、字は割符の画面から置く（端末で聞く道は無い）。
+//! ほかの OS はまだ無い（無いと言って断る）。
 
 use std::process::{Command, Stdio};
 
@@ -59,14 +62,25 @@ pub fn 消す引数(利用者: &str) -> Vec<String> {
         .collect()
 }
 
-/// **この OS で秘密を置けない理由**（0.1.46）。人が読む文。いまは macOS だけ置ける。
-pub const 置けない訳: &str = "この OS では、まだメールのパスワードと API キーを置けません（いまは macOS だけです。Windows の資格情報マネージャーへの対応は、このあとの版で入ります）";
+/// **この OS で秘密を置けない理由**（0.1.46）。人が読む文。macOS と Windows（0.1.48）で置ける。
+pub const 置けない訳: &str = "この OS では、まだメールのパスワードと API キーを置けません（いまは macOS と Windows だけです）";
 
 /// この OS で秘密を置けるか（0.1.46）。置けない OS では、控える前に止める（行き止まりを作らない）。
+/// Windows は資格情報マネージャー（0.1.48）。
 #[must_use]
 pub const fn 使えるか() -> bool {
+    cfg!(any(target_os = "macos", target_os = "windows"))
+}
+
+/// **端末で人に聞いて置けるか**（0.1.48）。macOS は `security` が端末で聞く。
+/// Windows は端末で字を伏せて聞く道を持たないので、割符の画面から置く（[`画面から入れる案内`]）。
+#[must_use]
+pub const fn 端末で聞けるか() -> bool {
     cfg!(target_os = "macos")
 }
+
+/// 端末で聞けない OS で、秘密をどこから入れるか（0.1.48）。人が読む文。
+pub const 画面から入れる案内: &str = "パスワード（API キー）は、割符の画面の［メール］→［控えた口］→［秘密を入れる］から入れてください。伏せ字の欄に打った字は、Windows の資格情報マネージャーにだけ置かれます（エージェントには渡りません）";
 
 fn この_os_で使えるか() -> Result<(), Error> {
     if 使えるか() {
@@ -82,6 +96,11 @@ pub fn 入っているか(サービスの名: &str, 利用者: &str) -> bool {
     if この_os_で使えるか().is_err() {
         return false;
     }
+    #[cfg(target_os = "windows")]
+    {
+        return 窓::読む(サービスの名, 利用者).is_ok();
+    }
+    #[allow(unreachable_code)]
     Command::new(道具)
         .args(["find-generic-password", "-s", サービスの名, "-a", 利用者])
         .stdin(Stdio::null())
@@ -105,18 +124,7 @@ pub fn 標準入力の行(
     名札: &str,
     打った字: &str,
 ) -> Result<String, Error> {
-    let 字: String = 打った字.chars().filter(|c| !c.is_whitespace()).collect();
-    if 字.len() < 8 || 字.len() > 秘密の長さ {
-        return Err(Error::Keychain("長さが合いません（8〜256 字）".into()));
-    }
-    if !字
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || "_-.+/=".contains(c))
-    {
-        return Err(Error::Keychain(
-            "使えない字が入っています。ターミナルで warifu mail secret <アドレス> から入れてください".into(),
-        ));
-    }
+    let 字 = 秘密の字を整える(打った字)?;
     let 危ない =
         |s: &str| s.is_empty() || s.chars().any(|c| c == '"' || c == '\\' || c.is_control());
     if 危ない(サービスの名) || 危ない(利用者) || 危ない(名札) {
@@ -127,6 +135,27 @@ pub fn 標準入力の行(
     Ok(format!(
         "add-generic-password -U -s \"{サービスの名}\" -a \"{利用者}\" -l \"{名札}\" -w \"{字}\"\n"
     ))
+}
+
+/// **画面で人が打った秘密の字を整える**（0.1.48・OS によらず同じ決まり）。
+/// 字の途中の空白は落とし、英数字と `_-.+/=` だけを受ける。8〜256 字。
+///
+/// # Errors
+/// 使えない字・短すぎる・長すぎるとき。
+pub fn 秘密の字を整える(打った字: &str) -> Result<String, Error> {
+    let 字: String = 打った字.chars().filter(|c| !c.is_whitespace()).collect();
+    if 字.len() < 8 || 字.len() > 秘密の長さ {
+        return Err(Error::Keychain("長さが合いません（8〜256 字）".into()));
+    }
+    if !字
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || "_-.+/=".contains(c))
+    {
+        return Err(Error::Keychain(
+            "使えない字が入っています。英数字と _-.+/= だけを入れてください".into(),
+        ));
+    }
+    Ok(字)
 }
 
 /// **画面で人が打った秘密を置く**（0.1.45）。字は `security` の標準入力だけを通る（引数・記録に載せない）。
@@ -141,6 +170,21 @@ pub fn 字から置く(
 ) -> Result<(), Error> {
     use std::io::Write as _;
     この_os_で使えるか()?;
+    #[cfg(target_os = "windows")]
+    {
+        let _ = 名札;
+        let 字 = 秘密の字を整える(打った字)?;
+        窓::置く(サービスの名, 利用者, &字)?;
+        // 置いたつもりで入っていない、を残さない（読み直して確かめる）
+        return if 入っているか(サービスの名, 利用者) {
+            Ok(())
+        } else {
+            Err(Error::Keychain(
+                "資格情報マネージャーに置けませんでした".into(),
+            ))
+        };
+    }
+    #[allow(unreachable_code)]
     let 行 = 標準入力の行(サービスの名, 利用者, 名札, 打った字)?;
     let mut 子 = Command::new(道具)
         .arg("-i")
@@ -186,6 +230,9 @@ pub fn 人に聞いて置く_口(
     名札: &str,
 ) -> Result<(), Error> {
     この_os_で使えるか()?;
+    if !端末で聞けるか() {
+        return Err(Error::Keychain(画面から入れる案内.into()));
+    }
     let mut 引数 = 置く引数(利用者);
     for (i, 値) in [(2, サービスの名), (6, 名札)] {
         引数[i] = 値.to_owned();
@@ -210,6 +257,11 @@ pub fn 人に聞いて置く_口(
 /// macOS でないとき、項目が無いとき。
 pub fn 読む(利用者: &str) -> Result<String, Error> {
     この_os_で使えるか()?;
+    #[cfg(target_os = "windows")]
+    {
+        return 窓::読む(サービス, 利用者);
+    }
+    #[allow(unreachable_code)]
     let 出 = Command::new(道具)
         .args(読む引数(利用者))
         .stdin(Stdio::null())
@@ -243,6 +295,11 @@ pub fn 消す(利用者: &str) -> Result<bool, Error> {
 /// macOS でないとき。
 pub fn 消す_口(サービスの名: &str, 利用者: &str) -> Result<bool, Error> {
     この_os_で使えるか()?;
+    #[cfg(target_os = "windows")]
+    {
+        return 窓::消す(サービスの名, 利用者);
+    }
+    #[allow(unreachable_code)]
     let mut 引数 = 消す引数(利用者);
     引数[2] = サービスの名.to_owned();
     let 出 = Command::new(道具)
@@ -255,19 +312,99 @@ pub fn 消す_口(サービスの名: &str, 利用者: &str) -> Result<bool, Err
     Ok(出.success())
 }
 
+/// **Windows の資格情報マネージャー**（0.1.48）。汎用の資格情報を「サービス」と「利用者」で引く。
+#[cfg(target_os = "windows")]
+mod 窓 {
+    use crate::Error;
+
+    fn 項目(サービスの名: &str, 利用者: &str) -> Result<keyring::Entry, Error> {
+        keyring::Entry::new(サービスの名, 利用者)
+            .map_err(|e| Error::Keychain(format!("資格情報マネージャーを開けません: {e}")))
+    }
+
+    pub(super) fn 置く(
+        サービスの名: &str, 利用者: &str, 字: &str
+    ) -> Result<(), Error> {
+        項目(サービスの名, 利用者)?
+            .set_password(字)
+            .map_err(|e| Error::Keychain(format!("資格情報マネージャーに置けません: {e}")))
+    }
+
+    pub(super) fn 読む(サービスの名: &str, 利用者: &str) -> Result<String, Error> {
+        let 字 = 項目(サービスの名, 利用者)?
+            .get_password()
+            .map_err(|_| Error::NoCredentials)?;
+        if 字.is_empty() {
+            return Err(Error::NoCredentials);
+        }
+        Ok(字)
+    }
+
+    pub(super) fn 消す(サービスの名: &str, 利用者: &str) -> Result<bool, Error> {
+        match 項目(サービスの名, 利用者)?.delete_credential() {
+            Ok(()) => Ok(true),
+            Err(keyring::Error::NoEntry) => Ok(false),
+            Err(e) => Err(Error::Keychain(format!(
+                "資格情報マネージャーから消せません: {e}"
+            ))),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn 置けるのは_macos_だけで_置けない_os_では行き止まりにせず訳を言う() {
-        assert_eq!(使えるか(), cfg!(target_os = "macos"));
-        assert!(置けない訳.contains("macOS だけ"));
+    fn 置けるのは_macos_と_windows_で_置けない_os_では行き止まりにせず訳を言う() {
+        assert_eq!(
+            使えるか(),
+            cfg!(any(target_os = "macos", target_os = "windows"))
+        );
+        assert!(置けない訳.contains("macOS と Windows"));
         if !使えるか() {
             let e = 字から置く(サービス, "a@example.com", "試験", "abcdefgh")
                 .expect_err("置けない OS では断る");
-            assert!(e.to_string().contains("macOS だけ"), "{e}");
+            assert!(e.to_string().contains("macOS と Windows"), "{e}");
         }
+    }
+
+    #[test]
+    fn 端末で聞けない_os_では_画面から入れるよう案内する() {
+        // Windows は端末で字を伏せて聞く道を持たない。黙って失敗せず、画面の押し所を言う
+        assert_eq!(端末で聞けるか(), cfg!(target_os = "macos"));
+        assert!(画面から入れる案内.contains("［秘密を入れる］"));
+        assert!(画面から入れる案内.contains("エージェントには渡りません"));
+        if 使えるか() && !端末で聞けるか() {
+            let e = 人に聞いて置く("a@example.com").expect_err("端末では聞かない");
+            assert!(e.to_string().contains("［秘密を入れる］"), "{e}");
+        }
+    }
+
+    #[test]
+    fn 画面で打った字は_空白を落とし_使える字だけを受ける() {
+        assert_eq!(
+            秘密の字を整える("abcd efgh ijkl mnop").expect("受ける"),
+            "abcdefghijklmnop"
+        );
+        assert!(秘密の字を整える("short").is_err());
+        assert!(秘密の字を整える("abcd\"efgh").is_err());
+    }
+
+    /// **本物の資格情報マネージャーで確かめる**（Windows の CI で走る・0.1.48）。
+    /// 試験用の利用者に秘密ではない字を置き、割符の読む口で読めて、消せることを見る。
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_では_画面から置いた字を資格情報マネージャーで読めて消せる() {
+        let 人 = format!("keychain-test-{}@example.invalid", std::process::id());
+        let _ = 消す_口(サービス, &人);
+        assert!(!入っているか(サービス, &人));
+        字から置く(サービス, &人, "warifu 試験", "dummy value 123").expect("置ける");
+        assert!(入っているか(サービス, &人));
+        assert_eq!(読む(&人).expect("読める"), "dummyvalue123", "空白は落ちる");
+        assert!(消す_口(サービス, &人).expect("消せる"));
+        assert!(!入っているか(サービス, &人));
+        assert!(!消す_口(サービス, &人).expect("2 回目は無い"));
     }
 
     #[test]

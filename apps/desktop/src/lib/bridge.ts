@@ -472,6 +472,8 @@ export interface RoomRow {
   host_key: string;
   /** そのルームに居る人の公開鍵（全桁・自分を含む）。 */
   member_keys: string[];
+  /** 主催と文字の線があるか（0.1.48）。自分が主催なら真。 */
+  host_linked: boolean;
 }
 
 /**
