@@ -986,7 +986,9 @@
     overflow: hidden;
     mask-image: linear-gradient(to bottom, #000 60%, transparent);
   }
+  /* **畳む・開くは右端に置く**（ほかの機械からの左の吹き出しでも、右）。読み終えた目が行き着く所 */
   .more {
+    align-self: flex-end;
     padding: 0 4px;
     font: inherit;
     font-size: 0.85em;

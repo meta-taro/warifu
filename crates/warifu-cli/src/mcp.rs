@@ -115,9 +115,12 @@ fn 控えた名乗り(名乗り: Option<&str>) -> Vec<String> {
 }
 
 /// 控えの中から、この名乗りのエージェントが書いた名前を拾う（純粋）。
+///
+/// **控えの鍵は、机が名乗りを包んだ形**（`{名乗り} のエージェント`・画面の `desk.rs` の `呼び方`）。
+/// 名乗りのまま探すと一度も当たらない（0.1.46 で踏んだ）。
 fn 名乗りの名(面々: &warifu_vault::Profiles, 名乗り: &str) -> Vec<String> {
     面々
-        .find(&warifu_vault::Who::Desk(名乗り.to_owned()))
+        .find(&warifu_vault::Who::Desk(format!("{名乗り} のエージェント")))
         .map(|p| vec![p.name().to_owned()])
         .unwrap_or_default()
 }
@@ -470,12 +473,14 @@ mod 名乗りの試験 {
             .expect("作れる"),
         );
         面々.put(Profile::new(Who::Me, "人", "").expect("作れる"));
+        // **口が持つ名乗りは場所の名だけ（`vegas-gift`）。控えの鍵は机が包んだ形（`vegas-gift のエージェント`）。**
+        // 0.1.46 は名乗りのまま探して一度も当たらず、繋ぎ直すと名乗った名前で起きなかった（本番と同じ形で試す）
         assert_eq!(
-            名乗りの名(&面々, "vegas-gift のエージェント"),
+            名乗りの名(&面々, "vegas-gift"),
             vec!["ベガスギフト".to_owned()]
         );
         // 名乗っていない席・人の名前は足さない
-        assert!(名乗りの名(&面々, "warifu のエージェント").is_empty());
+        assert!(名乗りの名(&面々, "warifu").is_empty());
     }
 
     #[test]
