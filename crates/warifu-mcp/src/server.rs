@@ -463,14 +463,30 @@ pub fn 鍵の部屋が合うか(鍵: &str, 頼んだ: &str) -> bool {
 
 /// 秘密が入っていない口に添える、人への頼み方。
 fn 秘密の入れ方(口: &メールの口) -> String {
+    秘密の入れ方_で(口, cfg!(target_os = "macos"))
+}
+
+/// [`秘密の入れ方`] の中身（OS を引数で受ける）。
+///
+/// **端末の `warifu mail secret` は macOS だけ**（キーチェーンが字を伏せて聞く）。
+/// Windows の人に打たせると、macOS の文が出たあと画面へ案内されて戸惑った（11-10）。
+fn 秘密の入れ方_で(口: &メールの口, macos: bool) -> String {
     let 何 = if 口.種類 == "resend" {
         "API キー"
     } else {
         "パスワード（Gmail はアプリパスワード）"
     };
+    let 端末 = if macos {
+        format!(
+            "か、ターミナルで `warifu mail secret {}` を打って",
+            口.アドレス
+        )
+    } else {
+        String::new()
+    };
     format!(
-        "{} の{何}は、まだ入っていません。**エージェントは入れられません。**この PC の人に、割符の画面の［メール］で［秘密を入れる］を押すか、ターミナルで `warifu mail secret {}` を打ってもらってください。",
-        口.アドレス, 口.アドレス
+        "{} の{何}は、まだ入っていません。**エージェントは入れられません。**この PC の人に、割符の画面の［メール］→［控えた口］で［秘密を入れる］を押して{}もらってください。",
+        口.アドレス, 端末
     )
 }
 
@@ -524,7 +540,7 @@ impl Warifu {
 
     /// **メールの口を控える**（0.1.45）。秘密は受け取らない。
     #[tool(
-        description = "メールの口を控える（同じアドレスは置き換える）。kind は gmail（Google Workspace を含む・読む・送る）／imap（読むだけ・host が要る）／resend（送るだけ・API）。notify は新しい通をこの PC のエージェントへどう知らせるか：important（既定・受注／問い合わせ／請求／未分類／なりすまし疑いだけ）／all／none（見張らない）。**パスワードと API キーは渡せない**（欄が無い）—— 秘密は人が割符の画面か `warifu mail secret <アドレス>` で入れる。人に頼まれたときに使う。札は mail.account。"
+        description = "メールの口を控える（同じアドレスは置き換える）。kind は gmail（Google Workspace を含む・読む・送る）／imap（読むだけ・host が要る）／resend（送るだけ・API）。notify は新しい通をこの PC のエージェントへどう知らせるか：important（既定・受注／問い合わせ／請求／未分類／なりすまし疑いだけ）／all／none（見張らない）。**パスワードと API キーは渡せない**（欄が無い）—— 秘密は人が割符の画面の［メール］→［控えた口］→［秘密を入れる］で入れる（macOS は端末の `warifu mail secret <アドレス>` でも入れられる）。人に頼まれたときに使う。札は mail.account。"
     )]
     pub async fn mail_account_add(
         &self,
@@ -1572,6 +1588,37 @@ fn この機械が無い() -> ToolError {
 impl From<ToolError> for ErrorData {
     fn from(e: ToolError) -> Self {
         ErrorData::invalid_request(e.to_string(), None)
+    }
+}
+
+#[cfg(test)]
+mod 秘密の入れ方の試験 {
+    use super::{メールの口, 秘密の入れ方_で};
+
+    fn 口() -> メールの口 {
+        メールの口 {
+            アドレス: "a@example.com".into(),
+            種類: "gmail".into(),
+            繋ぎ先: "imap.gmail.com:993".into(),
+            読む: true,
+            送る: true,
+            秘密がある: false,
+            知らせ: "important".into(),
+        }
+    }
+
+    #[test]
+    fn windows_では端末の道を案内しない() {
+        let 文 = 秘密の入れ方_で(&口(), false);
+        assert!(!文.contains("warifu mail secret"), "{文}");
+        assert!(文.contains("［秘密を入れる］"), "{文}");
+    }
+
+    #[test]
+    fn macos_では画面と端末の両方を案内する() {
+        let 文 = 秘密の入れ方_で(&口(), true);
+        assert!(文.contains("`warifu mail secret a@example.com`"), "{文}");
+        assert!(文.contains("［秘密を入れる］"), "{文}");
     }
 }
 

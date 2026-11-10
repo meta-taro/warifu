@@ -290,7 +290,11 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                     if 入った {
                         "入っている"
                     } else {
-                        "まだ（warifu mail secret <アドレス>）"
+                        if cfg!(target_os = "macos") {
+                            "まだ（warifu mail secret <アドレス>）"
+                        } else {
+                            "まだ（割符の画面の［メール］→［控えた口］→［秘密を入れる］）"
+                        }
                     }
                 );
             }
@@ -488,6 +492,13 @@ impl warifu_mcp::メールの控え for 控えの手 {
 
 /// **秘密を人に聞いて、キーチェーンに置く。**割符は字を見ない（`security` が聞く）。
 fn 秘密を聞く(種類: MailKind, 利用者: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // **macOS の文は macOS でだけ出す**（11-10）。Windows には端末で字を伏せて聞く道が無く、
+    // 下の `人に聞いて置く_口` が画面の［秘密を入れる］へ案内する。その前に macOS の文を 3 行出していた
+    if !cfg!(target_os = "macos") {
+        let 名札 = "warifu メール";
+        keychain::人に聞いて置く_口(種類.secret_service(), 利用者, 名札)?;
+        return Ok(());
+    }
     eprintln!("このあと macOS が 2 回たずねます（打った字は画面に出ません）。");
     match 種類 {
         MailKind::Resend => eprintln!("Resend の API キー（re_ で始まる字）を入れてください。"),
