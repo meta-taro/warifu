@@ -47,7 +47,7 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
 
 /// 入れる。
 pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
-    let 実体 = std::env::current_exe()?;
+    let 実体 = 登録する実体(std::env::current_exe()?)?;
     let 引数: Vec<String> = std::iter::once("mcp".to_owned())
         .chain(
             既定で許す
@@ -231,6 +231,47 @@ fn 手で打つ行(windows: bool, 実体: &str, 引数: &[&str]) -> String {
     )
 }
 
+/// **画面の束の中のコマンドを、席の口に登録しない**（11-10・Windows）。
+///
+/// Windows の画面は `%LOCALAPPDATA%\warifu\cli\warifu.exe` にコマンドを入れる。そこを席の口に登録すると、
+/// 席が動いている間はその exe を使っているので、**画面の更新が書き換えられず、黙って古いまま残った**
+/// （画面は 0.1.48、席の口は 0.1.46）。束の 1 つ上（`…\warifu\warifu.exe`）へ写して、そちらを登録する。
+/// 画面はそこを「古い」と見つけ、［入れ替える］で名前を変えて退けてから置ける（0.1.46）。
+fn 登録する実体(実体: std::path::PathBuf) -> std::io::Result<std::path::PathBuf> {
+    let Some(写す先) = 束の外の置き場所(&実体, cfg!(windows)) else {
+        return Ok(実体);
+    };
+    if 写す先.exists() {
+        // 動いている席が使っていても、名前は変えられる（消せない）
+        let 退け先 = 写す先.with_extension("exe.old");
+        let _ = std::fs::remove_file(&退け先);
+        std::fs::rename(&写す先, &退け先)?;
+    }
+    std::fs::copy(&実体, &写す先)?;
+    println!(
+        "画面の中のコマンドではなく、写した {} を登録します（画面の更新を止めないため）。",
+        写す先.display()
+    );
+    Ok(写す先)
+}
+
+/// [`登録する実体`] の判定（純粋）。束の中（`…\warifu\cli\warifu.exe`）なら写す先を返す。
+fn 束の外の置き場所(実体: &std::path::Path, windows: bool) -> Option<std::path::PathBuf> {
+    if !windows {
+        return None;
+    }
+    let 束 = 実体.parent()?;
+    let 名 = |p: &std::path::Path| p.file_name().map(|n| n.to_string_lossy().to_lowercase());
+    if 名(束)?.as_str() != "cli" {
+        return None;
+    }
+    let アプリ = 束.parent()?;
+    if 名(アプリ)?.as_str() != "warifu" {
+        return None;
+    }
+    Some(アプリ.join("warifu.exe"))
+}
+
 /// 人に尋ねる。**押していないものを押したことにしない。**
 fn 尋ねる() -> std::io::Result<bool> {
     use std::io::{BufRead as _, Write as _};
@@ -255,6 +296,23 @@ fn which_claude() -> Option<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_では画面の束の中のコマンドを_束の外へ写して登録する() {
+        let 束の中 = std::path::Path::new("C:/Users/x/AppData/Local/warifu/cli/warifu.exe");
+        assert_eq!(
+            束の外の置き場所(束の中, true),
+            Some(std::path::PathBuf::from(
+                "C:/Users/x/AppData/Local/warifu/warifu.exe"
+            ))
+        );
+        // 束の外・mac・別のフォルダの cli は触らない
+        let 外 = std::path::Path::new("C:/Users/x/AppData/Local/warifu/warifu.exe");
+        assert_eq!(束の外の置き場所(外, true), None);
+        assert_eq!(束の外の置き場所(束の中, false), None);
+        let 別 = std::path::Path::new("C:/tools/cli/warifu.exe");
+        assert_eq!(束の外の置き場所(別, true), None);
+    }
 
     // **Windows では `claude` を `cmd /c` 越しに呼ぶ**（2026-10-15）。
     //
