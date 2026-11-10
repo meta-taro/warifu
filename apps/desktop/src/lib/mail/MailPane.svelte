@@ -9,6 +9,7 @@
   import { onMount } from 'svelte';
 
   import { mailAccounts, mailList, mailOpen, mailSecretSet, type 控えた口, type 開いたメール } from '$lib/bridge';
+  import { メールの映り } from './seen.svelte';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
   import Icon from '$lib/ui/Icon.svelte';
@@ -64,6 +65,8 @@
       置いた = user;
       入れている = null;
       await 口を読み直す();
+      // **入れたら受信箱も読み直す**（11-10）。入れる前の「読めなかった」が残り、1 通も出ないままだった
+      void 読み直す();
     } catch (e) {
       置けない = String((e as { message?: string })?.message ?? e);
     } finally {
@@ -126,6 +129,24 @@
   onMount(() => {
     void 読み直す();
     void 口を読み直す();
+    return () => {
+      if (メールの映り.いま) メールの映り.いま = { ...メールの映り.いま, 開いている: false };
+    };
+  });
+
+  // **欄の様子を写しへ渡す**（11-10・`app_view`）。本文・差出人・件名は渡さない
+  $effect(() => {
+    const 文言: string[] = [];
+    if (置けない) 文言.push(置けない);
+    if (読めない) 文言.push(読めない);
+    if (落ちた.length > 0) 文言.push(format(t('mail.failed'), { list: 落ちた.join('／') }));
+    if (控え無し) 文言.push(t('mail.none'));
+    メールの映り.いま = {
+      開いている: true,
+      口たち: 口たち.map((口) => ({ user: 口.user, kind: 口.kind, 秘密がある: 口.秘密がある })),
+      件数: 読んでいる || 読めない ? null : 行たち.length,
+      文言,
+    };
   });
 </script>
 

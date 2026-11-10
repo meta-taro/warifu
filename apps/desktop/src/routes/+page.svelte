@@ -32,6 +32,7 @@
   } from '$lib/meeting/stage';
   import PaneRail from '$lib/shell/PaneRail.svelte';
   import MailPane from '$lib/mail/MailPane.svelte';
+  import { メールの映り } from '$lib/mail/seen.svelte';
   import { 既定の面, 押した後の面, 会話が見えているか, type 面 as 面の型 } from '$lib/shell/panes';
   import ContactsPane from '$lib/contacts/ContactsPane.svelte';
   import CropDialog from '$lib/contacts/CropDialog.svelte';
@@ -1231,6 +1232,7 @@
       ほか: ルームたち
         .filter((r) => r.id !== 見ている)
         .map((r) => ({ 名前: 部屋の名(r.id), 人数: r.members, 行たち: そのルームの会話(ルームの会話たち, r.id) })),
+      メール: メールの映り.いま,
     });
   }
 
