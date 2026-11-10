@@ -26,6 +26,7 @@
 
 {#snippet 呼びを分ける(文: string)}{#each 本文を分ける(文, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
         class="mention"
+        class:cc={片.写し === true}
         class:me={自分の呼ばれる名.includes(片.呼び)}>{片.文}</span
       >{:else}{片.文}{/if}{/each}{/snippet}
 
@@ -158,5 +159,10 @@
     padding: 0 2px;
     background: var(--info-bg);
     border-radius: var(--radius-sm);
+  }
+  /* **写し（cc@名前）**（0.1.47）。宛て先より控えめ（太字にしない） */
+  .mention.cc {
+    color: var(--text-secondary);
+    font-weight: 400;
   }
 </style>

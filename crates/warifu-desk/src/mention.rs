@@ -12,17 +12,37 @@ pub const 全員の呼び: [&str; 2] = ["all", "全員"];
 /// 本文に `@名前` があれば真。**`@all` / `@全員` は誰にも当たる。**
 ///
 /// 名前のすぐ後ろが英数字なら別の名前とみなす（`@docs` は `@docs2` に当たらない）。
-/// 1 文字の名前は見ない —— 当たりすぎる。
+/// 1 文字の名前は見ない —— 当たりすぎる。**`cc@名前` は写しなので、宛て先に数えない**（0.1.47）。
 #[must_use]
 pub fn 宛てられたか(本文: &str, 名前たち: &[String]) -> bool {
+    呼ばれ方(本文, 名前たち).is_some_and(|写し| !写し)
+}
+
+/// **`cc@名前` で写しとして呼ばれたか**（0.1.47）。宛て先（`@名前`）にも書かれていれば偽（宛て先が勝つ）。
+///
+/// メールの CC と同じ扱い：知らせはするが、起こさない・返事は要らない。
+#[must_use]
+pub fn 写しか(本文: &str, 名前たち: &[String]) -> bool {
+    呼ばれ方(本文, 名前たち).is_some_and(|写し| 写し)
+}
+
+/// 呼ばれていなければ `None`。宛て先として 1 か所でも呼ばれていれば `Some(false)`、写しだけなら `Some(true)`。
+fn 呼ばれ方(本文: &str, 名前たち: &[String]) -> Option<bool> {
     // ASCII だけを小さくする（字の位置が動かない）。`@ALL` も `@all` として読む
     let 小さく = 本文.to_ascii_lowercase();
-    全員の呼び.iter().any(|名| 呼んだか(&小さく, 名))
-        || 名前たち
-            .iter()
-            .map(|n| n.trim())
-            .filter(|n| n.chars().count() >= 2)
-            .any(|名| 呼んだか(本文, 名))
+    let 名たち = 名前たち
+        .iter()
+        .map(|n| n.trim())
+        .filter(|n| n.chars().count() >= 2);
+    let 位置たち: Vec<(usize, bool)> = 全員の呼び
+        .iter()
+        .flat_map(|名| 呼んだ位置(&小さく, 名))
+        .chain(名たち.flat_map(|名| 呼んだ位置(本文, 名)))
+        .collect();
+    if 位置たち.is_empty() {
+        return None;
+    }
+    Some(位置たち.iter().all(|&(_, 写し)| 写し))
 }
 
 /// その位置が `` ` `` で囲んだ所（コード）の中か。前にある `` ` `` の数が奇数なら中（0.1.46）。
@@ -33,19 +53,36 @@ fn コードの中か(本文: &str, i: usize) -> bool {
     本文[..i].matches('`').count() % 2 == 1
 }
 
-/// 本文のどこかで `@名`（全角の `＠` も）と呼び、すぐ後ろが名前の続きでないか。
-fn 呼んだか(本文: &str, 名: &str) -> bool {
+/// `@` の直前が `cc`（大文字小文字を問わない）で、その前が英数字でないか（0.1.47）。
+fn 写しの印か(本文: &str, i: usize) -> bool {
+    let 前 = &本文.as_bytes()[..i];
+    let n = 前.len();
+    n >= 2
+        && 前[n - 2..].eq_ignore_ascii_case(b"cc")
+        && (n == 2 || !前[n - 3].is_ascii_alphanumeric())
+}
+
+/// 本文のどこで `@名`（全角の `＠` も）と呼んだか。すぐ後ろが名前の続きなら数えない。
+/// 返りは（位置, 写しか）。
+fn 呼んだ位置(本文: &str, 名: &str) -> Vec<(usize, bool)> {
     // **日本語入力では `@` が全角の `＠` で入る。**どちらも呼びとして読む
-    ['@', '＠'].iter().any(|印| {
-        let 印 = format!("{印}{名}");
-        本文.match_indices(&印).any(|(i, _)| {
-            !コードの中か(本文, i)
-                && 本文[i + 印.len()..]
-                    .chars()
-                    .next()
-                    .is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '_'))
+    ['@', '＠']
+        .iter()
+        .flat_map(|印| {
+            let 印 = format!("{印}{名}");
+            本文
+                .match_indices(&印)
+                .filter(|&(i, _)| {
+                    !コードの中か(本文, i)
+                        && 本文[i + 印.len()..]
+                            .chars()
+                            .next()
+                            .is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '_'))
+                })
+                .map(|(i, _)| (i, 写しの印か(本文, i)))
+                .collect::<Vec<_>>()
         })
-    })
+        .collect()
 }
 
 #[cfg(test)]
@@ -98,5 +135,34 @@ mod tests {
         // 囲みの外なら呼んでいる
         assert!(宛てられたか("@連動 `@all` の件です", &名));
         assert!(宛てられたか("`コード` のあとで @all", &名));
+    }
+
+    #[test]
+    fn cc_で呼んだ相手は宛て先でなく写し() {
+        let 名 = vec!["PdM".to_owned()];
+        // cc@ は写し。宛て先（起こす・返事が要る）にはしない
+        assert!(!宛てられたか("@連動 直して cc@PdM", &名));
+        assert!(写しか("@連動 直して cc@PdM", &名));
+        // 大文字・全角の ＠ も写し
+        assert!(写しか("CC@PdM 念のため", &名));
+        assert!(写しか("Cc＠PdM 念のため", &名));
+        // 宛て先と写しの両方に書かれたら、宛て先が勝つ
+        assert!(宛てられたか("@PdM 見て cc@PdM", &名));
+        assert!(!写しか("@PdM 見て cc@PdM", &名));
+        // cc の前が英数字なら cc の印ではない（acc@PdM は宛て先として読む）
+        assert!(宛てられたか("acc@PdM", &名));
+        assert!(!写しか("acc@PdM", &名));
+        // 呼ばれていなければ写しでもない
+        assert!(!写しか("@連動 直して", &名));
+        // コードの中の cc@ は数えない
+        assert!(!写しか("`cc@PdM` と書きます", &名));
+    }
+
+    #[test]
+    fn cc_で全員を呼ぶと_全員が写し() {
+        let 名 = vec!["連動".to_owned()];
+        assert!(!宛てられたか("版を上げました cc@all", &名));
+        assert!(写しか("版を上げました cc@all", &名));
+        assert!(写しか("cc@全員", &[]));
     }
 }

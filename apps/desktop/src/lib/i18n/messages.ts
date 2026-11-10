@@ -96,6 +96,9 @@ export type MessageKey =
   | 'chat.mention.to'
   | 'chat.mention.line'
   | 'chat.mention.all'
+  | 'chat.mention.cc'
+  | 'chat.mention.ccTo'
+  | 'chat.mention.ccMe'
   | 'chat.mention.me'
   | 'chat.ack.press'
   | 'chat.ack.by'
@@ -657,6 +660,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.mention.me': 'あなた宛て',
     'chat.mention.line': '宛て',
     'chat.mention.all': '全員',
+    'chat.mention.cc': 'cc',
+    'chat.mention.ccTo': '{who} に写しを送ります（起こしません・返事は要りません。ルームの全員に見えます）',
+    'chat.mention.ccMe': '写し',
     'chat.ack.press': '受けました',
     'chat.ack.by': '{who} が受けた',
     'chat.ack.waiting': 'まだ受けていない（{n} 分）',
@@ -1171,6 +1177,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.mention.me': 'to you',
     'chat.mention.line': 'To',
     'chat.mention.all': 'Everyone',
+    'chat.mention.cc': 'Cc',
+    'chat.mention.ccTo': 'Copying {who} (no wake-up, no reply needed; everyone in the room can see it)',
+    'chat.mention.ccMe': 'Cc to you',
     'chat.ack.press': 'Got it',
     'chat.ack.by': '{who} got it',
     'chat.ack.waiting': 'Not acknowledged yet ({n} min)',
@@ -1683,6 +1692,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.mention.me': '提到你',
     'chat.mention.line': '提及',
     'chat.mention.all': '所有人',
+    'chat.mention.cc': '抄送',
+    'chat.mention.ccTo': '抄送给 {who}（不会唤醒，无需回复；房间内所有人都能看到）',
+    'chat.mention.ccMe': '抄送给你',
     'chat.ack.press': '收到',
     'chat.ack.by': '{who} 已收到',
     'chat.ack.waiting': '尚未确认（{n} 分钟）',
@@ -2198,6 +2210,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.mention.me': '나를 부름',
     'chat.mention.line': '부른 사람',
     'chat.mention.all': '모두',
+    'chat.mention.cc': '참조',
+    'chat.mention.ccTo': '{who} 님에게 참조로 보냅니다 (깨우지 않음·답장 불필요. 방의 모두가 볼 수 있습니다)',
+    'chat.mention.ccMe': '참조',
     'chat.ack.press': '확인했어요',
     'chat.ack.by': '{who} 님이 확인함',
     'chat.ack.waiting': '아직 확인 안 함（{n}분）',
@@ -2600,6 +2615,7 @@ export const CRITICAL_KEYS: readonly MessageKey[] = [
   'meeting.link.hint',
   'setup.bg.failed',
   'chat.mention.to',
+  'chat.mention.ccTo',
   'handoff.hint',
   'link.gift.declined',
   'link.gift.hint',
@@ -2726,6 +2742,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '発言の上に、`@` で呼んだ相手を並べる行の見出し（差出人 → 呼んだ相手）。「宛先」「送り先」と読ませないこと —— 発言はルームの全員に届いている。呼んだ相手を示すだけ。',
   'chat.mention.all':
     '`@all` / `@全員` で全員を呼んだとき、呼んだ相手の所に出る語。',
+  'chat.mention.ccTo':
+    '`cc@名前` で写しを送るときの入力欄の案内。**届く先は変わらない**ことと、写しの相手は起こされず返事も要らないことを残す。',
+  'chat.mention.cc':
+    '発言の上の「呼んだ相手」の行で、写し（メールの CC）の相手の前に置く短い札。',
   'chat.mention.pick':
     '`@` を打ったときに出る候補の一覧の説明。',
   'chat.mention.to':

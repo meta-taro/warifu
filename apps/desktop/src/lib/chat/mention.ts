@@ -40,6 +40,15 @@ function コードの中か(本文: string, i: number): boolean {
   return 数 % 2 === 1;
 }
 
+/**
+ * **`@` の直前が `cc`（大文字小文字を問わない）で、その前が英数字でないか**（0.1.47・写し）。
+ * `warifu-desk` の `写しの印か` と同じ。
+ */
+function 写しの印か(本文: string, i: number): boolean {
+  if (i < 2 || 本文.slice(i - 2, i).toLowerCase() !== 'cc') return false;
+  return i === 2 || !/[A-Za-z0-9]/.test(本文[i - 3]);
+}
+
 function ここで呼んでいるか(本文: string, i: number, 名: string): boolean {
   if (!呼ぶ印か(本文[i])) return false;
   if (コードの中か(本文, i)) return false;
@@ -68,17 +77,32 @@ export function 呼べる名に広げる(名前たち: readonly string[]): strin
   return [...new Set(広げた)];
 }
 
-/** 本文に `@名前` があるか。 */
+/** 本文に `@名前` があるか（`cc@名前` の写しは数えない）。 */
 export function 宛てられたか(本文: string, 名前たち: readonly string[]): boolean {
   return 宛ての名(本文, 名前たち).length > 0;
 }
 
-/** 本文で呼ばれている名前（出てきた順・重ねない）。 */
+/** 本文に `cc@名前` で写しとして呼ばれ、宛て先には居ないか（0.1.47）。 */
+export function 写しか(本文: string, 名前たち: readonly string[]): boolean {
+  return !宛てられたか(本文, 名前たち) && 写しの名(本文, 名前たち).length > 0;
+}
+
+/** 本文で呼ばれている名前（出てきた順・重ねない）。`cc@` の写しは入れない。 */
 export function 宛ての名(本文: string, 名前たち: readonly string[]): string[] {
+  return 呼びを集める(本文, 名前たち, false);
+}
+
+/** 本文で `cc@` の写しとして呼ばれている名前（0.1.47）。宛て先にも居る名前は入れない（宛て先が勝つ）。 */
+export function 写しの名(本文: string, 名前たち: readonly string[]): string[] {
+  const 宛て = 宛ての名(本文, 名前たち);
+  return 呼びを集める(本文, 名前たち, true).filter((n) => !宛て.includes(n));
+}
+
+function 呼びを集める(本文: string, 名前たち: readonly string[], 写し: boolean): string[] {
   const 名 = 揃える(名前たち);
   const 出た: string[] = [];
   for (const 片 of 本文を分ける(本文, 名)) {
-    if (片.呼び && !出た.includes(片.呼び)) 出た.push(片.呼び);
+    if (片.呼び && (片.写し === true) === 写し && !出た.includes(片.呼び)) 出た.push(片.呼び);
   }
   return 出た;
 }
@@ -89,8 +113,8 @@ function 次の印(本文: string, から: number): number {
   return -1;
 }
 
-/** 本文のひと切れ。`呼び` があれば、その名前を呼んでいる `@名前` の切れ。 */
-export type 切れ = { 文: string; 呼び?: string };
+/** 本文のひと切れ。`呼び` があれば、その名前を呼んでいる `@名前` の切れ。`写し` なら `cc@名前`（`cc` も切れに入る）。 */
+export type 切れ = { 文: string; 呼び?: string; 写し?: boolean };
 
 /** 本文を、`@名前` とそれ以外に分ける（目立たせるため）。 */
 export function 本文を分ける(本文: string, 名前たち: readonly string[]): 切れ[] {
@@ -101,8 +125,14 @@ export function 本文を分ける(本文: string, 名前たち: readonly string
   while (i !== -1 && 名.length > 0) {
     const 当たり = 名.find((n) => ここで呼んでいるか(本文, i, n));
     if (当たり) {
-      if (i > 頭) 切れたち.push({ 文: 本文.slice(頭, i) });
-      切れたち.push({ 文: 本文.slice(i, i + 1 + 当たり.length), 呼び: 当たり });
+      const 写し = 写しの印か(本文, i);
+      const 始め = 写し ? i - 2 : i;
+      if (始め > 頭) 切れたち.push({ 文: 本文.slice(頭, 始め) });
+      切れたち.push(
+        写し
+          ? { 文: 本文.slice(始め, i + 1 + 当たり.length), 呼び: 当たり, 写し: true }
+          : { 文: 本文.slice(i, i + 1 + 当たり.length), 呼び: 当たり }
+      );
       頭 = i + 1 + 当たり.length;
       i = 次の印(本文, 頭);
     } else {
@@ -132,8 +162,8 @@ export function 候補を出す(
   const 前 = 下書き.slice(0, 位置);
   const 頭 = Math.max(前.lastIndexOf('@'), 前.lastIndexOf('＠'));
   if (頭 === -1) return null;
-  // **語の途中の @ は呼びではない**（メールの番地など）
-  if (頭 > 0 && !/\s/.test(前[頭 - 1])) return null;
+  // **語の途中の @ は呼びではない**（メールの番地など）。`cc@` は写しの呼び（0.1.47）
+  if (頭 > 0 && !/\s/.test(前[頭 - 1]) && !写しの印か(前, 頭)) return null;
   const 打った = 前.slice(頭 + 1);
   if (/\s/.test(打った)) return null;
   const 小 = 打った.toLowerCase();

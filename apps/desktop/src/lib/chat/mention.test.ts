@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 本文を分ける, 頭の呼びを外す } from './mention';
+import {
+  写しか,
+  写しの名,
+  呼べる名に広げる,
+  候補を入れる,
+  候補を出す,
+  宛ての名,
+  宛てられたか,
+  本文を分ける,
+  頭の呼びを外す
+} from './mention';
 
 const 名 = ['連動', 'docs', 'docs のエージェント', '人A'];
 
@@ -147,5 +157,43 @@ describe('コードで囲んだ所の呼びは数えない（0.1.46）', () => {
   it('囲みの外なら呼んでいる', () => {
     expect(宛ての名('@連動 `@all` の件です', ['連動'])).toEqual(['連動']);
     expect(宛てられたか('`コード` のあとで @all', ['連動'])).toBe(true);
+  });
+});
+
+describe('cc@名前 は写し（0.1.47・メールの CC）', () => {
+  const 名 = ['PdM', '連動', 'md-business'];
+  it('cc@ で呼んだ相手は宛て先でなく写し', () => {
+    expect(宛ての名('@連動 直して cc@PdM cc@md-business', 名)).toEqual(['連動']);
+    expect(写しの名('@連動 直して cc@PdM cc@md-business', 名)).toEqual(['PdM', 'md-business']);
+    expect(宛てられたか('@連動 直して cc@PdM', ['PdM'])).toBe(false);
+    expect(写しか('@連動 直して cc@PdM', ['PdM'])).toBe(true);
+  });
+  it('大文字・全角の ＠ も写し', () => {
+    expect(写しか('CC@PdM 念のため', ['PdM'])).toBe(true);
+    expect(写しか('Cc＠PdM 念のため', ['PdM'])).toBe(true);
+  });
+  it('宛て先にも書かれたら宛て先が勝つ', () => {
+    expect(宛てられたか('@PdM 見て cc@PdM', ['PdM'])).toBe(true);
+    expect(写しか('@PdM 見て cc@PdM', ['PdM'])).toBe(false);
+    expect(写しの名('@PdM 見て cc@PdM', ['PdM'])).toEqual([]);
+  });
+  it('cc の前が英数字なら印ではない', () => {
+    expect(宛てられたか('acc@PdM', ['PdM'])).toBe(true);
+    expect(写しか('acc@PdM', ['PdM'])).toBe(false);
+  });
+  it('cc@all は全員が写し', () => {
+    expect(写しか('版を上げました cc@all', ['連動'])).toBe(true);
+    expect(宛てられたか('版を上げました cc@all', ['連動'])).toBe(false);
+  });
+  it('本文を分けると cc まで含めた 1 切れになる', () => {
+    expect(本文を分ける('見て cc@PdM', 名)).toEqual([{ 文: '見て ' }, { 文: 'cc@PdM', 呼び: 'PdM', 写し: true }]);
+  });
+  it('頭に並んだ宛てと写しは外す', () => {
+    expect(頭の呼びを外す('@連動 cc@PdM 直して', 名)).toBe('直して');
+  });
+  it('cc@ を打ちかけても候補が出て、cc は残る', () => {
+    const 出た = 候補を出す('見て cc@P', 7, 名);
+    expect(出た).toEqual({ 頭: 5, 候補: ['PdM'] });
+    expect(候補を入れる('見て cc@P', 7, 5, 'PdM').下書き).toBe('見て cc@PdM ');
   });
 });

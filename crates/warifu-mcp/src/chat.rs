@@ -1612,6 +1612,9 @@ fn 任された印(任された: bool) -> &'static str {
 fn 宛ての印(本文: &str, 名前たち: &[String]) -> &'static str {
     if crate::push::宛てられたか(本文, 名前たち) {
         "\t（あなた宛て）"
+    } else if warifu_desk::写しか(本文, 名前たち) {
+        // cc@ で呼ばれた写し（0.1.47）。読めばよく、返事は要らない
+        "\t（写し・返事は要りません）"
     } else {
         ""
     }
@@ -1893,6 +1896,22 @@ mod tests {
             &["docs".to_owned()],
         );
         assert!(行.ends_with("#5\t（あなた宛て）"), "{行}");
+    }
+
+    #[test]
+    fn cc_で呼ばれた発言には_写しの印が付く() {
+        let 行 = 宛ても見て並べる(
+            &[FromDesk::Heard {
+                id: 6,
+                from: "人A".to_owned(),
+                body: "@連動 直して cc@docs".to_owned(),
+                at: "10:00".to_owned(),
+                room: None,
+                任された: false,
+            }],
+            &["docs".to_owned()],
+        );
+        assert!(行.ends_with("#6\t（写し・返事は要りません）"), "{行}");
     }
 
     #[test]

@@ -24,7 +24,7 @@
   import { 吹き出しの形, 機械に色を振る, 機械の頭, 畳むか } from './bubble';
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
-  import { 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
+  import { 写しか, 写しの名, 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
   import { 受けを見る, 受ける押し所を出すか } from './ack';
 
   interface Props {
@@ -364,6 +364,8 @@
     ])
   );
   const 呼んでいる名 = $derived(宛ての名(下書き, 呼べる名に広げる(呼べる名)));
+  /** `cc@名前` で写しを送る相手（0.1.47）。起こさず、返事も求めない */
+  const 写している名 = $derived(写しの名(下書き, 呼べる名に広げる(呼べる名)));
   /** 「まだ受けていない（N 分）」を数えるための時計。1 分ごとに進める（D130） */
   let 今 = $state(Date.now());
   $effect(() => {
@@ -441,6 +443,8 @@
       {@const 形 = 吹き出しの形(line)}
       {@const 宛て = !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
       {@const 呼んだ = line.system ? [] : 宛ての名(line.body, 見分ける名)}
+      {@const 写し = !line.mine && !line.system && 写しか(line.body, 自分の呼ばれる名)}
+      {@const 写した = line.system ? [] : 写しの名(line.body, 見分ける名)}
       {@const 受け = 受けを見る(line, 呼んだ, 今)}
       {@const 押せる = 受ける !== undefined && 受ける押し所を出すか(line, 宛て)}
       {@const 長い = !line.system && 畳むか(line.body)}
@@ -477,11 +481,18 @@
                     >{全員の呼び.some((w) => w === 名.toLowerCase()) ? t('chat.mention.all') : 見せる名(名)}</span
                   >{/each}</span
               >{/if}
+            <!-- **写し（cc@）の相手**（0.1.47）。メールの CC。起こさず、返事も求めない -->
+            {#if 写した.length > 0}<span class="to cc" title={t('chat.mention.cc')}
+                ><span class="cc-label">{t('chat.mention.cc')}</span
+                >{#each 写した as 名 (名)}<span class="who" class:me={自分の呼ばれる名.includes(名)}
+                    >{全員の呼び.some((w) => w === 名.toLowerCase()) ? t('chat.mention.all') : 見せる名(名)}</span
+                  >{/each}</span
+              >{/if}
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
             {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}
           </div>
           <div class="bubble" class:folded={長い && !開いた.has(i)}><Markdown
-              本文={呼んだ.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
+              本文={呼んだ.length > 0 || 写した.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
               {自分の呼ばれる名}
             />{#if line.画像}<button
@@ -499,9 +510,10 @@
               >{t(開いた.has(i) ? 'chat.less' : 'chat.more')}</button
             >
           {/if}
-          {#if 宛て || line.届き || 受け}
+          {#if 宛て || 写し || line.届き || 受け}
             <div class="foot">
               {#if 宛て}<span class="mark to-me-mark">{t('chat.mention.me')}</span>{/if}
+              {#if 写し}<span class="mark cc-me-mark">{t('chat.mention.ccMe')}</span>{/if}
               {#if 押せる}<button type="button" class="ack" onclick={() => line.印 && 受ける?.(line.印, line.時)}
                   >{t('chat.ack.press')}</button
                 >{/if}
@@ -568,6 +580,9 @@
   {#if 呼んでいる名.length > 0}
     <!-- **呼んでも、届く先は変わらない。**「その人にだけ」と誤解させない -->
     <p class="hint mention-to">{format(t('chat.mention.to'), { who: 呼んでいる名.map((n) => `@${n}`).join(' ') })}</p>
+  {/if}
+  {#if 写している名.length > 0}
+    <p class="hint mention-to">{format(t('chat.mention.ccTo'), { who: 写している名.map((n) => `cc@${n}`).join(' ') })}</p>
   {/if}
   {#if 呼びかけ}
     <div class="mention-pick" role="listbox" aria-label={t('chat.mention.pick')} title={t('chat.mention.pick')}>
@@ -940,6 +955,15 @@
   .to .who.me {
     font-weight: 600;
   }
+  /* **写し（cc@）の相手**（0.1.47）。宛て先より控えめにし、「cc」の札を字で前に置く（色だけに頼らない） */
+  .to.cc .cc-label {
+    color: var(--text-tertiary);
+  }
+  .to.cc .who {
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-strong);
+  }
   .sr {
     position: absolute;
     width: 1px;
@@ -1050,6 +1074,12 @@
   .mark.to-me-mark {
     color: var(--info-fg);
     background: var(--info-bg);
+    cursor: default;
+  }
+  /* 写し（cc@）で呼ばれた行（0.1.47）。返事は要らないので、宛ての印より控えめ */
+  .mark.cc-me-mark {
+    color: var(--text-secondary);
+    border: 1px solid var(--border-strong);
     cursor: default;
   }
   /* **呼ぶ相手の候補。**打つ欄のすぐ上に並べる */
