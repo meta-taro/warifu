@@ -227,10 +227,7 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             if 種類.reads() {
                 一つを確かめる(&vault.inboxes()?, 利用者).await
             } else {
-                println!(
-                    "{利用者}: 送る口（{}）を控えました。送ることは 0.1.46 からできます",
-                    種類.name()
-                );
+                println!("{利用者}: 送る口（{}）を控えました", 種類.name());
                 Ok(())
             }
         }
