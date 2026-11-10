@@ -142,6 +142,8 @@ const SCHEDULE_HEADER: &str = "warifu-schedule-v1";
 
 /// 主催しているルームの見出し。**中身は 2 欄**（id・名前）。
 const MY_ROOM_HEADER: &str = "warifu-room-v1";
+/// **主催した部屋**の見出し（0.1.49）。中身は 1 欄（ルーム id）。
+const HOSTED_ROOMS_HEADER: &str = "warifu-hosted-rooms-v1";
 /// **帰り道**の見出し。**中身は 2 欄**（ルーム id・入るのに使ったルームキー）。
 const REJOIN_HEADER: &str = "warifu-rejoin-v1";
 /// **ルームの名前**の見出し（0.1.28）。中身は 2 欄（ルーム id・名前）。
@@ -557,6 +559,83 @@ impl Vault {
             .collect();
         let out = format!("{MY_ROOM_HEADER}\n{}\t{}\n", id.trim(), 安全.trim());
         self.write_private(&self.my_room_path(), &out, "ルームを書く")
+    }
+
+    /// **主催した部屋**のファイル（0.1.49）。
+    #[must_use]
+    pub fn hosted_rooms_path(&self) -> PathBuf {
+        self.dir.join("hosted-rooms.tsv")
+    }
+
+    /// **主催した部屋の id を、建てた順に**（0.1.49）。無ければ空。
+    ///
+    /// `room.tsv` は「自分の部屋」1 つしか持たない。［招く］で建てた 2 つめ以降の部屋は
+    /// 起動し直すと消え、外の客の帰り道が指す先が無くなった（11-10）。
+    /// **起動したら、ここにある部屋を全部同じ id で建て直す。**
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn hosted_rooms(&self) -> Result<Vec<String>, Error> {
+        let path = self.hosted_rooms_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "主催した部屋を読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != HOSTED_ROOMS_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{HOSTED_ROOMS_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(lines
+            .map(|行| 行.split('\t').next().unwrap_or_default().trim().to_owned())
+            .filter(|id| !id.is_empty())
+            .collect())
+    }
+
+    /// 主催した部屋を書き置く。**既にあれば何もしない**（並びは建てた順のまま）。
+    ///
+    /// # Errors
+    /// 読めない・書けないとき。
+    pub fn save_hosted_room(&self, id: &str) -> Result<(), Error> {
+        let id: String = id.chars().filter(|c| !c.is_whitespace()).collect();
+        if id.is_empty() {
+            return Ok(());
+        }
+        let mut 並び = self.hosted_rooms()?;
+        if 並び.contains(&id) {
+            return Ok(());
+        }
+        並び.push(id);
+        self.主催した部屋を書く(&並び)
+    }
+
+    /// **畳んだ部屋を忘れる**（0.1.49）。最後の 1 つを忘れたらファイルごと消す。
+    ///
+    /// # Errors
+    /// 読めない・書けない・消せないとき。**無いのは失敗ではない。**
+    pub fn forget_hosted_room(&self, id: &str) -> Result<(), Error> {
+        let mut 並び = self.hosted_rooms()?;
+        並び.retain(|部屋| 部屋 != id.trim());
+        if 並び.is_empty() {
+            let path = self.hosted_rooms_path();
+            return match fs::remove_file(&path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                Err(e) => Err(Error::io(&path, "主催した部屋を消す")(e)),
+            };
+        }
+        self.主催した部屋を書く(&並び)
+    }
+
+    fn 主催した部屋を書く(&self, 並び: &[String]) -> Result<(), Error> {
+        let mut out = format!("{HOSTED_ROOMS_HEADER}\n");
+        for id in 並び {
+            out.push_str(&format!("{id}\n"));
+        }
+        self.write_private(&self.hosted_rooms_path(), &out, "主催した部屋を書く")
     }
 
     /// ルームの名前のファイル（0.1.28）。

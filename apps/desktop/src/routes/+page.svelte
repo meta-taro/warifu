@@ -1469,6 +1469,9 @@
 
   /** **人が前もって出している札**（動作, 期限の秒）。期限内は聞かずに通す（0.1.41・D129）。 */
   let 持続の札たち = $state<[string, number][]>([]);
+  // ×で隠した時点の札の並び。**札の顔ぶれが変わったら、また出す**（増えたことは見せる）
+  let 隠した札の並び = $state('');
+  const 札の並び = $derived(持続の札たち.map(([動作]) => 動作).sort().join(','));
   async function 持続の札を読む() {
     if (!inTauri()) return;
     持続の札たち = (await standingPasses().catch(() => [])) ?? [];
@@ -3483,16 +3486,18 @@
   **誘いの帯と同じ形にしてある**（人が同じ読み方をできるように）。
 -->
 {#each 待っている札たち as 待ち (待ち.動作)}
-  <div class="invited" role="alertdialog" aria-live="polite">
-    <p class="what">{t('pass.asked')}</p>
+  <!--
+    **1 行に収める**（0.1.49）。見出し・頼み・理由・説明を 4 段に積むと、頼みが 2 つで画面の上が埋まった。
+    誰が何を・なぜ（必ず出す）を 1 行に、ボタンを右に。説明は［通す］に乗せる
+  -->
+  <div class="invited pass-ask" role="alertdialog" aria-live="polite" aria-label={t('pass.asked')}>
     <p class="hint">
-      {format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 動作の言葉(待ち.動作, t) })}
+      <strong>{format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 動作の言葉(待ち.動作, t) })}</strong>
+      <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
+      <span>— {待ち.訳}</span>
     </p>
-    <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
-    <p class="hint">{待ち.訳}</p>
-    <p class="hint">{t('pass.asked.hint')}</p>
     <div class="tail">
-      <button type="button" onclick={() => void 札に答える(待ち.動作, true)}>
+      <button type="button" title={t('pass.asked.hint')} onclick={() => void 札に答える(待ち.動作, true)}>
         {t('pass.allow')}
       </button>
       <!-- **人が前もって出す札**（0.1.41・D129）。24 時間、同じ動作をこの機械の席に聞かない。取り消せる -->
@@ -3507,20 +3512,39 @@
 {/each}
 
 <!-- **出している持続の札**（0.1.41・D129）。何を誰に任せているかが見え、いつでも取り消せる -->
-{#each 持続の札たち as [動作, まで] (動作)}
-  <div class="invited standing" role="status">
-    <p class="hint">
-      {まで - いま秒 > 365 * 24 * 3600
-        ? format(t('pass.standing.untilRevoked'), { what: 動作の言葉(動作, t) })
-        : format(t('pass.standing'), { what: 動作の言葉(動作, t), hours: 残り時間(まで) })}
-    </p>
-    <div class="tail">
-      <button type="button" class="quiet" onclick={() => void 札を取り消す(動作)}>
-        {t('pass.revoke')}
-      </button>
-    </div>
-  </div>
-{/each}
+<!--
+  1 枚ずつ帯にすると、札が増えるほど画面の上を占める（0.1.48 まで）。
+  **1 行にたたみ、開いたときだけ並べる。**何を任せているかは、開けば見えて取り消せる
+-->
+{#if 持続の札たち.length > 0 && 札の並び !== 隠した札の並び}
+  <details class="standing-list">
+    <summary>
+      <span>{format(t('pass.standing.summary'), { n: 持続の札たち.length })}</span>
+      <button
+        type="button"
+        class="dismiss"
+        title={t('pass.standing.hide')}
+        aria-label={t('pass.standing.hide')}
+        onclick={(e) => {
+          e.preventDefault();
+          隠した札の並び = 札の並び;
+        }}><Icon name="close" size={12} /></button
+      >
+    </summary>
+    {#each 持続の札たち as [動作, まで] (動作)}
+      <div class="standing-row" role="status">
+        <span>
+          {まで - いま秒 > 365 * 24 * 3600
+            ? format(t('pass.standing.untilRevoked'), { what: 動作の言葉(動作, t) })
+            : format(t('pass.standing'), { what: 動作の言葉(動作, t), hours: 残り時間(まで) })}
+        </span>
+        <button type="button" class="quiet" onclick={() => void 札を取り消す(動作)}>
+          {t('pass.revoke')}
+        </button>
+      </div>
+    {/each}
+  </details>
+{/if}
 
 <!--
   **ルームキーの手渡し**（2026-10-20）。札の帯と同じ形で出す。
@@ -4864,6 +4888,62 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+  }
+
+  /* 札の頼みは 1 行（0.1.49）。狭い窓では理由が折り返し、ボタンは右に残る */
+  .invited.pass-ask {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.35rem 0.6rem;
+    margin-top: 0.3rem;
+  }
+
+  .invited.pass-ask .hint {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .invited.pass-ask .tail {
+    flex: none;
+  }
+
+  /* 持続の札は小さな 1 行にたたむ（開いたときだけ並べる）。×で隠せる */
+  .standing-list {
+    margin: 0.2rem 0.75rem 0;
+    padding: 0 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .standing-list summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+
+  .standing-list .dismiss {
+    display: inline-flex;
+    padding: 1px;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .standing-list .dismiss:hover {
+    background: var(--bg-hover);
+  }
+
+  .standing-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
   }
 
   .invited .what {

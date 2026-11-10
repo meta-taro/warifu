@@ -346,6 +346,8 @@ pass.refuse	Don't allow	通さない	不允许	허용하지 않음
 pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は{what}を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
 pass.revoke	Revoke	取り消す	撤销	취소				
 pass.standing	{what} passes without asking for {hours} more hours	{what}は、あと {hours} 時間は聞かずに通します	{what} 在接下来 {hours} 小时内无需询问即可通过	{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다				
+pass.standing.hide	Hide this line (it comes back when the delegated actions change)	この行を隠す（任せる動作が変わったら、また出ます）	隐藏此行（委托的操作变化时会再次显示）	이 줄 숨기기 (맡긴 동작이 바뀌면 다시 나타납니다)				
+pass.standing.summary	{n} actions pass without asking (open to see or revoke)	聞かずに通している動作が {n} つあります（開くと見られて、取り消せます）	有 {n} 项操作无需询问即可通过（展开可查看或撤销）	묻지 않고 통과하는 동작이 {n}개 있습니다 (열면 보고 취소할 수 있습니다)				
 pass.standing.untilRevoked	{what} passes without asking until you revoke it	{what}は、取り消すまで聞かずに通します	{what} 在撤销之前无需询问即可通过	{what} 은(는) 취소할 때까지 묻지 않고 통과합니다				
 pass.who	{who} wants to use {what}	{who} が{what}を使いたい	{who} 想使用 {what}	{who} 이(가) {what} 을(를) 쓰고 싶어 합니다				
 postbox.clear	Remove	外す	取消	해제				

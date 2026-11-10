@@ -228,6 +228,8 @@ export type MessageKey =
   | 'pass.allowed.standing'
   | 'pass.standing'
   | 'pass.revoke'
+  | 'pass.standing.summary'
+  | 'pass.standing.hide'
   | 'pass.action.chat.read'
   | 'pass.action.chat.send'
   | 'pass.action.chat.export'
@@ -793,6 +795,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': '通しました。{who} は{what}を 24 時間、聞かれずに使えます（取り消せます）。',
     'pass.standing': '{what}は、あと {hours} 時間は聞かずに通します',
     'pass.revoke': '取り消す',
+    'pass.standing.summary': '聞かずに通している動作が {n} つあります（開くと見られて、取り消せます）',
+    'pass.standing.hide': 'この行を隠す（任せる動作が変わったら、また出ます）',
     'pass.action.chat.read': '会話の読み取り',
     'pass.action.chat.send': '会話への書き込み',
     'pass.action.chat.export': '会話の書き出し',
@@ -1311,6 +1315,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': 'Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).',
     'pass.standing': '{what} passes without asking for {hours} more hours',
     'pass.revoke': 'Revoke',
+    'pass.standing.summary': '{n} actions pass without asking (open to see or revoke)',
+    'pass.standing.hide': 'Hide this line (it comes back when the delegated actions change)',
     'pass.action.chat.read': 'Reading chats',
     'pass.action.chat.send': 'Sending messages',
     'pass.action.chat.export': 'Exporting chats',
@@ -1827,6 +1833,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': '已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。',
     'pass.standing': '{what} 在接下来 {hours} 小时内无需询问即可通过',
     'pass.revoke': '撤销',
+    'pass.standing.summary': '有 {n} 项操作无需询问即可通过（展开可查看或撤销）',
+    'pass.standing.hide': '隐藏此行（委托的操作变化时会再次显示）',
     'pass.action.chat.read': '读取对话',
     'pass.action.chat.send': '发送消息',
     'pass.action.chat.export': '导出对话',
@@ -2346,6 +2354,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed.standing': '통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.',
     'pass.standing': '{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다',
     'pass.revoke': '취소',
+    'pass.standing.summary': '묻지 않고 통과하는 동작이 {n}개 있습니다 (열면 보고 취소할 수 있습니다)',
+    'pass.standing.hide': '이 줄 숨기기 (맡긴 동작이 바뀌면 다시 나타납니다)',
     'pass.action.chat.read': '대화 읽기',
     'pass.action.chat.send': '메시지 보내기',
     'pass.action.chat.export': '대화 내보내기',

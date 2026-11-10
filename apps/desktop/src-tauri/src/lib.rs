@@ -1431,6 +1431,9 @@ async fn host_meeting(bridge: State<'_, Bridge>, capacity: usize) -> Answer<Stri
     // **合言葉もここで用意する**（**D118**）——
     // 入った人へ渡すものなので、**渡す前に在る**必要がある
     部屋の合言葉を用意する(&bridge, id).await;
+    // **ほかに主催していた部屋も、同じ id で建て直す**（0.1.49）。自分の部屋も控えに載せる
+    主催した部屋を控える(id);
+    控えた主催の部屋を建て直す(&bridge).await;
     // **建てた id を書き置く。**名前は画面から付けるので、ここでは触らない
     if let Ok(vault) = warifu_vault::Vault::default_location() {
         let 名前 = vault
@@ -2291,6 +2294,8 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             if 中身 == 叩きの中身::どちらでもない {
                 // **戻りたい部屋が添えてあれば、その部屋へ**（0.1.41）。主催していなければ「もう無い」と返して建てない
                 let bridge = app.state::<Bridge>();
+                // **画面より先に客が戻ってきても、控えた部屋を先に建て直す**（0.1.49）
+                控えた主催の部屋を建て直す(&bridge).await;
                 let 招く先 = match call::招く先を決める(
                     望み,
                     &主催している部屋たち(&bridge).await,
@@ -2331,6 +2336,7 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
                     match Conference::host(me, warifu_app::DEFAULT_CAPACITY) {
                         Ok(c) => {
                             let id = ルームを足す(&conferences, &いまのルーム, c).await;
+                            主催した部屋を控える(id);
                             影へ(
                                 &app.state::<Bridge>(),
                                 warifu_app::room::入り口::建てた {
@@ -2411,6 +2417,7 @@ async fn 招く部屋を用意する(bridge: &Bridge) -> Option<MeetingId> {
     let id = ルームを足す_見るのは奪わない(conferences, いまのルーム, c).await;
     // **建てた部屋の主催は自分**（**#37**）。合言葉も渡す前に用意する（**D118**）
     主催たち.lock().await.insert(id, me);
+    主催した部屋を控える(id);
     影へ(
         bridge,
         warifu_app::room::入り口::建てた {
@@ -3502,6 +3509,99 @@ async fn 時間を切って送る(宛て: Vec<(mpsc::Sender<Notice>, Notice)>) -
 /// **同じ部屋で作り直さない。**作り直すと、**前に渡した合言葉で通れなくなる。**
 /// 建てた覚えのない部屋（ゲストとして入った部屋）では呼ばない ——
 /// **合言葉は主催が決めるもの**であり、両側が別々に作ると噛み合わない。
+/// **主催した部屋を書き置く**（0.1.49）。起動し直したら、ここにある部屋を全部同じ id で建て直す。
+///
+/// 11-10、［招く］で建てた 2 つめの部屋は書き置いておらず、更新で消えた。
+/// 外の客の帰り道はその id を指したままで、主催は「もう無い」と返していた。
+fn 主催した部屋を控える(id: MeetingId) {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return;
+    };
+    if let Err(e) = vault.save_hosted_room(&id.to_string()) {
+        記録!("主催した部屋を書き置けませんでした: {e}");
+    }
+}
+
+/// **建て直す主催の部屋の id**（0.1.49）。
+///
+/// 控え（`hosted-rooms.tsv`）がまだ無い機械（0.1.48 以前から上げた）は、
+/// **自分の部屋と、鍵を出したまま畳んでいない部屋**から作る —— 鍵は自分が主催する部屋にしか
+/// 出さない（0.1.37）し、畳むと鍵の控えも合言葉も落とす。両方が残っている部屋は、主催していた部屋である。
+fn 控えた主催の部屋(vault: &warifu_vault::Vault) -> Vec<MeetingId> {
+    let 読めた = if vault.hosted_rooms_path().exists() {
+        vault.hosted_rooms()
+    } else {
+        let 合言葉: Vec<String> = vault
+            .room_secrets()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        let mut 並び: Vec<String> = vault
+            .my_room()
+            .ok()
+            .flatten()
+            .map(|(id, _)| id)
+            .into_iter()
+            .collect();
+        for (id, _) in vault.issued().unwrap_or_default() {
+            if 合言葉.contains(&id) && !並び.contains(&id) {
+                並び.push(id);
+            }
+        }
+        for id in &並び {
+            if let Err(e) = vault.save_hosted_room(id) {
+                記録!("主催した部屋を書き置けませんでした: {e}");
+            }
+        }
+        if !並び.is_empty() {
+            記録!("ルーム: 主催した部屋の控えを、自分の部屋と鍵の控えから {} 室ぶん作りました", 並び.len());
+        }
+        Ok(並び)
+    };
+    match 読めた {
+        Ok(並び) => 並び.iter().filter_map(|id| id.parse().ok()).collect(),
+        Err(e) => {
+            記録!("主催した部屋の控えを読めませんでした: {e}");
+            Vec::new()
+        }
+    }
+}
+
+/// **控えた主催の部屋のうち、棚に無いものを同じ id で建て直す**（0.1.49）。何度呼んでもよい。
+///
+/// 起動（`host_meeting`）と、叩かれて招く先を決める直前に呼ぶ ——
+/// 画面より先に客が戻ってくると、建て直す前に「もう無い」と返し、客が帰り道を捨てていた。
+async fn 控えた主催の部屋を建て直す(bridge: &Bridge) {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return;
+    };
+    let me = bridge.device.public_key();
+    for id in 控えた主催の部屋(&vault) {
+        let Ok(c) = Conference::host_with_id(me, warifu_app::DEFAULT_CAPACITY, id) else {
+            continue;
+        };
+        if !建てた部屋を残す(&mut *bridge.conferences.lock().await, c) {
+            continue;
+        }
+        {
+            let mut 見ている = bridge.いまのルーム.lock().await;
+            *見ている = Some(見る部屋を決める(*見ている, id));
+        }
+        bridge.主催たち.lock().await.insert(id, me);
+        影へ(
+            bridge,
+            warifu_app::room::入り口::建てた {
+                id: Some(id),
+                定員: warifu_app::DEFAULT_CAPACITY,
+            },
+        )
+        .await;
+        部屋の合言葉を用意する(bridge, id).await;
+        記録!("ルーム: 主催していた部屋を同じ id で建て直しました（部屋 {}）", 短く(&id.to_string()));
+    }
+}
+
 async fn 部屋の合言葉を用意する(bridge: &Bridge, 部屋: MeetingId) {
     let mut 棚 = bridge.部屋の合言葉.lock().await;
     if 棚.contains_key(&部屋) {
@@ -4243,6 +4343,10 @@ pub(crate) async fn 部屋を畳む(bridge: &Bridge, meeting: MeetingId) {
     if let Ok(vault) = warifu_vault::Vault::default_location() {
         if let Err(e) = vault.forget_rejoin_room(&meeting.to_string()) {
             記録!("帰り道を消せませんでした: {e}");
+        }
+        // **畳んだ部屋は、次の起動で建て直さない**（0.1.49）
+        if let Err(e) = vault.forget_hosted_room(&meeting.to_string()) {
+            記録!("主催した部屋の控えを消せませんでした: {e}");
         }
     }
 }
@@ -5304,5 +5408,45 @@ mod 標準エラーの試験 {
         let mut 書けた = Vec::new();
         標準エラーへ(&mut 書けた, "起動しました");
         assert_eq!(書けた, "起動しました\n".as_bytes());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod 主催した部屋の控え {
+    use super::控えた主催の部屋;
+
+    fn 仮の置き場(名: &str) -> warifu_vault::Vault {
+        let dir = std::env::temp_dir().join(format!("warifu-hosted-{名}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        warifu_vault::Vault::at(&dir)
+    }
+
+    #[test]
+    fn 控えが無い機械は_自分の部屋と鍵を出したまま畳んでいない部屋から作る() {
+        // 0.1.48 以前から上げた機械。［招く］で建てた部屋は鍵の控えと合言葉にだけ残っている
+        let v = 仮の置き場("migrate");
+        let 自分 = "EB5RQ3AU3PX2HKCCR4AJ35HTBQ";
+        let 招いた = "N72SA27KVDTKQXWJ4HUGBM6ZRA";
+        let 畳んだ = "6KAZOU7C3435DCEHZBUQ6AU2MQ";
+        v.save_my_room(自分, "").unwrap();
+        v.save_issued(招いた, b"tally").unwrap();
+        v.save_issued(畳んだ, b"tally").unwrap();
+        // 畳んだ部屋は合言葉を落としている。招いた部屋は残っている
+        v.save_room_secrets(&[(招いた.to_owned(), [7; 32])]).unwrap();
+
+        let 並び: Vec<String> = 控えた主催の部屋(&v).iter().map(ToString::to_string).collect();
+        assert_eq!(並び, vec![自分, 招いた]);
+        assert_eq!(v.hosted_rooms().unwrap(), vec![自分, 招いた], "作った控えは書き置く");
+    }
+
+    #[test]
+    fn 控えがあれば_それだけを使う() {
+        let v = 仮の置き場("as-is");
+        v.save_hosted_room("N72SA27KVDTKQXWJ4HUGBM6ZRA").unwrap();
+        v.save_my_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "").unwrap();
+        let 並び: Vec<String> = 控えた主催の部屋(&v).iter().map(ToString::to_string).collect();
+        assert_eq!(並び, vec!["N72SA27KVDTKQXWJ4HUGBM6ZRA"]);
     }
 }

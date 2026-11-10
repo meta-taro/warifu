@@ -20,7 +20,7 @@ use warifu_core::PublicKey;
 use warifu_meeting::{MeetingId, Notice, Roster, Signal, Step};
 
 use crate::RoomRow;
-use crate::call::{招く部屋を選ぶ, 自分を名簿に足す};
+use crate::call::{招く先, 招く先を決める, 招く部屋を選ぶ, 自分を名簿に足す};
 use crate::come_back::{
     居ないと告げるか, 戻るべきか, 見切るか, 頼んでいない部屋
 };
@@ -45,8 +45,10 @@ struct 機械 {
     /// 戻る先ごとの、主催に繋がったのに別の部屋を教えられた回数（続けて）
     違った: HashMap<MeetingId, u32>,
     // ── 置き場所（起動をまたぐ）──
-    /// `room.tsv`。主催する部屋は 1 つだけ覚える
+    /// `room.tsv`。「自分の部屋」は 1 つだけ覚える
     自分の部屋: Option<MeetingId>,
+    /// `hosted-rooms.tsv`（0.1.49）。主催した部屋を全部覚え、起動で同じ id に建て直す
+    主催した部屋たち: Vec<MeetingId>,
     /// `rejoin.tsv`。戻る先の部屋と、その主催（住所の代わりに鍵）
     帰り道: Vec<(MeetingId, PublicKey)>,
     /// 戸口の名簿。一度通した相手は、次から鍵なしで通す（D31）
@@ -63,6 +65,7 @@ impl 機械 {
             見ている: None,
             違った: HashMap::new(),
             自分の部屋: None,
+            主催した部屋たち: Vec::new(),
             帰り道: Vec::new(),
             戸口: HashSet::new(),
         }
@@ -149,6 +152,28 @@ impl 網 {
         m.主催たち.insert(id, m.鍵);
         m.見ている.get_or_insert(id);
         m.自分の部屋 = Some(id);
+        // 0.1.49：控えた主催の部屋を、同じ id で全部建て直す（`控えた主催の部屋を建て直す`）
+        if !m.主催した部屋たち.contains(&id) {
+            m.主催した部屋たち.push(id);
+        }
+        for 部屋 in m.主催した部屋たち.clone() {
+            if !m.棚.contains_key(&部屋) {
+                m.棚.insert(部屋, Conference::host_with_id(m.鍵, 定員, 部屋).unwrap());
+                m.主催たち.insert(部屋, m.鍵);
+            }
+        }
+    }
+
+    /// **もう 1 つ部屋を建てて、人がそれを見る**（`招く部屋を用意する`・画面の［招く］）。
+    fn 部屋を建てる(&mut self, i: usize) -> MeetingId {
+        let m = &mut self.機械たち[i];
+        let c = Conference::host(m.鍵, 定員).unwrap();
+        let id = c.id();
+        m.棚.insert(id, c);
+        m.主催たち.insert(id, m.鍵);
+        m.見ている = Some(id);
+        m.主催した部屋たち.push(id);
+        id
     }
 
     /// **落とす。**`気づく` が偽なら、相手は線が切れたことに気づかない ——
@@ -184,6 +209,17 @@ impl 網 {
     /// **鍵なしで叩く**（`call.rs` → 主催の戸口 → `招く部屋を用意する` → `Notice::Invite` → `Join`）。
     /// 招かれた部屋を返す。戸口が知らなければ断られる（`None`）。
     fn 叩く(&mut self, 客: usize, 主催: usize) -> Option<MeetingId> {
+        self.戻りたい部屋を添えて叩く(客, 主催, None)
+    }
+
+    /// **戻りたい部屋を添えて叩く**（0.1.41・`come_back` → `call::住所へ呼ぶ`）。
+    /// 主催はその部屋を主催していればそこへ招き、していなければ「もう無い」と返して建てない。
+    fn 戻りたい部屋を添えて叩く(
+        &mut self,
+        客: usize,
+        主催: usize,
+        望み: Option<MeetingId>,
+    ) -> Option<MeetingId> {
         if !self.機械たち[客].起きている || !self.機械たち[主催].起きている {
             return None;
         }
@@ -196,7 +232,12 @@ impl 網 {
         // 主催：招く部屋を選ぶ。主催している部屋が無ければ建てる（見る部屋は奪わない）
         let 部屋 = {
             let h = &mut self.機械たち[主催];
-            match 招く部屋を選ぶ(h.見ている, &h.主催している部屋()) {
+            let 選んだ = match 招く先を決める(望み, &h.主催している部屋()) {
+                招く先::その部屋(id) => Some(id),
+                招く先::もう無い(_) => return None,
+                招く先::選ぶ => 招く部屋を選ぶ(h.見ている, &h.主催している部屋()),
+            };
+            match 選んだ {
                 Some(id) => id,
                 None => {
                     let c = Conference::host(h.鍵, 定員).unwrap();
@@ -204,6 +245,7 @@ impl 網 {
                     h.棚.insert(id, c);
                     h.主催たち.insert(id, h.鍵);
                     h.見ている.get_or_insert(id);
+                    h.主催した部屋たち.push(id);
                     id
                 }
             }
@@ -312,6 +354,7 @@ impl 網 {
         let m = &mut self.機械たち[i];
         m.棚.remove(&部屋);
         m.帰り道.retain(|(id, _)| *id != 部屋);
+        m.主催した部屋たち.retain(|id| *id != 部屋);
         if m.見ている == Some(部屋) {
             m.見ている = m.棚.keys().next().copied();
         }
@@ -331,7 +374,18 @@ impl 網 {
             }
             let 前: Vec<MeetingId> = self.機械たち[i].棚.keys().copied().collect();
             let 主催 = self.番号(主催の鍵);
-            let 繋がった = self.叩く(i, 主催).is_some();
+            // 主催に「その部屋はもう無い」と言われたら、1 回で見切る（0.1.41・`come_back::戻る`）
+            let もう無い = {
+                let h = &self.機械たち[主催];
+                h.起きている
+                    && h.戸口.contains(&self.機械たち[i].鍵)
+                    && matches!(招く先を決める(Some(部屋), &h.主催している部屋()), 招く先::もう無い(_))
+            };
+            if もう無い {
+                self.見切る(i, 部屋);
+                continue;
+            }
+            let 繋がった = self.戻りたい部屋を添えて叩く(i, 主催, Some(部屋)).is_some();
             let 後: Vec<MeetingId> = self.機械たち[i].棚.keys().copied().collect();
             let 戻る先 = 後.iter().copied().find(|m| *m == 部屋);
             for 余計 in 頼んでいない部屋(&前, &後, 戻る先) {
@@ -620,6 +674,37 @@ fn 客として他人の部屋を見ていても_呼ばれたら自分の部屋�
     網.機械たち[2].戸口.insert(k1);
     let 招かれた = 網.叩く(2, 1).unwrap();
     assert_ne!(招かれた, x, "他人の部屋へは招かない");
+    assert_eq!(網.食い違い(), Vec::<String>::new());
+}
+
+#[test]
+fn 主催が部屋を2つ持ったまま上がり直しても_2つとも同じidで戻り_客が自分で戻る() {
+    // 11-10。主催が「自分の部屋」と、［招く］で建てたもう 1 つの部屋を持ったまま更新したら、
+    // もう 1 つの部屋が消え、そこに居た外の客は戻れなかった（置き場所に id が 1 つしか無い）
+    let mut 網 = 網::new(3);
+    for i in 0..3 {
+        網.起動(i);
+    }
+    let 主催の鍵 = 網.機械たち[0].鍵;
+    for g in 1..3 {
+        let 客の鍵 = 網.機械たち[g].鍵;
+        網.機械たち[0].戸口.insert(客の鍵);
+        網.機械たち[g].戸口.insert(主催の鍵);
+    }
+    let 自分の部屋 = 網.叩く(1, 0).unwrap();
+    let もう1つ = 網.部屋を建てる(0);
+    assert_eq!(網.叩く(2, 0), Some(もう1つ), "2 人目は、主催が見ているもう 1 つの部屋へ");
+    assert_ne!(自分の部屋, もう1つ);
+
+    網.落とす(0, true);
+    網.起動(0);
+    網.落ち着くまで(3);
+
+    let 主催の棚: Vec<MeetingId> = 網.機械たち[0].棚.keys().copied().collect();
+    assert!(主催の棚.contains(&自分の部屋), "自分の部屋は同じ id で戻る");
+    assert!(主催の棚.contains(&もう1つ), "もう 1 つの部屋も同じ id で戻る（{主催の棚:?}）");
+    assert!(網.機械たち[0].居ると思っている(もう1つ, 網.機械たち[2].鍵), "外の客が自分で戻る");
+    assert!(網.機械たち[2].居ると思っている(もう1つ, 主催の鍵));
     assert_eq!(網.食い違い(), Vec::<String>::new());
 }
 

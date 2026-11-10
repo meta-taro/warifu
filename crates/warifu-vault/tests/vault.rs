@@ -1109,6 +1109,42 @@ fn 主催しているルームを持ち越せる() {
 }
 
 #[test]
+fn 主催した部屋は全部持ち越し_畳んだ部屋は忘れる() {
+    // 11-10。［招く］で建てた 2 つめの部屋は id を書き置いておらず、更新で消えた。
+    // 外の客の帰り道はその id を指したままで、戻れなかった。**主催した部屋は全部書き置く。**
+    let dir = 仮の置き場("hosted-rooms");
+    let vault = Vault::at(&dir);
+    assert!(vault.hosted_rooms().unwrap().is_empty(), "はじめは無い");
+
+    vault
+        .save_hosted_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ")
+        .unwrap();
+    vault
+        .save_hosted_room("N72SA27KVDTKQXWJ4HUGBM6ZRA")
+        .unwrap();
+    vault
+        .save_hosted_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ")
+        .unwrap();
+    assert_eq!(
+        Vault::at(&dir).hosted_rooms().unwrap(),
+        vec!["EB5RQ3AU3PX2HKCCR4AJ35HTBQ", "N72SA27KVDTKQXWJ4HUGBM6ZRA"],
+        "同じ id は 1 行・建てた順"
+    );
+
+    vault
+        .forget_hosted_room("EB5RQ3AU3PX2HKCCR4AJ35HTBQ")
+        .unwrap();
+    assert_eq!(
+        Vault::at(&dir).hosted_rooms().unwrap(),
+        vec!["N72SA27KVDTKQXWJ4HUGBM6ZRA"]
+    );
+    vault
+        .forget_hosted_room("N72SA27KVDTKQXWJ4HUGBM6ZRA")
+        .unwrap();
+    assert!(vault.hosted_rooms().unwrap().is_empty());
+}
+
+#[test]
 fn ルームの名前は後から付けられる() {
     // 建てた時点では名前が無い。**あとで付けても id は変わらない**
     let dir = 仮の置き場("room-name-later");
