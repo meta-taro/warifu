@@ -351,8 +351,39 @@ mod 窓 {
     }
 }
 
+/// **秘密が入っていないときの案内**（11-10）。置き場の名と入れ方を OS で分ける。
+///
+/// Windows でも「キーチェーン」「warifu mail secret」と案内していた。Windows の置き場は資格情報マネージャーで、
+/// 端末で字を伏せて聞く道は無い（入れるのは画面の［秘密を入れる］だけ）。
+#[must_use]
+pub fn 無いときの案内(macos: bool) -> &'static str {
+    if macos {
+        "パスワードがキーチェーンにありません（画面の［メール］→［控えた口］→［秘密を入れる］か、ターミナルの warifu mail secret で入れてください）"
+    } else {
+        "パスワードが資格情報マネージャーにありません（画面の［メール］→［控えた口］→［秘密を入れる］で入れてください）"
+    }
+}
+
+/// この機械の OS での [`無いときの案内`]。
+#[must_use]
+pub fn 無いとき() -> &'static str {
+    無いときの案内(cfg!(target_os = "macos"))
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 無いときの案内は_windows_でキーチェーンと端末の道を言わない() {
+        let w = super::無いときの案内(false);
+        assert!(
+            w.contains("資格情報マネージャー")
+                && !w.contains("キーチェーン")
+                && !w.contains("warifu mail")
+        );
+        let m = super::無いときの案内(true);
+        assert!(m.contains("キーチェーン") && m.contains("warifu mail secret"));
+    }
+
     use super::*;
 
     #[test]

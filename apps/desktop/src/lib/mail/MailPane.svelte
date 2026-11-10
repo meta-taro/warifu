@@ -133,12 +133,24 @@
   <section class="list card" aria-label={t('mail.title')}>
     <header>
       <h2><Icon name="mail" size={18} />{t('mail.title')}</h2>
-      <button type="button" class="quiet" onclick={() => void 読み直す()} disabled={読んでいる}>{t('mail.reload')}</button>
+      <!-- **［読み直す］は控えた口も読み直す**（11-10）。開いたときに 1 回しか読まず、
+           あとからエージェントが足した口が「控えた口 0」のまま［秘密を入れる］が出なかった -->
+      <button
+        type="button"
+        class="quiet"
+        onclick={() => {
+          void 読み直す();
+          void 口を読み直す();
+        }}
+        disabled={読んでいる}>{t('mail.reload')}</button
+      >
     </header>
     <p class="hint">{t('mail.readonly')}</p>
 
     <details class="accounts" open={口たち.some((口) => !口.秘密がある)}>
       <summary>{t('mail.accounts.title')}<span class="count">{口たち.length}</span></summary>
+      <!-- **一覧が読めなかったことを、欄の外にも出す**（11-10）。入力欄の中にしか出さず、読めないまま「0」に見えた -->
+      {#if 置けない && 入れている === null}<p class="warn" role="alert">{置けない}</p>{/if}
       {#if 口たち.length === 0}
         <p class="hint">{t('mail.accounts.none')}</p>
       {/if}

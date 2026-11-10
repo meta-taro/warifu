@@ -557,9 +557,7 @@ async fn 一つから汲む(
     件数: usize,
     今: u64,
 ) -> Result<Vec<warifu_read::Received>, Box<dyn std::error::Error>> {
-    let パスワード = keychain::読む(&c.user).map_err(
-        |_| "パスワードがキーチェーンにありません（warifu mail add でもう一度入れてください）",
-    )?;
+    let パスワード = keychain::読む(&c.user).map_err(|_| keychain::無いとき())?;
     let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
     drop(パスワード);
     let 流れ = warifu_imap::connect(&繋ぎ先).await?;
@@ -578,12 +576,8 @@ async fn 仕分けを数える(
     c: &MailAccount,
     件数: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let パスワード = keychain::読む(&c.user).map_err(|_| {
-        format!(
-            "{} のパスワードがキーチェーンにありません（warifu mail add でもう一度入れてください）",
-            c.user
-        )
-    })?;
+    let パスワード =
+        keychain::読む(&c.user).map_err(|_| format!("{}: {}", c.user, keychain::無いとき()))?;
     let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
     drop(パスワード);
     let 流れ = warifu_imap::connect(&繋ぎ先).await?;
@@ -663,12 +657,8 @@ async fn 一つを確かめる(
 
 /// つないで、数だけを出す。
 async fn 確かめる(c: &MailAccount) -> Result<(), Box<dyn std::error::Error>> {
-    let パスワード = keychain::読む(&c.user).map_err(|_| {
-        format!(
-            "{} のパスワードがキーチェーンにありません（warifu mail add でもう一度入れてください）",
-            c.user
-        )
-    })?;
+    let パスワード =
+        keychain::読む(&c.user).map_err(|_| format!("{}: {}", c.user, keychain::無いとき()))?;
     let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
     drop(パスワード);
     let 流れ = warifu_imap::connect(&繋ぎ先).await?;

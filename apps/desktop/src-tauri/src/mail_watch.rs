@@ -137,7 +137,7 @@ async fn 一回り(app: &AppHandle, 覚え: &mut 見張りの覚え) {
 /// 見出しだけを取り、UID と仕分けの札を返す（本文は読まない）。
 async fn 見出しの札(c: &warifu_vault::MailAccount) -> Result<Vec<(u32, 札)>, String> {
     let パスワード = warifu_imap::keychain::読む(&c.user)
-        .map_err(|_| "パスワードがキーチェーンにありません".to_owned())?;
+        .map_err(|_| warifu_imap::keychain::無いとき().to_owned())?;
     let 繋ぎ先 = warifu_imap::Account::new(&c.host, c.port, &c.user, &パスワード)
         .map_err(|e| e.to_string())?;
     drop(パスワード);

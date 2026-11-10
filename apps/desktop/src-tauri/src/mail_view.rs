@@ -58,7 +58,7 @@ async fn 開く(c: &MailAccount) -> Result<warifu_imap::Mailbox<warifu_imap::Str
         return Err(warifu_imap::keychain::置けない訳.to_owned());
     }
     let パスワード = warifu_imap::keychain::読む(&c.user)
-        .map_err(|_| "パスワードがキーチェーンにありません（画面の［秘密を入れる］か warifu mail secret で入れてください）".to_owned())?;
+        .map_err(|_| warifu_imap::keychain::無いとき().to_owned())?;
     let 繋ぎ先 = warifu_imap::Account::new(&c.host, c.port, &c.user, &パスワード)
         .map_err(|e| e.to_string())?;
     drop(パスワード);
