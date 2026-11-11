@@ -4,6 +4,7 @@
   import Self from './Markdown.svelte';
   import { 塊に分ける, type 塊, type 字 } from './markdown';
   import { 本文を分ける } from './mention';
+  import { openLink } from '$lib/bridge';
 
   type Props = {
     /** 本文。`塊` を渡したときは使わない（引用の中を描くとき） */
@@ -17,11 +18,28 @@
   let { 本文 = '', 塊たち, 見分ける名, 自分の呼ばれる名 }: Props = $props();
 
   const 並び = $derived(塊たち ?? 塊に分ける(本文));
+
+  /** http(s) の繋ぎだけ押せる（11-11）。ほかは字のまま */
+  const 開ける先 = (先: string) => /^https?:\/\/\S+$/i.test(先);
+
+  /**
+   * **外のブラウザで開く。**画面の中では移らない（移ると割符の窓ごと置き換わる）。
+   * 開けなかったら記録に残す（押しても何も起きない、を黙らせない）
+   */
+  function 外で開く(e: MouseEvent, 先: string) {
+    e.preventDefault();
+    void openLink(先).catch((err: unknown) => console.warn(`繋ぎを開けませんでした: ${String(err)}`));
+  }
 </script>
 
 {#snippet 字たち(並べる: 字[])}{#each 並べる as 切, k (k)}{#if 切.種 === '符'}<code>{切.文}</code
     >{:else if 切.種 === '太'}<strong>{@render 呼びを分ける(切.文)}</strong
-    >{:else if 切.種 === '繋'}<span class="link" title={切.先}>{@render 呼びを分ける(切.文)}</span
+    >{:else if 切.種 === '繋' && 開ける先(切.先)}<a
+        class="link"
+        href={切.先}
+        title={切.先}
+        onclick={(e) => 外で開く(e, 切.先)}>{@render 呼びを分ける(切.文)}</a
+      >{:else if 切.種 === '繋'}<span class="link" title={切.先}>{@render 呼びを分ける(切.文)}</span
     >{:else}{@render 呼びを分ける(切.文)}{/if}{/each}{/snippet}
 
 {#snippet 呼びを分ける(文: string)}{#each 本文を分ける(文, 見分ける名) as 片, j (j)}{#if 片.呼び}<span
@@ -145,9 +163,15 @@
   th {
     background: var(--bg-subtle);
   }
-  /* 繋ぎは押せない（画面の中で外の頁へ移らない）。先は title で見せる */
+  /* 繋ぎ。http(s) は押すと外のブラウザで開く（画面の中では移らない）。先は title で見せる */
   .link {
     text-decoration: underline dotted;
+  }
+  a.link {
+    color: var(--info-fg);
+    text-decoration: underline;
+    cursor: pointer;
+    overflow-wrap: anywhere;
   }
   /* **`@名前` で呼んだ所**（0.1.35）。誰に話しかけたかが一目で分かるように */
   .mention {

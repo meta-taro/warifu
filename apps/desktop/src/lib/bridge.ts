@@ -136,6 +136,8 @@ export const delegateSet = (key: string, days: number | null = null) =>
   invoke<number>('delegate_set', { key, days });
 export const delegateForget = (key: string) => invoke<void>('delegate_forget', { key });
 /** **画面の写しを返す**（0.1.34）。エージェントの `app_view` へ渡る */
+/** 発言の中の繋ぎを、外のブラウザで開く（http(s) だけ・本体が確かめる）。 */
+export const openLink = (url: string) => invoke<void>('open_link', { url });
 export const snapshotReply = (id: number, text: string) => invoke<void>('snapshot_reply', { id, text });
 
 /**

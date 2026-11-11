@@ -110,6 +110,7 @@ mod mail_watch;
 mod media_path;
 mod mention_room;
 mod notify;
+mod open_link;
 mod postbox;
 mod presence;
 mod profile;
@@ -4820,6 +4821,7 @@ pub fn run() {
             chat_ack,
             send_image,
             save_image::save_image,
+            open_link::open_link,
             chat_keep::chat_keep,
             chat_keep::chat_restore,
             log,

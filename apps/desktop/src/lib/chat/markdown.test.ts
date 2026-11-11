@@ -70,6 +70,29 @@ describe('塊に分ける', () => {
 });
 
 describe('字に分ける', () => {
+  it('むき出しの https:// も繋ぎにする（日本語・句読点・括弧は含めない）', () => {
+    // 11-11、発言の URL がただの字で、押せなかった
+    expect(字に分ける('見て https://example.com/a?b=1#c です')).toEqual([
+      { 種: '文', 文: '見て ' },
+      { 種: '繋', 文: 'https://example.com/a?b=1#c', 先: 'https://example.com/a?b=1#c' },
+      { 種: '文', 文: ' です' },
+    ]);
+    expect(字に分ける('先はhttps://example.com/pathです。')).toEqual([
+      { 種: '文', 文: '先は' },
+      { 種: '繋', 文: 'https://example.com/path', 先: 'https://example.com/path' },
+      { 種: '文', 文: 'です。' },
+    ]);
+    expect(字に分ける('（http://example.com/x.）')).toEqual([
+      { 種: '文', 文: '（' },
+      { 種: '繋', 文: 'http://example.com/x', 先: 'http://example.com/x' },
+      { 種: '文', 文: '.）' },
+    ]);
+    expect(字に分ける('`https://example.com` は符のまま')).toEqual([
+      { 種: '符', 文: 'https://example.com' },
+      { 種: '文', 文: ' は符のまま' },
+    ]);
+  });
+
   it('太字・符・繋ぎ', () => {
     expect(字に分ける('a **b** `c` [d](https://x.example)')).toEqual([
       { 種: '文', 文: 'a ' },
