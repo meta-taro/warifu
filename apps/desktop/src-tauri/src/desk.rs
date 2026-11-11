@@ -306,7 +306,7 @@ pub fn 開く(app: AppHandle) {
     版が上がったと告げる(&app);
     tauri::async_runtime::spawn(async move {
         let 場所 = この機械の場所();
-        let mut 待ち = match 受け口::開く(&場所).await {
+        let 待ち = match 受け口::開く(&場所).await {
             Ok(待ち) => {
                 記録!("この機械を開きました: {}", 場所.display());
                 待ち
@@ -316,19 +316,30 @@ pub fn 開く(app: AppHandle) {
                 return;
             }
         };
-        loop {
-            match 待ち.受ける().await {
-                Ok(一本) => {
-                    記録!("この機械に 1 人着きました");
-                    座らせる(app.clone(), 一本);
-                }
-                Err(e) => {
-                    記録!("この機械の口が壊れました: {e}");
-                    return;
-                }
-            }
-        }
+        let e = 受け続ける(待ち, move |一本| 座らせる(app.clone(), 一本)).await;
+        記録!("この機械の口が壊れました: {e}");
     });
+}
+
+/// **受け口が席を受けるたびに、別の task で面倒を見させる**（11-11）。
+///
+/// 1 台の PC で何席も同時に動く。**受け口は 1 席の用事を待たない** —— ある席が `pass_wait` で
+/// 60 秒待っていても、ほかの席の呼びはすぐ返る（`tests::席_a_が長く待っている間も_席_b_の呼びはすぐ返る`）。
+/// 返るのは、受け口が壊れたときだけ（その訳）。
+async fn 受け続ける<F, Fut>(mut 待ち: 受け口, 面倒を見る: F) -> std::io::Error
+where
+    F: Fn(Box<dyn warifu_desk::一本>) -> Fut,
+    Fut: std::future::Future<Output = ()> + Send + 'static,
+{
+    loop {
+        match 待ち.受ける().await {
+            Ok(一本) => {
+                記録!("この機械に 1 人着きました");
+                tauri::async_runtime::spawn(面倒を見る(Box::new(一本)));
+            }
+            Err(e) => return e,
+        }
+    }
 }
 
 /// **その口が `Listen` で名乗った聞き方。**古い口は知らない欄を断るので、名乗った口にだけ付ける。
@@ -349,8 +360,8 @@ struct 聞き方 {
 }
 
 /// この機械につながった 1 人の面倒を見る。
-fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
-    tauri::async_runtime::spawn(async move {
+async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
+    {
         let 自分 = 次の番号.fetch_add(1, Ordering::Relaxed);
         // **どこで動いているか。**`Listen` で名乗ってくるまでは分からない
         let mut 名乗り: Option<String> = None;
@@ -409,7 +420,7 @@ fn 座らせる(app: AppHandle, 一本: impl warifu_desk::一本) {
         // subscribe を落としてから数える。**落とす前だと自分を数えてしまう**
         drop(聞く);
         エージェントの数を伝える(&app);
-    });
+    }
 }
 
 /// この機械に何人つながっているかを、画面へ伝える。
@@ -2801,6 +2812,63 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
 
 #[cfg(test)]
 mod tests {
+    /// **1 台の PC で何席も同時に動く**（11-11）。席 A の長い用事（`pass_wait` は最長 60 秒）の間も、
+    /// 受け口は次の席を受け、席 B の呼びはすぐ返る。本物の受け口と `受け続ける` を使い、
+    /// 席の応じ方だけを偽物にする（本物の応じ方は、この機械の身元を開くので試験で立てられない）
+    #[tokio::test(flavor = "multi_thread")]
+    async fn 席_a_が長く待っている間も_席_b_の呼びはすぐ返る() {
+        use std::time::Duration;
+        use warifu_desk::{口, 受け口, 繋ぐ};
+        let 場所 = std::env::temp_dir().join(format!("wd-seats-{}.sock", std::process::id()));
+        let 待ち = 受け口::開く(&場所).await.expect("受け口が開くこと");
+        tokio::spawn(super::受け続ける(待ち, |一本| async move {
+            let mut 口 = 口::新しく(一本);
+            while let Ok(Some(行)) = 口.受ける().await {
+                if 行 == "待つ" {
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                }
+                if 口.送る(&format!("済 {行}")).await.is_err() {
+                    break;
+                }
+            }
+        }));
+        let mut 席a = 口::新しく(繋ぐ(&場所).await.expect("席 A が繋がること"));
+        席a.送る("待つ").await.unwrap();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut 席b = 口::新しく(繋ぐ(&場所).await.expect("席 B が繋がること"));
+        席b.送る("様子").await.unwrap();
+        let 返り = tokio::time::timeout(Duration::from_millis(1500), 席b.受ける())
+            .await
+            .expect("席 A の待ちに、席 B が巻き込まれた");
+        assert_eq!(返り.unwrap().as_deref(), Some("済 様子"));
+        // 席 A はまだ待っている（巻き込まれなかったのは、A が先に終わったからではない）
+        assert!(
+            tokio::time::timeout(Duration::from_millis(200), 席a.受ける())
+                .await
+                .is_err(),
+            "席 A の待ちが短すぎて、試験になっていない"
+        );
+    }
+
+    /// **`pass_wait` の待ちは、ほかの席の待ちを止めない**（11-11）。錠を握ったまま待たない
+    #[tokio::test(flavor = "multi_thread")]
+    async fn 札の待ちは_2_席同時でも_互いに待たされない() {
+        use std::time::{Duration, Instant};
+        let 空 = || super::控え(std::collections::BTreeMap::new());
+        let 始め = Instant::now();
+        let (a, b) = tokio::join!(
+            super::答えを待つ_控えは("chat.read", 1, 空),
+            super::答えを待つ_控えは("chat.send", 1, 空),
+        );
+        assert!(matches!(a, warifu_desk::頼みの返り::まだ));
+        assert!(matches!(b, warifu_desk::頼みの返り::まだ));
+        assert!(
+            始め.elapsed() < Duration::from_millis(1800),
+            "2 席の待ちが順番になっている（{:?}）",
+            始め.elapsed()
+        );
+    }
+
     #[test]
     fn 主催は線の無い相手を_まだ_とし_客は主催へ渡せたら主催ごしとする() {
         assert_eq!(渡し方を決める(true, true, false, false), 渡し方::渡した);
