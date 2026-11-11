@@ -1,7 +1,7 @@
 <!-- prettier-ignore-start -->
 # 改善要望シート雛形
 
-**使った人が書く**表です。検証シートとは逆で、
+**使った人が書く**表です。検証シート（`docs/test-specs/`）とは逆で、
 行を起こすのは人間で、AI ではありません。規約の正本は
 `.claude/rules/product-baseline.md` **§27**。
 
