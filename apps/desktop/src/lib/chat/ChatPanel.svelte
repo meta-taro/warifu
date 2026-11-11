@@ -48,7 +48,8 @@
      * 送る。**中身は呼ぶ側が持つ**（下書きもここでは持たない）。
      * `秘密を承知` は、秘密らしいものを人が確かめて［それでも送る］を押したとき真（0.1.42）
      */
-    送る: (body: string, 秘密を承知: boolean) => void;
+    /** 送る。**返信なら、返信先の行の印を添える**（11-11）。 */
+    送る: (body: string, 秘密を承知: boolean, 返信先?: string) => void;
     /**
      * **いま見ている部屋**（ルームの鍵、またはこの機械のルーム）。
      *
@@ -353,9 +354,34 @@
       }
     }
     秘密の確かめ = null;
-    送る(body, 秘密を承知);
+    if (返信する) 送る(body, 秘密を承知, 返信する.印);
+    else 送る(body, 秘密を承知);
     下書き = '';
     呼びかけ = null;
+    返信する = null;
+  }
+
+  /** **いま返信している発言**（11-11）。打つ欄の上に出し、送ったら、またはやめたら消す。 */
+  let 返信する = $state<{ 印: string; 名: string; 頭: string } | null>(null);
+  /** 本文の頭（1 行・短く）。添えと打つ欄の上に出す */
+  const 本文の頭 = (本文: string) => {
+    const 一行 = 本文.replace(/\s+/g, ' ').trim();
+    return 一行.length > 40 ? `${一行.slice(0, 40)}…` : 一行;
+  };
+  /** 行の差出人を、欄と同じ名で出す */
+  const 差出人の名 = (行: 会話行) =>
+    行.mine ? t('tile.me') : 見せる名(行の差出人名(行, 画面での名簿, t('contacts.noname')));
+  function 返信を始める(行: 会話行) {
+    if (!行.印) return;
+    返信する = { 印: 行.印, 名: 差出人の名(行), 頭: 本文の頭(行.body) };
+    打つ欄?.focus();
+  }
+  /** 返信の添えを押したら、元の発言まで動かす（見つからなければ何もしない） */
+  function 元の発言へ(印: string) {
+    const 先 = 欄?.querySelector<HTMLElement>(`[data-mark="${CSS.escape(印)}"]`);
+    先?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    先?.classList.add('flash');
+    setTimeout(() => 先?.classList.remove('flash'), 1200);
   }
 
   /** ［送らずに直す］。欄に残したまま、打つ欄へ戻す */
@@ -484,6 +510,7 @@
           class:to-me={宛て}
           class:tinted={色合い !== null}
           style={色合い !== null ? `--machine-hue: ${色合い}` : undefined}
+          data-mark={line.印}
         >
           <div class="head">
             {#if 差出人の顔(line)}<Avatar 種={差出人の顔(line) ?? ''} 大きさ={14} 名="" />{/if}
@@ -515,11 +542,29 @@
               aria-label={t('chat.copy')}
               onclick={() => 本文を写す(i, line.body)}
               ><Icon name="copy" size={12} /></button
-            >{#if 写した行 === i}<span class="copied" role="status">{t('chat.copied')}</span>{/if}
+            >{#if line.印}<button
+                type="button"
+                class="copy"
+                title={t('chat.reply')}
+                aria-label={t('chat.reply')}
+                onclick={() => 返信を始める(line)}><Icon name="reply" size={12} /></button
+              >{/if}{#if 写した行 === i}<span class="copied" role="status">{t('chat.copied')}</span>{/if}
           </div>
           <!-- **吹き出しと「もっと見る」を 1 つの塊に**（0.1.48）。押し所は吹き出しの右下に付ける
                （0.1.47 は欄の右端に寄せていて、左の吹き出しから遠く離れていた） -->
           <div class="body">
+          {#if line.返信先}
+            {@const 元 = 会話.find((l) => l.印 === line.返信先)}
+            <!-- **返信なら、元の発言を添える**（11-11）。番号ではなく、誰のどの発言かで見せる -->
+            {#if 元}<button
+                type="button"
+                class="quote"
+                title={t('chat.reply.jump')}
+                aria-label={`${t('chat.reply.jump')}: ${差出人の名(元)} ${本文の頭(元.body)}`}
+                onclick={() => line.返信先 && 元の発言へ(line.返信先)}
+                ><Icon name="reply" size={11} /><b>{差出人の名(元)}</b><span>{本文の頭(元.body)}</span></button
+              >{:else}<span class="quote gone">{t('chat.reply.gone')}</span>{/if}
+          {/if}
           <div class="bubble" class:folded={長い && !開いた.has(i)}><Markdown
               本文={呼んだ.length > 0 || 写した.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
@@ -643,6 +688,16 @@
         <button type="button" class="quiet" onclick={() => 出す(true)}>{t('chat.secret.send')}</button>
         <button type="button" onclick={直しに戻る}>{t('chat.secret.cancel')}</button>
       </div>
+    </div>
+  {/if}
+  {#if 返信する}
+    <!-- **いま返信している発言**（11-11）。×で、ふつうの発言に戻す -->
+    <div class="replying">
+      <Icon name="reply" size={12} /><span class="who">{format(t('chat.reply.to'), { name: 返信する.名 })}</span
+      ><span class="text" title={返信する.頭}>{返信する.頭}</span>
+      <button type="button" class="copy" aria-label={t('chat.reply.cancel')} title={t('chat.reply.cancel')} onclick={() => (返信する = null)}
+        ><Icon name="close" size={12} /></button
+      >
     </div>
   {/if}
   <div class="say">
@@ -1216,6 +1271,57 @@
   }
   .copied {
     font-size: var(--text-2xs-size);
+    color: var(--text-tertiary);
+  }
+  /* 返信の添え。吹き出しの上に小さく、元の発言の差出人と頭 */
+  .quote {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    margin-bottom: 2px;
+    padding: 1px 6px;
+    border: none;
+    border-left: 2px solid var(--border);
+    background: none;
+    color: var(--text-tertiary);
+    font-size: var(--text-2xs-size);
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .quote b {
+    font-weight: 600;
+    flex: none;
+  }
+  .quote span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .quote.gone {
+    cursor: default;
+  }
+  /* 添えを押して動いた先の行を、少しの間だけ目立たせる */
+  .line:global(.flash) .bubble {
+    outline: 2px solid var(--info-fg);
+  }
+  /* いま返信している発言（打つ欄の上） */
+  .replying {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    color: var(--text-secondary);
+    font-size: var(--text-xs-size);
+    border-left: 2px solid var(--info-fg);
+  }
+  .replying .text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--text-tertiary);
   }
   .at {

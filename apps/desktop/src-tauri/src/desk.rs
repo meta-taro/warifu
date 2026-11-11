@@ -1015,7 +1015,11 @@ async fn 応じる(
                 .await;
             Ok(())
         }
-        ToDesk::Say { body, room } => {
+        ToDesk::Say {
+            body,
+            room,
+            reply_to,
+        } => {
             // **部屋を指されたら、その部屋へ**（0.1.40・内部の Issue 026）。
             // 指されなければ画面が見ているルーム（今までどおり）
             let 部屋 = match room.as_deref() {
@@ -1041,6 +1045,14 @@ async fn 応じる(
                 }
                 None => None,
             };
+            // **返信先の番号を、この機械の行の印に直す**（11-11）。部屋を指していなければ、返信先の部屋へ
+            let (部屋, 返信先) = match 返信先を引く(reply_to, 部屋) {
+                Ok(組) => 組,
+                Err(why) => {
+                    let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                    return Ok(());
+                }
+            };
             // **`@名前` の相手が流す部屋に居なければ、流さずに断る**（11-11）。
             // 相手の居ない部屋へ返事を流し、届かないうえに関係の無い席へ流れていた
             if let Some(why) = 呼んだ相手が居ないか(app, &body, 部屋).await {
@@ -1049,7 +1061,7 @@ async fn 応じる(
                 return Ok(());
             }
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
-            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋).await
+            let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋, 返信先).await
             {
                 Ok((id, 届いた, 流した先)) => FromDesk::Sent {
                     to: 届いた.len(),
@@ -1070,6 +1082,30 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+    }
+}
+
+/// **返信先の番号（この機械の `chat_read` の番号）を、行の部屋と印に直す**（11-11）。
+///
+/// 部屋を指していなければ返信先の部屋へ流す。指した部屋と返信先の部屋が違えば断る。
+fn 返信先を引く(
+    番号: Option<u64>,
+    部屋: Option<MeetingId>,
+) -> Result<(Option<MeetingId>, Option<crate::reply::印>), String> {
+    let Some(番号) = 番号 else {
+        return Ok((部屋, None));
+    };
+    let Some((行の部屋, 印)) = crate::reply::棚で(|棚| 棚.番号の行(番号)) else {
+        return Err(format!(
+            "#{番号} の発言はこの機械に残っていないので、返信にできません（reply_to を外せば、ふつうの発言として流せます）"
+        ));
+    };
+    match 部屋 {
+        Some(m) if m != 行の部屋 => Err(format!(
+            "#{番号} は部屋 {} の発言です。room を外すか、その部屋を書いて送り直してください",
+            crate::短く(&行の部屋.to_string())
+        )),
+        _ => Ok((Some(行の部屋), Some(印))),
     }
 }
 
@@ -1219,6 +1255,7 @@ pub(crate) async fn 流す(
     出所: u64,
     呼び方: String,
     部屋: Option<MeetingId>,
+    返信先: Option<crate::reply::印>,
 ) -> Result<(u64, Vec<String>, Option<MeetingId>), String> {
     // **秘密らしいものは流さない**（0.1.42）。口（`chat_send`）でも止めるが、
     // 口を通らないエージェント（`warifu agent` の返事など）もここを通るので、ここでも止める
@@ -1246,20 +1283,54 @@ pub(crate) async fn 流す(
     // **先に人の画面へ出す。**会議が無くても、この PC の人には見える。
     // **どの部屋へかも渡す**（0.1.40）。渡さないと画面はその瞬間に見ているルームへ積む
     let 部屋の札 = 流す先.map(|m| m.to_string()).unwrap_or_default();
+    // **行の印と返信先も画面へ渡す**（11-11）。画面はこの行への返信を結び、返信なら元の行を添える
+    let 行の印 = 流す先.and_then(|m| {
+        warifu_meeting::Notice::Text {
+            meeting: m,
+            from: 自分,
+            話し手: Some(名札.clone()),
+            body: body.to_owned(),
+        }
+        .文字の印()
+    });
     let _ = app.emit(
         EVENT_DESK,
-        (名札.clone(), body.to_owned(), いま時刻(), 部屋の札.clone()),
+        (
+            名札.clone(),
+            body.to_owned(),
+            いま時刻(),
+            部屋の札.clone(),
+            行の印.map(|印| crate::ack::印を字に(&印)),
+            返信先.map(|印| crate::ack::印を字に(&印)),
+        ),
     );
     // **同じエージェントの AI が喋ったことにも気づけるようにする。**
     // 窓が前に居るときは鳴らないので、うるさくならない
     crate::notify::届いたと知らせる(app, &名札);
     // **通し番号を振る。**あとで「誰が読んだか」を尋ねられるようにする（**D76**）
     let id = 番号を振る();
+    if let (Some(m), Some(印)) = (流す先, 行の印) {
+        crate::reply::棚で(|棚| {
+            棚.番号を控える(id, m, 印);
+            if let Some(先) = 返信先
+                && 先 != 印
+            {
+                棚.返信を控える(m, 印, 先);
+            }
+        });
+    }
+    // 他のエージェントへは、返信先をこの機械の番号で本文の頭に書く（11-11）
+    let 机へ = match (返信先, 流す先) {
+        (Some(先), Some(m)) => {
+            crate::reply::頭に書く(body, crate::reply::棚で(|棚| 棚.印の番号(m, &先)))
+        }
+        _ => body.to_owned(),
+    };
     // この機械につながっている**他の**エージェントにも同じ行を見せる（言った本人には返さない）
     let 行 = FromDesk::Heard {
         id,
         from: 名札.clone(),
-        body: body.to_owned(),
+        body: 机へ,
         at: 日付つき時刻(),
         room: 流す先.map(|m| m.to_string()),
         任された: false,
@@ -1303,6 +1374,13 @@ pub(crate) async fn 流す(
         話し手: Some(名札.clone()),
         body: body.to_owned(),
     };
+    // **返信の印を、発言より先に送る**（11-11）。同じ線なので、受け手には印が先に着く
+    if let (Some(先), Some(行)) = (返信先, 行の印)
+        && 先 != 行
+    {
+        let 線たち: Vec<_> = 面々.iter().filter_map(|(_, 線)| 線.clone()).collect();
+        crate::reply::送る(&線たち, meeting, 自分, 行, 先).await;
+    }
     let 渡せたか = 皆へ渡す(面々, &文字, 線を待てる).await;
     let 部屋の主催 = bridge.主催たち.lock().await.get(&meeting).copied();
     let 主催だ = crate::roster_sync::主催か(部屋の主催.as_ref(), &自分);

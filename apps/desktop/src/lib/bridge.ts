@@ -281,8 +281,13 @@ export const leave = () => invoke<void>('leave');
 /** `force` は、秘密らしいものを人が確かめて［それでも送る］を押したとき（0.1.42）。無ければ本体も止める */
 /** 返りは送った行の印（D130）。ルームへ流さなかったときは `null`。 */
 /** `room` は**画面が出しているルーム**（0.1.44）。渡せば本体はそこへ送る。本体の見ている部屋とずれていても */
-export const sendText = (body: string, to?: string | null, force = false, room: string | null = null) =>
-  invoke<string | null>('send_text', { body, to: to ?? null, force, room });
+export const sendText = (
+  body: string,
+  to?: string | null,
+  force = false,
+  room: string | null = null,
+  replyTo: string | null = null,
+) => invoke<string | null>('send_text', { body, to: to ?? null, force, room, replyTo });
 
 /** **呼ばれた行に［受けました］を返す**（D130・0.1.44）。 */
 export const chatAck = (room: string, line: string) => invoke<void>('chat_ack', { room, line });

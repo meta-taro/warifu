@@ -51,6 +51,37 @@ describe('ChatPanel', () => {
     expect(await screen.findByText(ja['chat.copied'])).toBeTruthy();
   });
 
+  it('返信の行には、元の発言の名前と頭を添える（番号ではなく、どの発言か分かる）', () => {
+    // 11-11、エージェントが「#999」と書いて返していて、人にはどの発言のことか分からなかった
+    render(ChatPanel, {
+      ...素,
+      会話: [
+        { who: '山田さん', body: '見積を確かめてください', mine: false, 印: 'a'.repeat(64) },
+        { who: '佐藤さん', body: '確かめました', mine: false, 印: 'b'.repeat(64), 返信先: 'a'.repeat(64) },
+        { who: '佐藤さん', body: '前のは', mine: false, 印: 'c'.repeat(64), 返信先: 'd'.repeat(64) },
+      ],
+    });
+    const 添え = screen.getAllByRole('button', { name: new RegExp(ja['chat.reply.jump']) });
+    expect(添え[0].textContent).toContain('山田さん');
+    expect(添え[0].textContent).toContain('見積を確かめてください');
+    expect(screen.getByText(ja['chat.reply.gone'])).toBeTruthy();
+  });
+
+  it('［返信］を押して送ると、その発言の印を返信先として渡し、送ったら返信をやめる', async () => {
+    const 送った: [string, boolean, string | undefined][] = [];
+    render(ChatPanel, {
+      ...素,
+      送る: (b: string, 承知: boolean, 先?: string) => 送った.push([b, 承知, 先]),
+      会話: [{ who: '山田さん', body: '見積を確かめてください', mine: false, 印: 'a'.repeat(64) }],
+    });
+    await fireEvent.click(screen.getByRole('button', { name: ja['chat.reply'] }));
+    expect(screen.getByText(/見積を確かめてください/, { selector: '.replying *' })).toBeTruthy();
+    await 打つ('確かめました');
+    await fireEvent.keyDown(打つ欄(), { key: 'Enter' });
+    expect(送った).toEqual([['確かめました', false, 'a'.repeat(64)]]);
+    expect(document.querySelector('.replying')).toBeNull();
+  });
+
   it('見出しは「文字で話す」ではなく、宛先を名乗る', () => {
     render(ChatPanel, { ...素, 宛先: { 鍵: 'chat.to.room', 値: { name: '開発', n: 3 } } });
     expect(screen.getByRole('heading').textContent).toContain('開発（3 人）へ');

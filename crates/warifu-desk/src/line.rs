@@ -25,6 +25,12 @@ pub enum ToDesk {
         /// **古い机は知らない欄を断る**ので、指さないときは欄そのものを書かない。
         #[serde(default, skip_serializing_if = "Option::is_none")]
         room: Option<String>,
+        /// **どの発言への返信か**（11-11）。その機械の `chat_read` の番号（`Heard` の `id`）。
+        ///
+        /// 番号は機械ごとに振るので、線には載せない。この機械が、その番号の行の印に直して送る。
+        /// 古い机は知らない欄を断るので、指さないときは欄そのものを書かない。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reply_to: Option<u64>,
     },
     /// **ルームキーを出す**（**#32 の段 2**・2026-09-21）。
     ///
@@ -986,7 +992,30 @@ impl ToDesk {
         if let Some(r) = &room {
             部屋を検める(r)?;
         }
-        Ok(Self::Say { body, room })
+        Ok(Self::Say {
+            body,
+            room,
+            reply_to: None,
+        })
+    }
+
+    /// [`ToDesk::say_in`] に、**どの発言への返信か**を添える（11-11）。
+    ///
+    /// # Errors
+    /// [`ToDesk::say_in`] と同じ。
+    pub fn say_reply(
+        body: impl Into<String>,
+        room: Option<String>,
+        reply_to: Option<u64>,
+    ) -> Result<Self, Error> {
+        let Self::Say { body, room, .. } = Self::say_in(body, room)? else {
+            unreachable!("say_in は Say を返す");
+        };
+        Ok(Self::Say {
+            body,
+            room,
+            reply_to,
+        })
     }
 
     /// 1 行の JSON を読む。
@@ -995,7 +1024,7 @@ impl ToDesk {
     pub fn 読む(行: &str) -> Result<Self, Error> {
         let 中身: Self = serde_json::from_str(行.trim()).map_err(|_| Error::Malformed)?;
         match &中身 {
-            Self::Say { body, room } => {
+            Self::Say { body, room, .. } => {
                 検める(body)?;
                 if let Some(r) = room {
                     部屋を検める(r)?;
@@ -1447,6 +1476,20 @@ mod tests {
             panic!("say のはず");
         };
         assert_eq!(body, "1 行目\n2 行目");
+    }
+
+    #[test]
+    fn 返信の番号は_指したときだけ書き_読み戻せる() {
+        // 古い机は知らない欄を断るので、指さない発言の行は前の版と同じ形のまま
+        let 行 = ToDesk::say_in("はい", None).unwrap().書く();
+        assert!(!行.contains("reply_to"), "{行}");
+        let 行 = ToDesk::say_reply("確かめました", None, Some(2127))
+            .unwrap()
+            .書く();
+        let ToDesk::Say { reply_to, .. } = ToDesk::読む(&行).unwrap() else {
+            panic!("say のはず");
+        };
+        assert_eq!(reply_to, Some(2127));
     }
 
     #[test]

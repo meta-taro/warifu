@@ -487,6 +487,11 @@ export type MessageKey =
   | 'chat.personAt'
   | 'chat.copy'
   | 'chat.copied'
+  | 'chat.reply'
+  | 'chat.reply.to'
+  | 'chat.reply.cancel'
+  | 'chat.reply.gone'
+  | 'chat.reply.jump'
   | 'roster.name.save'
   | 'roster.name.placeholder'
   | 'meeting.status.waiting'
@@ -605,6 +610,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.personAt': '{name} の中の人',
     'chat.copy': '本文をコピー',
     'chat.copied': 'コピーしました',
+    'chat.reply': '返信',
+    'chat.reply.to': '{name} への返信',
+    'chat.reply.cancel': '返信をやめる',
+    'chat.reply.gone': '前の発言への返信（この画面には残っていません）',
+    'chat.reply.jump': '元の発言へ移る',
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
@@ -1128,6 +1138,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.personAt': 'Person at {name}',
     'chat.copy': 'Copy text',
     'chat.copied': 'Copied',
+    'chat.reply': 'Reply',
+    'chat.reply.to': 'Replying to {name}',
+    'chat.reply.cancel': 'Cancel reply',
+    'chat.reply.gone': 'Reply to an earlier message (no longer on this screen)',
+    'chat.reply.jump': 'Go to the original message',
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
@@ -1651,6 +1666,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.personAt': '{name} 的使用者',
     'chat.copy': '复制正文',
     'chat.copied': '已复制',
+    'chat.reply': '回复',
+    'chat.reply.to': '回复 {name}',
+    'chat.reply.cancel': '取消回复',
+    'chat.reply.gone': '回复较早的消息（此画面中已不存在）',
+    'chat.reply.jump': '跳到原消息',
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
@@ -2171,6 +2191,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.personAt': '{name}의 사용자',
     'chat.copy': '본문 복사',
     'chat.copied': '복사했습니다',
+    'chat.reply': '답장',
+    'chat.reply.to': '{name}에게 답장',
+    'chat.reply.cancel': '답장 취소',
+    'chat.reply.gone': '이전 메시지에 대한 답장(이 화면에는 남아 있지 않음)',
+    'chat.reply.jump': '원래 메시지로 이동',
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',
@@ -2802,6 +2827,16 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言の本文だけをクリップボードへ写す。',
   'chat.copied':
     '［コピー］を押したあと、少しの間だけ出る知らせ。',
+  'chat.reply':
+    '発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言への返信を書き始める。',
+  'chat.reply.to':
+    '打つ欄の上に出る「いま誰の発言に返信しているか」。{name} は元の発言の差出人。',
+  'chat.reply.cancel':
+    '返信をやめて、ふつうの発言に戻すボタンの名前。',
+  'chat.reply.gone':
+    '返信の吹き出しの上に出す。元の発言が古くて、この画面にはもう無いとき。',
+  'chat.reply.jump':
+    '返信の吹き出しの上の「元の発言」の添えに重ねた説明。押すと元の発言まで動く。',
   'chat.personAt':
     '名前を書いていない人の呼び方。{name} はその人が使っている機械の名前（Mac mini・PC の名前など）。「その機械を使っている人」と読める訳にする。',
 };

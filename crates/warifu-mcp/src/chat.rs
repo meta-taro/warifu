@@ -297,7 +297,7 @@ impl Chat {
     /// **返事を待つ。**待たずに「流しました」と返すのは、
     /// 押しても何も起きないボタンと同じである（**D49**）。
     pub async fn 言う(&self, body: &str) -> Result<(usize, u64, Vec<String>), crate::ToolError> {
-        let 流した = self.部屋へ言う(body, None).await?;
+        let 流した = self.部屋へ言う(body, None, None).await?;
         Ok((流した.人数, 流した.id, 流した.届いた))
     }
 
@@ -313,6 +313,7 @@ impl Chat {
         &self,
         body: &str,
         部屋: Option<&str>,
+        返信先: Option<u64>,
     ) -> Result<流した, crate::ToolError> {
         let 最後 = self
             .最後に聞いた部屋
@@ -327,7 +328,10 @@ impl Chat {
             .map(|s| s.trim().trim_end_matches('…'))
             .filter(|s| !s.is_empty());
         // 最後に届いた発言の部屋を覚えていないなら、机が「見ている部屋」へ流す（別の部屋へ黙って行かない）
-        let 部屋 = if 指した.is_none() && 使える && 最後.is_some() {
+        // **返信なら、部屋を指さなくても返信先の部屋へ流れる**（11-11・机が返信先の行の部屋を引く）
+        let 部屋 = if 指した.is_none() && 返信先.is_some() {
+            None
+        } else if 指した.is_none() && 使える && 最後.is_some() {
             match self.部屋たち().await {
                 Ok(並び) => {
                     指さない送り先(&並び, 最後.as_deref()).map_err(crate::ToolError::BadArgs)?
@@ -338,8 +342,8 @@ impl Chat {
         } else {
             流す部屋(指した, 最後.as_deref(), 使える)
         };
-        let 行 =
-            ToDesk::say_in(body, 部屋).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        let 行 = ToDesk::say_reply(body, 部屋, 返信先)
+            .map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
         *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
             返す,

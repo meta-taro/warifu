@@ -29,6 +29,8 @@ const IMAGE: &str = "meeting.image";
 const PRESENCE: &str = "meeting.presence";
 /// **メンションされた行を受けた**（D130・0.1.44）。
 const ACK: &str = "meeting.ack";
+/// **返信の印**（11-11）。どの行が、どの行への返信か。
+const REPLY: &str = "meeting.reply";
 /// 居場所の文書の名前と場所の、それぞれの長さの上限（バイト）。**受け取る側でも数える**（D15）。
 ///
 /// 文書の名前は `<remote>#<相対パス>`、場所は小さな JSON（行・列・ブランチ）で、どちらも数百バイトに収まる。
@@ -329,6 +331,22 @@ pub enum Notice {
         /// どう受けたか。
         方: 受け方,
     },
+    /// **返信の印**（11-11）。`行` は `先` への返信である。
+    ///
+    /// 発言の番号は機械ごとに振るので、`#1234` と書いても別の機械では別の行を指す。
+    /// 指すのは行の印（[`Notice::文字の印`]）だけで、本文は運ばない。
+    /// **返信の発言そのものより先に送る**（受け手は控えておき、発言が届いたら結ぶ）。
+    /// 発言の形は変えないので、古い版は知らない知らせとして読み飛ばすだけで、発言は読める。
+    返信 {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰が返信したか（主催ごしの確かめに使う）。行の印に札まで入っているので、札は運ばない。
+        from: PublicKey,
+        /// 返信の行の印。
+        行: [u8; 32],
+        /// 返信先の行の印。
+        先: [u8; 32],
+    },
 }
 
 /// **どう受けたか**（[`Notice::受けた`]）。
@@ -379,7 +397,8 @@ impl Notice {
             | Self::RoomName { meeting, .. }
             | Self::Since { meeting, .. }
             | Self::Presence { meeting, .. }
-            | Self::受けた { meeting, .. } => *meeting,
+            | Self::受けた { meeting, .. }
+            | Self::返信 { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -473,6 +492,17 @@ impl Notice {
                 方,
                 ..
             } => (ACK, 受けたを詰める(from, 話し手.as_deref(), 行, *方)?),
+            Self::返信 { from, 行, 先, .. } => {
+                // 自分自身への返信は、どの画面でも結べない（輪になる）
+                if 行 == 先 {
+                    return Err(Error::Malformed);
+                }
+                let mut 荷物 = Vec::with_capacity(96);
+                荷物.extend_from_slice(&from.to_bytes());
+                荷物.extend_from_slice(行);
+                荷物.extend_from_slice(先);
+                (REPLY, 荷物)
+            }
             Self::Key { from, 鍵, .. } => {
                 鍵を検める(鍵)?;
                 let mut 荷物 = Vec::with_capacity(32 + 鍵.len());
@@ -592,6 +622,7 @@ impl Notice {
             IMAGE => 画像を読む(meeting, 荷物),
             PRESENCE => 居場所を読む(meeting, 荷物),
             ACK => 受けたを読む(meeting, 荷物),
+            REPLY => 返信を読む(meeting, 荷物),
             KEY => {
                 // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
                 let 頭: [u8; 32] = 荷物
@@ -909,5 +940,26 @@ fn 受けたを読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error
         話し手,
         行,
         方: 受け方::数から(荷物[札の終わり + 32])?,
+    })
+}
+
+/// `[差出人 32][行の印 32][返信先の印 32]` を読む。**長さがちょうどでなければ受けない。**
+fn 返信を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    if 荷物.len() != 96 {
+        return Err(Error::Malformed);
+    }
+    let 切る = |i: usize| -> Result<[u8; 32], Error> {
+        荷物[i..i + 32].try_into().map_err(|_| Error::Malformed)
+    };
+    let from = PublicKey::from_bytes(切る(0)?).map_err(|_| Error::Malformed)?;
+    let (行, 先) = (切る(32)?, 切る(64)?);
+    if 行 == 先 {
+        return Err(Error::Malformed);
+    }
+    Ok(Notice::返信 {
+        meeting,
+        from,
+        行,
+        先,
     })
 }

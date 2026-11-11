@@ -417,6 +417,7 @@ fn 声の札があっても_ほかの口は開かない() {
             warifu_mcp::SayArgs {
                 body: "やあ".to_owned(),
                 room: None,
+                reply_to: None,
             },
         )));
     let 文 = format!("{:?}", 出た.expect_err("chat.send の札が無い"));
@@ -542,6 +543,7 @@ async fn 札が無ければ_会話へ流せない() {
             warifu_mcp::SayArgs {
                 body: "流れてはいけない".to_owned(),
                 room: None,
+                reply_to: None,
             },
         ))
         .await;
@@ -600,6 +602,7 @@ async fn 札があっても_この機械が無ければ流せない() {
             warifu_mcp::SayArgs {
                 body: "やあ".to_owned(),
                 room: None,
+                reply_to: None,
             },
         ))
         .await;
@@ -682,6 +685,7 @@ async fn この機械につなげば_流した行がこの機械に届く() {
             warifu_mcp::SayArgs {
                 body: "直しました".to_owned(),
                 room: None,
+                reply_to: None,
             },
         ))
         .await
@@ -695,6 +699,7 @@ async fn この機械につなげば_流した行がこの機械に届く() {
         ToDesk::Say {
             body: "直しました".to_owned(),
             room: None,
+            reply_to: None,
         }
     );
 }
@@ -715,6 +720,7 @@ async fn 画面が後から開いても_会話は使える() {
             warifu_mcp::SayArgs {
                 body: "まだ誰も居ない".to_owned(),
                 room: None,
+                reply_to: None,
             },
         ))
         .await;
@@ -745,6 +751,7 @@ async fn 画面が後から開いても_会話は使える() {
         warifu_mcp::SayArgs {
             body: "いま繋がりました".to_owned(),
             room: None,
+            reply_to: None,
         },
     ))
     .await
@@ -755,6 +762,7 @@ async fn 画面が後から開いても_会話は使える() {
         ToDesk::Say {
             body: "いま繋がりました".to_owned(),
             room: None,
+            reply_to: None,
         }
     );
 }
@@ -770,6 +778,7 @@ async fn 秘密らしいものは_札があっても会話へ流さない() {
             warifu_mcp::SayArgs {
                 body: format!("IROH_RELAY_ACCESS_TOKEN={値}"),
                 room: None,
+                reply_to: None,
             },
         ))
         .await;
@@ -792,6 +801,7 @@ async fn 長すぎる本文は_この機械へ運ばず長すぎると言う() {
             warifu_mcp::SayArgs {
                 body: "あ".repeat(1733),
                 room: None,
+                reply_to: None,
             },
         ))
         .await;
@@ -825,6 +835,7 @@ async fn 誰も居ないとき_流せたことにしない() {
             warifu_mcp::SayArgs {
                 body: "誰も居ない所へ".to_owned(),
                 room: None,
+                reply_to: None,
             },
         ))
         .await;

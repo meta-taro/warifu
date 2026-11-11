@@ -115,6 +115,7 @@ mod postbox;
 mod presence;
 mod profile;
 mod recent_keep;
+mod reply;
 mod room_name;
 #[cfg(test)]
 mod room_sim;
@@ -2807,9 +2808,17 @@ fn 汲む(
                         // その瞬間に見ているルームへ積み、**別のルームの発言が混ざっていた**
                         // **行の印も渡す**（D130・0.1.44）。呼ばれた行に［受けました］を出すとき、どの行かを指す
                         let 印 = notice.文字の印().unwrap_or_default();
+                        // **返信なら、返信先の印も画面へ渡す**（11-11）。返信の印は発言より先に届いて控えてある
+                        let 返信先 = reply::棚で(|棚| 棚.返信先(*meeting, &印));
                         let _ = app.emit(
                             EVENT_TEXT,
-                            (名.clone(), body.clone(), meeting.to_string(), ack::印を字に(&印)),
+                            (
+                                名.clone(),
+                                body.clone(),
+                                meeting.to_string(),
+                                ack::印を字に(&印),
+                                返信先.map(|先| ack::印を字に(&先)),
+                            ),
                         );
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す。
                         // **`@` で呼ばれていたら、間を空けずに鳴らす**（0.1.35）
@@ -2829,10 +2838,20 @@ fn 汲む(
                         if 任された {
                             記録!("任せる相手: {} の発言を、任されたとしてエージェントへ渡します", 短く(&key_to_string(*from)));
                         }
-                        let 聞いた = desk::聞いた_任されて(&名, body, Some(meeting.to_string()), 任された);
+                        // **エージェントへは、返信先をこの機械の番号で本文の頭に書く**（11-11）
+                        let 渡す本文 = match 返信先 {
+                            Some(先) => reply::頭に書く(
+                                body,
+                                reply::棚で(|棚| 棚.印の番号(*meeting, &先)),
+                            ),
+                            None => body.clone(),
+                        };
+                        let 聞いた = desk::聞いた_任されて(&名, &渡す本文, Some(meeting.to_string()), 任された);
                         // **呼んでいる行は控える**（D130）。この機械のエージェントが読んだら受けたを返す
                         if let warifu_desk::FromDesk::Heard { id, .. } = &聞いた {
                             ack::控える(*id, *meeting, 印, body);
+                            // **番号と行の印を結ぶ**（11-11）。エージェントが reply_to にこの番号を書く
+                            reply::棚で(|棚| 棚.番号を控える(*id, *meeting, 印));
                         }
                         desk::配る(&app.state::<Bridge>(), 聞いた);
                         // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
@@ -2921,6 +2940,20 @@ fn 汲む(
                         }
                         let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
                         ack::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
+                    // **返信の印**（11-11）。**名簿は動かさない。**差出人の確かめは文字と同じ。主催なら面々へ配る
+                    if let Notice::返信 { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 返信の印の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        reply::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
                     // **鍵の手渡し**（2026-10-20）。**名簿は動かさない。入るかは人が決める**
@@ -3997,7 +4030,10 @@ async fn send_text(
     to: Option<String>,
     force: Option<bool>,
     room: Option<String>,
+    reply_to: Option<String>,
 ) -> Answer<Option<String>> {
+    // **返信先**（11-11）。行の印の字。読めなければ返信にせず、ふつうの発言として送る
+    let 返信先 = reply_to.as_deref().and_then(ack::字を印に);
     // **秘密らしいものは、人が確かめてから送る**（0.1.42）。会話は送ったら消せない（P2P）。
     // 画面が先に見て［それでも送る］を出すが、ここでも見る（画面の見落としで素通りさせない）。
     // 種類だけを返す。値は返さない
@@ -4031,11 +4067,20 @@ async fn send_text(
             いま見ているルーム(&bridge.いまのルーム).await,
         )?
     };
+    // この機械のエージェントへは、返信先をこの機械の番号で本文の頭に書く（11-11）
+    let 机へ = match (返信先, 見ている) {
+        (Some(先), Some(m)) => reply::頭に書く(&body, reply::棚で(|棚| 棚.印の番号(m, &先))),
+        _ => body.clone(),
+    };
     let 話 = desk::聞いた_部屋で(
         &key_to_string(bridge.device.public_key()),
-        &body,
+        &机へ,
         見ている.map(|m| m.to_string()),
     );
+    let 話の番号 = match &話 {
+        warifu_desk::FromDesk::Heard { id, .. } => *id,
+        _ => 0,
+    };
 
     // **宛先が決まっていれば、そのエージェントにだけ渡して終わる。**
     // 3 つも 4 つもこの機械につながっていると、1 人だけに聞きたくても全員に飛ぶ ——
@@ -4113,6 +4158,17 @@ async fn send_text(
         話し手: None,
         body: body.clone(),
     };
+    let 行の印 = 文.文字の印();
+    if let Some(印) = 行の印 {
+        reply::棚で(|棚| 棚.番号を控える(話の番号, meeting, 印));
+    }
+    // **返信の印を、発言より先に送る**（11-11）。受け手は控えておき、発言が届いたら結ぶ
+    if let (Some(先), Some(行)) = (返信先, 行の印)
+        && 先 != 行
+    {
+        reply::棚で(|棚| 棚.返信を控える(meeting, 行, 先));
+        reply::送る(&送り先, meeting, bridge.device.public_key(), 行, 先).await;
+    }
     for tx in &送り先 {
         // 届かない相手が居ても止めない。**送る側を待たせない**
         let _ = tx.send(文.clone()).await;

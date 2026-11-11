@@ -80,6 +80,11 @@ chat.placeholder.desk	Talk to an agent on this computer (Shift+Enter for a new l
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				
 chat.reach	Goes to {who}	届く先 {who}	送达 {who}	가는 곳 {who}				
 chat.reach.none	It goes nowhere yet. Someone coming into the room, or an agent on this computer, shows up here.	届く先はまだありません。ルームに人が入るか、この PC のエージェントがつながると出ます。	目前送不到任何人。有人进入房间，或这台电脑的代理到位后，就会显示在这里。	아직 갈 곳이 없습니다. 방에 사람이 들어오거나 이 PC 의 에이전트가 자리에 앉으면 여기에 나옵니다.				
+chat.reply	Reply	返信	回复	답장		発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言への返信を書き始める。		
+chat.reply.cancel	Cancel reply	返信をやめる	取消回复	답장 취소		返信をやめて、ふつうの発言に戻すボタンの名前。		
+chat.reply.gone	Reply to an earlier message (no longer on this screen)	前の発言への返信（この画面には残っていません）	回复较早的消息（此画面中已不存在）	이전 메시지에 대한 답장(이 화면에는 남아 있지 않음)		返信の吹き出しの上に出す。元の発言が古くて、この画面にはもう無いとき。		
+chat.reply.jump	Go to the original message	元の発言へ移る	跳到原消息	원래 메시지로 이동		返信の吹き出しの上の「元の発言」の添えに重ねた説明。押すと元の発言まで動く。		
+chat.reply.to	Replying to {name}	{name} への返信	回复 {name}	{name}에게 답장		打つ欄の上に出る「いま誰の発言に返信しているか」。{name} は元の発言の差出人。		
 chat.secret.cancel	Edit instead	送らずに直す	不发送，去修改	보내지 않고 고치기				
 chat.secret.found	This looks like it contains a secret ({what}). Once sent, it cannot be taken back	秘密らしいもの（{what}）が入っています。送ると取り消せません	似乎包含机密信息（{what}）。发送后无法撤回	비밀로 보이는 내용（{what}）이 들어 있습니다. 보내면 취소할 수 없습니다	★	**警告である。**送った発言は取り消せない（届いた各機械に写しが残る）ことが伝わる訳にすること。「送れません」「エラー」と読める訳にしないこと。人は確かめたうえで送ることができる。		
 chat.secret.hint	Every device that receives a warifu message keeps a copy. Remove that part before sending, or send only after checking it.	割符の会話は、届いた各機械に写しが残ります。その部分を消してから送るか、確かめたうえで送ってください。	warifu 的消息会在每台收到的设备上留下副本。请删除该部分后再发送，或确认无误后再发送。	warifu 대화는 받은 각 기기에 사본이 남습니다. 그 부분을 지우고 보내거나, 확인한 뒤 보내 주세요.				
