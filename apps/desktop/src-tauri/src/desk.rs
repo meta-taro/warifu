@@ -1041,6 +1041,13 @@ async fn 応じる(
                 }
                 None => None,
             };
+            // **`@名前` の相手が流す部屋に居なければ、流さずに断る**（11-11）。
+            // 相手の居ない部屋へ返事を流し、届かないうえに関係の無い席へ流れていた
+            if let Some(why) = 呼んだ相手が居ないか(app, &body, 部屋).await {
+                記録!("この機械からの発言を流しませんでした: {why}");
+                let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                return Ok(());
+            }
             // **必ず返事をする。**返さないと、言った側は待ち続ける（**D49**）
             let 返事 = match 流す(app, &body, 自分, 呼び方(名乗り.as_deref()), 部屋).await
             {
@@ -1064,6 +1071,46 @@ async fn 応じる(
             Ok(())
         }
     }
+}
+
+/// **呼んだ相手が、流す部屋に居ないか**（11-11・`mention_room`）。居ない・分かるときだけ断る文を返す。
+async fn 呼んだ相手が居ないか(
+    app: &AppHandle,
+    本文: &str,
+    部屋: Option<MeetingId>,
+) -> Option<String> {
+    let bridge = app.state::<Bridge>();
+    let 部屋 = match 部屋 {
+        Some(m) => m,
+        None => crate::いま見ているルーム(&bridge.いまのルーム).await?,
+    };
+    let 名と頭: Vec<(String, String)> = 直近の発言
+        .lock()
+        .ok()?
+        .iter()
+        .filter_map(|(_, 一つ)| match 一つ {
+            FromDesk::Heard { from, .. } => crate::mention_room::席の名札を分ける(from)
+                .map(|(頭, 札)| (札.to_owned(), 頭.to_owned())),
+            _ => None,
+        })
+        .collect();
+    if 名と頭.is_empty() {
+        return None;
+    }
+    let 面々: Vec<crate::mention_room::部屋の面々> = bridge
+        .conferences
+        .lock()
+        .await
+        .iter()
+        .map(|(id, c)| {
+            (
+                id.to_string(),
+                c.members().iter().map(|k| crate::key_to_string(*k)).collect(),
+            )
+        })
+        .collect();
+    let この機械 = crate::key_to_string(bridge.device.public_key());
+    crate::mention_room::居ない宛て先(本文, &名と頭, &面々, &部屋.to_string(), &この機械)
 }
 
 /// **どの部屋か**を決める。指されたらその部屋（id の全文か頭）、指されなければ画面が見ているルーム。

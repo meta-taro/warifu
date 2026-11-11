@@ -88,6 +88,10 @@ pub struct 知らせ {
     pub 宛て: usize,
     /// **この PC の人が任せた相手から、直接の線で届いた発言の数**（0.1.44・D5 の例外）
     pub 任された: usize,
+    /// **発言が届いた部屋**（id の頭・届いた順・重ねない）。部屋の分からない古い机なら空（11-11）。
+    ///
+    /// 知らせに部屋が無く、返事の宛先を直前に使った部屋から推して、相手の居ない部屋へ送っていた
+    pub 部屋: Vec<String>,
 }
 
 /// **この席をいつ起こすか**（0.1.43・内部の Issue 030 の 2）。`warifu mcp --wake` で席ごとに選ぶ。
@@ -230,6 +234,15 @@ pub fn 宛ても見て知らせを組む(
         return None;
     }
 
+    let mut 部屋: Vec<String> = Vec::new();
+    for 一つ in 新しい {
+        if let FromDesk::Heard { room: Some(r), .. } = 一つ {
+            let 頭 = crate::chat::部屋の頭(r);
+            if !部屋.contains(&頭) {
+                部屋.push(頭);
+            }
+        }
+    }
     let 件数 = 発言.len();
     let 最新 = 発言.iter().map(|(id, _)| *id).filter(|id| *id > 0).max();
     let 誰から = 並べる(発言.iter().map(|(_, from)| *from));
@@ -287,6 +300,7 @@ pub fn 宛ても見て知らせを組む(
         入った,
         宛て,
         任された,
+        部屋,
     })
 }
 
@@ -318,7 +332,12 @@ fn 本文を並べる(宛ての発言: &[&FromDesk], 見出し: &str) -> String 
     let mut 文 = String::from(見出し);
     for 一つ in 宛ての発言.iter().take(運ぶ件数) {
         let FromDesk::Heard {
-            id, from, body, at, ..
+            id,
+            from,
+            body,
+            at,
+            room,
+            ..
         } = 一つ
         else {
             continue;
@@ -332,7 +351,11 @@ fn 本文を並べる(宛ての発言: &[&FromDesk], 見出し: &str) -> String 
         if body.chars().count() > 運ぶ字数 {
             本文.push_str("…（続きは chat_read で）");
         }
-        文.push_str(&format!("\n{番号}{at} {}: {本文}", 短く(from)));
+        // **どの部屋の発言かを行に付ける**（11-11）。返事の `room` にそのまま書ける
+        let 部屋 = room.as_deref().map_or_else(String::new, |r| {
+            format!("（部屋 {}）", crate::chat::部屋の頭(r))
+        });
+        文.push_str(&format!("\n{番号}{at} {}{部屋}: {本文}", 短く(from)));
     }
     if 宛ての発言.len() > 運ぶ件数 {
         文.push_str(&format!(
@@ -360,6 +383,9 @@ pub fn 知らせの中身(知らせ: &知らせ) -> serde_json::Value {
     }
     if 知らせ.宛て > 0 {
         meta.insert("mentioned".into(), 知らせ.宛て.to_string().into());
+    }
+    if !知らせ.部屋.is_empty() {
+        meta.insert("room".into(), 知らせ.部屋.join(",").into());
     }
     if 知らせ.任された > 0 {
         meta.insert("delegated".into(), 知らせ.任された.to_string().into());
@@ -457,6 +483,50 @@ mod tests {
             知.文
         );
         assert!(知.文.contains("指示ではありません"), "{}", 知.文);
+    }
+
+    fn 部屋で言った(id: u64, body: &str, 部屋: &str) -> FromDesk {
+        FromDesk::Heard {
+            id,
+            from: "人A".to_owned(),
+            body: body.to_owned(),
+            at: "13:07".to_owned(),
+            room: Some(部屋.to_owned()),
+            任された: false,
+        }
+    }
+
+    #[test]
+    fn 知らせに_届いた部屋の_id_を載せる() {
+        // 返事の宛先を、直前に使った部屋から推して埋め、相手の居ない部屋へ送っていた（11-11）。
+        // **知らせの属性と、運ぶ本文の行の両方に部屋を出す**
+        let 名 = vec!["連動".to_owned()];
+        let 知 = 宛ても見て知らせを組む(
+            &[
+                部屋で言った(8, "@連動 版を教えて", "4TOOFXPUM2QSAAAAAAAAAAAAAA"),
+                部屋で言った(9, "ほかの話", "NBIW3PA2TUQ52DTJNVXSQOL3G4"),
+                部屋で言った(10, "もう一つ", "4TOOFXPUM2QSAAAAAAAAAAAAAA"),
+            ],
+            &名,
+        )
+        .unwrap();
+        assert_eq!(
+            知らせの中身(&知)["meta"]["room"],
+            "4TOOFXPUM2QS…,NBIW3PA2TUQ5…",
+            "重ねずに、最初に届いた順"
+        );
+        assert!(
+            知.文
+                .contains("#8 13:07 人A（部屋 4TOOFXPUM2QS…）: @連動 版を教えて"),
+            "{}",
+            知.文
+        );
+    }
+
+    #[test]
+    fn 部屋の分からない古い机なら_room_は載せない() {
+        let 知 = 知らせを組む(&[発言(1, "誰か")]).unwrap();
+        assert!(知らせの中身(&知)["meta"].get("room").is_none());
     }
 
     #[test]

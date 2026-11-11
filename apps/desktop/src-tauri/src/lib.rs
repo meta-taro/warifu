@@ -108,6 +108,7 @@ mod link;
 mod mail_view;
 mod mail_watch;
 mod media_path;
+mod mention_room;
 mod notify;
 mod postbox;
 mod presence;
