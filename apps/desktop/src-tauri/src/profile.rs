@@ -316,7 +316,7 @@ pub async fn 配る(bridge: &Bridge) {
     // **人が名乗っていなければ、この PC のエージェントの名乗りで代える**（`この機械の名乗り`）。
     // どちらも無ければ空を配って、相手の画面からも消す
     let (名前, 紹介) = match 読む() {
-        Ok(面々) => この機械の名乗り(&面々),
+        Ok(面々) => この機械の名乗り(&面々, 機械の名().as_deref()),
         Err(e) => {
             記録!("名乗りを読めませんでした（配りません）: {}", e.message);
             return;
@@ -352,29 +352,91 @@ pub async fn 配る(bridge: &Bridge) {
 
 /// **この PC として相手に名乗る名前と紹介**（0.1.33）。
 ///
-/// 相手の名簿に出るのは、この PC の**人の**名乗りだけだった。人が画面で書いていないと、
-/// エージェントが profile_set で名乗っていても、**相手からは鍵の頭しか見えなかった。**
-/// 人の名乗りがあればそれ。無ければ、名乗っているエージェントを「◯◯ のエージェント」で出す
-/// （**人ではないと分かる形**にする。人の名乗りに見せかけない）。
+/// 人の名乗りがあればそれ。無ければ **`<機械の名> の中の人`**（11-11）。
+///
+/// 0.1.33 からは、人が名乗っていないと「◯◯ のエージェント ほか N」で名乗っていた。
+/// ところが人の発言にもその名が付き、**人が言ったのかエージェントが言ったのか分からなかった。**
+/// エージェントの名は、エージェントの発言（席の札）にだけ付く。ここでは使わない。
+/// 画面は末尾の ` の中の人` を見て、見ている人の言葉に言い直す（`chat/name.ts`）。
 #[must_use]
-pub fn この機械の名乗り(面々: &warifu_vault::Profiles) -> (String, String) {
+pub fn この機械の名乗り(
+    面々: &warifu_vault::Profiles,
+    機械の名: Option<&str>,
+) -> (String, String) {
     if let Some(人) = 面々.find(&Who::Me)
         && !人.name().trim().is_empty()
     {
         return (人.name().to_owned(), 人.bio().to_owned());
     }
-    let エージェントたち: Vec<&warifu_vault::Profile> = 面々
-        .iter()
-        .filter(|p| matches!(p.who(), Who::Desk(_)) && !p.name().trim().is_empty())
-        .collect();
-    let Some(先頭) = エージェントたち.first() else {
-        return (String::new(), String::new());
-    };
-    let 名前 = match エージェントたち.len() {
-        1 => format!("{} のエージェント", 先頭.name().trim()),
-        数 => format!("{} のエージェント ほか {}", 先頭.name().trim(), 数 - 1),
-    };
-    (名前, 先頭.bio().to_owned())
+    let 機械 = 機械の名.map(str::trim).filter(|n| !n.is_empty()).unwrap_or("PC");
+    (format!("{機械}{中の人の印}"), String::new())
+}
+
+/// 人の名乗りが無いときの名の後ろ。画面の `chat/name.ts` の `中の人の印` と同じ。
+pub const 中の人の印: &str = " の中の人";
+
+/// **機械の名から、持ち主の名を外す**（11-11）。
+///
+/// macOS の機械名は「rays の Mac mini」「Ray's MacBook Air」の形で、持ち主の名が入る。
+/// **名乗りはほかの機械へ流れるので、持ち主の名を載せない。**
+#[must_use]
+pub fn 持ち主を外す(名: &str) -> String {
+    let 名 = 名.trim();
+    // **Mac の機種名が入っていれば、機種名だけ**にする。「会社名 Mac mini」のように、
+    // 区切りの無い形でも持ち主（人・会社）の名が入る。長い名から先に見る（`Mac` が `MacBook` に当たらないよう）
+    for 機種 in [
+        "MacBook Air",
+        "MacBook Pro",
+        "Mac mini",
+        "Mac Studio",
+        "Mac Pro",
+        "MacBook",
+        "iMac",
+    ] {
+        if 名.contains(機種) {
+            return 機種.to_owned();
+        }
+    }
+    for 区切り in [" の ", "'s ", "’s "] {
+        if let Some(i) = 名.find(区切り) {
+            return 名[i + 区切り.len()..].trim().to_owned();
+        }
+    }
+    名.to_owned()
+}
+
+/// **この機械の名**（持ち主の名を外したもの）。読めなければ `None`。1 度だけ引いて覚える。
+pub fn 機械の名() -> Option<String> {
+    static 覚え: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    覚え.get_or_init(|| {
+        let 生 = 機械の名を引く()?;
+        let 名 = 持ち主を外す(&生);
+        (!名.is_empty()).then_some(名)
+    })
+    .clone()
+}
+
+#[cfg(target_os = "macos")]
+fn 機械の名を引く() -> Option<String> {
+    let 出 = std::process::Command::new("scutil")
+        .args(["--get", "ComputerName"])
+        .output()
+        .ok()?;
+    出.status
+        .success()
+        .then(|| String::from_utf8_lossy(&出.stdout).trim().to_owned())
+}
+
+#[cfg(windows)]
+fn 機械の名を引く() -> Option<String> {
+    std::env::var("COMPUTERNAME").ok()
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
+fn 機械の名を引く() -> Option<String> {
+    std::fs::read_to_string("/etc/hostname")
+        .ok()
+        .map(|s| s.trim().to_owned())
 }
 
 /// **そのエージェントの名乗り**を、線に載せる形にする。
@@ -468,7 +530,7 @@ mod tests {
 
 #[cfg(test)]
 mod この機械の名乗りの試験 {
-    use super::この機械の名乗り;
+    use super::{この機械の名乗り, 持ち主を外す};
     use warifu_vault::{Profile, Profiles, Who};
 
     fn 作る(並び: &[(Who, &str, &str)]) -> Profiles {
@@ -486,33 +548,38 @@ mod この機械の名乗りの試験 {
             (Who::Desk("docs".to_owned()), "資料くん", "資料"),
         ]);
         assert_eq!(
-            この機械の名乗り(&面々),
+            この機械の名乗り(&面々, Some("DOSPARA-PC")),
             ("人A".to_owned(), "開発".to_owned())
         );
     }
 
     #[test]
-    fn 人が名乗っていなければ_エージェントの名乗りで代える() {
+    fn 人が名乗っていなければ_機械の中の人と名乗り_エージェントの名は使わない() {
+        // 11-11、人の発言が「◯◯ のエージェント ほか 5」と出て、人かエージェントか分からなかった。
+        // **エージェントの名は、エージェントの発言（席の札）にだけ付ける**
         let 面々 = 作る(&[(Who::Desk("zen".to_owned()), "ZenBook", "Windows の席")]);
         assert_eq!(
-            この機械の名乗り(&面々),
-            (
-                "ZenBook のエージェント".to_owned(),
-                "Windows の席".to_owned()
-            )
+            この機械の名乗り(&面々, Some("DOSPARA-PC")),
+            ("DOSPARA-PC の中の人".to_owned(), String::new())
         );
-        let 二人 = 作る(&[
-            (Who::Desk("a".to_owned()), "A", ""),
-            (Who::Desk("b".to_owned()), "B", ""),
-        ]);
-        assert!(この機械の名乗り(&二人).0.ends_with("のエージェント ほか 1"));
     }
 
     #[test]
-    fn 誰も名乗っていなければ_空() {
+    fn 機械の名も分からなければ_PC_の中の人() {
         assert_eq!(
-            この機械の名乗り(&Profiles::new()),
-            (String::new(), String::new())
+            この機械の名乗り(&Profiles::new(), None),
+            ("PC の中の人".to_owned(), String::new())
         );
+    }
+
+    #[test]
+    fn 機械の名から_持ち主の名を外す() {
+        // macOS の機械名は「持ち主の Mac mini」の形。**持ち主の名を、ほかの機械へ流さない**
+        assert_eq!(持ち主を外す("rays の Mac mini"), "Mac mini");
+        assert_eq!(持ち主を外す("Ray's MacBook Air"), "MacBook Air");
+        assert_eq!(持ち主を外す("Ray’s iMac"), "iMac");
+        assert_eq!(持ち主を外す("株式会社れい Mac mini"), "Mac mini", "区切りが無くても会社名を流さない");
+        assert_eq!(持ち主を外す("DESKTOP-8F3K2"), "DESKTOP-8F3K2");
+        assert_eq!(持ち主を外す("  "), "");
     }
 }

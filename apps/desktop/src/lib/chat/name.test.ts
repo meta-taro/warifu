@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { エージェントの名を言い換える, エージェントの札, 受けた人の名, 行の差出人名 } from './name';
+import { エージェントの名を言い換える, エージェントの札, 人の名を言い換える, 受けた人の名, 行の差出人名 } from './name';
 import type { 会話行 } from '$lib/meeting/announce';
 
 const 行 = (o: Partial<会話行>): 会話行 => ({ who: '', body: '', mine: false, ...o });
@@ -89,5 +89,15 @@ describe('受けた人の名', () => {
     const 人の名 = () => '名無しさん';
     expect(受けた人の名('F5RHPB3RUJ2Q…（probe-b のエージェント）', 人の名)).toBe('probe-b のエージェント');
     expect(受けた人の名('F5RHPB3RUJ2QFULLKEY', 人の名)).toBe('名無しさん');
+  });
+});
+
+describe('人の名を言い換える', () => {
+  it('名乗りの無い人の名（`<機械> の中の人`）を、見ている人の言葉で言い直す', () => {
+    // 11-11、人の発言が「◯◯ のエージェント ほか 5」と出ていた。人は `<機械> の中の人` で名乗る
+    const 英語 = (n: string) => `Person at ${n}`;
+    expect(人の名を言い換える('Mac mini の中の人', 英語)).toBe('Person at Mac mini');
+    expect(人の名を言い換える('佐藤', 英語), '名乗った人はそのまま').toBe('佐藤');
+    expect(人の名を言い換える(' の中の人', 英語), '機械の名が無ければ触らない').toBe(' の中の人');
   });
 });

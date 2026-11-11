@@ -484,6 +484,7 @@ export type MessageKey =
   | 'roster.name.action'
   | 'roster.host'
   | 'chat.agentOf'
+  | 'chat.personAt'
   | 'roster.name.save'
   | 'roster.name.placeholder'
   | 'meeting.status.waiting'
@@ -599,6 +600,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': '名前を付ける',
     'roster.host': '主催',
     'chat.agentOf': '{name} のエージェント',
+    'chat.personAt': '{name} の中の人',
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
@@ -1119,6 +1121,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': 'Name',
     'roster.host': 'Host',
     'chat.agentOf': '{name} (agent)',
+    'chat.personAt': 'Person at {name}',
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
@@ -1639,6 +1642,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': '命名',
     'roster.host': '主持人',
     'chat.agentOf': '{name} 的智能体',
+    'chat.personAt': '{name} 的使用者',
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
@@ -2156,6 +2160,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': '이름 붙이기',
     'roster.host': '호스트',
     'chat.agentOf': '{name}의 에이전트',
+    'chat.personAt': '{name}의 사용자',
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',
@@ -2783,6 +2788,8 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '名簿で、ルームを建てた人に付く札。',
   'chat.agentOf':
     '会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。',
+  'chat.personAt':
+    '名前を書いていない人の呼び方。{name} はその人が使っている機械の名前（Mac mini・PC の名前など）。「その機械を使っている人」と読める訳にする。',
 };
 
 /** 差し込み口を埋める。無い鍵はそのまま残す（黙って空にしない）。 */

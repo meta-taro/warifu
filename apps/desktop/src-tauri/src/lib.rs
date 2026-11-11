@@ -542,7 +542,7 @@ pub(crate) async fn 相手が居るルーム(
 /// 置き場所を開けないとき。
 pub(crate) fn 自分の名乗り() -> Result<(String, String), warifu_vault::Error> {
     let 面々 = warifu_vault::Vault::default_location()?.profiles()?;
-    Ok(profile::この機械の名乗り(&面々))
+    Ok(profile::この機械の名乗り(&面々, profile::機械の名().as_deref()))
 }
 
 /// この端末の身元。**CLI と同じものを使う。**

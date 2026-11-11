@@ -72,6 +72,7 @@ chat.more	Show more	もっと見る	展开	더 보기
 chat.new	{n} new	新しい発言 {n} 件	{n} 条新发言	새 발언 {n} 건				
 chat.new.title	Jump to the newest	いちばん下まで送ります	跳到最新	맨 아래로 이동합니다				
 chat.nobody	Nobody is here yet. Hand out a room key and wait for someone to come in.	ルームにはまだ誰も入っていません。ルームキーを渡して、入ってもらうと送れます。	还没有人进来。把密钥交给对方，等对方进来后即可发送。	아직 아무도 없습니다. 열쇠를 건네고 상대가 들어오면 보낼 수 있습니다.				
+chat.personAt	Person at {name}	{name} の中の人	{name} 的使用者	{name}의 사용자		名前を書いていない人の呼び方。{name} はその人が使っている機械の名前（Mac mini・PC の名前など）。「その機械を使っている人」と読める訳にする。		
 chat.placeholder	Type and press Enter (Shift+Enter for a new line)	書いて Enter（改行は Shift+Enter）	输入后按 Enter（换行用 Shift+Enter）	입력 후 Enter (줄바꿈은 Shift+Enter)				
 chat.placeholder.desk	Talk to an agent on this computer (Shift+Enter for a new line)	マイ PC エージェントに話しかける（改行は Shift+Enter）	对这台电脑的代理说话（换行用 Shift+Enter）	이 PC 의 에이전트에게 말을 걸기 (줄바꿈은 Shift+Enter)				
 chat.placeholder.nobody	You can send once someone joins	入ってきたら送れます	有人进入后即可发送	누군가 들어오면 보낼 수 있습니다				

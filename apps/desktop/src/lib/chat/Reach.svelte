@@ -6,7 +6,7 @@
   import Avatar from '$lib/contacts/Avatar.svelte';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
-  import { エージェントの名を言い換える } from './name';
+  import { 人の名を言い換える, エージェントの名を言い換える } from './name';
 
   interface Props {
     locale: Locale;
@@ -25,7 +25,10 @@
   const 主の名 = (主: '人' | 'エージェント') =>
     t(主 === 'エージェント' ? 'avatar.owner.agent' : 'avatar.owner.person');
   const 見せる名 = (名: string) =>
-    エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n }));
+    人の名を言い換える(
+      エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n })),
+      (n) => format(t('chat.personAt'), { name: n }),
+    );
 </script>
 
 {#if 届く先.length === 0}

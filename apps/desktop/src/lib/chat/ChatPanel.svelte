@@ -9,7 +9,7 @@
   // `届く先がある` が決める。ここは出すだけ。
 
   import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
-  import { エージェントの名を言い換える, エージェントの札, 行の差出人名 } from './name';
+  import { 人の名を言い換える, エージェントの名を言い換える, エージェントの札, 行の差出人名 } from './name';
   import type { 見出し } from './destination';
   import Avatar from '$lib/contacts/Avatar.svelte';
   import { 新しい行が来たとき, 底に着いた, 見えたときに送るか, type 位置 } from './scroll';
@@ -167,7 +167,10 @@
     t(主 === 'エージェント' ? 'avatar.owner.agent' : 'avatar.owner.person');
   /** エージェントの名札を、この画面の言葉で出す（元の名札は変えない） */
   const 見せる名 = (名: string) =>
-    エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n }));
+    人の名を言い換える(
+      エージェントの名を言い換える(名, (n) => format(t('chat.agentOf'), { name: n })),
+      (n) => format(t('chat.personAt'), { name: n }),
+    );
   let 下書き = $state('');
   /** 部屋ごとの打ちかけの文（画面の中だけ。どこにも書かない）。 */
   let 下書きの控え: 下書きの控えの型 = {};
