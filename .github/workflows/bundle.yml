@@ -85,7 +85,7 @@ jobs:
       #
       # **Tauri の CLI から建てる。**`beforeBuildCommand`（`pnpm build`）も
       # こちらが回すので、フロントを別に建てる段は要らない。
-      # `--no-bundle`: 実行ファイルまで。インストーラは署名が要るので、鍵が入ってから
+      # Windows は `.msi` まで、macOS は `.app` まで作る（下の段）。
       # **macOS は `.app` まで作る。**2026-09-15、Mac の人から ——
       #
       #   「手元でビルドできませんでした（この機械の Node は 20、要求は >=22）。
@@ -98,11 +98,13 @@ jobs:
         if: runner.os == 'macOS'
         run: pnpm --filter @warifu/desktop tauri build --bundles app
 
-      # Windows のインストーラ（`.msi` / `-setup.exe`）は署名が要るので、
-      # **タグのときだけ**（`release.yml`）。ここは実行ファイルまで
-      - name: 画面を建てる（Windows・実行ファイルまで）
+      # **Windows は `.msi` まで作る**（11-12）。候補を試す席は、配る版と同じく `.msi` で入れ替える
+      # 手順になっているのに、実行ファイルしか無く、exe を手で差し替えるしかなかった。
+      # `.msi` そのものは署名しない（配る版と同じ）。自動更新の署名（updater）はタグのときだけ。
+      # CLI を束に入れる設定も配る版と同じにする（`tauri.cli.windows.conf.json`・上で CLI を建て済み）
+      - name: 画面を建てる（Windows・.msi まで）
         if: runner.os == 'Windows'
-        run: pnpm --filter @warifu/desktop tauri build --no-bundle
+        run: pnpm --filter @warifu/desktop tauri build --bundles msi --config src-tauri/tauri.cli.windows.conf.json
 
       # **建てただけで終わらせない。**
       #
@@ -122,5 +124,6 @@ jobs:
             apps/desktop/src-tauri/target/release/warifu-desktop
             apps/desktop/src-tauri/target/release/warifu-desktop.exe
             apps/desktop/src-tauri/target/release/bundle/macos/warifu.app/**
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
           retention-days: 7
