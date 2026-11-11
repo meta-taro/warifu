@@ -110,6 +110,33 @@ async fn 札があれば一覧が出る() {
 }
 
 #[tokio::test]
+async fn 一覧に_ヘッダの仕分けの札が出る() {
+    // 規則（種別）とは別に、**画面の受信箱と同じ札**を並べる。
+    // 規則が空の機械では種別が全部 unknown になり、エージェントが何も選べなかった
+    let 通 = 受信箱()
+        .into_iter()
+        .map(|r| {
+            r.with_仕分け(warifu_read::仕分け {
+                札: warifu_read::札::請求,
+                理由: vec!["件名に「請求」（差出人の申告）".into()],
+            })
+        })
+        .collect();
+    let 口 = Warifu::new(
+        通,
+        RuleStore::new(),
+        札を出す(&["inbox.list"]),
+        1_756_000_000,
+    );
+
+    let 一覧 = 口.inbox_list().await.unwrap();
+
+    let 見出し = 一覧.lines().next().unwrap();
+    assert!(見出し.ends_with("\t仕分け"), "{一覧}");
+    assert!(一覧.lines().nth(1).unwrap().ends_with("\t請求"), "{一覧}");
+}
+
+#[tokio::test]
 async fn 一覧に本文が入らない() {
     // Level 0 のまま数える。**段を上げるのは別の tool・別の札。**
     let 口 = 用意(&["inbox.list"]);

@@ -559,7 +559,9 @@ async fn 一つから汲む(
     drop(パスワード);
     let 流れ = warifu_imap::connect(&繋ぎ先).await?;
     let mut 受信箱 = Mailbox::open(流れ, &繋ぎ先).await?;
-    let 通 = 受信箱.新しい順に取る(件数, 今).await?;
+    let 通 = 受信箱
+        .新しい順に取る(件数, 今, warifu_imap::受け手を推す(&c.host))
+        .await?;
     if let Err(e) = 受信箱.logout().await {
         eprintln!("（閉じるときに落ちました: {e}）");
     }

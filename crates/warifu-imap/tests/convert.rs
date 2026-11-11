@@ -163,3 +163,26 @@ fn 本文が無ければ空で渡す() {
         other => panic!("{other:?}"),
     }
 }
+
+#[test]
+fn 仕分けて直すと_ヘッダだけから画面と同じ札が付く() {
+    // **規則が 1 つも無くても、ヘッダの仕分けは働く**（画面の受信箱と同じ札）。
+    // エージェントの一覧が、全部 unknown / Normal のまま並んでいた
+    let 届いた = warifu_imap::仕分けて直す(普通の一通, 100, None).unwrap();
+    assert_eq!(
+        届いた.仕分け().map(|s| s.札),
+        Some(warifu_read::札::請求),
+        "件名「請求書」"
+    );
+
+    let 迷惑 = b"From: x@example.com\r\nSubject: hi\r\nX-Spam-Flag: YES\r\n\r\nbody\r\n";
+    let 届いた = warifu_imap::仕分けて直す(迷惑, 100, None).unwrap();
+    assert_eq!(届いた.仕分け().map(|s| s.札), Some(warifu_read::札::迷惑));
+}
+
+#[test]
+fn 仕分けずに直したなら_札は無い() {
+    // 「仕分けていない」を「未分類」と言わない
+    let 届いた = to_received(普通の一通, 100).unwrap();
+    assert!(届いた.仕分け().is_none());
+}

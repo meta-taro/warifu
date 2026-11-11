@@ -326,11 +326,16 @@ async fn 新しい順に取ると_本文ごと取っても既読にせず_時刻
     );
     let (流れ, 書かれた) = 台本::new(台.into_bytes());
     let mut 受信箱 = Mailbox::login(流れ, "watashi@例", "himitsu").await.unwrap();
-    let 通 = 受信箱.新しい順に取る(2, 1).await.unwrap();
+    let 通 = 受信箱.新しい順に取る(2, 1, None).await.unwrap();
 
     assert_eq!(通.len(), 2);
     assert_eq!(通[0].sender().as_str(), "b@example.com", "新しい順");
     assert_eq!(通[0].received_at(), 1_793_847_600);
+    assert_eq!(
+        通[0].仕分け().map(|s| s.札),
+        Some(warifu_read::札::未分類),
+        "ヘッダの仕分けを添える"
+    );
     let 送った = String::from_utf8_lossy(&書かれた.lock().unwrap()).into_owned();
     assert!(
         送った.contains("FETCH 2:3 (INTERNALDATE BODY.PEEK[])"),

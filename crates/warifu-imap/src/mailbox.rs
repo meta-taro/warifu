@@ -7,7 +7,9 @@ use futures::StreamExt as _;
 use tokio::io::{AsyncRead, AsyncWrite};
 use warifu_read::Received;
 
-use crate::convert::{人が読む形にする, 見出し, 見出しにする, 開いた通};
+use crate::convert::{
+    人が読む形にする, 仕分けて直す, 見出し, 見出しにする, 開いた通
+};
 use crate::{Account, Error, to_received};
 
 /// 一度に取り込む上限の既定。
@@ -148,6 +150,8 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
     /// `BODY.PEEK[]` なので**既読にしない。**時刻はサーバが受け取った時刻（`INTERNALDATE`）で、
     /// 取れなければ `今` を使う（相手の `Date` は使わない）。
     ///
+    /// 1 通ごとに、**ヘッダだけから付けた仕分けの札**を添える（`受け手` は [`crate::受け手を推す`] の値）。
+    ///
     /// # 失敗
     ///
     /// [`Error::Imap`] / [`Error::Unparsable`] / [`Error::NoSender`]。**1 通が読めなくても全部を止める**
@@ -156,6 +160,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
         &mut self,
         件数: usize,
         今: u64,
+        受け手: Option<&str>,
     ) -> Result<Vec<Received>, Error> {
         let 全部 = self.読むだけで開く().await?;
         if 全部 == 0 || 件数 == 0 {
@@ -176,7 +181,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
                 .internal_date()
                 .and_then(|d| u64::try_from(d.timestamp()).ok())
                 .unwrap_or(今);
-            通.push(to_received(生, 時)?);
+            通.push(仕分けて直す(生, 時, 受け手)?);
         }
         通.reverse();
         Ok(通)

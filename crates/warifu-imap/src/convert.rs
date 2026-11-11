@@ -67,6 +67,33 @@ pub fn to_received(raw: &[u8], received_at: u64) -> Result<Received, Error> {
     .with_attachments(添付))
 }
 
+/// [`to_received`] に、**ヘッダだけから付けた仕分けの札**を添える。
+///
+/// 札は画面の受信箱と同じ `warifu_read::仕分ける`（AI を呼ばない）。`受け手` は
+/// [`受け手を推す`] の値で、分からなければ `None`（認証の結果を読まない）。
+///
+/// # 失敗
+///
+/// [`to_received`] と同じ。
+pub fn 仕分けて直す(
+    raw: &[u8],
+    received_at: u64,
+    受け手: Option<&str>,
+) -> Result<Received, Error> {
+    let 一通 = to_received(raw, received_at)?;
+    let msg = MessageParser::default()
+        .parse_headers(raw)
+        .ok_or(Error::Unparsable)?;
+    let 先 = msg.from().and_then(|a| a.first());
+    let 手 = 手がかりを拾う(
+        &msg,
+        一通.sender().as_str(),
+        先.and_then(|a| a.name()),
+        msg.subject().unwrap_or_default(),
+    );
+    Ok(一通.with_仕分け(warifu_read::仕分ける(&手, 受け手)))
+}
+
 /// ヘッダの値を、**申し送りとして残すためだけ**の文字列にする。
 ///
 /// ここで意味を取らない。判断に使わないものを丁寧に解釈しても、

@@ -134,6 +134,7 @@ pub struct Received {
     claims: Claims,
     body: Body,
     attachments: Vec<Attachment>,
+    仕分け: Option<crate::仕分け>,
 }
 
 impl Received {
@@ -146,6 +147,7 @@ impl Received {
             claims: Claims::new(),
             body,
             attachments: Vec::new(),
+            仕分け: None,
         }
     }
 
@@ -163,6 +165,20 @@ impl Received {
     pub fn with_claims(mut self, claims: Claims) -> Self {
         self.claims = claims;
         self
+    }
+
+    /// **ヘッダだけから付けた仕分けの札**を添える。
+    ///
+    /// 経路の側（`warifu-imap`）が付ける。**規則（[`crate::RuleStore`]）とは別物**で、
+    /// 種別・優先度は変えない。画面の受信箱と同じ札をエージェントにも見せるためにある。
+    pub fn with_仕分け(mut self, 仕分け: crate::仕分け) -> Self {
+        self.仕分け = Some(仕分け);
+        self
+    }
+
+    /// 仕分けの札。**仕分けずに作った通は `None`**（「未分類」とは言わない）。
+    pub fn 仕分け(&self) -> Option<&crate::仕分け> {
+        self.仕分け.as_ref()
     }
 
     /// どの経路から来たか。

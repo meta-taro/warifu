@@ -595,7 +595,9 @@ impl Warifu {
     }
 
     /// 受信箱を metadata だけで並べる。**本文は 1 文字も返らない。**
-    #[tool(description = "受信箱を metadata だけで並べる。本文は返らない。")]
+    #[tool(
+        description = "受信箱を metadata だけで並べる。本文は返らない。末尾の列「仕分け」はヘッダだけから付けた札（画面の受信箱と同じ）で、種別・優先度は承認した規則から付く。"
+    )]
     pub async fn inbox_list(&self) -> Result<String, ErrorData> {
         self.通るか("inbox.list")?;
 
@@ -615,13 +617,15 @@ impl Warifu {
                 "（受信箱を汲み直せませんでした：{訳}。前に汲んだ分を出します）"
             ));
         }
-        行.push("番号\t送信元\t種別\t優先度\t要判断".to_owned());
+        // 末尾の「仕分け」は**ヘッダだけから付けた札**（画面の受信箱と同じ）。種別・優先度は承認した規則の側
+        行.push("番号\t送信元\t種別\t優先度\t要判断\t仕分け".to_owned());
         for (i, 一通) in inner.messages.iter().enumerate() {
             // **段は上げない。**View::Metadata には本文が入る場所が無い
+            let 札 = 一通.仕分け().map_or("", |s| s.札.名());
             let m = inner.reader.read(一通);
             let m = m.metadata();
             行.push(format!(
-                "{i}\t{}\t{}\t{:?}\t{}",
+                "{i}\t{}\t{}\t{:?}\t{}\t{札}",
                 m.sender().as_str(),
                 m.kind(),
                 m.priority(),
