@@ -31,6 +31,29 @@ pub struct 設定 {
     pub 確かめない: bool,
 }
 
+/// **登録する引数**（`warifu` の後ろ）。もう入っていれば**今の引数をそのまま残す**（11-12）。
+///
+/// 入れ直しは実体の場所を替えるためのもので、名乗り（`--as`）や人が足した札を消すためではない。
+/// 前は既定の札で作り直していて、入れ直すたびに `--as` と足した札が消えた。
+/// 初めて入れるとき・今の引数が `warifu mcp` のものと読めないときは、既定の札で入れる。
+/// （`claude mcp get` の `Args:` は空白で区切られているので、空白を含む名乗りは分かれて戻る）
+#[must_use]
+fn 入れる引数(いまの札: Option<&str>) -> Vec<String> {
+    if let Some(いま) = いまの札 {
+        let 並び: Vec<String> = いま.split_whitespace().map(str::to_owned).collect();
+        if 並び.first().is_some_and(|a| a == "mcp") {
+            return 並び;
+        }
+    }
+    std::iter::once("mcp".to_owned())
+        .chain(
+            既定で許す
+                .iter()
+                .flat_map(|a| ["--allow".to_owned(), (*a).to_owned()]),
+        )
+        .collect()
+}
+
 /// 引数を読む。
 pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String> {
     let mut 設 = 設定 {
@@ -48,16 +71,9 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
 /// 入れる。
 pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     let 実体 = 登録する実体(std::env::current_exe()?)?;
-    let 引数: Vec<String> = std::iter::once("mcp".to_owned())
-        .chain(
-            既定で許す
-                .iter()
-                .flat_map(|a| ["--allow".to_owned(), (*a).to_owned()]),
-        )
-        .collect();
-
     // **もう入っているなら、先に言う。**あとから 2 回目を尋ねない
     let いまの札 = すでに入っている();
+    let 引数 = 入れる引数(いまの札.as_deref());
     if いまの札.is_some() {
         // **端末は Markdown を解釈しない。**`**` をそのまま出さない
         println!("warifu の口は、もう入っています。入れ直します。");
@@ -73,9 +89,16 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         println!("  許す   {}", 既定で許す.join(" "));
     }
     println!();
-    println!("会話と、自分のエージェントの名乗り（プロフィール）だけを許します。");
-    println!("受信箱も予定表も許しません（要るなら自分で足してください）。");
-    println!("名乗りで書けるのは自分のエージェントだけです。どこで動いているかは変えられません。");
+    if いまの札.is_some() {
+        // 入れ直しは実体の場所だけを替える。名乗りと札は今のまま（11-12）
+        println!("いまの名乗りと札は、そのまま残します。替わるのは実体の場所だけです。");
+    } else {
+        println!("会話と、自分のエージェントの名乗り（プロフィール）だけを許します。");
+        println!("受信箱も予定表も許しません（要るなら自分で足してください）。");
+        println!(
+            "名乗りで書けるのは自分のエージェントだけです。どこで動いているかは変えられません。"
+        );
+    }
     println!("入れたあと、Claude Code を立て直すと承認を聞かれます。");
     println!();
 
@@ -296,6 +319,36 @@ fn which_claude() -> Option<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 入れ直しても_今の名乗りと札を残す() {
+        // 11-12、入れ直したら `--as` と人が足した札 5 本が消え、既定の 3 本だけになった
+        let いま = "mcp --as PdM --allow chat.send --allow chat.read --allow profile.write --allow contacts.read --allow room.invite";
+        assert_eq!(
+            入れる引数(Some(いま)),
+            いま.split(' ').map(str::to_owned).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn 初めてか_読めない札なら_既定の札で入れる() {
+        let 既定 = vec![
+            "mcp",
+            "--allow",
+            "chat.send",
+            "--allow",
+            "chat.read",
+            "--allow",
+            "profile.write",
+        ];
+        assert_eq!(入れる引数(None), 既定);
+        assert_eq!(入れる引数(Some("")), 既定, "空");
+        assert_eq!(
+            入れる引数(Some("serve --port 1")),
+            既定,
+            "warifu mcp でない"
+        );
+    }
 
     #[test]
     fn windows_では画面の束の中のコマンドを_束の外へ写して登録する() {
