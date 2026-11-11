@@ -485,6 +485,8 @@ export type MessageKey =
   | 'roster.host'
   | 'chat.agentOf'
   | 'chat.personAt'
+  | 'chat.copy'
+  | 'chat.copied'
   | 'roster.name.save'
   | 'roster.name.placeholder'
   | 'meeting.status.waiting'
@@ -601,6 +603,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.host': '主催',
     'chat.agentOf': '{name} のエージェント',
     'chat.personAt': '{name} の中の人',
+    'chat.copy': '本文をコピー',
+    'chat.copied': 'コピーしました',
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
     'meeting.status.waiting': '相手を待っています',
@@ -1122,6 +1126,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.host': 'Host',
     'chat.agentOf': '{name} (agent)',
     'chat.personAt': 'Person at {name}',
+    'chat.copy': 'Copy text',
+    'chat.copied': 'Copied',
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
     'meeting.status.waiting': 'Waiting for the other person',
@@ -1643,6 +1649,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.host': '主持人',
     'chat.agentOf': '{name} 的智能体',
     'chat.personAt': '{name} 的使用者',
+    'chat.copy': '复制正文',
+    'chat.copied': '已复制',
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
     'meeting.status.waiting': '正在等待对方',
@@ -2161,6 +2169,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.host': '호스트',
     'chat.agentOf': '{name}의 에이전트',
     'chat.personAt': '{name}의 사용자',
+    'chat.copy': '본문 복사',
+    'chat.copied': '복사했습니다',
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
     'meeting.status.waiting': '상대방을 기다리는 중',
@@ -2788,6 +2798,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '名簿で、ルームを建てた人に付く札。',
   'chat.agentOf':
     '会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。',
+  'chat.copy':
+    '発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言の本文だけをクリップボードへ写す。',
+  'chat.copied':
+    '［コピー］を押したあと、少しの間だけ出る知らせ。',
   'chat.personAt':
     '名前を書いていない人の呼び方。{name} はその人が使っている機械の名前（Mac mini・PC の名前など）。「その機械を使っている人」と読める訳にする。',
 };

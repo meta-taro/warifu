@@ -172,6 +172,20 @@
       (n) => format(t('chat.personAt'), { name: n }),
     );
   let 下書き = $state('');
+  /** いま「コピーしました」を出している行（無ければ null）。 */
+  let 写した行 = $state<number | null>(null);
+  /** 発言の本文だけを写す。**写せなければ印を出さない**（黙って「写した」と言わない）。 */
+  async function 本文を写す(i: number, 本文: string) {
+    try {
+      await navigator.clipboard.writeText(本文);
+    } catch {
+      return;
+    }
+    写した行 = i;
+    setTimeout(() => {
+      if (写した行 === i) 写した行 = null;
+    }, 1500);
+  }
   /** 部屋ごとの打ちかけの文（画面の中だけ。どこにも書かない）。 */
   let 下書きの控え: 下書きの控えの型 = {};
   let 見ていた部屋: string | null = untrack(() => 部屋);
@@ -493,6 +507,15 @@
               >{/if}
             {#if line.留守中}<span class="late">{t('chat.late')}</span>{/if}
             {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}
+            <!-- **本文を写す**（11-11）。選んで写すと名前や時刻まで混ざるので、本文だけを写す -->
+            <button
+              type="button"
+              class="copy"
+              title={t('chat.copy')}
+              aria-label={t('chat.copy')}
+              onclick={() => 本文を写す(i, line.body)}
+              ><Icon name="copy" size={12} /></button
+            >{#if 写した行 === i}<span class="copied" role="status">{t('chat.copied')}</span>{/if}
           </div>
           <!-- **吹き出しと「もっと見る」を 1 つの塊に**（0.1.48）。押し所は吹き出しの右下に付ける
                （0.1.47 は欄の右端に寄せていて、左の吹き出しから遠く離れていた） -->
@@ -1175,6 +1198,25 @@
     display: block;
     color: var(--text-secondary);
     font-size: var(--text-xs-size);
+  }
+  /* 本文を写すボタン。ふだんは薄く、行に乗ったとき・押せる所にいるときだけ濃く */
+  .copy {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 3px;
+    border: none;
+    background: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0.35;
+  }
+  .line:hover .copy,
+  .copy:focus-visible {
+    opacity: 1;
+  }
+  .copied {
+    font-size: var(--text-2xs-size);
+    color: var(--text-tertiary);
   }
   .at {
     font-family: var(--font-mono);

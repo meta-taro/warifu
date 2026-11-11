@@ -41,6 +41,8 @@ chat.ack.press	Got it	受けました	收到	확인했어요		自分が `@` で�
 chat.ack.waiting	Not acknowledged yet ({n} min)	まだ受けていない（{n} 分）	尚未确认（{n} 分钟）	아직 확인 안 함（{n}분）		自分が呼んだ相手が、まだ受けていないことを言う。「未読」と訳さないこと —— 読んだかは分からない。分かるのは、押す・返事・エージェントが読む、のどれも来ていないことだけ（D130）。		
 chat.agent	My PC agents	マイ PC エージェント	我的电脑代理	내 PC 에이전트				
 chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{name}의 에이전트		会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。		
+chat.copied	Copied	コピーしました	已复制	복사했습니다		［コピー］を押したあと、少しの間だけ出る知らせ。		
+chat.copy	Copy text	本文をコピー	复制正文	본문 복사		発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言の本文だけをクリップボードへ写す。		
 chat.desk	An agent on this computer is connected. You can talk to it even with nobody else in the room.	この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。	这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。	이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				

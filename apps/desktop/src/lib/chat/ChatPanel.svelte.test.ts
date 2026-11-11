@@ -35,6 +35,22 @@ const 打つ = async (文: string) => {
 };
 
 describe('ChatPanel', () => {
+  it('発言ごとに［コピー］があり、押すと本文をそのまま写して「コピーしました」と出る', async () => {
+    // 11-11、発言の字を写す手が無かった（選んで写すと名前や時刻まで混ざる）
+    const 写した: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: (s: string) => (写した.push(s), Promise.resolve()) },
+      configurable: true,
+    });
+    render(ChatPanel, {
+      ...素,
+      会話: [{ who: '山田さん', body: '見て https://example.com\n2 行目', mine: false }],
+    });
+    await fireEvent.click(screen.getByRole('button', { name: ja['chat.copy'] }));
+    expect(写した).toEqual(['見て https://example.com\n2 行目']);
+    expect(await screen.findByText(ja['chat.copied'])).toBeTruthy();
+  });
+
   it('見出しは「文字で話す」ではなく、宛先を名乗る', () => {
     render(ChatPanel, { ...素, 宛先: { 鍵: 'chat.to.room', 値: { name: '開発', n: 3 } } });
     expect(screen.getByRole('heading').textContent).toContain('開発（3 人）へ');
