@@ -34,6 +34,14 @@ describe('行の差出人名', () => {
     ).toBe('割符（ZenBook）（ZenBook）・O4FXQZLARCFB…');
   });
 
+  it('相手の機械のエージェントで、機械が「名無しさん」としか引けなければ、名乗りと鍵の頭（名無しさんを添えない）', () => {
+    // 画面での名簿は、名前の無い機械を「名無しさん」で持つ。それを添えると、席の名より名無しさんが目に付いた
+    const 名簿 = { O4FXQZLARCFBJRLEKLSYIH4NTNPRLEFQEZL7C2PU3Z464KG47DEQ: '名無しさん' };
+    expect(
+      行の差出人名(行({ who: '名無しさん', 顔の種: 'O4FXQZLARCFB…（dbboard（mac mini））' }), 名簿, '名無しさん'),
+    ).toBe('dbboard（mac mini）・O4FXQZLARCFB…');
+  });
+
   it('顔の種が無い行（知らせなど）は、そのまま', () => {
     expect(行の差出人名(行({ who: '会議', system: true }), { KEY1: 'あ' })).toBe('会議');
   });

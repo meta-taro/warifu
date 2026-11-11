@@ -5,6 +5,7 @@
 // 席どうしで見比べるので、並びと書き方は毎回同じにする。
 
 import type { 会話行 } from '$lib/meeting/announce';
+import { 行の差出人名 } from './name';
 
 /** 写しの 1 ルーム分。 */
 export interface 写しのルーム {
@@ -43,6 +44,10 @@ export interface 写しの素材 {
   ほか: readonly 写しのルーム[];
   /** ［メール］の欄。まだ一度も開いていなければ省く。 */
   メール?: 写しのメール | null;
+  /** 画面での名簿（鍵 → 名）。**差出人を会話の欄と同じ名で書く**ために使う。省けば行の `who`。 */
+  名簿?: Readonly<Record<string, string>>;
+  /** 名前の無い人の呼び方（「名無しさん」）。 */
+  名無し?: string;
 }
 
 function メールを書く(m: 写しのメール): string[] {
@@ -59,11 +64,12 @@ export const 写しの上限 = 3500;
 
 const バイト数 = (文: string) => new TextEncoder().encode(文).length;
 
-function 行を書く(行: 会話行, 本文の字数: number): string {
+function 行を書く(行: 会話行, 本文の字数: number, 名簿?: 写しの素材['名簿'], 名無し?: string): string {
   const 本文 = 行.画像 ? '［画像］' : 行.body.replace(/\s+/g, ' ').trim();
   const 詰めた = 本文.length > 本文の字数 ? `${本文.slice(0, 本文の字数)}…` : 本文;
   if (行.system) return `  ${行.at ?? ''} （${詰めた}）`;
-  const 誰 = 行.mine ? '自分' : 行.who;
+  // **会話の欄と同じ引き方**（11-11）。`who` は届いた瞬間の名で、相手の機械のエージェントでは名無しさんになっていた
+  const 誰 = 行.mine ? '自分' : 名簿 ? 行の差出人名(行, 名簿, 名無し) : 行.who;
   return `  ${行.at ?? ''} ${誰}「${詰めた}」`;
 }
 
@@ -78,14 +84,14 @@ function 書く(素材: 写しの素材, 見る行数: number, ほかの行数: 
     文.push(`届く先 ${見る.届く先.join('・') || 'なし'}`);
     const 行たち = 見る.行たち.slice(-見る行数);
     文.push(`チャット欄（最後の ${行たち.length} 行 / 全 ${見る.行たち.length} 行）`);
-    for (const 行 of 行たち) 文.push(行を書く(行, 本文の字数));
+    for (const 行 of 行たち) 文.push(行を書く(行, 本文の字数, 素材.名簿, 素材.名無し));
   } else {
     文.push('開いているルーム なし');
   }
   for (const 部屋 of 素材.ほか) {
     const 行たち = 部屋.行たち.slice(-ほかの行数);
     文.push(`ほかのルーム ${部屋.名前}（${部屋.人数 ?? '?'} 人・全 ${部屋.行たち.length} 行）`);
-    for (const 行 of 行たち) 文.push(行を書く(行, 本文の字数));
+    for (const 行 of 行たち) 文.push(行を書く(行, 本文の字数, 素材.名簿, 素材.名無し));
   }
   if (素材.メール) 文.push(...メールを書く(素材.メール));
   return 文.join('\n');

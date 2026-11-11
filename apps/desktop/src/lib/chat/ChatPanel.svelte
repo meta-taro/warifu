@@ -471,7 +471,7 @@
           <div class="head">
             {#if 差出人の顔(line)}<Avatar 種={差出人の顔(line) ?? ''} 大きさ={14} 名="" />{/if}
             <!-- 自分の行は右に寄っているので、名前を繰り返さない -->
-            {#if !line.mine}<b>{見せる名(行の差出人名(line, 画面での名簿))}</b>{/if}
+            {#if !line.mine}<b>{見せる名(行の差出人名(line, 画面での名簿, t('contacts.noname')))}</b>{/if}
             <!-- **人か、エージェントか**を字で言う（色だけに頼らない） -->
             {#if 形.主 === 'エージェント'}<span class="kind">{t('avatar.owner.agent')}</span>{/if}
             <!-- **誰が誰を呼んだか**（0.1.45）。本文の頭の `@名` はここへ移す。届く先は変わらない（全員に見えている） -->
@@ -505,7 +505,7 @@
                 ><img
                   onload={絵が開いた}
                   src={line.画像}
-                  alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿)) })}
+                  alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿, t('contacts.noname'))) })}
                 /></button
               >{/if}{#if line.画像は残していない}<span class="gone">{t('chat.image.notKept')}</span>{/if}</div>
           {#if 長い}
