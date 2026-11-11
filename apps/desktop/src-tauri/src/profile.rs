@@ -565,7 +565,7 @@ mod この機械の名乗りの試験 {
     }
 
     #[test]
-    fn 機械の名も分からなければ_PC_の中の人() {
+    fn 機械の名も分からなければ_pc_の中の人() {
         assert_eq!(
             この機械の名乗り(&Profiles::new(), None),
             ("PC の中の人".to_owned(), String::new())

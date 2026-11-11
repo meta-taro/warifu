@@ -72,6 +72,27 @@ impl 棚 {
             .map(|(_, m, l)| (*m, *l))
     }
 
+    /// 残す形の写し。
+    #[must_use]
+    fn 番号の写し(&self) -> Vec<残す行> {
+        self.番号
+            .iter()
+            .map(|(n, m, l)| (*n, m.to_string(), crate::ack::印を字に(l)))
+            .collect()
+    }
+
+    /// 残した写しから戻す。読めない行は飛ばす。戻した数を返す。
+    fn 写しから戻す(&mut self, 行たち: &[残す行]) -> usize {
+        let mut 数 = 0;
+        for (n, m, l) in 行たち {
+            if let (Ok(部屋), Some(行)) = (m.parse::<MeetingId>(), crate::ack::字を印に(l)) {
+                self.番号を控える(*n, 部屋, 行);
+                数 += 1;
+            }
+        }
+        数
+    }
+
     /// その行の、この機械の番号。
     #[must_use]
     pub(crate) fn 印の番号(&self, 部屋: MeetingId, 行: &印) -> Option<u64> {
@@ -91,6 +112,64 @@ static 控え: Mutex<棚> = Mutex::new(棚 {
 /// 控えに触る（錠は短く持つ）。
 pub(crate) fn 棚で<T>(f: impl FnOnce(&mut 棚) -> T) -> T {
     f(&mut 控え.lock().expect("毒されていない"))
+}
+
+/// **番号と行の印を結んで控え、手元にも残す**（11-12）。
+///
+/// 記憶の中にしか無かったので、画面を立ち上げ直すと、前の起動の `chat_read` に出た番号を
+/// `reply_to` に書いても「この機械に残っていない」で断っていた（見せた番号が使えない）。
+pub(crate) fn 番号を控える(番号: u64, 部屋: MeetingId, 行: 印) {
+    let 写し = 棚で(|棚| {
+        棚.番号を控える(番号, 部屋, 行);
+        棚.番号の写し()
+    });
+    if let Some((置き場, 自分)) = 残す先.get() {
+        let _錠 = 書く錠.lock().expect("毒されていない");
+        if let Err(e) = 書く(置き場, *自分, &写し) {
+            記録!("返信の番号の控えを残せませんでした（返信はこの起動の間だけ使えます）: {e}");
+        }
+    }
+}
+
+/// 番号の控えを残す先。立ち上げで決まる。**試験では決めない**（本物の置き場を書かない）。
+static 残す先: std::sync::OnceLock<(std::path::PathBuf, PublicKey)> = std::sync::OnceLock::new();
+/// 残すのは 1 度に 1 つ（古い写しが新しい写しを上書きしない）。
+static 書く錠: Mutex<()> = Mutex::new(());
+
+/// 残す形（番号・部屋の id・行の印の字）。
+type 残す行 = (u64, String, String);
+
+fn 控えの道(置き場: &std::path::Path) -> std::path::PathBuf {
+    置き場.join("desk-reply-marks.seal")
+}
+
+/// **封をして置く**（`recent_keep` と同じ置き方。先に別の名で書いて入れ替える）。
+fn 書く(置き場: &std::path::Path, 自分: PublicKey, 行たち: &[残す行]) -> Result<(), String> {
+    let 中身 = serde_json::to_vec(行たち).map_err(|e| format!("形にできません: {e}"))?;
+    let 封 = warifu_seal::seal(自分, &中身).map_err(|e| format!("封ができません: {e}"))?;
+    std::fs::create_dir_all(置き場).map_err(|e| format!("置き場所を作れません: {e}"))?;
+    let 途中 = 置き場.join("desk-reply-marks.seal.tmp");
+    crate::chat_keep::自分だけで書く(&途中, &封.to_bytes()).map_err(|e| format!("書けません: {e}"))?;
+    std::fs::rename(&途中, 控えの道(置き場)).map_err(|e| format!("置けません: {e}"))
+}
+
+/// **読む。**無ければ空。開けなければ空で始める（返信の番号が使えないだけで、会話は止めない）。
+fn 読む(置き場: &std::path::Path, 自分: &warifu_core::Device) -> Vec<残す行> {
+    let Ok(中身) = std::fs::read(控えの道(置き場)) else {
+        return Vec::new();
+    };
+    warifu_seal::Sealed::from_bytes(&中身)
+        .and_then(|封| warifu_seal::open(自分, &封).ok())
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+/// 立ち上げたとき、残した番号の控えを戻し、以後の控えを手元へ残すようにする。
+pub(crate) fn 控えを開く(置き場: &std::path::Path, 自分: &warifu_core::Device) {
+    let 行たち = 読む(置き場, 自分);
+    let 数 = 棚で(|棚| 棚.写しから戻す(&行たち));
+    記録!("返信の番号の控えを戻しました（{数} 行）");
+    let _ = 残す先.set((置き場.to_path_buf(), 自分.public_key()));
 }
 
 /// **エージェントへ渡す本文の頭に、返信先をこの機械の番号で書く。**
@@ -183,6 +262,25 @@ mod tests {
         assert_eq!(棚.番号の行(2127), Some((a, [5; 32])));
         assert_eq!(棚.印の番号(a, &[5; 32]), Some(2127));
         assert_eq!(棚.印の番号(a, &[6; 32]), None, "番号の無い行は控えない");
+    }
+
+    #[test]
+    fn 番号の控えは_残して戻せる() {
+        // 11-12、立ち上げ直すと、前の起動の chat_read に出た番号を reply_to に使えなかった
+        let a = MeetingId::generate();
+        let mut 前 = 棚::default();
+        前.番号を控える(1772, a, [5; 32]);
+        let 写し = 前.番号の写し();
+        let 置き場 = std::env::temp_dir().join(format!("warifu-reply-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&置き場);
+        let 身元 = warifu_core::Seed::from_bytes([3; 32]).profile("Personal").device("PC");
+        書く(&置き場, 身元.public_key(), &写し).unwrap();
+        let mut 後 = 棚::default();
+        assert_eq!(後.写しから戻す(&読む(&置き場, &身元)), 1);
+        assert_eq!(後.番号の行(1772), Some((a, [5; 32])));
+        let 別の身元 = warifu_core::Seed::from_bytes([4; 32]).profile("Personal").device("PC");
+        assert!(読む(&置き場, &別の身元).is_empty(), "ほかの身元では開けない");
+        let _ = std::fs::remove_dir_all(&置き場);
     }
 
     #[test]

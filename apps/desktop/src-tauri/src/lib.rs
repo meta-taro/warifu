@@ -2851,7 +2851,7 @@ fn 汲む(
                         if let warifu_desk::FromDesk::Heard { id, .. } = &聞いた {
                             ack::控える(*id, *meeting, 印, body);
                             // **番号と行の印を結ぶ**（11-11）。エージェントが reply_to にこの番号を書く
-                            reply::棚で(|棚| 棚.番号を控える(*id, *meeting, 印));
+                            reply::番号を控える(*id, *meeting, 印);
                         }
                         desk::配る(&app.state::<Bridge>(), 聞いた);
                         // **主催は、聞いた文字をほかの人へ配る**（**D48**）。
@@ -4160,7 +4160,7 @@ async fn send_text(
     };
     let 行の印 = 文.文字の印();
     if let Some(印) = 行の印 {
-        reply::棚で(|棚| 棚.番号を控える(話の番号, meeting, 印));
+        reply::番号を控える(話の番号, meeting, 印);
     }
     // **返信の印を、発言より先に送る**（11-11）。受け手は控えておき、発言が届いたら結ぶ
     if let (Some(先), Some(行)) = (返信先, 行の印)

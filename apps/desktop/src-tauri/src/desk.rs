@@ -1321,14 +1321,12 @@ pub(crate) async fn 流す(
     // **通し番号を振る。**あとで「誰が読んだか」を尋ねられるようにする（**D76**）
     let id = 番号を振る();
     if let (Some(m), Some(印)) = (流す先, 行の印) {
-        crate::reply::棚で(|棚| {
-            棚.番号を控える(id, m, 印);
-            if let Some(先) = 返信先
-                && 先 != 印
-            {
-                棚.返信を控える(m, 印, 先);
-            }
-        });
+        crate::reply::番号を控える(id, m, 印);
+        if let Some(先) = 返信先
+            && 先 != 印
+        {
+            crate::reply::棚で(|棚| 棚.返信を控える(m, 印, 先));
+        }
     }
     // 他のエージェントへは、返信先をこの機械の番号で本文の頭に書く（11-11）
     let 机へ = match (返信先, 流す先) {
@@ -2401,6 +2399,8 @@ fn 直近の控えを開く(app: &AppHandle) {
     };
     let bridge = app.state::<Bridge>();
     直近を戻す(&置き場, &bridge.device);
+    // **返信の番号の控えも戻す**（11-12）。戻さないと、前の起動の番号を reply_to に使えない
+    crate::reply::控えを開く(&置き場, &bridge.device);
     let _ = 直近の置き場.set((置き場, bridge.device.public_key()));
 }
 
