@@ -67,6 +67,7 @@ fn 全部許す() -> Gate {
         "contacts.call",
         "contacts.add",
         "screen.read",
+        "screen.act",
         "room.join",
         "chat.export",
     ] {
@@ -193,6 +194,9 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::連絡先を足す { 名前, .. } => Some(FromDesk::足した { 名前 }),
                 ToDesk::画面の写し => Some(FromDesk::写し {
                     中身: "版 0.1.34".to_owned(),
+                }),
+                ToDesk::画面を指す { .. } => Some(FromDesk::指した {
+                    結果: "「読み直す」を押しました".to_owned(),
                 }),
                 ToDesk::入る { .. } => Some(FromDesk::入った {
                     ルーム: "ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
@@ -382,6 +386,20 @@ async fn 口を全部_1回ずつ呼ぶ() {
 
     結果.push(("contacts_list", format!("{:?}", 口.contacts_list().await)));
     結果.push(("app_view", format!("{:?}", 口.app_view().await)));
+    結果.push((
+        "screen",
+        format!(
+            "{:?}",
+            口.screen(Parameters(warifu_mcp::ScreenArgs {
+                action: "click".to_owned(),
+                target: Some("読み直す".to_owned()),
+                value: None,
+                message: None,
+                seconds: None,
+            }))
+            .await
+        ),
+    ));
     結果.push(("chat_export", format!("{:?}", 口.chat_export().await)));
     結果.push((
         "contact_call",

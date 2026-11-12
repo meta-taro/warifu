@@ -149,6 +149,26 @@ pub struct SayArgs {
     pub reply_to: Option<u64>,
 }
 
+/// [`crate::Warifu::screen`] の引数（11-12・エージェントの専用カーソル）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ScreenArgs {
+    /// `point`（指す）・`click`（押す）・`type`（欄に打つ）・`say`（一言）。
+    pub action: String,
+    /// 画面に見えている言葉（ボタンの文字・見出し・欄の名前）。同じ名前 → 頭が合う → 含む の順に、画面の上から探す。`say` では書かない。
+    #[serde(default)]
+    pub target: Option<String>,
+    /// `type` で欄に打つ文字。
+    #[serde(default)]
+    pub value: Option<String>,
+    /// 吹き出しの一言（500 文字まで）。`say` では必須。
+    #[serde(default)]
+    pub message: Option<String>,
+    /// 吹き出しを出す秒（1〜60）。省けば画面が文の長さで決める。
+    #[serde(default)]
+    pub seconds: Option<u8>,
+}
+
 /// [`crate::Warifu::voice_say`] の引数（#50）。
 ///
 /// **声の種類・音量・どのルームかを書く場所が無いのは意図。**

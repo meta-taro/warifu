@@ -4,6 +4,8 @@
   import '$lib/styles/overlay.css';
   // 打ち込む所の見た目。**唯一の出典**（部品側で上書きするのは幅と行数だけ）
   import '$lib/styles/forms.css';
+  // エージェントの専用カーソル（11-12）。画面のどこにでも重ねるので、ここで入れる
+  import '$lib/styles/agent-cursor.css';
   import ContextMenu from '$lib/ui/ContextMenu.svelte';
   import { resolveLocale, type Locale } from '$lib/i18n/locales';
 

@@ -24,6 +24,14 @@ act.group.what	Hands this person a room key. One key, one person. Pressing this 
 act.state.no	Not yet	まだできない	还不行	아직 안 됨				
 act.state.ok	Works	できる	可以	가능				
 act.state.wait	Conditions apply	条件つき	有条件	조건부				
+agent.cursor.close	Close	閉じる	关闭	닫기		カーソルの吹き出しを閉じるボタンの名前（読み上げと hover）。		
+agent.cursor.done.click	Pressed "{target}"	「{target}」を押しました	已按下“{target}”	「{target}」을(를) 눌렀습니다		エージェントに返す結果。{target} を押した。		
+agent.cursor.done.point	Pointed at "{target}"	「{target}」を指しました	已指向“{target}”	「{target}」을(를) 가리켰습니다		エージェントに返す結果。{target} を指した。		
+agent.cursor.done.say	Showed the remark	一言を出しました	已显示这句话	한마디를 띄웠습니다		エージェントに返す結果。吹き出しで一言を出した。		
+agent.cursor.done.type	Typed into "{target}"	「{target}」に打ちました	已输入到“{target}”	「{target}」에 입력했습니다		エージェントに返す結果。{target} の欄に打った。		
+agent.cursor.handsOff	"{target}" is for a person to press, so it was not pressed	「{target}」は人が押すものなので、押しませんでした	“{target}”需要由人来按，所以没有按	「{target}」은(는) 사람이 누르는 것이라 누르지 않았습니다		エージェントが、人が押すべきボタン（許しの［通す］など）を押そうとして断ったとき。{target} はそのボタンの言葉。		
+agent.cursor.notFound	"{target}" was not found on the screen	「{target}」が画面に見つかりません	画面上找不到“{target}”	화면에서 「{target}」을(를) 찾지 못했습니다		エージェントが指そうとした言葉が画面に無かったとき。{target} はエージェントが探した言葉。		
+agent.cursor.tag	Agent	エージェント	智能体	에이전트		エージェントの専用カーソルの横に付く名札。人のカーソルではないと一目で分かる短い語。		
 app.name	warifu	warifu	warifu	warifu				
 avatar.owner.agent	Agent	エージェント	智能体	에이전트		顔の右上に付ける小さな印に重ねたときの説明。人ではなく AI エージェントであることを言う。		
 avatar.owner.person	Person	人	人	사람		顔の右上に付ける小さな印に重ねたときの説明。AI エージェントではなく人であることを言う。		
@@ -342,6 +350,7 @@ pass.action.room.join	Joining rooms	ルームへの参加	加入房间	룸 참�
 pass.action.room.leave	Leaving rooms	ルームからの退出	退出房间	룸 나가기				
 pass.action.room.rename	Renaming rooms	ルームの名前の変更	重命名房间	룸 이름 변경				
 pass.action.rules.list	Listing rules	規則の一覧	列出规则	규칙 목록 보기				
+pass.action.screen.act	Operating the screen cursor	画面のカーソル操作	操作画面光标	화면 커서 조작		札の名前。エージェントが画面の中の専用カーソルで指す・押す・打つことを許す。人のマウスは使わない。		
 pass.action.screen.read	Reading the screen	画面の読み取り	读取屏幕	화면 읽기				
 pass.action.voice.say	Speaking aloud	声での読み上げ	语音朗读	음성으로 읽기				
 pass.allow	Allow	通す	允许	허용				

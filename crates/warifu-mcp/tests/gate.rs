@@ -302,6 +302,8 @@ fn 出している口を_数えて名前で押さえる() {
     // 0.1.40 に room_list / room_leave / room_rename を足した（内部の Issue 026）——
     // 一覧は見るだけなので **chat.read**。抜ける・名前を付けるは部屋の形を変えるので
     // **別の札 room.leave / room.rename**（1 回ごとに消える）。
+    // 11-12 に screen を足した —— **札は別の screen.act**。人の画面が動く（押す・打つ）ので、
+    // 読むだけの screen.read と同じ札にしない。押せるのは人が押せるものだけで、札の［通す］などは画面が断る。
     // 0.1.43 に chat_image を足した —— **札は chat.read**。会話に届いた画像を見るだけで、
     // chat_read で読める札の行の中身そのものである（新しく読めるものの種類は増えない）。
     let mut 名前 = Warifu::tool_names();
@@ -340,6 +342,7 @@ fn 出している口を_数えて名前で押さえる() {
             "room_rename",
             "room_status",
             "rules_list",
+            "screen",
             "update_check",
             "voice_say",
         ],
@@ -608,6 +611,39 @@ async fn 札があっても_この機械が無ければ流せない() {
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
     assert!(文.contains("この機械が開いていません"), "{文}");
+}
+
+fn 指し(action: &str) -> rmcp::handler::server::wrapper::Parameters<warifu_mcp::ScreenArgs> {
+    rmcp::handler::server::wrapper::Parameters(warifu_mcp::ScreenArgs {
+        action: action.to_owned(),
+        target: Some("読み直す".to_owned()),
+        value: None,
+        message: None,
+        seconds: None,
+    })
+}
+
+#[tokio::test]
+async fn 画面のカーソルは_札が無ければ動かせず_読む札では足りない() {
+    // **人の画面が動く**（11-12）。読むだけの screen.read では通さない
+    let 口 = 用意(&["screen.read"]);
+    let 文 = format!("{:?}", 口.screen(指し("click")).await.unwrap_err());
+    assert!(文.contains("関所"), "{文}");
+}
+
+#[tokio::test]
+async fn 画面のカーソルは_画面が開いていなければ理由を返す() {
+    // tadori の 5 本目と同じ：画面が無いときは、黙らずに理由を返す
+    let 口 = 用意(&["screen.act"]);
+    let 文 = format!("{:?}", 口.screen(指し("click")).await.unwrap_err());
+    assert!(文.contains("この機械が開いていません"), "{文}");
+}
+
+#[tokio::test]
+async fn 画面のカーソルは_知らない動作を画面へ運ばずに断る() {
+    let 口 = 用意(&["screen.act"]);
+    let 文 = format!("{:?}", 口.screen(指し("go")).await.unwrap_err());
+    assert!(文.contains("割符の画面には無い動作"), "{文}");
 }
 
 #[tokio::test]

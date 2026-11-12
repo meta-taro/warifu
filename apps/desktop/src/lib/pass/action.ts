@@ -15,6 +15,7 @@ const 言い方: Record<string, MessageKey> = {
   'room.rename': 'pass.action.room.rename',
   'room.handoff': 'pass.action.room.handoff',
   'screen.read': 'pass.action.screen.read',
+  'screen.act': 'pass.action.screen.act',
   'voice.say': 'pass.action.voice.say',
   'profile.write': 'pass.action.profile.write',
   'rules.list': 'pass.action.rules.list',

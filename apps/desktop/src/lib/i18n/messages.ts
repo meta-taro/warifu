@@ -486,6 +486,15 @@ export type MessageKey =
   | 'chat.agentOf'
   | 'chat.personAt'
   | 'chat.copy'
+  | 'agent.cursor.tag'
+  | 'agent.cursor.close'
+  | 'agent.cursor.notFound'
+  | 'agent.cursor.handsOff'
+  | 'agent.cursor.done.point'
+  | 'agent.cursor.done.click'
+  | 'agent.cursor.done.type'
+  | 'agent.cursor.done.say'
+  | 'pass.action.screen.act'
   | 'chat.copied'
   | 'chat.reply'
   | 'chat.reply.to'
@@ -609,6 +618,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} のエージェント',
     'chat.personAt': '{name} の中の人',
     'chat.copy': '本文をコピー',
+    'agent.cursor.tag': 'エージェント',
+    'agent.cursor.close': '閉じる',
+    'agent.cursor.notFound': '「{target}」が画面に見つかりません',
+    'agent.cursor.handsOff': '「{target}」は人が押すものなので、押しませんでした',
+    'agent.cursor.done.point': '「{target}」を指しました',
+    'agent.cursor.done.click': '「{target}」を押しました',
+    'agent.cursor.done.type': '「{target}」に打ちました',
+    'agent.cursor.done.say': '一言を出しました',
+    'pass.action.screen.act': '画面のカーソル操作',
     'chat.copied': 'コピーしました',
     'chat.reply': '返信',
     'chat.reply.to': '{name} への返信',
@@ -1137,6 +1155,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} (agent)',
     'chat.personAt': 'Person at {name}',
     'chat.copy': 'Copy text',
+    'agent.cursor.tag': 'Agent',
+    'agent.cursor.close': 'Close',
+    'agent.cursor.notFound': '"{target}" was not found on the screen',
+    'agent.cursor.handsOff': '"{target}" is for a person to press, so it was not pressed',
+    'agent.cursor.done.point': 'Pointed at "{target}"',
+    'agent.cursor.done.click': 'Pressed "{target}"',
+    'agent.cursor.done.type': 'Typed into "{target}"',
+    'agent.cursor.done.say': 'Showed the remark',
+    'pass.action.screen.act': 'Operating the screen cursor',
     'chat.copied': 'Copied',
     'chat.reply': 'Reply',
     'chat.reply.to': 'Replying to {name}',
@@ -1665,6 +1692,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} 的智能体',
     'chat.personAt': '{name} 的使用者',
     'chat.copy': '复制正文',
+    'agent.cursor.tag': '智能体',
+    'agent.cursor.close': '关闭',
+    'agent.cursor.notFound': '画面上找不到“{target}”',
+    'agent.cursor.handsOff': '“{target}”需要由人来按，所以没有按',
+    'agent.cursor.done.point': '已指向“{target}”',
+    'agent.cursor.done.click': '已按下“{target}”',
+    'agent.cursor.done.type': '已输入到“{target}”',
+    'agent.cursor.done.say': '已显示这句话',
+    'pass.action.screen.act': '操作画面光标',
     'chat.copied': '已复制',
     'chat.reply': '回复',
     'chat.reply.to': '回复 {name}',
@@ -2190,6 +2226,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name}의 에이전트',
     'chat.personAt': '{name}의 사용자',
     'chat.copy': '본문 복사',
+    'agent.cursor.tag': '에이전트',
+    'agent.cursor.close': '닫기',
+    'agent.cursor.notFound': '화면에서 「{target}」을(를) 찾지 못했습니다',
+    'agent.cursor.handsOff': '「{target}」은(는) 사람이 누르는 것이라 누르지 않았습니다',
+    'agent.cursor.done.point': '「{target}」을(를) 가리켰습니다',
+    'agent.cursor.done.click': '「{target}」을(를) 눌렀습니다',
+    'agent.cursor.done.type': '「{target}」에 입력했습니다',
+    'agent.cursor.done.say': '한마디를 띄웠습니다',
+    'pass.action.screen.act': '화면 커서 조작',
     'chat.copied': '복사했습니다',
     'chat.reply': '답장',
     'chat.reply.to': '{name}에게 답장',
@@ -2823,6 +2868,24 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '名簿で、ルームを建てた人に付く札。',
   'chat.agentOf':
     '会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。',
+  'agent.cursor.tag':
+    'エージェントの専用カーソルの横に付く名札。人のカーソルではないと一目で分かる短い語。',
+  'agent.cursor.close':
+    'カーソルの吹き出しを閉じるボタンの名前（読み上げと hover）。',
+  'agent.cursor.notFound':
+    'エージェントが指そうとした言葉が画面に無かったとき。{target} はエージェントが探した言葉。',
+  'agent.cursor.handsOff':
+    'エージェントが、人が押すべきボタン（許しの［通す］など）を押そうとして断ったとき。{target} はそのボタンの言葉。',
+  'agent.cursor.done.point':
+    'エージェントに返す結果。{target} を指した。',
+  'agent.cursor.done.click':
+    'エージェントに返す結果。{target} を押した。',
+  'agent.cursor.done.type':
+    'エージェントに返す結果。{target} の欄に打った。',
+  'agent.cursor.done.say':
+    'エージェントに返す結果。吹き出しで一言を出した。',
+  'pass.action.screen.act':
+    '札の名前。エージェントが画面の中の専用カーソルで指す・押す・打つことを許す。人のマウスは使わない。',
   'chat.copy':
     '発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言の本文だけをクリップボードへ写す。',
   'chat.copied':

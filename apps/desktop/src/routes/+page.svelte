@@ -60,6 +60,7 @@
   import { 参加者を並べる } from '$lib/chat/participants';
   import { 出すか, 記録に足す, 閉じる, 閉じたから外す, type 知らせの行 } from '$lib/ui/notices';
   import { 画面の写しを書く } from '$lib/chat/snapshot';
+  import { カーソルを作る, type 指示 } from '$lib/agent/cursor';
   import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める, 見ているルームの相手だけ, ルームに居る相手 } from '$lib/chat/reach';
   import { 画像を縮める } from '$lib/chat/image';
   import { エージェントの名札 } from '$lib/contacts/seat';
@@ -194,6 +195,8 @@
     EVENT_LOOK,
     EVENT_SNAPSHOT_ASK,
     snapshotReply,
+    EVENT_AGENT_CURSOR,
+    agentCursorReply,
     scheduleAdd,
     scheduleList,
     scheduleRemove,
@@ -2236,6 +2239,12 @@
         }),
       );
       unsubs.push(
+        // **エージェントの専用カーソル**（11-12）。動かして、結果の 1 文を返す。人のマウスは使わない
+        await onEvent<[number, 指示]>(EVENT_AGENT_CURSOR, ([番号, 指し]) => {
+          void カーソル.積む(指し).then((結果) => agentCursorReply(番号, 結果));
+        }),
+      );
+      unsubs.push(
         // **画面の写しを頼まれた**（0.1.34）。人が見ているものを、そのまま字にして返す
         await onEvent<number>(EVENT_SNAPSHOT_ASK, (番号) => {
           void snapshotReply(番号, 画面の写しをつくる());
@@ -2761,6 +2770,21 @@
    * 11-06、エージェントが口から人を呼ぶと本体だけが移り、全員あてに打った文字が呼んだ相手 1 人にだけ届いた。
    * ルームでない会話（この機械・1 対 1）を出しているときは `null`（本体に任せる）
    */
+  /**
+   * **エージェントの専用カーソル**（11-12・`lib/agent/cursor.ts`）。言葉は見ている人の言葉で渡す。
+   * 見つからない・人が押すものなので押さない、は上の知らせにも出す（黙って失敗しない）
+   */
+  const カーソル = カーソルを作る(
+    {
+      札: t('agent.cursor.tag'),
+      閉じる: t('agent.cursor.close'),
+      見つからない: (target) => format(t('agent.cursor.notFound'), { target }),
+      押さない: (target) => format(t('agent.cursor.handsOff'), { target }),
+      済んだ: (action, target) => format(t(`agent.cursor.done.${action}` as MessageKey), { target }),
+    },
+    (文) => (notice = 文),
+  );
+
   const 送るルーム = $derived(見ている && ルームたち.some((r) => r.id === 見ている) ? 見ている : null);
 
   async function 話す(body: string, 秘密を承知 = false, 返信先?: string) {
@@ -3440,7 +3464,8 @@
 {/if}
 
 {#if 誘われた鍵}
-  <div class="invited" role="alertdialog" aria-live="polite">
+  <!-- 人が答えるもの。エージェントのカーソルでは押させない（11-12・lib/agent/cursor.ts） -->
+  <div class="invited" role="alertdialog" aria-live="polite" data-agent-hands-off>
     {#if 誘いの送り主}
       <!-- **線の相手から手渡された鍵**（2026-10-20）。誰から来たかを先に言う -->
       <p class="what">{format(t('link.gift'), { from: 誘いの送り主 })}</p>
@@ -3504,7 +3529,7 @@
     **1 行に収める**（0.1.49）。見出し・頼み・理由・説明を 4 段に積むと、頼みが 2 つで画面の上が埋まった。
     誰が何を・なぜ（必ず出す）を 1 行に、ボタンを右に。説明は［通す］に乗せる
   -->
-  <div class="invited pass-ask" role="alertdialog" aria-live="polite" aria-label={t('pass.asked')}>
+  <div class="invited pass-ask" role="alertdialog" aria-live="polite" aria-label={t('pass.asked')} data-agent-hands-off>
     <p class="hint">
       <strong>{format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 動作の言葉(待ち.動作, t) })}</strong>
       <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
@@ -3531,7 +3556,7 @@
   **1 行にたたみ、開いたときだけ並べる。**何を任せているかは、開けば見えて取り消せる
 -->
 {#if 持続の札たち.length > 0 && 札の並び !== 隠した札の並び}
-  <details class="standing-list">
+  <details class="standing-list" data-agent-hands-off>
     <summary>
       <span>{format(t('pass.standing.summary'), { n: 持続の札たち.length })}</span>
       <button
@@ -3565,7 +3590,8 @@
   **［渡す］を押すまで、鍵は出していない。**押したら出して、その相手の機械にだけ送る。
 -->
 {#each 手渡しの頼みたち as 頼み (頼み.番号)}
-  <div class="invited" role="alertdialog" aria-live="polite">
+  <!-- 人が答えるもの。エージェントのカーソルでは押させない（11-12・lib/agent/cursor.ts） -->
+  <div class="invited" role="alertdialog" aria-live="polite" data-agent-hands-off>
     <p class="what">{t('handoff.asked')}</p>
     <p class="hint">
       {format(t('handoff.who'), { who: エージェントの名(頼み.頼んだ人), to: 頼み.相手 })}

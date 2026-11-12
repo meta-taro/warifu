@@ -977,6 +977,41 @@ impl Warifu {
         Ok(この機械.画面の写し().await?)
     }
 
+    /// **画面の中の専用カーソルで、人に見せながら指す・押す・打つ**（11-12）。
+    #[tool(
+        description = "この PC の人が開いている割符の画面を、エージェント専用のカーソルで動かして見せる（人のマウスとキーボードは使わない）。\
+                       action は point（指す）・click（押す）・type（欄に打つ）・say（一言）。target は画面に見えている言葉（ボタンの文字・見出し・欄の名前）で、座標は使わない。\
+                       message を書くと黄色い吹き出しに出る。結果（押した・見つからない・人が押すものなので押さない）が返る。\
+                       **押せるのは人が画面で押せるものだけ。札の［通す］［断る］、ルームキーの［入る］、［送る］、秘密の欄は押さない・打たない（人が押す）。**\
+                       発言を流すのは chat_send を使う（type で欄に打っても、送るのは人）。画面が開いていなければ、そう返る。押したあとは app_view で確かめる。\
+                       この口には札（screen.act）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn screen(
+        &self,
+        Parameters(args): Parameters<crate::tools::ScreenArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("screen.act")?;
+        let (target, value, message, seconds) = (
+            args.target.as_deref().unwrap_or_default(),
+            args.value.as_deref().unwrap_or_default(),
+            args.message.as_deref().unwrap_or_default(),
+            args.seconds.unwrap_or(0),
+        );
+        // **形は、この機械へつなぐ前に見る**（画面が開いていなくても、直すべき所をすぐ言う）
+        warifu_desk::ToDesk::画面を指す_を作る(
+            &args.action,
+            target,
+            value,
+            message,
+            seconds,
+        )
+        .map_err(ToolError::BadArgs)?;
+        let この機械 = self.この機械().await?;
+        Ok(この機械
+            .画面を指す(&args.action, target, value, message, seconds)
+            .await?)
+    }
+
     /// **相手の住所から、連絡先に足す**（0.1.33）。
     ///
     /// 会えない相手（受けの口が防火壁に止められている機械など）は、名前を付ける場が無く、

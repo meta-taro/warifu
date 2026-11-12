@@ -91,6 +91,8 @@ export const EVENT_ROOM_NAME = 'warifu://room-name';
 export const EVENT_LOOK = 'warifu://look';
 /** **画面の写しを頼まれた**（0.1.34）。中身は頼みの番号。{@link snapshotReply} で返す */
 export const EVENT_SNAPSHOT_ASK = 'warifu://snapshot-ask';
+/** エージェントの専用カーソルを動かす（11-12）。中身は `[頼みの番号, 指示]`。 */
+export const EVENT_AGENT_CURSOR = 'warifu://agent-cursor';
 
 
 /** 相手から届いた下ごしらえ 1 通。 */
@@ -138,6 +140,8 @@ export const delegateForget = (key: string) => invoke<void>('delegate_forget', {
 /** **画面の写しを返す**（0.1.34）。エージェントの `app_view` へ渡る */
 /** 発言の中の繋ぎを、外のブラウザで開く（http(s) だけ・本体が確かめる）。 */
 export const openLink = (url: string) => invoke<void>('open_link', { url });
+/** カーソルを動かした結果を返す（11-12）。 */
+export const agentCursorReply = (id: number, text: string) => invoke<void>('agent_cursor_reply', { id, text });
 export const snapshotReply = (id: number, text: string) => invoke<void>('snapshot_reply', { id, text });
 
 /**

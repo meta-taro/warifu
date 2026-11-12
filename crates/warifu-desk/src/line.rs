@@ -286,6 +286,27 @@ pub enum ToDesk {
     /// （10-22、届いた文字が別のルームの欄に積まれていた）。**人が見ているものを、エージェントが読む。**
     /// チャットの本文が入るので、札（`screen.read`）を MCP 側が確かめる。
     画面の写し,
+    /// **画面の中の専用カーソルで、指す・押す・打つ・言う**（11-12）。
+    ///
+    /// 人のマウスとキーボードは使わない。押せるのは、人が画面で押せるものだけで、
+    /// 札の［通す］など人が押すものは画面が断る。札（`screen.act`）は MCP 側が確かめる。
+    /// 形は [`ToDesk::画面を指す_を作る`] で検める。
+    画面を指す {
+        /// `point`（指す）・`click`（押す）・`type`（欄に打つ）・`say`（一言）。
+        action: String,
+        /// 画面に見えている言葉（ボタンの文字・見出し・欄の名前）。`say` では空。
+        #[serde(default)]
+        target: String,
+        /// `type` で打つ文字。
+        #[serde(default)]
+        value: String,
+        /// 吹き出しの文（`say` では必須）。
+        #[serde(default)]
+        message: String,
+        /// 吹き出しを出す秒（1〜60）。0 なら画面が文の長さで決める。
+        #[serde(default)]
+        seconds: u8,
+    },
     /// **棚にある部屋を並べてもらう**（0.1.40・内部の Issue 026）。
     ///
     /// `Status様子` は見ている部屋の分だけなので、片付ける相手が口からは見えなかった。
@@ -826,6 +847,13 @@ pub enum FromDesk {
         /// 人が読める文字の写し。
         中身: String,
     },
+    /// **カーソルを動かした結果**（[`ToDesk::画面を指す`] の返り・11-12）。人が読める 1 文。
+    ///
+    /// 押せたか・見つからなかったか・人が押すものなので押さなかったかを、画面が書く。
+    指した {
+        /// 画面が書いた結果。
+        結果: String,
+    },
     /// **棚にある部屋**（[`ToDesk::部屋たち`] の返り・0.1.40）。
     部屋たち {
         /// 並び。見ている部屋も含む。
@@ -999,6 +1027,27 @@ impl ToDesk {
         })
     }
 
+    /// [`ToDesk::画面を指す`] を作る（11-12）。**ここで形を検める**（書き手の側でも見る）。
+    ///
+    /// # Errors
+    /// 知らない action・target が無い・文が長すぎる・秒が 1〜60 の外。理由は人が読む文。
+    pub fn 画面を指す_を作る(
+        action: &str,
+        target: &str,
+        value: &str,
+        message: &str,
+        seconds: u8,
+    ) -> Result<Self, String> {
+        指しの訳(action, target, value, message, seconds)?;
+        Ok(Self::画面を指す {
+            action: action.to_owned(),
+            target: target.to_owned(),
+            value: value.to_owned(),
+            message: message.to_owned(),
+            seconds,
+        })
+    }
+
     /// [`ToDesk::say_in`] に、**どの発言への返信か**を添える（11-11）。
     ///
     /// # Errors
@@ -1076,6 +1125,13 @@ impl ToDesk {
                 部屋を検める(部屋)?;
                 部屋の名前を検める(名前)?;
             }
+            Self::画面を指す {
+                action,
+                target,
+                value,
+                message,
+                seconds,
+            } => 指しを検める(action, target, value, message, *seconds)?,
             Self::居場所 {
                 文書, 場所, room
             } => {
@@ -1476,6 +1532,29 @@ mod tests {
             panic!("say のはず");
         };
         assert_eq!(body, "1 行目\n2 行目");
+    }
+
+    #[test]
+    fn 画面を指す指示は_形を検めてから運ぶ() {
+        let 行 = ToDesk::画面を指す_を作る("click", "読み直す", "", "", 0)
+            .unwrap()
+            .書く();
+        assert!(matches!(ToDesk::読む(&行), Ok(ToDesk::画面を指す { .. })));
+        for (a, t, v, m, s) in [
+            ("click", "", "", "", 0),
+            ("type", "欄", "", "", 0),
+            ("say", "", "", " ", 0),
+            ("go", "", "", "", 0),
+            ("filter", "", "", "", 0),
+            ("drag", "x", "", "", 0),
+            ("point", "x", "", "", 61),
+        ] {
+            assert!(
+                ToDesk::画面を指す_を作る(a, t, v, m, s).is_err(),
+                "{a} {t:?} {s}"
+            );
+        }
+        assert!(ToDesk::画面を指す_を作る("point", &"あ".repeat(501), "", "", 0).is_err());
     }
 
     #[test]
@@ -2468,4 +2547,52 @@ mod 画像の試験 {
         };
         assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);
     }
+}
+
+/// 画面に出す文字の上限（吹き出し・打つ文字・target）。
+pub const 指しの文の上限: usize = 500;
+
+/// **画面を指す指示の形を見る**（11-12・tadori の `parseAgentAction` と同じ決まり）。理由は人が読む文。
+///
+/// `go`（画面の中の場所へ移る）と `filter`（人で絞る）は、割符の画面に当たる仕組みが無いので受けない。
+fn 指しの訳(
+    action: &str,
+    target: &str,
+    value: &str,
+    message: &str,
+    seconds: u8,
+) -> Result<(), String> {
+    let 長い = |s: &str| s.chars().count() > 指しの文の上限;
+    if 長い(target) || 長い(value) || 長い(message) {
+        return Err(format!("文が長すぎます（{指しの文の上限} 文字まで）"));
+    }
+    if seconds > 60 {
+        return Err("seconds は 1〜60 です（0 なら画面が文の長さで決めます）".to_owned());
+    }
+    match action {
+        "point" | "click" if target.trim().is_empty() => Err(
+            "target に、画面に見えている言葉（ボタンの文字・見出し）を書いてください".to_owned(),
+        ),
+        "type" if target.trim().is_empty() || value.is_empty() => {
+            Err("type には target（欄の名前）と value（打つ文字）が要ります".to_owned())
+        }
+        "say" if message.trim().is_empty() => Err("say には message（一言）が要ります".to_owned()),
+        "point" | "click" | "type" | "say" => Ok(()),
+        "go" | "filter" => Err(format!(
+            "{action} は割符の画面には無い動作です（使えるのは point / click / type / say）"
+        )),
+        _ => Err(format!(
+            "知らない action です: {action}（使えるのは point / click / type / say）"
+        )),
+    }
+}
+
+fn 指しを検める(
+    action: &str,
+    target: &str,
+    value: &str,
+    message: &str,
+    seconds: u8,
+) -> Result<(), Error> {
+    指しの訳(action, target, value, message, seconds).map_err(|_| Error::Malformed)
 }

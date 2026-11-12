@@ -94,6 +94,7 @@ macro_rules! 記録 {
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
 mod absence;
+mod agent_cursor;
 mod ack;
 mod bundle;
 mod call;
@@ -4923,6 +4924,7 @@ pub fn run() {
             schedule::schedule_add,
             schedule::schedule_remove,
             snapshot::snapshot_reply,
+            agent_cursor::agent_cursor_reply,
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,

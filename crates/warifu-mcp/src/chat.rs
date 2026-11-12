@@ -575,6 +575,30 @@ impl Chat {
         }
     }
 
+    /// **画面の中の専用カーソルを動かす**（11-12）。画面が書いた結果を返す。
+    ///
+    /// # Errors
+    /// 形がおかしい（理由つき）・画面が応えない・古い画面。
+    pub async fn 画面を指す(
+        &self,
+        action: &str,
+        target: &str,
+        value: &str,
+        message: &str,
+        seconds: u8,
+    ) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::画面を指す_を作る(action, target, value, message, seconds)
+            .map_err(crate::ToolError::BadArgs)?;
+        match self.頼んで待つ(行, 指したの返事, 返事を待つ秒).await? {
+            FromDesk::指した { 結果 } => Ok(結果),
+            // **古い画面は、この口を知らない**（知らない行として断る）
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **相手の住所から、連絡先に足す**（0.1.33）。足した名前を返す。
     pub async fn 連絡先を足す(
         &self,
@@ -1158,6 +1182,10 @@ fn 手渡しの返事(中身: &FromDesk) -> bool {
 fn 写しの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::写し { .. } | FromDesk::Denied { .. })
 }
+
+fn 指したの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::指した { .. } | FromDesk::Denied { .. })
+}
 fn 足すの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::足した { .. } | FromDesk::Denied { .. })
 }
@@ -1398,6 +1426,7 @@ fn 仕分ける(
             | FromDesk::入った { .. }
             | FromDesk::足した { .. }
             | FromDesk::写し { .. }
+            | FromDesk::指した { .. }
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
@@ -1754,6 +1783,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::入った { .. }
             | FromDesk::足した { .. }
             | FromDesk::写し { .. }
+            | FromDesk::指した { .. }
             | FromDesk::書き出し { .. }
             | FromDesk::手渡し { .. }
             // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）

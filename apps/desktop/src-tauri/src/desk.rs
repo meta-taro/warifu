@@ -679,6 +679,32 @@ async fn 応じる(
         // 人はあとで必ずエージェントに「どんな話をしたっけ？」と聞く。議事録に使う。
         // **常には残さない** —— 返すのはこのプロセスが控えている直近の分だけで、閉じれば消える
         // **画面の写し**（0.1.34）。札（screen.read）は MCP 側が見る
+        // **画面の中の専用カーソル**（11-12）。札（screen.act）は MCP 側が見る。誰が動かしたかを記録に残す
+        ToDesk::画面を指す {
+            action,
+            target,
+            value,
+            message,
+            seconds,
+        } => {
+            let 指示 = serde_json::json!({
+                "action": action,
+                "target": target,
+                "value": value,
+                "message": message,
+                "seconds": if seconds == 0 { serde_json::Value::Null } else { seconds.into() },
+            });
+            let 返事 = match crate::agent_cursor::動かしてもらう(app, 指示).await {
+                Ok(結果) => FromDesk::指した { 結果 },
+                Err(why) => FromDesk::Denied { why },
+            };
+            記録!(
+                "カーソル: {action}（頼んだのは {}）",
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         ToDesk::画面の写し => {
             let 返事 = match crate::snapshot::写してもらう(app).await {
                 Ok(中身) => FromDesk::写し { 中身 },

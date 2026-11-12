@@ -683,7 +683,7 @@
   {/if}
   {#if 秘密の確かめ}
     <!-- **送ったら消せない。**確かめてから送る（0.1.42）。値は繰り返さない -->
-    <div class="secret-check" role="alert">
+    <div class="secret-check" role="alert" data-agent-hands-off>
       <p>
         {format(t('chat.secret.found'), { what: 秘密を言う(秘密の確かめ, t) })}
       </p>
@@ -758,7 +758,8 @@
         <Icon name="image" size={18} />
       </button>
     {/if}
-    <button type="button" onclick={() => 出す()} disabled={!届く先がある || !下書き.trim()}>
+    <!-- **送るのは人**（11-12）。エージェントのカーソルは欄に打てても、送らせない（エージェントは chat_send で流す） -->
+    <button type="button" onclick={() => 出す()} disabled={!届く先がある || !下書き.trim()} data-agent-hands-off>
       {t('chat.send')}
     </button>
   </div>
