@@ -82,6 +82,23 @@ describe('ChatPanel', () => {
     expect(document.querySelector('.replying')).toBeNull();
   });
 
+  it('@ の候補に、このルームで話した席の名前も出る（機械の名前だけにしない）', async () => {
+    // 11-12、候補が届く先（機械ごと）だけで、呼びたい席の名前が出なかった
+    render(ChatPanel, {
+      ...素,
+      届く先: ['ドスパラ'],
+      会話: [
+        { who: 'x', 顔の種: 'TLUTIE3HQGUD…（PdM（ドスパラ））', body: 'はい', mine: false },
+        { who: 'y', 顔の種: 'EKBN2GCQO35W…（sshboard（mac air））', body: 'はい', mine: false },
+      ],
+    });
+    await 打つ('@');
+    const 候補 = screen.getAllByRole('option').map((b) => b.textContent);
+    expect(候補).toContain('@PdM（ドスパラ）');
+    expect(候補).toContain('@sshboard（mac air）');
+    expect(候補).toContain('@ドスパラ');
+  });
+
   it('見出しは「文字で話す」ではなく、宛先を名乗る', () => {
     render(ChatPanel, { ...素, 宛先: { 鍵: 'chat.to.room', 値: { name: '開発', n: 3 } } });
     expect(screen.getByRole('heading').textContent).toContain('開発（3 人）へ');

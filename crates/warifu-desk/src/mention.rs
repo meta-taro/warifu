@@ -9,6 +9,59 @@
 /// 届く先は変わらない（もともとルームの全員へ届く）。**呼ばれたことにするだけ。**
 pub const 全員の呼び: [&str; 2] = ["all", "全員"];
 
+/// **呼ばれうる名前を広げる**（11-12）。画面の `chat/mention.ts` の `呼べる名に広げる` と同じ規則。
+///
+/// - 末尾が `（…）` の名前は、括弧の前だけでも呼べる（`見積くん（PC-A）` → `見積くん`）
+/// - `◯◯ のエージェント` は `◯◯` でも呼べる
+/// - 英数字の語で始まる名前は、その語（多くはフォルダ名）でも呼べる（`docs-site 担当AI` → `docs-site`）
+///
+/// 席の名前が括弧つきで、`@見積くん` と打っても誰も起きなかった。画面は括弧の前でも見分けて
+/// いたので、人には呼べているように見えた。**呼ぶ側と呼ばれる側で、名前の広げ方を揃える。**
+#[must_use]
+pub fn 呼べる名に広げる(名前たち: &[String]) -> Vec<String> {
+    let mut 広げた: Vec<String> = Vec::new();
+    let mut 足す = |n: &str| {
+        let n = n.trim();
+        if !n.is_empty() && !広げた.iter().any(|m| m == n) {
+            広げた.push(n.to_owned());
+        }
+    };
+    for 名 in 名前たち {
+        let 名 = 名.trim();
+        足す(名);
+        let 頭 = 括弧の前(名);
+        if let Some(頭) = 頭 {
+            足す(頭);
+        }
+        if let Some(札) = 頭.unwrap_or(名).strip_suffix(" のエージェント") {
+            足す(札);
+        }
+        if let Some(語) = 頭の英数字の語(名) {
+            足す(語);
+        }
+    }
+    広げた
+}
+
+/// 末尾が `（…）`（中に括弧を含まない）なら、その前。
+fn 括弧の前(名: &str) -> Option<&str> {
+    let 中 = 名.strip_suffix('）')?;
+    let 開き = 中.rfind('（')?;
+    let 頭 = &名[..開き];
+    (!頭.is_empty() && !中[開き + '（'.len_utf8()..].contains(['（', '）'])).then_some(頭)
+}
+
+/// 英数字（と `._-`）の 2 字以上の語で始まり、空白が続くなら、その語。
+fn 頭の英数字の語(名: &str) -> Option<&str> {
+    let (語, 残り) = 名.split_once(' ')?;
+    let 字 = |c: char| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-');
+    let ok = 語.chars().count() >= 2
+        && 語.chars().next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && 語.chars().all(字)
+        && !残り.trim().is_empty();
+    ok.then_some(語)
+}
+
 /// 本文に `@名前` があれば真。**`@all` / `@全員` は誰にも当たる。**
 ///
 /// 名前のすぐ後ろが英数字なら別の名前とみなす（`@docs` は `@docs2` に当たらない）。
@@ -88,6 +141,43 @@ fn 呼んだ位置(本文: &str, 名: &str) -> Vec<(usize, bool)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 括弧つきの名前は_括弧の前だけでも呼べる() {
+        // 11-12、席の名前が「見積くん（PC-A）」で、`@見積くん` と打っても誰も起きなかった。
+        // 画面は括弧の前でも見分けていたので、見た目では呼べているのに、席の口は見分けなかった
+        let 名 = 呼べる名に広げる(&["見積くん（PC-A）".to_owned()]);
+        assert!(宛てられたか("@見積くん 版を教えて", &名));
+        assert!(宛てられたか("@見積くん（PC-A） 版を教えて", &名));
+        assert!(
+            !宛てられたか("@連動 版を教えて", &名),
+            "短い名には当たらない"
+        );
+    }
+
+    #[test]
+    fn 名乗りの形は_画面と同じに広げる() {
+        let 名 = 呼べる名に広げる(&[
+            "docs のエージェント".to_owned(),
+            "docs-site 担当AI".to_owned(),
+            "PdM（ドスパラ）".to_owned(),
+        ]);
+        for 呼び in [
+            "docs のエージェント",
+            "docs",
+            "docs-site 担当AI",
+            "docs-site",
+            "PdM（ドスパラ）",
+            "PdM",
+        ] {
+            assert!(名.iter().any(|n| n == 呼び), "{呼び} が無い: {名:?}");
+        }
+        assert_eq!(
+            名.len(),
+            名.iter().collect::<std::collections::BTreeSet<_>>().len(),
+            "重ねない"
+        );
+    }
 
     #[test]
     fn 呼ばれた名前を見分ける() {

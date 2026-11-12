@@ -92,10 +92,8 @@ pub(crate) fn 人が返事で受けた行(
 
 /// エージェントが読んだ。**そのエージェントを呼んだ行に、受けたを返す。**
 pub(crate) fn エージェントが読んだ(app: &AppHandle, 前: u64, まで: u64, 名札: &str) {
-    let mut 呼ばれる名 = vec![名札.to_owned()];
-    if let Some(頭) = 名札.strip_suffix(" のエージェント") {
-        呼ばれる名.push(頭.to_owned());
-    }
+    // 呼ぶ側（画面）・席の口と同じ広げ方（11-12・`warifu_desk::呼べる名に広げる`）
+    let 呼ばれる名 = warifu_desk::呼べる名に広げる(&[名札.to_owned()]);
     let 行たち = {
         let 棚 = 呼ばれた.lock().expect("毒されていない");
         読んで受けた行(&棚, 前, まで, &呼ばれる名)
