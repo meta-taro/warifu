@@ -61,6 +61,7 @@
   import { 出すか, 記録に足す, 閉じる, 閉じたから外す, type 知らせの行 } from '$lib/ui/notices';
   import { 画面の写しを書く } from '$lib/chat/snapshot';
   import { カーソルを作る, type 指示 } from '$lib/agent/cursor';
+  import { 通話を置く } from '$lib/webrtc/shelf';
   import { 届く先の顔を並べる, 届く先を並べる, 宛先を決める, 見ているルームの相手だけ, ルームに居る相手 } from '$lib/chat/reach';
   import { 画像を縮める } from '$lib/chat/image';
   import { エージェントの名札 } from '$lib/contacts/seat';
@@ -1248,6 +1249,7 @@
       名簿: 画面での名簿,
       名無し: t('contacts.noname'),
       打つ欄: 打つ欄を写す(),
+      通話: { 数: calls.size, 相手の数: new Set(ルームたち.flatMap((r) => r.member_keys).filter((k) => k !== 自分の鍵)).size },
     });
   }
 
@@ -2009,7 +2011,9 @@
             prefs,
             key,
           );
-          calls.set(key, call);
+          // **棚に先の通話があれば閉じてから置く**（11-12）。閉じてから置くまでに待ちが挟まり、
+          // 入り直しが重なると先の通話が閉じられずに残って、UDP の口が溜まっていた
+          通話を置く(calls, key, call);
           // **溜めてあった下ごしらえを、着いた順に食わせる**（`gh issue 9` の後半）。
           // **`begin` より先に渡す** —— offer が先に来ている側は、これで握手が続く
           const 溜まっていた = 取り出す(待たせた下ごしらえ, key);
