@@ -198,6 +198,25 @@ pub fn 宛ても見て知らせを組む(
     新しい: &[FromDesk],
     名前たち: &[String],
 ) -> Option<知らせ> {
+    メールも見て知らせを組む(新しい, 名前たち, false)
+}
+
+/// **メールの着信の知らせか**（D131・11-12）。画面の見張りが机へ流す行（差出人「割符」・本文「メール:」）。
+#[must_use]
+pub fn メールの知らせか(一つ: &FromDesk) -> bool {
+    matches!(一つ, FromDesk::Heard { from, body, .. } if from == "割符" && body.starts_with("メール:"))
+}
+
+/// [`宛ても見て知らせを組む`] に、**メールの着信も宛てに数えるか**を足す（D131・11-12）。
+///
+/// `inbox.list` の札を持つ席だけ `true` で呼ぶ。届いたことに気づけず、`inbox_list` を呼ぶまで
+/// 分からなかった（席は `@` で呼ばれたときだけ起きるので、見張りの知らせでは起きなかった）。
+#[must_use]
+pub fn メールも見て知らせを組む(
+    新しい: &[FromDesk],
+    名前たち: &[String],
+    メールも: bool,
+) -> Option<知らせ> {
     let 発言: Vec<(u64, &str)> = 新しい
         .iter()
         .filter_map(|一つ| match 一つ {
@@ -207,7 +226,10 @@ pub fn 宛ても見て知らせを組む(
         .collect();
     let 宛ての発言: Vec<&FromDesk> = 新しい
         .iter()
-        .filter(|一つ| matches!(一つ, FromDesk::Heard { body, .. } if 宛てられたか(body, 名前たち)))
+        .filter(|一つ| {
+            matches!(一つ, FromDesk::Heard { body, .. } if 宛てられたか(body, 名前たち))
+                || (メールも && メールの知らせか(一つ))
+        })
         .collect();
     let 宛て = 宛ての発言.len();
     let 任された発言: Vec<&FromDesk> = 新しい
@@ -463,6 +485,38 @@ mod tests {
         assert_eq!(知.任された, 0);
         assert!(知らせの中身(&知)["meta"].get("delegated").is_none());
         assert!(!起こし方::default().起こすか(&知));
+    }
+
+    fn 割符から(id: u64, body: &str) -> FromDesk {
+        FromDesk::Heard {
+            id,
+            from: "割符".to_owned(),
+            body: body.to_owned(),
+            at: "13:07".to_owned(),
+            room: None,
+            任された: false,
+        }
+    }
+
+    #[test]
+    fn メールが届いた知らせは_読める札を持つ席だけ_宛てとして起こす() {
+        // D131（11-12）。席は @ で呼ばれたときだけ起きるので、見張りの知らせでは気づけなかった
+        let 届いた = [割符から(
+            9,
+            "メール: a@example.com に新しい通が 1 通届きました（請求 1）",
+        )];
+        let 読める = メールも見て知らせを組む(&届いた, &[], true).unwrap();
+        assert_eq!(読める.宛て, 1);
+        assert!(起こし方::宛てだけ.起こすか(&読める), "読める席は起きる");
+        let 読めない = メールも見て知らせを組む(&届いた, &[], false).unwrap();
+        assert_eq!(読めない.宛て, 0);
+        assert!(
+            !起こし方::宛てだけ.起こすか(&読めない),
+            "札の無い席は起こさない"
+        );
+        // 割符を名乗る誰かの「メール:」ではない発言は数えない
+        let ほか = [言った(10, "メール: のつもりの人の発言")];
+        assert_eq!(メールも見て知らせを組む(&ほか, &[], true).unwrap().宛て, 0);
     }
 
     #[test]
