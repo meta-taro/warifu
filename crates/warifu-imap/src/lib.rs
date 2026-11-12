@@ -24,6 +24,7 @@ mod convert;
 mod error;
 pub mod keychain;
 mod mailbox;
+pub mod smtp;
 mod tls;
 
 pub use account::Account;

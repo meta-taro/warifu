@@ -26,6 +26,8 @@ pub enum Error {
     /// キーチェーンを使えなかった（OS が対応していない・`security` が断った）。
     /// **パスワードの字は載せない。**
     Keychain(String),
+    /// SMTP で送るやり取りで落ちた（D132）。**秘密情報を含めない**（サーバの返りの頭だけ）。
+    Smtp(String),
 }
 
 impl fmt::Display for Error {
@@ -38,6 +40,7 @@ impl fmt::Display for Error {
             Self::Network(why) => write!(f, "経路で落ちました: {why}"),
             Self::Imap(why) => write!(f, "IMAP で落ちました: {why}"),
             Self::Keychain(why) => write!(f, "キーチェーン: {why}"),
+            Self::Smtp(why) => write!(f, "送れませんでした（SMTP）: {why}"),
         }
     }
 }

@@ -6733,6 +6733,7 @@ name = "warifu-imap"
 version = "0.1.48"
 dependencies = [
  "async-imap",
+ "base64 0.22.1",
  "futures",
  "keyring",
  "mail-parser",
