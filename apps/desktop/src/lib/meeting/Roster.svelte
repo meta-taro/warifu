@@ -48,8 +48,16 @@
      * 状態がほぼ不明と読まれた（10-29・人が報告）。映像を使っているときだけ出す。自分の行には出さない
      */
     経路を出す?: boolean;
+    /**
+     * **主催が客を外す**（11-12）。この機械が主催している部屋のときだけ渡す（渡さなければ［外す］は出ない）。
+     * 外した相手はその部屋へ戻れないので、2 段で押す
+     */
+    onKick?: (key: string) => void;
   }
-  let { locale, members, capacity, names = {}, onRename, この機械のAIたち = [], 経路を出す = true }: Props = $props();
+  let { locale, members, capacity, names = {}, onRename, この機械のAIたち = [], 経路を出す = true, onKick }: Props =
+    $props();
+  /** いま「外しますか」を聞いている行の鍵 */
+  let 外す確かめ = $state<string | null>(null);
 
   const t = (key: keyof (typeof MESSAGES)[Locale]) => MESSAGES[locale][key];
   /** 出す名前。**名前の無い人は「名無しさん」**（0.1.42） */
@@ -129,6 +137,31 @@
               aria-label={t('roster.name.action')}
               onclick={() => 始める(m.key)}>{t('roster.name.action')}</button
             >
+          {/if}
+          {#if onKick && !m.me}
+            {#if 外す確かめ === m.key}
+              <!-- **外すと戻せない**ので、2 段で押す。確かめの窓（confirm）は画面の操作を止めるので使わない -->
+              <span class="kick-sure" data-agent-hands-off
+                >{t('roster.kick.sure')}<button
+                  type="button"
+                  class="danger"
+                  aria-label={t('roster.kick.yes')}
+                  onclick={() => {
+                    外す確かめ = null;
+                    onKick(m.key);
+                  }}>{t('roster.kick.yes')}</button
+                ><button type="button" class="quiet" onclick={() => (外す確かめ = null)}>{t('roster.kick.no')}</button></span
+              >
+            {:else}
+              <button
+                type="button"
+                class="quiet"
+                title={t('roster.kick')}
+                aria-label={t('roster.kick')}
+                data-agent-hands-off
+                onclick={() => (外す確かめ = m.key)}>{t('roster.kick')}</button
+              >
+            {/if}
           {/if}
         {/if}
       </li>
@@ -243,5 +276,18 @@
   .roster li button.quiet:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  /* **外すかの確かめ**（11-12）。戻せない操作なので、押すほうを危うい色にする */
+  .kick-sure {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-xs-size);
+    color: var(--danger-fg);
+  }
+  .kick-sure .danger {
+    color: var(--danger-fg);
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-fg);
   }
 </style>

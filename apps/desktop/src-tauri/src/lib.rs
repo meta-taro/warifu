@@ -96,6 +96,7 @@ macro_rules! 記録 {
 mod absence;
 mod agent_cursor;
 mod ack;
+mod kick;
 mod bundle;
 mod call;
 mod chat_keep;
@@ -2296,6 +2297,21 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             // 教えると**別の部屋へ入れ直すことになる**
             // **招いた部屋**（鍵なしの相手だけ）。名乗りもこの部屋あてに送る
             let mut 招いた部屋: Option<MeetingId> = None;
+            // **主催が外した相手は、その部屋へ入れない**（11-12・`kick`）。招く前に「もう無い」と答える。
+            // 客の側はこの答えで帰り道を消すので、叩き直してこない
+            if let Some(部屋) = 望み
+                && kick::締め出したか(部屋, &peer)
+            {
+                if let Ok(intent) = (Notice::Leave { meeting: 部屋 }).to_intent() {
+                    let _ = channel.send(&intent).await;
+                }
+                記録!(
+                    "待受: {} は部屋 {} から外した相手なので、入れずに「もう無い」と告げた",
+                    短く(&key_to_string(peer)),
+                    短く(&部屋.to_string())
+                );
+                continue;
+            }
             if 中身 == 叩きの中身::どちらでもない {
                 // **戻りたい部屋が添えてあれば、その部屋へ**（0.1.41）。主催していなければ「もう無い」と返して建てない
                 let bridge = app.state::<Bridge>();
@@ -2472,9 +2488,11 @@ async fn 割符を確かめる(
     // **部屋の証しかどうかを先に見る**（**D118**）。
     // 種別が別なので、**割符として読もうとして壊れることはない**
     if let Ok(叩き) = warifu_core::部屋の叩き::from_bytes(&bytes) {
+        // **狙う部屋も返す**（11-12）。外された客が部屋の証しで戻ってきたとき、締め出せるように
+        let 部屋 = String::from_utf8_lossy(叩き.部屋()).parse().ok();
         return (
             部屋の証しを確かめる(&叩き, 合言葉たち, session.peer(), me).await,
-            None,
+            部屋,
         );
     }
     let Ok(acceptance) = Acceptance::from_bytes(&bytes) else {
@@ -4928,6 +4946,7 @@ pub fn run() {
             snapshot::build_version,
             agent_cursor::agent_cursor_reply,
             mail_send::answer_mail_send,
+            kick::kick_member,
             mail_send::pending_mail_sends,
             profile::profiles,
             profile::set_profile,

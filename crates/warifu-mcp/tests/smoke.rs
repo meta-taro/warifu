@@ -69,6 +69,7 @@ fn 全部許す() -> Gate {
         "screen.read",
         "screen.act",
         "mail.send",
+        "room.kick",
         "room.join",
         "chat.export",
     ] {
@@ -196,6 +197,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::画面の写し => Some(FromDesk::写し {
                     中身: "版 0.1.34".to_owned(),
                 }),
+                ToDesk::外す { 相手, .. } => Some(FromDesk::外した { 相手 }),
                 ToDesk::メールを送る { 宛先, .. } => Some(FromDesk::メール {
                     結果: warifu_desk::メールの返り::送った {
                         宛先の数: 宛先.len(),
@@ -392,6 +394,17 @@ async fn 口を全部_1回ずつ呼ぶ() {
 
     結果.push(("contacts_list", format!("{:?}", 口.contacts_list().await)));
     結果.push(("app_view", format!("{:?}", 口.app_view().await)));
+    結果.push((
+        "room_kick",
+        format!(
+            "{:?}",
+            口.room_kick(Parameters(warifu_mcp::RoomKickArgs {
+                room: "ROOMAAAA".to_owned(),
+                who: "相手A".to_owned(),
+            }))
+            .await
+        ),
+    ));
     結果.push((
         "mail_send",
         format!(

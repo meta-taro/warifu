@@ -17,6 +17,7 @@ const 言い方: Record<string, MessageKey> = {
   'screen.read': 'pass.action.screen.read',
   'screen.act': 'pass.action.screen.act',
   'mail.send': 'pass.action.mail.send',
+  'room.kick': 'pass.action.room.kick',
   'voice.say': 'pass.action.voice.say',
   'profile.write': 'pass.action.profile.write',
   'rules.list': 'pass.action.rules.list',

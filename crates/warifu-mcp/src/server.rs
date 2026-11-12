@@ -1176,6 +1176,27 @@ impl Warifu {
         ))
     }
 
+    /// **主催が客を部屋から外す**（11-12）。
+    #[tool(
+        description = "この機械が主催している部屋から、客を外す（名簿から除き、その相手に「居ない」を告げ、残りに名簿を配る）。\
+                       外した相手は、その部屋へ戻れない（帰り道から叩いても「もう無い」と答える）。主催でない部屋では外せない。\
+                       who はその部屋の名簿の中の、連絡先の名前か鍵（頭だけでもよい）。\
+                       **人に頼まれたときに使う。**この口には札（room.kick）が要り、1 回使うと消える。無ければ pass_ask で頼む。"
+    )]
+    pub async fn room_kick(
+        &self,
+        Parameters(args): Parameters<crate::tools::RoomKickArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("room.kick")?;
+        self.札を使い切る("room.kick");
+        let この機械 = self.この機械().await?;
+        let 相手 = この機械.外す(&args.room, &args.who).await?;
+        Ok(format!(
+            "{相手} を部屋 {} から外しました。その部屋へは戻れません。",
+            crate::chat::部屋の頭(&args.room)
+        ))
+    }
+
     /// **部屋に名前を付ける**（0.1.40）。
     #[tool(
         description = "部屋に人が読める名前を付ける（誰が居て何のための部屋か）。画面の［決める］と同じ道で、\

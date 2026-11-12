@@ -486,6 +486,11 @@ export type MessageKey =
   | 'chat.agentOf'
   | 'chat.personAt'
   | 'chat.copy'
+  | 'roster.kick'
+  | 'roster.kicked'
+  | 'roster.kick.sure'
+  | 'roster.kick.yes'
+  | 'roster.kick.no'
   | 'mail.send.ask'
   | 'mail.send.askReply'
   | 'mail.send.who'
@@ -494,6 +499,7 @@ export type MessageKey =
   | 'mail.send.go'
   | 'mail.send.keep'
   | 'pass.action.mail.send'
+  | 'pass.action.room.kick'
   | 'agent.cursor.tag'
   | 'agent.cursor.close'
   | 'agent.cursor.notFound'
@@ -626,6 +632,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} のエージェント',
     'chat.personAt': '{name} の中の人',
     'chat.copy': '本文をコピー',
+    'roster.kick': '外す',
+    'roster.kicked': '{who} をこのルームから外しました',
+    'roster.kick.sure': 'このルームから外しますか（戻れなくなります）',
+    'roster.kick.yes': '外す',
+    'roster.kick.no': 'やめる',
     'mail.send.ask': 'エージェントがメールを送ってよいか聞いています',
     'mail.send.askReply': 'エージェントが返信を送ってよいか聞いています',
     'mail.send.who': '{who} が {from} から送ろうとしています。全文を読んでから押してください',
@@ -634,6 +645,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.send.go': '送る',
     'mail.send.keep': '送らない',
     'pass.action.mail.send': 'メールの送信',
+    'pass.action.room.kick': 'ルームから人を外す',
     'agent.cursor.tag': 'エージェント',
     'agent.cursor.close': '閉じる',
     'agent.cursor.notFound': '「{target}」が画面に見つかりません',
@@ -1171,6 +1183,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} (agent)',
     'chat.personAt': 'Person at {name}',
     'chat.copy': 'Copy text',
+    'roster.kick': 'Remove',
+    'roster.kicked': 'Removed {who} from this room',
+    'roster.kick.sure': 'Remove from this room? (They cannot come back)',
+    'roster.kick.yes': 'Remove',
+    'roster.kick.no': 'Cancel',
     'mail.send.ask': 'An agent is asking to send an email',
     'mail.send.askReply': 'An agent is asking to send a reply',
     'mail.send.who': '{who} wants to send this from {from}. Read the whole text before you press',
@@ -1179,6 +1196,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.send.go': 'Send',
     'mail.send.keep': 'Don\'t send',
     'pass.action.mail.send': 'Sending email',
+    'pass.action.room.kick': 'Removing someone from a room',
     'agent.cursor.tag': 'Agent',
     'agent.cursor.close': 'Close',
     'agent.cursor.notFound': '"{target}" was not found on the screen',
@@ -1716,6 +1734,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} 的智能体',
     'chat.personAt': '{name} 的使用者',
     'chat.copy': '复制正文',
+    'roster.kick': '移出',
+    'roster.kicked': '已将 {who} 移出此房间',
+    'roster.kick.sure': '要将其移出此房间吗？（将无法再回来）',
+    'roster.kick.yes': '移出',
+    'roster.kick.no': '取消',
     'mail.send.ask': '智能体请求发送邮件',
     'mail.send.askReply': '智能体请求发送回复',
     'mail.send.who': '{who} 想用 {from} 发送。请读完全文后再按',
@@ -1724,6 +1747,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.send.go': '发送',
     'mail.send.keep': '不发送',
     'pass.action.mail.send': '发送邮件',
+    'pass.action.room.kick': '将人移出房间',
     'agent.cursor.tag': '智能体',
     'agent.cursor.close': '关闭',
     'agent.cursor.notFound': '画面上找不到“{target}”',
@@ -2258,6 +2282,11 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name}의 에이전트',
     'chat.personAt': '{name}의 사용자',
     'chat.copy': '본문 복사',
+    'roster.kick': '내보내기',
+    'roster.kicked': '{who}을(를) 이 방에서 내보냈습니다',
+    'roster.kick.sure': '이 방에서 내보낼까요? (다시 들어올 수 없습니다)',
+    'roster.kick.yes': '내보내기',
+    'roster.kick.no': '취소',
     'mail.send.ask': '에이전트가 메일을 보내도 되는지 묻고 있습니다',
     'mail.send.askReply': '에이전트가 답장을 보내도 되는지 묻고 있습니다',
     'mail.send.who': '{who}이(가) {from}에서 보내려고 합니다. 전문을 읽은 뒤 누르세요',
@@ -2266,6 +2295,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'mail.send.go': '보내기',
     'mail.send.keep': '보내지 않기',
     'pass.action.mail.send': '메일 보내기',
+    'pass.action.room.kick': '방에서 사람 내보내기',
     'agent.cursor.tag': '에이전트',
     'agent.cursor.close': '닫기',
     'agent.cursor.notFound': '화면에서 「{target}」을(를) 찾지 못했습니다',
@@ -2940,8 +2970,20 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '押すとメールが外へ送られる（取り消せない）。',
   'mail.send.keep':
     '押すと送らずに帯を閉じる。',
+  'pass.action.room.kick':
+    '札の名前。主催しているルームから、人を外すことを許す（外した人は戻れない）。1 回使うと消える。',
   'pass.action.mail.send':
     '札の名前。エージェントがメールを送る頼みを出すことを許す。送るのは人が画面で押したときだけ。',
+  'roster.kicked':
+    '主催が客を外したあとに上に出る知らせ。{who} は外した人の名前。',
+  'roster.kick':
+    '名簿の行のボタン。主催が、その人を部屋から外す（戻れなくなる）。',
+  'roster.kick.sure':
+    '［外す］を押したあとに出る確かめの文。外すと戻れないことを言う。',
+  'roster.kick.yes':
+    '確かめのあと、本当に外すボタン。',
+  'roster.kick.no':
+    '確かめをやめて、外さないボタン。',
   'chat.copy':
     '発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言の本文だけをクリップボードへ写す。',
   'chat.copied':

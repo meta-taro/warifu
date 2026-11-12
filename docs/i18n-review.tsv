@@ -355,6 +355,7 @@ pass.action.profile.write	Editing the profile	名乗りの書き換え	修改个
 pass.action.room.handoff	Handing over room keys	ルームキーの手渡し	转交房间密钥	룸 키 전달		エージェントが、人に聞かずにルームキーを相手へ渡すこと。「受け取る」と読める訳にしないこと。渡すのはこの PC の側である。		
 pass.action.room.invite	Issuing room keys	ルームキーの発行	签发房间密钥	룸 키 발급				
 pass.action.room.join	Joining rooms	ルームへの参加	加入房间	룸 참가				
+pass.action.room.kick	Removing someone from a room	ルームから人を外す	将人移出房间	방에서 사람 내보내기		札の名前。主催しているルームから、人を外すことを許す（外した人は戻れない）。1 回使うと消える。		
 pass.action.room.leave	Leaving rooms	ルームからの退出	退出房间	룸 나가기				
 pass.action.room.rename	Renaming rooms	ルームの名前の変更	重命名房间	룸 이름 변경				
 pass.action.rules.list	Listing rules	規則の一覧	列出规则	규칙 목록 보기				
@@ -437,6 +438,11 @@ room.people.hint	Agents on other machines appear once they speak in this room.	�
 room.people.host	host	主催	主持	주최				
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
 roster.host	Host	主催	主持人	호스트		名簿で、ルームを建てた人に付く札。		
+roster.kick	Remove	外す	移出	내보내기		名簿の行のボタン。主催が、その人を部屋から外す（戻れなくなる）。		
+roster.kick.no	Cancel	やめる	取消	취소		確かめをやめて、外さないボタン。		
+roster.kick.sure	Remove from this room? (They cannot come back)	このルームから外しますか（戻れなくなります）	要将其移出此房间吗？（将无法再回来）	이 방에서 내보낼까요? (다시 들어올 수 없습니다)		［外す］を押したあとに出る確かめの文。外すと戻れないことを言う。		
+roster.kick.yes	Remove	外す	移出	내보내기		確かめのあと、本当に外すボタン。		
+roster.kicked	Removed {who} from this room	{who} をこのルームから外しました	已将 {who} 移出此房间	{who}을(를) 이 방에서 내보냈습니다		主催が客を外したあとに上に出る知らせ。{who} は外した人の名前。		
 roster.name.action	Name	名前を付ける	命名	이름 붙이기				
 roster.name.placeholder	A name (e.g. Agent on Mac Air)	呼び名（例: Mac Air のエージェント）	名称（例：Mac Air 上的智能体）	이름 (예: Mac Air 에이전트)				
 roster.name.save	Save	決める	保存	저장				

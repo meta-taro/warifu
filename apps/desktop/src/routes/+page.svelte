@@ -183,6 +183,7 @@
     EVENT_MAIL_SEND,
     pendingMailSends,
     answerMailSend,
+    kickMember,
     type メールの頼み,
     linkAnswered,
     pendingLinks,
@@ -1551,6 +1552,18 @@
       notice = 読める(e);
     } finally {
       手渡しの頼みたち = 手渡しの頼みたち.filter((頼み) => 頼み.番号 !== 番号);
+    }
+  }
+
+  /** **主催が客を外す**（11-12）。外したら名簿を読み直す。外せなければ理由を上に出す */
+  async function 客を外す(key: string) {
+    if (!見ている) return;
+    try {
+      await kickMember(見ている, key);
+      notice = format(t('roster.kicked'), { who: 画面での名(key) });
+      await ルームを読み直す();
+    } catch (e) {
+      notice = 読める(e);
     }
   }
 
@@ -4013,6 +4026,7 @@
       onRename={(key, label) => void 名前を付ける(key, label)}
       この機械のAIたち={この機械のAIたち.map((名) => エージェントの名札(名, エージェントの名前たち[名]))}
       経路を出す={映像の場を出す}
+      onKick={ルームたち.find((r) => r.id === 見ている)?.host ? (key) => void 客を外す(key) : undefined}
     />
 
     <ChatPanel {画面での名簿}

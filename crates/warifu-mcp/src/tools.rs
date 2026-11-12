@@ -318,6 +318,16 @@ pub struct RoomLeaveArgs {
     pub room: String,
 }
 
+/// [`crate::Warifu::room_kick`] の引数（11-12）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RoomKickArgs {
+    /// 外す部屋の id（`room_list` の行の頭でよい）。この機械が主催している部屋だけ。
+    pub room: String,
+    /// 誰を外すか。その部屋の名簿の中の、連絡先の名前か鍵（頭だけでもよい）。
+    pub who: String,
+}
+
 /// [`crate::Warifu::room_rename`] の引数（0.1.40）。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct RoomRenameArgs {

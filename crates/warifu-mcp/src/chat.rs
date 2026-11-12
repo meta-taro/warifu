@@ -685,6 +685,24 @@ impl Chat {
         }
     }
 
+    /// **主催が客を部屋から外す**（11-12）。外した相手の名前を返す。
+    ///
+    /// # Errors
+    /// 主催でない・名簿に居ない・2 人に当たる・この機械が返さないとき。
+    pub async fn 外す(&self, 部屋: &str, 相手: &str) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::外す {
+            部屋: 部屋.trim().to_owned(),
+            相手: 相手.trim().to_owned(),
+        };
+        match self.頼んで待つ(行, 外すの返事, 返事を待つ秒).await? {
+            FromDesk::外した { 相手 } => Ok(相手),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **相手（連絡先）に名前を付ける**（0.1.40）。（相手の鍵, 付けた名前）を返す。
     ///
     /// # Errors
@@ -1287,6 +1305,10 @@ fn 部屋たちの返事(中身: &FromDesk) -> bool {
 fn 更新の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::更新 { .. } | FromDesk::Denied { .. })
 }
+fn 外すの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::外した { .. } | FromDesk::Denied { .. })
+}
+
 fn 抜けるの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::抜けた { .. } | FromDesk::Denied { .. })
 }
@@ -1468,6 +1490,7 @@ fn 仕分ける(
             | FromDesk::写し { .. }
             | FromDesk::指した { .. }
             | FromDesk::メール { .. }
+            | FromDesk::外した { .. }
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
@@ -1826,6 +1849,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::写し { .. }
             | FromDesk::指した { .. }
             | FromDesk::メール { .. }
+            | FromDesk::外した { .. }
             | FromDesk::書き出し { .. }
             | FromDesk::手渡し { .. }
             // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）

@@ -255,6 +255,9 @@ export const pendingHandoffs = () => invoke<手渡しの頼み[]>('pending_hando
 export const answerHandoff = (番号: number, 渡す: boolean, 今後も = false) =>
   invoke<string>('answer_handoff', { 番号, 渡す, 今後も });
 
+/** **主催が客を外す**（11-12）。外した相手はその部屋へ戻れない。 */
+export const kickMember = (room: string, key: string) => invoke<void>('kick_member', { room, key });
+
 /** **エージェントが送りたいメール**（D132）。人が全文を読んで［送る］を押したときだけ送る。 */
 export type メールの頼み = {
   番号: number;

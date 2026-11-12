@@ -852,6 +852,21 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+        // **主催が客を外す**（11-12）。画面の名簿の［外す］と同じ道。札（room.kick）は MCP 側が見る
+        ToDesk::外す { 部屋, 相手 } => {
+            let 返事 = 客を外す(app, &部屋, &相手).await;
+            記録!(
+                "外す: {}（頼んだのは {}）",
+                match &返事 {
+                    FromDesk::外した { 相手 } => format!("{相手} を外しました"),
+                    FromDesk::Denied { why } => format!("外せませんでした: {why}"),
+                    _ => String::new(),
+                },
+                名乗り.as_deref().unwrap_or("名乗りなし")
+            );
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         // **相手に名前を付ける**（0.1.40）。画面の「名前を付ける」と同じ道
         ToDesk::相手に名前を付ける { 相手, 名前 } => {
             let 返事 = 相手に名前を付ける(app, &相手, &名前, &呼び方(名乗り.as_deref())).await;
@@ -1145,6 +1160,59 @@ async fn 応じる(
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
+    }
+}
+
+/// **主催が客を外す**（11-12）。部屋は id の頭で、相手はその部屋の名簿の中から名前か鍵で引く。
+async fn 客を外す(app: &AppHandle, 指定の部屋: &str, 指定の相手: &str) -> FromDesk {
+    let 拒む = |why: String| FromDesk::Denied { why };
+    let bridge = app.state::<Bridge>();
+    let 候補: Vec<String> = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .map(ToString::to_string)
+        .collect();
+    let 部屋 = match 部屋を引く(&候補, 指定の部屋)
+        .and_then(|id| id.parse::<MeetingId>().map_err(|_| format!("部屋の id が読めません（{id}）")))
+    {
+        Ok(m) => m,
+        Err(why) => return 拒む(why),
+    };
+    let 面々: Vec<String> = bridge
+        .conferences
+        .lock()
+        .await
+        .get(&部屋)
+        .map(|c| c.members().iter().map(|k| crate::key_to_string(*k)).collect())
+        .unwrap_or_default();
+    let 連絡先 = 連絡先の組();
+    let 帳: Vec<(String, String)> = 面々
+        .iter()
+        .map(|k| {
+            let 名 = 連絡先
+                .iter()
+                .find(|(鍵, _)| 鍵 == k)
+                .map_or_else(|| crate::短く(k), |(_, 名)| 名.clone());
+            (k.clone(), 名)
+        })
+        .collect();
+    let 鍵 = match crate::contacts::呼ぶ相手を決める(&帳, 指定の相手) {
+        Ok(鍵) => 鍵,
+        Err(why) => return 拒む(why),
+    };
+    let 名 = 帳.iter().find(|(k, _)| *k == 鍵).map(|(_, 名)| 名.clone()).unwrap_or_default();
+    let 相手 = {
+        use std::str::FromStr as _;
+        match warifu_core::PublicKey::from_str(&鍵) {
+            Ok(k) => k,
+            Err(_) => return 拒む("相手の鍵が読めません".to_owned()),
+        }
+    };
+    match crate::kick::外す(app, 部屋, 相手).await {
+        Ok(()) => FromDesk::外した { 相手: 名 },
+        Err(why) => 拒む(why),
     }
 }
 

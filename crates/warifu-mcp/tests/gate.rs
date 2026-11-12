@@ -302,6 +302,8 @@ fn 出している口を_数えて名前で押さえる() {
     // 0.1.40 に room_list / room_leave / room_rename を足した（内部の Issue 026）——
     // 一覧は見るだけなので **chat.read**。抜ける・名前を付けるは部屋の形を変えるので
     // **別の札 room.leave / room.rename**（1 回ごとに消える）。
+    // 11-12 に room_kick を足した —— **札は別の room.kick**（1 回ごとに消える）。外した相手は戻れないので、
+    // 自分が抜けるだけの room.leave と同じ札にしない。外せるのは主催した部屋だけ（この機械が断る）。
     // 11-12 に mail_send を足した —— **札は別の mail.send**（D132）。外へ出て取り消せないので、
     // 読む札と分ける。札があっても送るのは人（画面の［送る］）で、口は頼むことしかできない。
     // 11-12 に screen を足した —— **札は別の screen.act**。人の画面が動く（押す・打つ）ので、
@@ -340,6 +342,7 @@ fn 出している口を_数えて名前で押さえる() {
             "room_invite",
             "room_join",
             "room_key_give",
+            "room_kick",
             "room_leave",
             "room_list",
             "room_rename",
@@ -684,6 +687,23 @@ async fn メールの返信は_元の通から宛先を埋めて_この機械へ
     let 口 = 用意(&["mail.send"]);
     let 文 = format!("{:?}", 口.mail_send(送る頼み(Some(0))).await.unwrap_err());
     assert!(文.contains("この機械が開いていません"), "{文}");
+}
+
+#[tokio::test]
+async fn 客を外すのは_外す札が無ければできず_抜ける札では足りない() {
+    let 口 = 用意(&["room.leave"]);
+    let 文 = format!(
+        "{:?}",
+        口.room_kick(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::RoomKickArgs {
+                room: "NBIW3PA2".to_owned(),
+                who: "相手A".to_owned(),
+            }
+        ))
+        .await
+        .unwrap_err()
+    );
+    assert!(文.contains("関所"), "{文}");
 }
 
 #[tokio::test]

@@ -60,6 +60,6 @@ pub use server::{
 pub use tools::{
     AskArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs, InviteArgs,
     JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, MailSendArgs, OpenArgs,
-    ProfileArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs, StatusArgs,
-    ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
+    ProfileArgs, RoomKickArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs,
+    StatusArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
 };

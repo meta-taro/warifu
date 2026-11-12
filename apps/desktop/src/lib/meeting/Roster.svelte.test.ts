@@ -3,8 +3,9 @@
 // **画面の部品の試験**（計画 1-D・0.1.41）。画面（Svelte）に試験が 1 本も無かった。
 // ここでは**見出しの人数・主催の札・自分の行**が、渡した名簿どおりに出ることを固定する
 // （spec 04 S04-2 / S04-4 の画面側）。
-import { cleanup, render, screen } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MESSAGES } from '$lib/i18n/messages';
 
 import Roster from './Roster.svelte';
 
@@ -13,6 +14,37 @@ const 鍵 = (n: number) => `${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[n % 26].repeat(52)}`;
 afterEach(cleanup);
 
 describe('Roster', () => {
+  it('主催なら客の行に［外す］が出て、2 段目で押したときだけ外す（自分の行には出ない）', async () => {
+    // 11-12、主催が客を部屋から外す手段が無かった
+    const 外した = vi.fn();
+    render(Roster, {
+      locale: 'ja',
+      capacity: 12,
+      members: [
+        { key: 鍵(1), me: true, host: true, path: 'unknown' },
+        { key: 鍵(2), path: 'direct' },
+      ],
+      onKick: 外した,
+    });
+    const ja = MESSAGES.ja;
+    const 外す = screen.getAllByRole('button', { name: ja['roster.kick'] });
+    expect(外す.length).toBe(1);
+    await fireEvent.click(外す[0]);
+    expect(外した).not.toHaveBeenCalled();
+    expect(screen.getByText(ja['roster.kick.sure'])).toBeTruthy();
+    await fireEvent.click(screen.getByRole('button', { name: ja['roster.kick.yes'] }));
+    expect(外した).toHaveBeenCalledWith(鍵(2));
+  });
+
+  it('主催でなければ［外す］は出ない', () => {
+    render(Roster, {
+      locale: 'ja',
+      capacity: 12,
+      members: [{ key: 鍵(1), me: true, path: 'unknown' }, { key: 鍵(2), host: true, path: 'direct' }],
+    });
+    expect(screen.queryByRole('button', { name: MESSAGES.ja['roster.kick'] })).toBeNull();
+  });
+
   it('見出しの人数は名簿の長さで、定員と並ぶ', () => {
     render(Roster, {
       locale: 'ja',
