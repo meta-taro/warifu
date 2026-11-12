@@ -52,6 +52,12 @@ fn 取り下げる(番号: u64) {
     }
 }
 
+/// **建てた版**（`0.1.48+a9645af` の形・11-12）。写しの版に使う。席の口の `about` と同じ形。
+#[tauri::command]
+pub fn build_version() -> &'static str {
+    env!("WARIFU_BUILD_VERSION")
+}
+
 /// **画面が写しを返す口。**頼んでいない番号は捨てる。
 #[tauri::command]
 pub fn snapshot_reply(id: u64, text: String) {

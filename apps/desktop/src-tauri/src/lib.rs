@@ -4924,6 +4924,7 @@ pub fn run() {
             schedule::schedule_add,
             schedule::schedule_remove,
             snapshot::snapshot_reply,
+            snapshot::build_version,
             agent_cursor::agent_cursor_reply,
             profile::profiles,
             profile::set_profile,

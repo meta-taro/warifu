@@ -94,6 +94,14 @@ describe('エージェントの専用カーソル', () => {
     expect(知らせ).toEqual(['「通す」は人が押すものなので押しません', '「秘密」は人が押すものなので押しません']);
   });
 
+  it('人への知らせで落ちても、断った結果と見つからない結果は返る', async () => {
+    // 11-12、断ったとき・見つからないときだけ席の口に「画面が応えませんでした」が返っていた
+    document.body.innerHTML = `<div ${押させない印}><button>送る</button></div>`;
+    const カ = カーソルを作る(言葉, () => { throw new Error('知らせの欄が壊れた'); }, いつも見える);
+    expect(await 動かし切る(カ.積む({ action: 'click', target: '送る' }))).toBe('「送る」は人が押すものなので押しません');
+    expect(await 動かし切る(カ.積む({ action: 'click', target: '無い' }))).toBe('「無い」が見つかりません');
+  });
+
   it('type は欄に打って input を起こす（人が打ったのと同じに画面が動く）', async () => {
     document.body.innerHTML = '<textarea placeholder="メッセージ"></textarea>';
     const 打った = vi.fn();

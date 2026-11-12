@@ -132,6 +132,18 @@ export function カーソルを作る(
   let 乗せている = false;
   let 列 = Promise.resolve();
 
+  /**
+   * **人への知らせは、失敗しても結果を返す道を止めない**（11-12）。断ったとき・見つからないときだけ
+   * 知らせを出していて、そこで落ちると席の口に結果が返らず「画面が応えませんでした」になっていた
+   */
+  function 人へ知らせる(文: string) {
+    try {
+      知らせる(文);
+    } catch (e) {
+      console.warn(`カーソル: 知らせを出せませんでした（${String(e)}）`);
+    }
+  }
+
   function 用意する() {
     if (矢印 && 枠 && 吹き出し) return { 矢印, 枠, 吹き出し };
     矢印 = document.createElement('div');
@@ -244,13 +256,13 @@ export function カーソルを作る(
     }
     const 要素 = 探す(指し.target, document, 見える);
     if (!要素) {
-      知らせる(言葉.見つからない(指し.target));
+      人へ知らせる(言葉.見つからない(指し.target));
       return 言葉.見つからない(指し.target);
     }
     // **人が押すものは、押さない・打たない**（指して見せるのは構わない）
     if (指し.action !== 'point' && 人が押すものか(要素)) {
       await 動かす(要素, 言葉.押さない(指し.target));
-      知らせる(言葉.押さない(指し.target));
+      人へ知らせる(言葉.押さない(指し.target));
       あとで消す(出す時間(言葉.押さない(指し.target)));
       return 言葉.押さない(指し.target);
     }
@@ -283,7 +295,7 @@ export function カーソルを作る(
     /** 指示を 1 つ積む。届いた順に動かし、結果の 1 文を返す。 */
     積む(指し: 指示): Promise<string> {
       const 結果 = 列.then(() => 一つ動かす(指し)).catch((e: unknown) => {
-        知らせる(String(e));
+        人へ知らせる(String(e));
         return String(e);
       });
       列 = 結果.then(() => undefined);

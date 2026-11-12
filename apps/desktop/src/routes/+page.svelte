@@ -195,6 +195,7 @@
     EVENT_LOOK,
     EVENT_SNAPSHOT_ASK,
     snapshotReply,
+    buildVersion,
     EVENT_AGENT_CURSOR,
     agentCursorReply,
     scheduleAdd,
@@ -1239,7 +1240,19 @@
       メール: メールの映り.いま,
       名簿: 画面での名簿,
       名無し: t('contacts.noname'),
+      打つ欄: 打つ欄を写す(),
     });
+  }
+
+  /**
+   * **打つ欄の名前と字数**（11-12）。中身は写さない（人の下書きに秘密が入りうる）。
+   * 名前はカーソルが探すときと同じく aria-label か placeholder
+   */
+  function 打つ欄を写す(): { 名: string; 字数: number } | null {
+    const 欄 = document.querySelector<HTMLTextAreaElement>('.say textarea');
+    if (!欄) return null;
+    const 名 = 欄.getAttribute('aria-label') || 欄.placeholder || '';
+    return { 名, 字数: [...欄.value].length };
   }
 
   async function ルームを読み直す() {
@@ -1802,7 +1815,8 @@
       // **構えてから取りに行く。**渡されたものを落とさない
       await 留守中の分を取りに行く();
       // **いま動いている版**（画面の帯にも出している）
-      版 = await getVersion().catch(() => '');
+      // **建てた commit まで出す**（11-12）。席の口の about と同じ `0.1.48+a9645af` の形。古い本体なら番号だけ
+      版 = (await buildVersion().catch(() => null)) || (await getVersion().catch(() => ''));
       // **起動時に一度だけ、黙って確かめる**（**D81**）。
       // 無かったことは言わない —— 毎回「最新です」と出るのはうるさい。
       // **繋がらなくても起動を止めない**
@@ -2241,7 +2255,11 @@
       unsubs.push(
         // **エージェントの専用カーソル**（11-12）。動かして、結果の 1 文を返す。人のマウスは使わない
         await onEvent<[number, 指示]>(EVENT_AGENT_CURSOR, ([番号, 指し]) => {
-          void カーソル.積む(指し).then((結果) => agentCursorReply(番号, 結果));
+          // **何が起きても結果を返す**（返さないと席の口は時間切れの文しか受け取れない）
+          void カーソル
+            .積む(指し)
+            .catch((e: unknown) => String(e))
+            .then((結果) => agentCursorReply(番号, 結果));
         }),
       );
       unsubs.push(

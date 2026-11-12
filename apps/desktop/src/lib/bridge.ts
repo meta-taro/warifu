@@ -142,6 +142,8 @@ export const delegateForget = (key: string) => invoke<void>('delegate_forget', {
 export const openLink = (url: string) => invoke<void>('open_link', { url });
 /** カーソルを動かした結果を返す（11-12）。 */
 export const agentCursorReply = (id: number, text: string) => invoke<void>('agent_cursor_reply', { id, text });
+/** 建てた版（`0.1.48+a9645af` の形・11-12）。 */
+export const buildVersion = () => invoke<string>('build_version');
 export const snapshotReply = (id: number, text: string) => invoke<void>('snapshot_reply', { id, text });
 
 /**
