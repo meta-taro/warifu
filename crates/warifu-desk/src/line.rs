@@ -255,6 +255,29 @@ pub enum ToDesk {
         /// 待ちきれなくても頼みは画面に残り、**人が押せばその時に渡す。**
         秒: Option<u64>,
     },
+    /// **メールを送ってよいかを人に聞き、押されたら送る**（D132・11-12）。
+    ///
+    /// エージェントが書いた返信を、人が画面で［送る］を押してから送る。**送るのは人。**
+    /// 札（`mail.send`）は MCP 側が見る。返信のスレッド（`返信先`・`参照`）は MCP 側が元の通から引く。
+    メールを送る {
+        /// どの口から送るか（口のアドレス）。空なら、この機械が送れる口が 1 つだけのときそれを使う。
+        #[serde(default)]
+        口: String,
+        /// 宛先（1〜[`メールの宛先の上限`]）。
+        宛先: Vec<String>,
+        /// 件名。
+        件名: String,
+        /// 本文（文字だけ・[`メールの本文の上限`] 文字まで）。
+        本文: String,
+        /// 返信なら、元の通の `Message-ID`。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        返信先: Option<String>,
+        /// 返信なら、元の通の `References`。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        参照: Option<String>,
+        /// 人の答えを何秒まで待つか。**上限は [`札を待てる秒`]。**待ちきれなくても頼みは画面に残る。
+        秒: Option<u64>,
+    },
     /// **ルームキーで、この機械の割符をそのルームへ入れる**（0.1.30）。
     ///
     /// 新しい機械が最初に繋がるときに、**受け取った機械の前に人が居ないと止まっていた**
@@ -425,6 +448,65 @@ pub enum 手渡しの返り {
         /// なぜか（人が読む）。
         訳: String,
     },
+}
+
+/// メールを送った結果（[`FromDesk::メール`]・D132）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "結果", rename_all = "snake_case", deny_unknown_fields)]
+pub enum メールの返り {
+    /// **送った。**
+    送った {
+        /// 何人へ送ったか（宛先の数）。
+        宛先の数: usize,
+    },
+    /// **まだ人が答えていない。**頼みは画面に残っていて、押されればその時に送る。
+    まだ,
+    /// **人が送らないと決めた。**同じ頼みを繰り返さない。
+    断った,
+    /// **送れない**（口が無い・秘密が無い・サーバが断った・形が悪い）。
+    送れない {
+        /// なぜか（人が読む）。
+        訳: String,
+    },
+}
+
+/// メールの宛先の上限（D132）。**一斉送信の口にしない。**
+pub const メールの宛先の上限: usize = 10;
+/// メールの本文の上限（文字・D132）。
+pub const メールの本文の上限: usize = 20_000;
+/// メールの件名の上限（文字・D132）。
+pub const メールの件名の上限: usize = 300;
+
+/// メールを送る頼みの形を見る（D132）。**見出しに改行を入れさせない**（宛先・件名・返信先）。
+fn メールを検める(
+    口: &str,
+    宛先: &[String],
+    件名: &str,
+    本文: &str,
+    返信先: Option<&str>,
+    参照: Option<&str>,
+) -> Result<(), Error> {
+    let 改行 = |s: &str| s.chars().any(char::is_control);
+    if 宛先.is_empty() || 宛先.len() > メールの宛先の上限 {
+        return Err(Error::Malformed);
+    }
+    if 宛先.iter().any(|a| a.trim().is_empty() || 改行(a))
+        || 改行(口)
+        || 改行(件名)
+        || 返信先.is_some_and(改行)
+        || 参照.is_some_and(改行)
+    {
+        return Err(Error::Malformed);
+    }
+    if 件名.chars().count() > メールの件名の上限
+        || 本文.chars().count() > メールの本文の上限
+    {
+        return Err(Error::Malformed);
+    }
+    if 本文.trim().is_empty() {
+        return Err(Error::Malformed);
+    }
+    Ok(())
 }
 
 /// 書き出した会話の 1 行（[`FromDesk::書き出し`]）。
@@ -832,6 +914,11 @@ pub enum FromDesk {
         /// 渡したか、なぜ渡していないか。
         結果: 手渡しの返り,
     },
+    /// **メールを送った結果**（[`ToDesk::メールを送る`] の返り・D132）。
+    メール {
+        /// 送ったか、なぜ送っていないか。
+        結果: メールの返り,
+    },
     /// **ルームへ入った**（[`ToDesk::入る`] の返り）。入れなければ [`FromDesk::Denied`]。
     入った {
         /// 入ったルームの id。
@@ -1107,6 +1194,18 @@ impl ToDesk {
             Self::鍵を渡す { 相手, 訳, 秒 } => {
                 呼ぶ相手を検める(相手)?;
                 訳を検める(訳)?;
+                待つ秒を検める(*秒)?;
+            }
+            Self::メールを送る {
+                口,
+                宛先,
+                件名,
+                本文,
+                返信先,
+                参照,
+                秒,
+            } => {
+                メールを検める(口, 宛先, 件名, 本文, 返信先.as_deref(), 参照.as_deref())?;
                 待つ秒を検める(*秒)?;
             }
             // **鍵の形も書き手の側で検める**（0.1.30）。中身（宛先・割符）はこの機械が読む
@@ -1532,6 +1631,37 @@ mod tests {
             panic!("say のはず");
         };
         assert_eq!(body, "1 行目\n2 行目");
+    }
+
+    #[test]
+    fn メールを送る頼みは_見出しの改行と一斉送信を運ばない() {
+        let 頼み = |宛先: Vec<&str>, 件名: &str, 本文: &str| ToDesk::メールを送る {
+            口: String::new(),
+            宛先: 宛先.into_iter().map(str::to_owned).collect(),
+            件名: 件名.to_owned(),
+            本文: 本文.to_owned(),
+            返信先: Some("<abc@example.com>".to_owned()),
+            参照: None,
+            秒: Some(30),
+        };
+        let 良い = 頼み(vec!["you@example.com"], "Re: 見積", "確かめました").書く();
+        assert!(matches!(
+            ToDesk::読む(&良い),
+            Ok(ToDesk::メールを送る { .. })
+        ));
+        for 悪い in [
+            頼み(vec![], "件名", "本文"),
+            頼み(
+                vec!["you@example.com\r\nBcc: x@example.net"],
+                "件名",
+                "本文",
+            ),
+            頼み(vec!["you@example.com"], "件名\nBcc: x@example.net", "本文"),
+            頼み(vec!["you@example.com"], "件名", "  "),
+            頼み(vec!["a@example.com"; 11], "件名", "本文"),
+        ] {
+            assert!(ToDesk::読む(&悪い.書く()).is_err());
+        }
     }
 
     #[test]

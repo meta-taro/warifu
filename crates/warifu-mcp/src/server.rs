@@ -640,6 +640,73 @@ impl Warifu {
         Ok(行.join("\n"))
     }
 
+    /// **メールを送る**（D132）。**送るのは人**（画面で［送る］を押したとき）。
+    #[tool(
+        description = "メールを送る。**送るのは人** —— この PC の人の画面に、宛先・件名・本文の全文と［送る］［やめる］が出て、押したときだけ送る（エージェントのカーソルでは押せない）。\
+                       返信なら reply_to に inbox_list の番号を書くと、宛先（Reply-To か差出人）・件名（Re:）・スレッドの見出しを元の通から埋める。返信でなければ to と subject を書く。\
+                       最長 seconds 秒（1〜60・既定 30）待ち、押されなければ「まだ」が返る（頼みは画面に残り、押されると送って、結果は会話に「メールの送信: …」で届く）。同じ頼みを繰り返さない。\
+                       いま送れるのは Gmail の口だけ（受信箱と同じアプリパスワード）。この口には札（mail.send）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn mail_send(
+        &self,
+        Parameters(args): Parameters<crate::tools::MailSendArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("mail.send")?;
+        // **返信なら、元の通から埋める**（書いた to・subject が勝つ）
+        let 下 = match args.reply_to {
+            Some(番号) => {
+                let inner = self.inner.lock().expect("毒されていない");
+                let 元 = inner.messages.get(番号).ok_or_else(|| {
+                    ToolError::BadArgs(format!(
+                        "{番号} 通目はありません（inbox_list で番号を確かめてください）"
+                    ))
+                })?;
+                Some(crate::mail_reply::下ごしらえ(元))
+            }
+            None => None,
+        };
+        let 宛先 = match (args.to, &下) {
+            (Some(to), _) if !to.is_empty() => to,
+            (_, Some(下)) => vec![下.宛先.clone()],
+            _ => {
+                return Err(ToolError::BadArgs(
+                    "宛先がありません（返信なら reply_to、新しいメールなら to を書いてください）"
+                        .to_owned(),
+                )
+                .into());
+            }
+        };
+        let 件名 = match (args.subject, &下) {
+            (Some(s), _) if !s.trim().is_empty() => s,
+            (_, Some(下)) => 下.件名.clone(),
+            _ => {
+                return Err(
+                    ToolError::BadArgs("件名（subject）を書いてください".to_owned()).into(),
+                );
+            }
+        };
+        let この機械 = self.この機械().await?;
+        let 結果 = この機械
+            .メールを送る(
+                args.from.as_deref().unwrap_or_default(),
+                宛先,
+                件名,
+                args.body,
+                下.as_ref().and_then(|d| d.返信先.clone()),
+                下.and_then(|d| d.参照),
+                args.seconds,
+            )
+            .await?;
+        Ok(match 結果 {
+            warifu_desk::メールの返り::送った { 宛先の数 } => format!("送りました（{宛先の数} 人へ）。"),
+            warifu_desk::メールの返り::まだ => "この PC の人がまだ答えていません。頼みは画面に残っていて、\
+                 押されると送ります。結果は会話に「メールの送信: …」で届きます。同じ頼みを繰り返さないでください。"
+                .to_owned(),
+            warifu_desk::メールの返り::断った => "この PC の人が、送らないと決めました。同じ頼みを繰り返さないでください。".to_owned(),
+            warifu_desk::メールの返り::送れない { 訳 } => format!("送れませんでした：{訳}"),
+        })
+    }
+
     /// 1 通の段を上げて読む。**段ごとに別の札が要る。**
     #[tool(description = "1 通の段を上げて読む。段ごとに別の許可が要る。")]
     pub async fn inbox_open(

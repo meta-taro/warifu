@@ -180,6 +180,10 @@
     allowUntilRevoked,
     answerHandoff,
     pendingHandoffs,
+    EVENT_MAIL_SEND,
+    pendingMailSends,
+    answerMailSend,
+    type メールの頼み,
     linkAnswered,
     pendingLinks,
     mediaTurn,
@@ -332,6 +336,8 @@
    * 札の帯と同じ所に、同じ形で出す。
    */
   let 手渡しの頼みたち = $state<手渡しの頼み[]>([]);
+  /** **エージェントが送りたいメール**（D132）。人が全文を読んで押すまで送らない */
+  let メールの頼みたち = $state<メールの頼み[]>([]);
   /**
    * **鍵を手渡してきた相手**（2026-10-20）。リンクで誘われたときは `null`。
    * 誰から届いたかで、尋ね方を変える（リンクは誰でも作れるが、こちらは線の相手から来た）。
@@ -1548,6 +1554,17 @@
     }
   }
 
+  /** **人がメールの頼みに答えた**（D132）。送るなら、ここで初めて送る。結果は上の知らせに出す */
+  async function メールに答える(番号: number, 送る: boolean) {
+    try {
+      notice = (await answerMailSend(番号, 送る)) ?? '';
+    } catch (e) {
+      notice = 読める(e);
+    } finally {
+      メールの頼みたち = メールの頼みたち.filter((頼み) => 頼み.番号 !== 番号);
+    }
+  }
+
   /** 映像の経路についての知らせか（映像をやめたら畳むもの）。 */
   function 経路の知らせか(文: string): boolean {
     if (!文) return false;
@@ -2035,6 +2052,12 @@
         }),
       );
       unsubs.push(
+        // **エージェントが送りたいメール**（D132）。部屋の会話には出さない
+        await onEvent<メールの頼み[]>(EVENT_MAIL_SEND, (頼みたち) => {
+          メールの頼みたち = 頼みたち;
+        }),
+      );
+      unsubs.push(
         await onEvent<[string, string]>(EVENT_KEY_GIFT, ([鍵, 誰から]) => {
           // **相手の機械から鍵が届いた**（2026-10-20）。**ここでは入らない**（D79 と同じ）
           誘われた鍵 = 鍵;
@@ -2210,6 +2233,7 @@
       待っている札たち = (await pendingPasses().catch(() => null)) ?? [];
       // **手渡しの頼みも読み直す**（画面を入れ替えると知らせは飛ばない）
       手渡しの頼みたち = (await pendingHandoffs().catch(() => null)) ?? [];
+      メールの頼みたち = (await pendingMailSends().catch(() => null)) ?? [];
       // **機械の中の TURN を覚える**（**D125**）。Rust 側は起動と並んで建てるので、
       // 画面が先に立つと、まだ無いことがある。**少しの間だけ取りに行き直す**
       void (async () => {
@@ -3607,6 +3631,26 @@
   **ルームキーの手渡し**（2026-10-20）。札の帯と同じ形で出す。
   **［渡す］を押すまで、鍵は出していない。**押したら出して、その相手の機械にだけ送る。
 -->
+{#each メールの頼みたち as 頼み (頼み.番号)}
+  <!-- **送るのは人**（D132）。全文を読んでから押す。エージェントのカーソルでは押させない -->
+  <div class="invited mail-ask" role="alertdialog" aria-live="polite" data-agent-hands-off>
+    <p class="what">{t(頼み.返信 ? 'mail.send.askReply' : 'mail.send.ask')}</p>
+    <p class="hint">{format(t('mail.send.who'), { who: エージェントの名(頼み.頼んだ人), from: 頼み.口 })}</p>
+    <dl class="mail-draft">
+      <dt>{t('mail.send.to')}</dt>
+      <dd>{頼み.宛先.join(', ')}</dd>
+      <dt>{t('mail.send.subject')}</dt>
+      <dd>{頼み.件名}</dd>
+    </dl>
+    <pre class="mail-body">{頼み.本文}</pre>
+    <div class="tail">
+      <button type="button" onclick={() => void メールに答える(頼み.番号, true)}>{t('mail.send.go')}</button>
+      <button type="button" class="quiet" onclick={() => void メールに答える(頼み.番号, false)}>
+        {t('mail.send.keep')}
+      </button>
+    </div>
+  </div>
+{/each}
 {#each 手渡しの頼みたち as 頼み (頼み.番号)}
   <!-- 人が答えるもの。エージェントのカーソルでは押させない（11-12・lib/agent/cursor.ts） -->
   <div class="invited" role="alertdialog" aria-live="polite" data-agent-hands-off>
@@ -5009,6 +5053,34 @@
     font-weight: 600;
   }
 
+  /* **送ってよいかのメール**（D132）。宛先と件名を見出しに、本文は全文を、長ければ欄の中で巻く */
+  .mail-draft {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px 8px;
+    margin: 4px 0;
+    font-size: var(--text-sm-size);
+  }
+  .mail-draft dt {
+    color: var(--text-secondary);
+  }
+  .mail-draft dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .mail-body {
+    max-height: 40vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: 4px 0 8px;
+    padding: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: inherit;
+    font-size: var(--text-sm-size);
+    background: var(--bg-subtle);
+    border-radius: var(--radius-sm);
+  }
   .invited .tail {
     display: flex;
     gap: 0.5rem;

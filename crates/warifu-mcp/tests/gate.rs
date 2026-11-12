@@ -302,6 +302,8 @@ fn 出している口を_数えて名前で押さえる() {
     // 0.1.40 に room_list / room_leave / room_rename を足した（内部の Issue 026）——
     // 一覧は見るだけなので **chat.read**。抜ける・名前を付けるは部屋の形を変えるので
     // **別の札 room.leave / room.rename**（1 回ごとに消える）。
+    // 11-12 に mail_send を足した —— **札は別の mail.send**（D132）。外へ出て取り消せないので、
+    // 読む札と分ける。札があっても送るのは人（画面の［送る］）で、口は頼むことしかできない。
     // 11-12 に screen を足した —— **札は別の screen.act**。人の画面が動く（押す・打つ）ので、
     // 読むだけの screen.read と同じ札にしない。押せるのは人が押せるものだけで、札の［通す］などは画面が断る。
     // 0.1.43 に chat_image を足した —— **札は chat.read**。会話に届いた画像を見るだけで、
@@ -331,6 +333,7 @@ fn 出している口を_数えて名前で押さえる() {
             "mail_account_add",
             "mail_account_list",
             "mail_account_remove",
+            "mail_send",
             "pass_ask",
             "pass_wait",
             "profile_set",
@@ -644,6 +647,43 @@ async fn 画面のカーソルは_知らない動作を画面へ運ばずに断�
     let 口 = 用意(&["screen.act"]);
     let 文 = format!("{:?}", 口.screen(指し("go")).await.unwrap_err());
     assert!(文.contains("割符の画面には無い動作"), "{文}");
+}
+
+fn 送る頼み(
+    reply_to: Option<usize>,
+) -> rmcp::handler::server::wrapper::Parameters<warifu_mcp::MailSendArgs> {
+    rmcp::handler::server::wrapper::Parameters(warifu_mcp::MailSendArgs {
+        body: "確かめました".to_owned(),
+        reply_to,
+        to: None,
+        subject: None,
+        from: None,
+        seconds: None,
+    })
+}
+
+#[tokio::test]
+async fn メールは_送る札が無ければ頼めず_読む札では足りない() {
+    let 口 = 用意(&["inbox.list"]);
+    let 文 = format!("{:?}", 口.mail_send(送る頼み(Some(0))).await.unwrap_err());
+    assert!(文.contains("関所"), "{文}");
+}
+
+#[tokio::test]
+async fn メールの返信は_元の通が無ければ_番号を確かめるよう返す() {
+    let 口 = 用意(&["mail.send"]);
+    let 文 = format!("{:?}", 口.mail_send(送る頼み(Some(99))).await.unwrap_err());
+    assert!(文.contains("99 通目はありません"), "{文}");
+    let 文 = format!("{:?}", 口.mail_send(送る頼み(None)).await.unwrap_err());
+    assert!(文.contains("宛先がありません"), "{文}");
+}
+
+#[tokio::test]
+async fn メールの返信は_元の通から宛先を埋めて_この機械へ頼みに行く() {
+    // 画面が開いていない試験の場なので、この機械へ頼みに行く所まで進めば、宛先と件名は埋まっている
+    let 口 = 用意(&["mail.send"]);
+    let 文 = format!("{:?}", 口.mail_send(送る頼み(Some(0))).await.unwrap_err());
+    assert!(文.contains("この機械が開いていません"), "{文}");
 }
 
 #[tokio::test]

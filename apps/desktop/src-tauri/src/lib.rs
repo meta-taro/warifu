@@ -106,6 +106,7 @@ mod delegate;
 mod desk;
 mod key_give;
 mod link;
+mod mail_send;
 mod mail_view;
 mod mail_watch;
 mod media_path;
@@ -4926,6 +4927,8 @@ pub fn run() {
             snapshot::snapshot_reply,
             snapshot::build_version,
             agent_cursor::agent_cursor_reply,
+            mail_send::answer_mail_send,
+            mail_send::pending_mail_sends,
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,

@@ -64,6 +64,8 @@ const 許せる動作: &[&str] = &[
     "screen.act",
     // **メールの口を控える・外す**（0.1.45）。秘密は扱わない（人が画面か warifu mail secret で入れる）
     "mail.account",
+    // **メールを送る**（D132）。送るのは人が画面で押したときだけ。頼む口を開ける札
+    "mail.send",
 ];
 
 /// `warifu mcp` の設定。

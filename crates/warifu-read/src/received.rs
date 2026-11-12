@@ -77,6 +77,17 @@ impl Claims {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    /// **名前で 1 つ引く**（大文字小文字を問わない・最初のもの・D132）。
+    ///
+    /// 返信を同じスレッドに並べる（`Message-ID`・`References`）のと、返す先（`Reply-To`・`From`）を
+    /// 埋めるためにだけ使う。**こちらの判断（仕分け・優先度）には使わない**のは変わらない。
+    pub fn get(&self, name: &str) -> Option<&str> {
+        self.0
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v.as_str())
+    }
 }
 
 impl fmt::Debug for Claims {

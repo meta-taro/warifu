@@ -269,7 +269,14 @@ mail.secret.ok	Secret: stored	秘密: 入っている	密钥：已保存	비밀:
 mail.secret.redo	Replace	入れ直す	重新输入	다시 입력				
 mail.secret.save	Save to Keychain	キーチェーンに置く	保存到钥匙串	키체인에 저장				
 mail.secret.saved	Saved	置きました	已保存	저장했습니다				
+mail.send.ask	An agent is asking to send an email	エージェントがメールを送ってよいか聞いています	智能体请求发送邮件	에이전트가 메일을 보내도 되는지 묻고 있습니다		帯の見出し。エージェントが新しいメールを送りたがっていて、人が押すまで送らない。		
+mail.send.askReply	An agent is asking to send a reply	エージェントが返信を送ってよいか聞いています	智能体请求发送回复	에이전트가 답장을 보내도 되는지 묻고 있습니다		帯の見出し。エージェントが受け取ったメールへの返信を送りたがっている。		
+mail.send.go	Send	送る	发送	보내기		押すとメールが外へ送られる（取り消せない）。		
+mail.send.keep	Don't send	送らない	不发送	보내지 않기		押すと送らずに帯を閉じる。		
 mail.send.later	Sending arrives in 0.1.46	送ることは 0.1.46 からできます	0.1.46 起可以发送	보내기는 0.1.46 부터 가능합니다				
+mail.send.subject	Subject	件名	主题	제목		メールの件名の見出し。		
+mail.send.to	To	宛先	收件人	받는 사람		メールの宛先の見出し。		
+mail.send.who	{who} wants to send this from {from}. Read the whole text before you press	{who} が {from} から送ろうとしています。全文を読んでから押してください	{who} 想用 {from} 发送。请读完全文后再按	{who}이(가) {from}에서 보내려고 합니다. 전문을 읽은 뒤 누르세요		{who} はエージェントの名前、{from} は送る口のメールアドレス。押す前に本文の全文を読むよう促す。		
 mail.tag.ad	Bulk	広告	群发	광고				
 mail.tag.billing	Billing	請求	账单	청구				
 mail.tag.inquiry	Inquiry	問い合わせ	咨询	문의				
@@ -343,6 +350,7 @@ pass.action.inbox.open.raw	Reading full email text	メールの本文	读取邮�
 pass.action.inbox.open.structured	Reading email key fields	メールの要点	读取邮件要点	메일 요점 읽기				
 pass.action.inbox.open.summary	Reading email summaries	メールの要約	读取邮件摘要	메일 요약 읽기				
 pass.action.mail.account	Adding or removing mail accounts	メールの口を控える・外す	登记或移除邮箱	메일 등록·삭제		秘密（パスワード・API キー）は含まない。アドレスと繋ぎ先だけ。		
+pass.action.mail.send	Sending email	メールの送信	发送邮件	메일 보내기		札の名前。エージェントがメールを送る頼みを出すことを許す。送るのは人が画面で押したときだけ。		
 pass.action.profile.write	Editing the profile	名乗りの書き換え	修改个人资料	프로필 수정				
 pass.action.room.handoff	Handing over room keys	ルームキーの手渡し	转交房间密钥	룸 키 전달		エージェントが、人に聞かずにルームキーを相手へ渡すこと。「受け取る」と読める訳にしないこと。渡すのはこの PC の側である。		
 pass.action.room.invite	Issuing room keys	ルームキーの発行	签发房间密钥	룸 키 발급				

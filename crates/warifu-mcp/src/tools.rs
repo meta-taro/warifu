@@ -149,6 +149,29 @@ pub struct SayArgs {
     pub reply_to: Option<u64>,
 }
 
+/// [`crate::Warifu::mail_send`] の引数（D132）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MailSendArgs {
+    /// 本文（文字だけ）。人が画面で全文を読んでから送る。
+    pub body: String,
+    /// 返信なら、inbox_list の番号。宛先・件名・スレッドは元の通から埋める（to・subject を書けばそちらが勝つ）。
+    #[serde(default)]
+    pub reply_to: Option<usize>,
+    /// 宛先（返信でなければ必須・10 まで）。
+    #[serde(default)]
+    pub to: Option<Vec<String>>,
+    /// 件名（返信でなければ必須）。
+    #[serde(default)]
+    pub subject: Option<String>,
+    /// どの口から送るか（口のアドレス）。省けば、送れる口が 1 つだけのときそれ。
+    #[serde(default)]
+    pub from: Option<String>,
+    /// 人の答えを何秒まで待つか（1〜60・省くと 30）。待ちきれなくても頼みは画面に残る。
+    #[serde(default)]
+    pub seconds: Option<u64>,
+}
+
 /// [`crate::Warifu::screen`] の引数（11-12・エージェントの専用カーソル）。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

@@ -45,6 +45,7 @@ mod chat;
 mod handshake;
 mod heard;
 mod inflight;
+mod mail_reply;
 pub mod push;
 mod reading;
 mod server;
@@ -58,7 +59,7 @@ pub use server::{
 };
 pub use tools::{
     AskArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs, InviteArgs,
-    JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, OpenArgs, ProfileArgs,
-    RoomLeaveArgs, RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs, StatusArgs, ToolError,
-    VoiceArgs, WaitArgs, WaitPassArgs,
+    JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, MailSendArgs, OpenArgs,
+    ProfileArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs, StatusArgs,
+    ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
 };

@@ -778,6 +778,42 @@ impl Chat {
         }
     }
 
+    /// **メールを送ってよいかを人に聞き、押されたら送ってもらう**（D132）。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn メールを送る(
+        &self,
+        口: &str,
+        宛先: Vec<String>,
+        件名: String,
+        本文: String,
+        返信先: Option<String>,
+        参照: Option<String>,
+        秒: Option<u64>,
+    ) -> Result<warifu_desk::メールの返り, crate::ToolError> {
+        let 待つ秒 = 秒
+            .unwrap_or(手渡しを待つ秒)
+            .clamp(1, warifu_desk::札を待てる秒);
+        let 行 = ToDesk::メールを送る {
+            口: 口.trim().to_owned(),
+            宛先,
+            件名,
+            本文,
+            返信先,
+            参照,
+            秒: Some(待つ秒),
+        };
+        match self
+            .頼んで待つ(行, メールの返事, 待つ秒 + 返事を待つ秒)
+            .await?
+        {
+            FromDesk::メール { 結果 } => Ok(結果),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **いま画面アプリが持っている会話を書き出してもらう**（2026-10-16）。古い順。
     pub async fn 書き出す(
         &self,
@@ -1183,6 +1219,10 @@ fn 写しの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::写し { .. } | FromDesk::Denied { .. })
 }
 
+fn メールの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::メール { .. } | FromDesk::Denied { .. })
+}
+
 fn 指したの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::指した { .. } | FromDesk::Denied { .. })
 }
@@ -1427,6 +1467,7 @@ fn 仕分ける(
             | FromDesk::足した { .. }
             | FromDesk::写し { .. }
             | FromDesk::指した { .. }
+            | FromDesk::メール { .. }
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
@@ -1784,6 +1825,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::足した { .. }
             | FromDesk::写し { .. }
             | FromDesk::指した { .. }
+            | FromDesk::メール { .. }
             | FromDesk::書き出し { .. }
             | FromDesk::手渡し { .. }
             // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）

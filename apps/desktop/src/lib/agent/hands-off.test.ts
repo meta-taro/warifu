@@ -15,6 +15,8 @@ describe('人が押すものには、押させない印がある', () => {
   it('札の頼みの帯・常設の札の一覧・入りますかの帯', () => {
     expect(画面).toMatch(/class="invited pass-ask"[^>]*data-agent-hands-off/);
     expect(画面).toMatch(/class="standing-list"[^>]*data-agent-hands-off/);
+    // メールを送ってよいか（D132）。送るのは人
+    expect(画面).toMatch(/class="invited mail-ask"[^>]*data-agent-hands-off/);
     const 入りますか = 画面.match(/<div class="invited" [^>]*>/g) ?? [];
     expect(入りますか.length).toBeGreaterThan(0);
     for (const 帯 of 入りますか) expect(帯).toContain('data-agent-hands-off');

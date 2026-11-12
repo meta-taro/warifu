@@ -255,6 +255,25 @@ export const pendingHandoffs = () => invoke<手渡しの頼み[]>('pending_hando
 export const answerHandoff = (番号: number, 渡す: boolean, 今後も = false) =>
   invoke<string>('answer_handoff', { 番号, 渡す, 今後も });
 
+/** **エージェントが送りたいメール**（D132）。人が全文を読んで［送る］を押したときだけ送る。 */
+export type メールの頼み = {
+  番号: number;
+  /** どの口から（口のアドレス）。 */
+  口: string;
+  宛先: string[];
+  件名: string;
+  本文: string;
+  /** 返信か。 */
+  返信: boolean;
+  /** どのエージェントが頼んだか。 */
+  頼んだ人: string;
+};
+/** 送ってよいかの頼みの並びが変わった（D132）。 */
+export const EVENT_MAIL_SEND = 'warifu://mail-send';
+export const pendingMailSends = () => invoke<メールの頼み[]>('pending_mail_sends');
+/** **人がメールの頼みに答えた。**送るなら、ここで初めて送る（D132）。 */
+export const answerMailSend = (番号: number, 送る: boolean) => invoke<string>('answer_mail_send', { 番号, 送る });
+
 export const connectInRoom = (key: string, address: string, meeting: string) =>
   invoke<void>('connect_in_room', { key, address, meeting });
 
