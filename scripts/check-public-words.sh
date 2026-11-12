@@ -53,6 +53,12 @@ DENY_WORDS=(
 # 規則を書いているファイル自身は見ない（語の一覧そのものが入っているため）
 SELF='^(scripts/check-public-words\.sh|\.github/scripts/oss-privacy-check\.sh)$'
 
+# **全 OSS 共通の正本から写すベースルール**では、役割の名前としての「オーナー」を通す。
+# 写した文はここで書き換えない（書き換えると次の同期で戻る）。特定の人の発言を引いたものではない。
+# 通すのはこの 1 語だけ。ほかの語と、ほかのファイルの「オーナー」はこれまでどおり止める
+SYNCED_BASELINE='^\.claude/rules/product-baseline\.md$'
+ROLE_WORD='オーナー'
+
 fail=0
 note() { printf '%s\n' "$*" >&2; }
 
@@ -85,6 +91,9 @@ for w in "${DENY_WORDS[@]}"; do
     hits="$(git grep -l -F --cached -e "$w" -- 2>/dev/null || true)"
   fi
   hits="$(printf '%s\n' "$hits" | grep -Ev -- "$SELF" | sed '/^$/d' || true)"
+  if [ "$w" = "$ROLE_WORD" ]; then
+    hits="$(printf '%s\n' "$hits" | grep -Ev -- "$SYNCED_BASELINE" | sed '/^$/d' || true)"
+  fi
   if [ -n "$hits" ]; then
     while IFS= read -r f; do
       note "NG [word #$i] $f : 公開の場に書かない語に当たりました（語は出しません。規則は scripts/check-public-words.sh）"
