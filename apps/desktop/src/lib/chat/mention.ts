@@ -49,12 +49,15 @@ function 写しの印か(本文: string, i: number): boolean {
   return i === 2 || !/[A-Za-z0-9]/.test(本文[i - 3]);
 }
 
+const 英字を小さく = (s: string) => s.replace(/[A-Z]/g, (c) => c.toLowerCase());
+
 function ここで呼んでいるか(本文: string, i: number, 名: string): boolean {
   if (!呼ぶ印か(本文[i])) return false;
   if (コードの中か(本文, i)) return false;
   const 打った = 本文.slice(i + 1, i + 1 + 名.length);
   // `@ALL` も `@all` として読む（全員の呼びだけ。人の名前は打ったとおりに見る）
-  const 当たる = 名 === 'all' ? 打った.toLowerCase() === 名 : 打った === 名;
+  // **英字の大文字・小文字は問わない**（11-12・`warifu-desk` と同じ）。ASCII だけを小さくする（字数が変わらない）
+  const 当たる = 英字を小さく(打った) === 英字を小さく(名);
   if (!当たる) return false;
   const 次 = 本文[i + 1 + 名.length];
   return 次 === undefined || !続きの字.test(次);
@@ -77,6 +80,8 @@ export function 呼べる名に広げる(名前たち: readonly string[]): strin
     // 席の口はフォルダ名でも起きるので、画面も同じに見分ける（`docs-site 担当AI` → `docs-site`）
     const 語 = /^([A-Za-z0-9][A-Za-z0-9._-]+) \S/.exec(名.trim())?.[1];
     if (語) 広げた.push(語);
+    // **括弧の中（機械の名前・フォルダ名）でも呼べる**（11-12・機械ごとのメンション）
+    for (const m of 名.matchAll(/（([^（）]+)）/g)) if (m[1].trim()) 広げた.push(m[1].trim());
   }
   return [...new Set(広げた)];
 }

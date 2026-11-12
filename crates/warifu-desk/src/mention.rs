@@ -39,8 +39,29 @@ pub fn 呼べる名に広げる(名前たち: &[String]) -> Vec<String> {
         if let Some(語) = 頭の英数字の語(名) {
             足す(語);
         }
+        // **括弧の中（機械の名前・フォルダ名）でも呼べる**（11-12・機械ごとのメンション）。
+        // `dbboard（mac mini）` は `@mac mini` でも起きる。同じ機械の席が全部起きる
+        for 中 in 括弧の中たち(名) {
+            足す(中);
+        }
     }
     広げた
+}
+
+/// 名前の中の `（…）` の中身を、出てきた順に。
+fn 括弧の中たち(名: &str) -> Vec<&str> {
+    let mut 中たち = Vec::new();
+    let mut 残り = 名;
+    while let Some(開き) = 残り.find('（') {
+        let 後 = &残り[開き + '（'.len_utf8()..];
+        let Some(閉じ) = 後.find('）') else { break };
+        let 中 = &後[..閉じ];
+        if !中.contains('（') && !中.trim().is_empty() {
+            中たち.push(中.trim());
+        }
+        残り = &後[閉じ + '）'.len_utf8()..];
+    }
+    中たち
 }
 
 /// 末尾が `（…）`（中に括弧を含まない）なら、その前。
@@ -90,7 +111,9 @@ fn 呼ばれ方(本文: &str, 名前たち: &[String]) -> Option<bool> {
     let 位置たち: Vec<(usize, bool)> = 全員の呼び
         .iter()
         .flat_map(|名| 呼んだ位置(&小さく, 名))
-        .chain(名たち.flat_map(|名| 呼んだ位置(本文, 名)))
+        // **英字の大文字・小文字は問わない**（11-12）。`@Mac mini` も `@mac mini` として読む。
+        // ASCII だけを小さくするので、字の位置は動かない
+        .chain(名たち.flat_map(|名| 呼んだ位置(&小さく, &名.to_ascii_lowercase())))
         .collect();
     if 位置たち.is_empty() {
         return None;
@@ -152,6 +175,24 @@ mod tests {
         assert!(
             !宛てられたか("@連動 版を教えて", &名),
             "短い名には当たらない"
+        );
+    }
+
+    #[test]
+    fn 機械の名前で呼ぶと_その機械の席が全部起きる() {
+        // 11-12、機械ごとのメンションを足した。
+        // 席の名前の括弧の中（機械の名前）でも呼べる。英字の大文字・小文字は問わない
+        let 席a = 呼べる名に広げる(&["dbboard（mac mini）".to_owned()]);
+        let 席b = 呼べる名に広げる(&["割符（mac mini）（warifu）".to_owned()]);
+        let ほか = 呼べる名に広げる(&["sshboard（mac air）".to_owned()]);
+        for 本文 in ["@mac mini 網を見て", "@Mac mini 網を見て"] {
+            assert!(宛てられたか(本文, &席a), "{本文}");
+            assert!(宛てられたか(本文, &席b), "{本文}");
+            assert!(!宛てられたか(本文, &ほか), "{本文}");
+        }
+        assert!(
+            宛てられたか("@warifu 版は", &席b),
+            "後ろの括弧の中でも呼べる"
         );
     }
 

@@ -96,7 +96,8 @@ describe('候補', () => {
 
 describe('呼べる名に広げる', () => {
   it('名札「名前（場所）」は、名前だけでも呼べる', () => {
-    expect(呼べる名に広げる(['連動（docs）', '人A'])).toEqual(['連動（docs）', '連動', '人A']);
+    // 括弧の中（場所・機械の名前）でも呼べる（11-12・機械ごとのメンション）
+    expect(呼べる名に広げる(['連動（docs）', '人A'])).toEqual(['連動（docs）', '連動', 'docs', '人A']);
     // エージェントは名札（`probe-b`）で呼ばれる。画面の「probe-b のエージェント」からも引けるようにする
     expect(呼べる名に広げる(['probe-b のエージェント'])).toEqual(['probe-b のエージェント', 'probe-b']);
   });
@@ -210,5 +211,16 @@ describe('cc@名前 は写し（0.1.47・メールの CC）', () => {
     const 出た = 候補を出す('見て cc@P', 7, 名);
     expect(出た).toEqual({ 頭: 5, 候補: ['PdM'] });
     expect(候補を入れる('見て cc@P', 7, 5, 'PdM').下書き).toBe('見て cc@PdM ');
+  });
+});
+
+describe('機械ごとのメンション', () => {
+  it('席の名前の括弧の中（機械の名前）でも呼べて、英字の大文字・小文字は問わない', () => {
+    // 11-12、機械ごとのメンションを足した
+    const 名 = 呼べる名に広げる(['dbboard（mac mini）', '割符（mac mini）（warifu）', 'sshboard（mac air）']);
+    expect(名).toContain('mac mini');
+    expect(名).toContain('warifu');
+    expect(宛ての名('@Mac mini 網を見て', 名)).toEqual(['mac mini']);
+    expect(宛ての名('@mac air どう？', 名)).toEqual(['mac air']);
   });
 });
