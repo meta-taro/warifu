@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CallToolResult, ContentBlock, CustomNotification, ErrorData, Implementation, JsonObject,
-    ServerCapabilities, ServerInfo, ServerNotification,
+    ServerCapabilities, ServerConfig, ServerNotification,
 };
 use rmcp::service::{NotificationContext, Peer, RoleServer};
 use rmcp::{ServerHandler, tool, tool_handler, tool_router};
@@ -1609,8 +1609,8 @@ impl ServerHandler for Warifu {
         tokio::spawn(self.clone().知らせ続ける(context.peer));
     }
 
-    fn get_info(&self) -> ServerInfo {
-        let mut info = ServerInfo::default();
+    fn get_info(&self) -> ServerConfig {
+        let mut info = ServerConfig::default();
         // **`claude/channel` を名乗る**（`push.rs`）。名乗らないと、Claude Code は押し出しを受けない
         let mut 機能 = std::collections::BTreeMap::new();
         機能.insert(crate::push::名乗る機能.to_owned(), JsonObject::new());
