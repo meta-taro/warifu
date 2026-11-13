@@ -35,6 +35,25 @@ const 打つ = async (文: string) => {
 };
 
 describe('ChatPanel', () => {
+  it('5,000 行あっても新しい 300 行だけ描き、［前を読む］で 300 行ずつ足す', async () => {
+    // 11-13、人数の多いルームでは数日で 5,000 行になり、全部を吹き出しにしていた
+    const 多い: 会話行[] = Array.from({ length: 5000 }, (_, n) => ({
+      who: '山田さん',
+      body: `行 ${n}`,
+      mine: false,
+    }));
+    const 始め = performance.now();
+    const { container } = render(ChatPanel, { ...素, 会話: 多い });
+    const 掛かった = performance.now() - 始め;
+    expect(container.querySelectorAll('.bubble').length).toBe(300);
+    expect(screen.getByText('行 4999')).toBeTruthy();
+    expect(screen.queryByText('行 4699')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: '前の 300 件を読む' }));
+    expect(container.querySelectorAll('.bubble').length).toBe(600);
+    expect(screen.getByText('行 4400')).toBeTruthy();
+    console.log(`5,000 行を渡して描き終えるまで ${Math.round(掛かった)} ms（jsdom）`);
+  });
+
   it('発言ごとに［コピー］があり、押すと本文をそのまま写して「コピーしました」と出る', async () => {
     // 11-11、発言の字を写す手が無かった（選んで写すと名前や時刻まで混ざる）
     const 写した: string[] = [];

@@ -92,6 +92,7 @@ export type MessageKey =
   | 'chat.placeholder.desk'
   | 'chat.late'
   | 'chat.more'
+  | 'chat.earlier'
   | 'chat.less'
   | 'chat.mention.to'
   | 'chat.mention.line'
@@ -721,6 +722,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.placeholder.desk': 'マイ PC エージェントに話しかける（改行は Shift+Enter）',
     'chat.late': '留守中',
     'chat.more': 'もっと見る',
+    'chat.earlier': '前の {n} 件を読む',
     'chat.less': 'たたむ',
     'chat.mention.to': '{who} を呼びます（ルームの全員に見えます）',
     'chat.mention.me': 'あなた宛て',
@@ -1272,6 +1274,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.placeholder.desk': 'Talk to an agent on this computer (Shift+Enter for a new line)',
     'chat.late': 'while away',
     'chat.more': 'Show more',
+    'chat.earlier': 'Load {n} earlier messages',
     'chat.less': 'Show less',
     'chat.mention.to': 'Mentioning {who} (everyone in the room can see it)',
     'chat.mention.me': 'to you',
@@ -1821,6 +1824,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.placeholder.desk': '对这台电脑的代理说话（换行用 Shift+Enter）',
     'chat.late': '离线期间',
     'chat.more': '展开',
+    'chat.earlier': '加载前 {n} 条',
     'chat.less': '收起',
     'chat.mention.to': '将提及 {who}（房间内所有人都能看到）',
     'chat.mention.me': '提到你',
@@ -2373,6 +2377,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.placeholder.desk': '이 PC 의 에이전트에게 말을 걸기 (줄바꿈은 Shift+Enter)',
     'chat.late': '부재 중',
     'chat.more': '더 보기',
+    'chat.earlier': '이전 {n}개 불러오기',
     'chat.less': '접기',
     'chat.mention.to': '{who} 님을 부릅니다 (방의 모두가 볼 수 있습니다)',
     'chat.mention.me': '나를 부름',

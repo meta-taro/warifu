@@ -26,6 +26,7 @@
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 写しか, 写しの名, 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
   import { 受けを見る, 受ける押し所を出すか } from './ack';
+  import { 一度に描く行, 描く頭, 行が増えたときの描く数, 前を読んだ描く数, 含める描く数 } from './draw-window';
 
   interface Props {
     locale: Locale;
@@ -200,6 +201,7 @@
       下書き = 替えた.下書き;
       見ていた部屋 = 次;
       // **別の部屋の会話を開いたら、最新から見せる**（前の部屋で読み返していた位置は持ち越さない）
+      描く数 = 一度に描く行;
       void tick().then(() => 下へ送る(false));
     });
   });
@@ -280,6 +282,24 @@
    */
   let いまの位置: 位置 = { 上: 0, 見える高さ: 0, 全体: 0 };
 
+  /**
+   * **描く行の数**（`./draw-window`）。会話はルームごとに 5,000 行まで残るが、描くのは新しい 300 行から。
+   * それより前は［前を読む］で足す。行の番号（開いた・写した）は会話の何番目かのまま数える
+   */
+  let 描く数 = $state(一度に描く行);
+  const 頭 = $derived(描く頭(会話.length, 描く数));
+  const 描く行 = $derived(会話.slice(頭));
+
+  /** ［前を読む］。足した分だけ上に伸びるので、読んでいた位置を保つ */
+  async function 前を読む() {
+    if (!欄) return;
+    const 前の高さ = 欄.scrollHeight;
+    const 前の上 = 欄.scrollTop;
+    描く数 = 前を読んだ描く数(描く数, 会話.length);
+    await tick();
+    if (欄) 欄.scrollTop = 前の上 + (欄.scrollHeight - 前の高さ);
+  }
+
   /** **動きを控える設定なら、跳ばす。**（`prefers-reduced-motion`・DESIGN §6） */
   function なめらかにできるか(): boolean {
     if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -311,6 +331,8 @@
     前の行数 = 数;
     const 自分の発言か = 会話[数 - 1]?.mine === true;
     const 見え = untrack(() => 新しい行が来たとき(いまの位置, 増えた, 新着, 自分の発言か));
+    // **底を追う人は 300 行のまま、読み返している人は来た分だけ広げる**（読んでいる所を動かさない）
+    if (増えた > 0) 描く数 = untrack(() => 行が増えたときの描く数(描く数, 増えた, 見え.追う));
     新着 = 見え.新着;
     if (見え.追う) 下へ送る(増えた > 0);
   });
@@ -377,7 +399,13 @@
     打つ欄?.focus();
   }
   /** 返信の添えを押したら、元の発言まで動かす（見つからなければ何もしない） */
-  function 元の発言へ(印: string) {
+  async function 元の発言へ(印: string) {
+    // **描いていない古い行なら、その行まで描く**（`./draw-window`）
+    const 番目 = 会話.findIndex((l) => l.印 === 印);
+    if (番目 >= 0 && 番目 < 頭) {
+      描く数 = 含める描く数(会話.length, 番目, 描く数);
+      await tick();
+    }
     const 先 = 欄?.querySelector<HTMLElement>(`[data-mark="${CSS.escape(印)}"]`);
     先?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
     先?.classList.add('flash');
@@ -487,7 +515,13 @@
     {#if 会話.length === 0}
       <p class="hint">{t('chat.empty')}</p>
     {/if}
-    {#each 会話 as line, i (i)}
+    {#if 頭 > 0}
+      <button type="button" class="earlier" onclick={前を読む}
+        >{format(t('chat.earlier'), { n: String(Math.min(一度に描く行, 頭)) })}</button
+      >
+    {/if}
+    {#each 描く行 as line, j (頭 + j)}
+      {@const i = 頭 + j}
       {@const 形 = 吹き出しの形(line)}
       {@const 宛て = !line.mine && !line.system && 宛てられたか(line.body, 自分の呼ばれる名)}
       {@const 呼んだ = line.system ? [] : 宛ての名(line.body, 見分ける名)}
@@ -1097,6 +1131,22 @@
     cursor: pointer;
   }
   .more:hover {
+    text-decoration: underline;
+  }
+  /* **［前を読む］は会話のいちばん上に、目立たせずに置く**（読み返す人だけが押す） */
+  .earlier {
+    align-self: center;
+    margin: 4px 0 8px;
+    padding: 2px 10px;
+    font: inherit;
+    font-size: 0.85em;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .earlier:hover {
     text-decoration: underline;
   }
   .foot {

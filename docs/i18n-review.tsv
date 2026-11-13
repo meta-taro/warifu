@@ -52,6 +52,7 @@ chat.agentOf	{name} (agent)	{name} のエージェント	{name} 的智能体	{na
 chat.copied	Copied	コピーしました	已复制	복사했습니다		［コピー］を押したあと、少しの間だけ出る知らせ。		
 chat.copy	Copy text	本文をコピー	复制正文	본문 복사		発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言の本文だけをクリップボードへ写す。		
 chat.desk	An agent on this computer is connected. You can talk to it even with nobody else in the room.	この PC のエージェントがつながっています。ルームに人が入っていなくても話しかけられます。	这台电脑的智能体已连上。即使 room 里没有其他人，也可以对它说话。	이 PC의 에이전트가 연결되어 있습니다. 룸에 사람이 없어도 말을 걸 수 있습니다.				
+chat.earlier	Load {n} earlier messages	前の {n} 件を読む	加载前 {n} 条	이전 {n}개 불러오기				
 chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무것도 없습니다				
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
 chat.history.unreadable	Could not open the earlier conversation. It does not seem to have been saved on this machine (set aside; starting empty)	前の会話を開けませんでした。この機械で残したものではないようです（脇へ退けて、空から始めます）	无法打开之前的对话。它似乎不是在本机上保存的（已移到一旁，从空白开始）	이전 대화를 열지 못했습니다. 이 기기에서 저장한 것이 아닌 것 같습니다(옆으로 옮기고 빈 상태로 시작합니다)				
