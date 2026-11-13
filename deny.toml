@@ -1,0 +1,19 @@
+# 依存の脆弱性の届け出を CI で見る（`cargo deny check advisories`）。
+#
+# 届け出は毎日増える。上流が直した版を出した日に気づけるよう、CI で毎日走らせる（`.github/workflows/advisories.yml`）。
+# 画面（`apps/desktop/src-tauri`）は別の Cargo.lock なので、同じ設定を `--config` で渡して見る。
+
+[advisories]
+# 手入れの止まった依存は、自分で直接使うものだけ言う（間接の分は上流の選択で、こちらから替えられない）
+unmaintained = "workspace"
+ignore = [
+  # quick-xml 0.38：iroh → netwatch → netdev → plist の下。OS の網の設定ファイル（手元の plist）を読むだけで、
+  # 外から来た XML は読まない。上流が 0.41 へ上げたら外す
+  { id = "RUSTSEC-2026-0194", reason = "iroh の下・手元の plist だけを読む。上流待ち" },
+  { id = "RUSTSEC-2026-0195", reason = "iroh の下・手元の plist だけを読む。上流待ち" },
+  # zip 4：tauri-plugin-updater の下。署名を確かめた更新の束だけを開く。上げるには Tauri ごと上げる（別に行う）
+  { id = "RUSTSEC-2026-0367", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
+  { id = "RUSTSEC-2026-0368", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
+  { id = "RUSTSEC-2026-0369", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
+  { id = "RUSTSEC-2026-0429", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
+]

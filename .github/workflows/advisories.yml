@@ -1,0 +1,53 @@
+name: advisories
+
+# **依存の脆弱性の届け出を、毎日見る**（`cargo deny check advisories`）。
+#
+# 届け出は、こちらが何も変えなくても毎日増える。push のときだけ見ていると、
+# 上流が直した版を出したことにも、新しい届け出にも気づけない。
+# 外していい届け出は、理由を添えて `deny.toml` に書く（上流が直したら外す）。
+# 画面（`apps/desktop/src-tauri`）は別の Cargo.lock なので、同じ設定で別に見る。
+
+on:
+  schedule:
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**/Cargo.lock"
+      - "**/Cargo.toml"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+  push:
+    branches:
+      - develop
+    paths:
+      - "**/Cargo.lock"
+      - "**/Cargo.toml"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: advisories-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-0.20.2
+      - name: cargo-deny を入れる
+        run: command -v cargo-deny || cargo install cargo-deny --version 0.20.2 --locked
+      - name: 道具と席の口（workspace）
+        run: cargo deny check advisories
+      - name: 画面（apps/desktop/src-tauri）
+        run: cargo deny --manifest-path apps/desktop/src-tauri/Cargo.toml --config deny.toml check advisories
