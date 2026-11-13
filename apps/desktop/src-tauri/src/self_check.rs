@@ -6,7 +6,7 @@
 //!
 //! ここは純粋な見比べだけ。画面の写しは `note_view` で画面が送り、本体の側は `ルームの並び` から作る。
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 /// 画面が見せている 1 部屋。
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
@@ -144,6 +144,31 @@ pub fn 見比べる(本体: &本体の写し, 画面: &画面の写し) -> Vec<S
     出
 }
 
+/// 食い違いを言うまでに、続いていなければならない秒。
+///
+/// 相手が入り直した直後は、本体の名簿が先に変わり、画面の届く先は数秒遅れて追いつく。
+/// その間に 30 秒ごとの点検が当たると、直後に消える食い違いを全員へ言っていた（11-13 の午前だけで 7 件）。
+pub const 続いてから言う秒: u64 = 10;
+
+/// **続いている食い違いだけを選ぶ。**`初めて見た` に、いま出ている食い違いを最初に見た時刻を控える。
+/// 消えたものは控えから外す（また出たら、そこから数え直す）。`待つ秒` 以上続いたものだけを返す。
+#[must_use]
+pub fn 続いたものを選ぶ(
+    初めて見た: &mut HashMap<String, u64>,
+    出: &[String],
+    今: u64,
+    待つ秒: u64,
+) -> Vec<String> {
+    初めて見た.retain(|文, _| 出.contains(文));
+    出.iter()
+        .filter(|文| {
+            let 始め = *初めて見た.entry((*文).clone()).or_insert(今);
+            今.saturating_sub(始め) >= 待つ秒
+        })
+        .cloned()
+        .collect()
+}
+
 #[cfg(test)]
 mod 試験 {
     use super::*;
@@ -221,5 +246,20 @@ mod 試験 {
             出.iter()
                 .any(|s| s.contains("題字（建てていない）と本体の主催（自分）"))
         );
+    }
+
+    #[test]
+    fn 入り直しの直後に消える食い違いは言わず_続いたものだけ言う() {
+        let mut 控え = HashMap::new();
+        let 文 = vec!["届く先が名簿と違う".to_owned()];
+        // 初めて見た時点では言わない
+        assert!(続いたものを選ぶ(&mut 控え, &文, 100, 10).is_empty());
+        // 2 秒後に画面が追いついて消えた → 控えからも外れる
+        assert!(続いたものを選ぶ(&mut 控え, &[], 102, 10).is_empty());
+        assert!(控え.is_empty());
+        // また出たら数え直す。10 秒続いたら言う
+        assert!(続いたものを選ぶ(&mut 控え, &文, 130, 10).is_empty());
+        assert!(続いたものを選ぶ(&mut 控え, &文, 135, 10).is_empty());
+        assert_eq!(続いたものを選ぶ(&mut 控え, &文, 140, 10), 文);
     }
 }

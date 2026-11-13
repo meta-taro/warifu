@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { 通話を置く } from './shelf';
+import { 経路が尽きたか, 通話を置く } from './shelf';
 
 describe('通話の棚', () => {
   it('同じ相手の別の通話が棚にあれば、閉じてから置く（閉じずに上書きしない）', () => {
@@ -15,5 +15,13 @@ describe('通話の棚', () => {
     expect(棚.get('A')).toBe(後);
     通話を置く(棚, 'A', 後);
     expect(後.close).not.toHaveBeenCalled();
+  });
+
+  it('経路が failed になった通話は閉じる（disconnected は戻りうるので閉じない）', () => {
+    // failed は探し直し（ICE restart）をしない限り戻らない。閉じないと、相手 1 人ぶんの口を持ったまま残る
+    expect(経路が尽きたか('failed')).toBe(true);
+    expect(経路が尽きたか('disconnected')).toBe(false);
+    expect(経路が尽きたか('connected')).toBe(false);
+    expect(経路が尽きたか('checking')).toBe(false);
   });
 });

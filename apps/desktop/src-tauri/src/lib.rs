@@ -359,6 +359,8 @@ pub struct Bridge {
     いまの食い違い: Arc<Mutex<Vec<String>>>,
     /// 食い違いごとに、最後に机へ言った時刻（S04-7・同じ食い違いは 10 分に 1 回）
     食い違いを言った: Arc<Mutex<HashMap<String, u64>>>,
+    /// 出ている食い違いを最初に見た時刻（続いたものだけ言う・`self_check::続いたものを選ぶ`）。
+    食い違いを初めて見た: Arc<Mutex<HashMap<String, u64>>>,
     /// **影 —— 本物の部屋の状態機械**（計画 A2 の段 1・0.1.41）。
     ///
     /// 受信の輪と各所の操作を、`conferences`・`主催たち`・`いまのルーム` と**同じ入り口で**流し込む。
@@ -603,6 +605,7 @@ impl Bridge {
             画面の写し: Arc::new(Mutex::new(None)),
             いまの食い違い: Arc::new(Mutex::new(Vec::new())),
             食い違いを言った: Arc::new(Mutex::new(HashMap::new())),
+            食い違いを初めて見た: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1982,8 +1985,15 @@ pub(crate) async fn 自己点検(app: &AppHandle) {
         記録!("影: {文}");
     }
     let 今 = now_secs();
+    // **入り直しの直後に消える食い違いは言わない**（画面の届く先は名簿より数秒遅れて追いつく）
+    let 続いた = self_check::続いたものを選ぶ(
+        &mut *bridge.食い違いを初めて見た.lock().await,
+        &出,
+        今,
+        self_check::続いてから言う秒,
+    );
     let mut 控え = bridge.食い違いを言った.lock().await;
-    for 文 in 出 {
+    for 文 in 続いた {
         let 言う = 控え.get(&文).is_none_or(|前| 今.saturating_sub(*前) >= 600);
         if 言う {
             控え.insert(文.clone(), 今);

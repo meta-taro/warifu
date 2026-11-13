@@ -16,3 +16,12 @@ export function 通話を置く<T extends 閉じられる>(棚: Map<string, T>, 
   if (前 && 前 !== 通話) 前.close();
   棚.set(相手, 通話);
 }
+
+/**
+ * **経路が尽きたか**（11-13）。`failed` は探し直し（ICE restart）をしない限り戻らない。
+ * この版は探し直しをしないので、`failed` の通話は閉じて口を返す。`disconnected` は自分で戻りうるので閉じない。
+ * 相手が戻ってきたら、入り直しの道で通話を作り直す。
+ */
+export function 経路が尽きたか(具合: RTCIceConnectionState | string): boolean {
+  return 具合 === 'failed';
+}

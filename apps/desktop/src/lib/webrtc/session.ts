@@ -15,6 +15,7 @@ import { initialWatch, observe, type WatchState } from '../link/watch';
 import { log, sendSignal, type SignalPayload } from '../bridge';
 import { applyAction, type PeerLike } from './apply';
 import { いまのiceServers, shouldSendVideo } from './media';
+import { 経路が尽きたか } from './shelf';
 import { 引き取る枠 } from './frames';
 
 /**
@@ -219,7 +220,16 @@ export class Call {
       //
       // **`経路が変わった` には前から鍵が入っている。**ここだけ抜けていた。
       log(`経路の具合 ${具合}（${短い鍵(this.peer)}）`);
-      if (具合 === 'failed' || 具合 === 'disconnected') void this.様子を記録する();
+      if (具合 === 'failed' || 具合 === 'disconnected') {
+        // **尽きた通話は、様子を残してから閉じる**（`shelf.ts` の `経路が尽きたか`）。閉じないと口を持ったまま残る
+        const 様子 = this.様子を記録する();
+        if (経路が尽きたか(具合)) {
+          void 様子.finally(() => {
+            log(`経路が尽きたので、通話を閉じます（${短い鍵(this.peer)}）`);
+            this.close();
+          });
+        }
+      }
     };
     // **受けたトラックを、入れ物に入れて画面へ渡す**（2026-09-29）。
     //
