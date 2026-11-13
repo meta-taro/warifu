@@ -4090,7 +4090,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-app"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "tokio",
  "warifu-core",
@@ -4102,15 +4102,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-calendar"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-capability"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-cli"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "rmcp",
  "tokio",
@@ -4132,7 +4132,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-core"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "ed25519-dalek 2.2.0",
  "getrandom 0.3.4",
@@ -4143,7 +4143,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-desk"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "serde",
  "serde_json",
@@ -4152,15 +4152,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-door"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-guard"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-imap"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "async-imap",
  "base64 0.22.1",
@@ -4175,7 +4175,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-intent"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "getrandom 0.3.4",
  "tokio",
@@ -4185,11 +4185,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-link"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-mcp"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "chrono",
  "rmcp",
@@ -4205,7 +4205,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-meeting"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "sha2 0.10.9",
  "tokio",
@@ -4217,7 +4217,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-net"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "bytes",
  "futures",
@@ -4232,7 +4232,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-post"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "warifu-core",
  "warifu-seal",
@@ -4240,7 +4240,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-postbox"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "tokio",
  "warifu-core",
@@ -4251,15 +4251,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-quarantine"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-read"
-version = "0.1.48"
+version = "0.1.49"
 
 [[package]]
 name = "warifu-seal"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "chacha20poly1305",
  "ed25519-dalek 2.2.0",
@@ -4273,7 +4273,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-turn"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "async-trait",
  "getrandom 0.3.4",
@@ -4284,7 +4284,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-vault"
-version = "0.1.48"
+version = "0.1.49"
 dependencies = [
  "warifu-core",
  "zeroize",
