@@ -1678,7 +1678,8 @@ mod tests {
         let (合図, 受け) = std::sync::mpsc::channel::<()>();
         let 始まり = std::time::Instant::now();
 
-        走らせる(async move {
+        // 終わり方（ExitCode）は見ない。見たいのは、戻るまでの時間だけ
+        let _ = 走らせる(async move {
             // **返らない read(2) の代わり。**合図が来るまで戻らない
             tokio::task::spawn_blocking(move || {
                 let _ = 受け.recv_timeout(std::time::Duration::from_secs(10));
