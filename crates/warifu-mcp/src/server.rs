@@ -1156,6 +1156,26 @@ impl Warifu {
         Ok(crate::chat::更新の言い方(&様子))
     }
 
+    /// **切れたままのルームの相手を、いますぐ張り直す**（0.1.49）。
+    #[tool(
+        description = "ルームの相手のうち、線が切れたままの相手を、いますぐ呼び直してもらう。\
+                       割符は切れた相手を自分でも呼び直すが、しくじると間を延ばす（上限 10 分）。待たずに急がせたいときに使う。\
+                       room_status の『切れている相手』に誰か居るとき、人を呼ぶ前にこれを叩く。\
+                       叩くのは割符の見張り（15 秒以内）なので、繋がったかは少し置いて room_status で見る。札は chat.read。"
+    )]
+    pub async fn room_reconnect(&self) -> Result<String, ErrorData> {
+        self.通るか("chat.read")?;
+        let この機械 = self.この機械().await?;
+        let Some(相手) = この機械.張り直す(true).await? else {
+            return Err(crate::ToolError::Unavailable(
+                "この画面の版には張り直しの口がありません（0.1.49 から）。人に画面を入れ替えてもらってください"
+                    .to_owned(),
+            )
+            .into());
+        };
+        Ok(crate::chat::張り直しの言い方(&相手))
+    }
+
     /// **部屋を指定して抜ける**（0.1.40）。
     #[tool(
         description = "部屋を指定して抜ける（この機械の割符がその部屋を出る。主催なら畳む）。\
@@ -1372,6 +1392,10 @@ impl Warifu {
             for 文 in &食い違い {
                 行たち.push(format!("食い違い: {文}"));
             }
+        }
+        // **切れたままの相手**（0.1.49）。古い画面は答えないので、そのときは行を出さない
+        if let Ok(Some(切れ)) = この機械.張り直す(false).await {
+            行たち.extend(crate::chat::切れたままを並べる(&切れ));
         }
         行たち.extend(crate::reading::読みを並べる(&読み));
         行たち.push(format!("この口の起こし方: {}", self.起こし方.言い方()));

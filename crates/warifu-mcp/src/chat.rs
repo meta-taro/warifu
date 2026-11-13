@@ -668,6 +668,29 @@ impl Chat {
         }
     }
 
+    /// **切れたままのルームの相手を並べる**（0.1.49）。`今すぐ` なら、いますぐ張り直してもらう。
+    ///
+    /// 古い画面はこの行を知らない。`room_status` は古い画面でも止めないよう、`None` を返す。
+    ///
+    /// # Errors
+    /// この機械が返さないとき（古い画面は `Ok(None)`）。
+    pub async fn 張り直す(
+        &self,
+        今すぐ: bool,
+    ) -> Result<Option<Vec<warifu_desk::切れの行>>, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::張り直す { 今すぐ }, 張り直すの返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::切れたまま { 相手 } => Ok(Some(相手)),
+            FromDesk::Denied { why } if why.contains("行の形") => Ok(None),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **部屋を指定して抜ける**（0.1.40）。抜けた部屋の id を返す。
     ///
     /// # Errors
@@ -1305,6 +1328,9 @@ fn 部屋たちの返事(中身: &FromDesk) -> bool {
 fn 更新の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::更新 { .. } | FromDesk::Denied { .. })
 }
+fn 張り直すの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::切れたまま { .. } | FromDesk::Denied { .. })
+}
 fn 外すの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::外した { .. } | FromDesk::Denied { .. })
 }
@@ -1491,6 +1517,7 @@ fn 仕分ける(
             | FromDesk::指した { .. }
             | FromDesk::メール { .. }
             | FromDesk::外した { .. }
+            | FromDesk::切れたまま { .. }
             | FromDesk::書き出し { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
@@ -1850,6 +1877,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::指した { .. }
             | FromDesk::メール { .. }
             | FromDesk::外した { .. }
+            | FromDesk::切れたまま { .. }
             | FromDesk::書き出し { .. }
             | FromDesk::手渡し { .. }
             // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）
@@ -2570,5 +2598,87 @@ mod tests {
         assert!(待つ.try_recv().is_err(), "招く呼びに Nobody を渡さない");
         assert!(返し先.lock().unwrap().is_some(), "待ちは残す");
         assert_eq!(箱.lock().unwrap().len(), 1);
+    }
+}
+
+/// **切れたままの相手の 1 行ずつ**（0.1.49・`room_status`）。空なら「なし」と分かる 1 行。
+#[must_use]
+pub fn 切れたままを並べる(相手: &[warifu_desk::切れの行]) -> Vec<String> {
+    if 相手.is_empty() {
+        return vec!["切れている相手: なし".to_owned()];
+    }
+    相手
+        .iter()
+        .map(|行| {
+            format!(
+                "切れている相手: {}（切れてから {}・割符が張り直しています）",
+                切れの名(行),
+                経った時間(行.秒)
+            )
+        })
+        .collect()
+}
+
+/// **張り直しを頼んだ返り**（0.1.49・`room_reconnect`）。
+#[must_use]
+pub fn 張り直しの言い方(相手: &[warifu_desk::切れの行]) -> String {
+    if 相手.is_empty() {
+        return "切れている相手は居ません（張り直すものはありません）。".to_owned();
+    }
+    let 名: Vec<String> = 相手.iter().map(切れの名).collect();
+    format!(
+        "{} 人をいますぐ呼び直すよう頼みました: {}。15 秒ほど置いて room_status で繋がったかを見てください。",
+        相手.len(),
+        名.join("・")
+    )
+}
+
+fn 切れの名(行: &warifu_desk::切れの行) -> String {
+    match &行.名前 {
+        Some(名) => format!("{名}（{}…）", 行.鍵.chars().take(12).collect::<String>()),
+        None => format!("{}…", 行.鍵.chars().take(12).collect::<String>()),
+    }
+}
+
+fn 経った時間(秒: u64) -> String {
+    if 秒 < 60 {
+        format!("{秒} 秒")
+    } else {
+        format!("{} 分", 秒 / 60)
+    }
+}
+
+#[cfg(test)]
+mod 切れたままの試験 {
+    use super::*;
+
+    fn 行(名前: Option<&str>, 秒: u64) -> warifu_desk::切れの行 {
+        warifu_desk::切れの行 {
+            鍵: "TLUTIE3HQGUDABCDEFG".to_owned(),
+            名前: 名前.map(str::to_owned),
+            秒,
+        }
+    }
+
+    #[test]
+    fn 居なければ_なしと1行で言う() {
+        assert_eq!(切れたままを並べる(&[]), vec!["切れている相手: なし"]);
+    }
+
+    #[test]
+    fn 名前と鍵の頭と_切れてからの時間を並べる() {
+        assert_eq!(
+            切れたままを並べる(&[行(Some("相手の席（机）"), 610), 行(None, 40)]),
+            vec![
+                "切れている相手: 相手の席（机）（TLUTIE3HQGUD…）（切れてから 10 分・割符が張り直しています）",
+                "切れている相手: TLUTIE3HQGUD…（切れてから 40 秒・割符が張り直しています）",
+            ]
+        );
+    }
+
+    #[test]
+    fn 張り直しの返りに人数と名を出す() {
+        assert!(張り直しの言い方(&[]).contains("居ません"));
+        assert!(張り直しの言い方(&[行(Some("相手B"), 1)]).starts_with("1 人をいますぐ"));
     }
 }

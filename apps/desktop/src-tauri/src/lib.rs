@@ -118,6 +118,7 @@ mod postbox;
 mod presence;
 mod profile;
 mod recent_keep;
+mod redial;
 mod reply;
 mod room_name;
 #[cfg(test)]
@@ -3348,21 +3349,31 @@ fn 汲む(
         // **知らせは画面へ渡さない。**画面には `EVENT_CLOSED` で伝わっていて、
         // ここで `Left` も出すと**退室の行が 2 本出る。**
         // 外すのは、次の入り直しを通すためである。
-        let 居た = {
+        let 居た部屋 = {
             let mut 棚 = conferences.lock().await;
-            let mut 居た = false;
+            let mut 居た部屋 = Vec::new();
             for c in 棚.values_mut() {
                 let ルーム = c.id();
-                居た |= c
+                if c
                     .on_notice(peer, &Notice::Leave { meeting: ルーム })
-                    .is_ok_and(|出来事| !出来事.is_empty());
+                    .is_ok_and(|出来事| !出来事.is_empty())
+                {
+                    居た部屋.push(ルーム);
+                }
             }
-            居た
+            居た部屋
         };
+        let 居た = !居た部屋.is_empty();
         // **抜けたのではなく、切れた。**一員のままなので、戻るのを待つ（0.1.28）。
         // 名簿に居なかった（もう抜けていた）相手は待たない
         if 居た {
             absence::切れた(&key_to_string(peer));
+            // **ゲストどうしの線なら、自分で張り直す**（0.1.49・`redial`）
+            redial::切れた(
+                &key_to_string(app.state::<Bridge>().device.public_key()),
+                &key_to_string(peer),
+                &居た部屋,
+            );
         }
 
         影へ(
@@ -4665,6 +4676,7 @@ fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event])
                 // 押し出さないと、**誰も気づかないまま相手だけが待つ**
                 let 鍵 = key_to_string(*key);
                 absence::戻った(&鍵);
+                redial::戻った(&鍵);
                 let 名 = desk::入退室を配る(&app.state::<Bridge>(), &鍵, true);
                 let 名 = if 名 == 鍵 { 短く(&鍵) } else { 名 };
                 notify::入ったと知らせる(app, &名);
@@ -4683,6 +4695,7 @@ fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event])
                 let 鍵 = key_to_string(*key);
                 // **ここへ来るのは、本人が抜けたときだけ**（切れたときは `Left` を出さない）
                 absence::抜けた(&鍵);
+                redial::抜けた(&鍵);
                 desk::入退室を配る(&app.state::<Bridge>(), &鍵, false);
                 // **抜けた相手の居場所を、閉じたとして流す**（0.1.43）
                 presence::相手が抜けた(app, 部屋id, *key);
@@ -4852,6 +4865,7 @@ pub fn run() {
             });
             // **切れたまま戻らない人を知らせる**（0.1.28）
             tauri::async_runtime::spawn(absence::見張る(app.handle().clone()));
+            tauri::async_runtime::spawn(redial::見張る(app.handle().clone()));
             // **受信箱の見張り**（0.1.44）。控えたアドレスに新しい通が来たら、この機械のエージェントに数だけ言う
             tauri::async_runtime::spawn(mail_watch::見張る(app.handle().clone()));
 

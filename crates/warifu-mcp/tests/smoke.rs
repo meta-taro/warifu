@@ -198,6 +198,13 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     中身: "版 0.1.34".to_owned(),
                 }),
                 ToDesk::外す { 相手, .. } => Some(FromDesk::外した { 相手 }),
+                ToDesk::張り直す { .. } => Some(FromDesk::切れたまま {
+                    相手: vec![warifu_desk::切れの行 {
+                        鍵: "PEERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+                        名前: Some("相手A".to_owned()),
+                        秒: 610,
+                    }],
+                }),
                 ToDesk::メールを送る { 宛先, .. } => Some(FromDesk::メール {
                     結果: warifu_desk::メールの返り::送った {
                         宛先の数: 宛先.len(),
@@ -394,6 +401,12 @@ async fn 口を全部_1回ずつ呼ぶ() {
 
     結果.push(("contacts_list", format!("{:?}", 口.contacts_list().await)));
     結果.push(("app_view", format!("{:?}", 口.app_view().await)));
+    let 張り直し = 口.room_reconnect().await;
+    assert!(
+        format!("{張り直し:?}").contains("相手A"),
+        "room_reconnect が偽の机の返りを言い直していない: {張り直し:?}"
+    );
+    結果.push(("room_reconnect", format!("{張り直し:?}")));
     結果.push((
         "room_kick",
         format!(
