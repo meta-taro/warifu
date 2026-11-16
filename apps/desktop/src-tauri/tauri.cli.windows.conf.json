@@ -3,6 +3,11 @@
   "bundle": {
     "resources": {
       "../../../target/release/warifu.exe": "cli/warifu.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
+      }
     }
   }
 }

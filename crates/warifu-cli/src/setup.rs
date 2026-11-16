@@ -29,7 +29,19 @@ const 既定で許す: &[&str] = &["chat.send", "chat.read", "profile.write"];
 pub struct 設定 {
     /// 確かめずに入れるか。
     pub 確かめない: bool,
+    /// 使い方を出すだけか（`--help`）。何も入れない。
+    pub 使い方だけ: bool,
 }
+
+/// `warifu setup --help` が出す文。
+pub const 使い方: &str = "使い方: warifu setup [--yes]
+
+  Claude Code の席に、warifu の口（MCP）を登録します。
+  Windows で画面の中のコマンド（…\\warifu\\cli\\warifu.exe）から打つと、画面の外
+  （…\\warifu\\warifu.exe）へ写して、そちらを登録します（更新で古いまま残らないように）。
+
+  --yes, -y   確かめずに入れる（y/N を聞かない）
+  --help, -h  この使い方を出す";
 
 /// **登録する引数**（`warifu` の後ろ）。もう入っていれば**今の引数をそのまま残す**（11-12）。
 ///
@@ -57,11 +69,13 @@ fn 入れる引数(いまの札: Option<&str>) -> Vec<String> {
 /// 引数を読む。
 pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String> {
     let mut 設 = 設定 {
-        確かめない: false
+        確かめない: false,
+        使い方だけ: false,
     };
     for 一つ in args {
         match 一つ.as_str() {
             "--yes" | "-y" => 設.確かめない = true,
+            "--help" | "-h" | "help" => 設.使い方だけ = true,
             他 => return Err(format!("知らない指定です: {他}")),
         }
     }
@@ -70,6 +84,10 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
 
 /// 入れる。
 pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
+    if 設.使い方だけ {
+        println!("{使い方}");
+        return Ok(());
+    }
     let 実体 = 登録する実体(std::env::current_exe()?)?;
     // **もう入っているなら、先に言う。**あとから 2 回目を尋ねない
     let いまの札 = すでに入っている();
@@ -319,6 +337,15 @@ fn which_claude() -> Option<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn help_は使い方を出すだけで_知らない指定にしない() {
+        let 設 = 読む(&mut ["--help".to_owned()].into_iter()).expect("読める");
+        assert!(設.使い方だけ);
+        let 設 = 読む(&mut ["-y".to_owned()].into_iter()).expect("読める");
+        assert!(設.確かめない && !設.使い方だけ);
+        assert!(使い方.contains("--yes"));
+    }
 
     #[test]
     fn 入れ直しても_今の名乗りと札を残す() {

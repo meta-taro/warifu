@@ -102,9 +102,11 @@ jobs:
       # 手順になっているのに、実行ファイルしか無く、exe を手で差し替えるしかなかった。
       # `.msi` そのものは署名しない（配る版と同じ）。自動更新の署名（updater）はタグのときだけ。
       # CLI を束に入れる設定も配る版と同じにする（`tauri.cli.windows.conf.json`・上で CLI を建て済み）
-      - name: 画面を建てる（Windows・.msi まで）
+      # **`-setup.exe`（NSIS）も作る**（0.1.50）。自動更新が流すのはこちらで、更新の前に席の口を退ける
+      # 手順（`windows/hooks.nsh`）が入っている。タグの前に、それが組み上がるかと、入れ替えを試せるようにする
+      - name: 画面を建てる（Windows・.msi と -setup.exe まで）
         if: runner.os == 'Windows'
-        run: pnpm --filter @warifu/desktop tauri build --bundles msi --config src-tauri/tauri.cli.windows.conf.json
+        run: pnpm --filter @warifu/desktop tauri build --bundles msi,nsis --config src-tauri/tauri.cli.windows.conf.json
 
       # **建てただけで終わらせない。**
       #
@@ -125,5 +127,6 @@ jobs:
             apps/desktop/src-tauri/target/release/warifu-desktop.exe
             apps/desktop/src-tauri/target/release/bundle/macos/warifu.app/**
             apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
           retention-days: 7
