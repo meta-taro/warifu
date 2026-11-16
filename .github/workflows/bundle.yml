@@ -104,9 +104,10 @@ jobs:
       # CLI を束に入れる設定も配る版と同じにする（`tauri.cli.windows.conf.json`・上で CLI を建て済み）
       # **`-setup.exe`（NSIS）も作る**（0.1.50）。自動更新が流すのはこちらで、更新の前に席の口を退ける
       # 手順（`windows/hooks.nsh`）が入っている。タグの前に、それが組み上がるかと、入れ替えを試せるようにする
+      # 束ね方は空白で並べる（`msi,nsis` と書くと、PowerShell が配列にして `msi nsis` の 1 語で渡し、tauri が断る）
       - name: 画面を建てる（Windows・.msi と -setup.exe まで）
         if: runner.os == 'Windows'
-        run: pnpm --filter @warifu/desktop tauri build --bundles msi,nsis --config src-tauri/tauri.cli.windows.conf.json
+        run: pnpm --filter @warifu/desktop tauri build --bundles msi nsis --config src-tauri/tauri.cli.windows.conf.json
 
       # **建てただけで終わらせない。**
       #
