@@ -4113,6 +4113,7 @@ name = "warifu-cli"
 version = "0.1.49"
 dependencies = [
  "rmcp",
+ "serde_json",
  "tokio",
  "warifu-app",
  "warifu-capability",

@@ -160,7 +160,61 @@ pub fn 入れる(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
     }
     println!();
     println!("入りました。Claude Code を立て直すと、どのフォルダでも warifu が出ます。");
+    フォルダごとに残っていれば言う();
     Ok(())
+}
+
+/// **フォルダごとの設定に、画面の中のコマンドを指す warifu が残っていれば言う**（0.1.50・Windows）。
+///
+/// `setup` が書き換えるのは利用者ごとの設定だけで、フォルダごとの設定（`~/.claude.json` の `projects`）は
+/// そちらが先に効く。画面の中を指したまま残ると、その席だけ更新で古い口のまま残る。
+/// **人の設定ファイルは書き換えない**（Claude Code のもの）。場所と、外し方を言う。
+fn フォルダごとに残っていれば言う() {
+    let Some(home) = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")) else {
+        return;
+    };
+    let Ok(文) = std::fs::read_to_string(std::path::Path::new(&home).join(".claude.json")) else {
+        return;
+    };
+    let Ok(設定) = serde_json::from_str::<serde_json::Value>(&文) else {
+        return;
+    };
+    let 残り = 束の中を指すフォルダ(&設定);
+    if 残り.is_empty() {
+        return;
+    }
+    println!();
+    println!(
+        "フォルダごとの設定にも、画面の中のコマンドを指す warifu が残っています（そちらが先に効きます）:"
+    );
+    for フォルダ in &残り {
+        println!("  {フォルダ}");
+    }
+    println!(
+        "そのフォルダで `claude mcp remove warifu --scope local` を打つと、いま入れた設定が使われます。"
+    );
+}
+
+/// フォルダごとの設定のうち、warifu の `command` が画面の中のコマンドを指しているフォルダ（純粋）。
+#[must_use]
+fn 束の中を指すフォルダ(設定: &serde_json::Value) -> Vec<String> {
+    let Some(フォルダたち) = 設定.get("projects").and_then(serde_json::Value::as_object)
+    else {
+        return Vec::new();
+    };
+    フォルダたち
+        .iter()
+        .filter_map(|(フォルダ, 中)| {
+            let 命令 = 中
+                .get("mcpServers")?
+                .get("warifu")?
+                .get("command")?
+                .as_str()?;
+            // `\` 区切りでも `/` 区切りでも同じに読む（mac の試験でも Windows の道を読めるように）
+            let 道 = std::path::PathBuf::from(命令.replace('\\', "/"));
+            束の外の置き場所(&道, true).map(|_| フォルダ.clone())
+        })
+        .collect()
 }
 
 /// channels を受ける印（Claude Code の研究段階の機能）。**これを付けないと、届いた知らせは黙って捨てられる**
@@ -337,6 +391,21 @@ fn which_claude() -> Option<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn フォルダごとの設定に残る画面の中のコマンドを見つける() {
+        let 設定 = serde_json::json!({
+            "mcpServers": { "warifu": { "command": "C:\\Users\\x\\AppData\\Local\\warifu\\warifu.exe" } },
+            "projects": {
+                "C:/work/a": { "mcpServers": { "warifu": { "command": "C:\\Users\\x\\AppData\\Local\\warifu\\cli\\warifu.exe" } } },
+                "C:/work/b": { "mcpServers": { "warifu": { "command": "C:/Users/x/AppData/Local/warifu/warifu.exe" } } },
+                "C:/work/c": { "mcpServers": { "other": { "command": "C:/Users/x/AppData/Local/warifu/cli/warifu.exe" } } },
+                "C:/work/d": {}
+            }
+        });
+        assert_eq!(束の中を指すフォルダ(&設定), vec!["C:/work/a".to_owned()]);
+        assert!(束の中を指すフォルダ(&serde_json::json!({})).is_empty());
+    }
 
     #[test]
     fn help_は使い方を出すだけで_知らない指定にしない() {
