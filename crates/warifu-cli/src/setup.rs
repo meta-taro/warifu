@@ -338,8 +338,9 @@ fn 登録する実体(実体: std::path::PathBuf) -> std::io::Result<std::path::
     };
     if 写す先.exists() {
         // 動いている席が使っていても、名前は変えられる（消せない）
-        let 退け先 = 写す先.with_extension("exe.old");
-        let _ = std::fs::remove_file(&退け先);
+        let 退け先 = 退け先_で(&写す先, |p| {
+            !p.exists() || std::fs::remove_file(p).is_ok()
+        });
         std::fs::rename(&写す先, &退け先)?;
     }
     std::fs::copy(&実体, &写す先)?;
@@ -348,6 +349,29 @@ fn 登録する実体(実体: std::path::PathBuf) -> std::io::Result<std::path::
         写す先.display()
     );
     Ok(写す先)
+}
+
+/// 退ける先の名。`.old` が空いていなければ（前に退けたものを席がまだ使っていて消せなければ）、
+/// `.old1`・`.old2`… と番号を付ける（0.1.50）。
+///
+/// 前は `.old` を消せないと名前を変えられずに止まり、束の外が古いまま残った
+/// （`setup` を続けて 2 回打つと、1 回目の写しを席が使ったまま `.old` に居る）。
+fn 退け先_で(
+    写す先: &std::path::Path,
+    空ける: impl Fn(&std::path::Path) -> bool,
+) -> std::path::PathBuf {
+    let 名 = 写す先
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let 先 = 写す先.with_file_name(format!("{名}.old"));
+    if 空ける(&先) {
+        return 先;
+    }
+    (1..100)
+        .map(|n| 写す先.with_file_name(format!("{名}.old{n}")))
+        .find(|p| 空ける(p))
+        .unwrap_or(先)
 }
 
 /// [`登録する実体`] の判定（純粋）。束の中（`…\warifu\cli\warifu.exe`）なら写す先を返す。
@@ -405,6 +429,24 @@ mod tests {
         });
         assert_eq!(束の中を指すフォルダ(&設定), vec!["C:/work/a".to_owned()]);
         assert!(束の中を指すフォルダ(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn 前に退けたものが使われていれば_番号を付けた名へ退ける() {
+        let 先 = std::path::Path::new("C:/x/warifu/warifu.exe");
+        assert_eq!(
+            退け先_で(先, |_| true),
+            std::path::PathBuf::from("C:/x/warifu/warifu.exe.old")
+        );
+        // .old と .old1 を席が使っていて消せない
+        let 使用中 = |p: &std::path::Path| {
+            let n = p.to_string_lossy();
+            !(n.ends_with(".old") || n.ends_with(".old1"))
+        };
+        assert_eq!(
+            退け先_で(先, 使用中),
+            std::path::PathBuf::from("C:/x/warifu/warifu.exe.old2")
+        );
     }
 
     #[test]
