@@ -51,4 +51,13 @@ describe('CLIの知らせ', () => {
       null
     );
   });
+
+  it('画面の中のコマンドが古いまま残ったら、入れ直しを頼む（入れ替えの押し所は出さない）', () => {
+    const 場所 = 'C:/Users/x/AppData/Local/warifu/cli/warifu.exe';
+    expect(CLIの知らせ({ 束が古い: { 場所, 版: '0.1.46' } }, true)).toEqual({
+      鍵: 'cli.bundleStale',
+      場所,
+      版: '0.1.46',
+    });
+  });
 });

@@ -28,6 +28,8 @@ export function CLIの知らせ(様子: CLIの様子, 置ける = false): 知ら
 		return 置ける ? { 鍵: 'cli.oldReplaceable', ...様子.古い, 置ける: true } : { 鍵: 'cli.old', ...様子.古い };
 	}
 	if ('新しい' in 様子) return { 鍵: 'cli.ahead', ...様子.新しい };
+	// 束の中が古いときは入れ替えられない（古いものを写すだけになる）。入れ直してもらう
+	if ('束が古い' in 様子) return { 鍵: 'cli.bundleStale', ...様子.束が古い };
 	// 同じ／読めない は黙る（**決めつけない**）
 	return null;
 }

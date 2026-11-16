@@ -677,6 +677,8 @@ export type CLIの様子 =
 	| { 同じ: { 場所: string; 版: string } }
 	| { 古い: { 場所: string; 版: string } }
 	| { 新しい: { 場所: string; 版: string } }
+	/** 画面の束の中のコマンドが画面より古い（更新のとき、席が使っていて書き換えられなかった）。 */
+	| { 束が古い: { 場所: string; 版: string } }
 	| { 読めない: { 場所: string; 出たもの: string } };
 
 export const cliState = () => invoke<CLIの様子>('cli_state');

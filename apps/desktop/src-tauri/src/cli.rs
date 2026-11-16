@@ -21,6 +21,13 @@ pub enum CLIの様子 {
     古い { 場所: String, 版: String },
     /// 画面より新しい（画面を上げ忘れている）。
     新しい { 場所: String, 版: String },
+    /// **画面の束の中のコマンドが、画面より古い**（0.1.49・Windows）。
+    ///
+    /// 更新のとき、席（Claude Code など）が束の中の `cli\warifu.exe` を使っていると、
+    /// インストーラーはそれだけ書き換えられず、画面は新しくコマンドは古いまま残る。
+    /// 束の外の場所はまだ無いことが多いので、外だけ見ていると「無い」になって何も言えなかった。
+    /// **束が古いあいだは入れ替えない**（古いものを古いものへ写すだけになる）。
+    束が古い { 場所: String, 版: String },
     /// 版が読めない（形が違う）。**「古い」と決めつけない。**
     読めない {
         場所: String, 出たもの: String
@@ -62,6 +69,17 @@ pub fn 見比べる(場所: &Path, 画面の版: &str, cliの出力: &str) -> CL
         std::cmp::Ordering::Less => CLIの様子::古い { 場所, 版 },
         std::cmp::Ordering::Equal => CLIの様子::同じ { 場所, 版 },
         std::cmp::Ordering::Greater => CLIの様子::新しい { 場所, 版 },
+    }
+}
+
+/// **束の中のコマンドを見比べる。**画面より古いときだけ [`CLIの様子::束が古い`] を返す。
+///
+/// 同じ・新しい・読めないときは `None`（外の場所を見に行く）。束の版が読めないのを古いと決めつけない。
+#[must_use]
+pub fn 束を見比べる(場所: &Path, 画面の版: &str, cliの出力: &str) -> Option<CLIの様子> {
+    match 見比べる(場所, 画面の版, cliの出力) {
+        CLIの様子::古い { 場所, 版 } => Some(CLIの様子::束が古い { 場所, 版 }),
+        _ => None,
     }
 }
 
@@ -342,6 +360,35 @@ mod tests {
                 版: "0.1.4".into()
             }
         );
+    }
+
+    #[test]
+    fn 束の中のコマンドが画面より古ければ_束が古いと言う() {
+        let 束 = Path::new("C:/Users/x/AppData/Local/warifu/cli/warifu.exe");
+        assert_eq!(
+            束を見比べる(束, "0.1.49", "warifu 0.1.46+fcdae57"),
+            Some(CLIの様子::束が古い {
+                場所: 束.display().to_string(),
+                版: "0.1.46".into()
+            })
+        );
+    }
+
+    #[test]
+    fn 束の中のコマンドが同じか読めなければ_外を見に行く() {
+        let 束 = Path::new("C:/Users/x/AppData/Local/warifu/cli/warifu.exe");
+        assert_eq!(束を見比べる(束, "0.1.49", "warifu 0.1.49+0246898"), None);
+        assert_eq!(束を見比べる(束, "0.1.49", "warifu 0.1.50"), None);
+        assert_eq!(束を見比べる(束, "0.1.49", ""), None);
+    }
+
+    #[test]
+    fn 束が古いときは入れ替えない() {
+        let 様子 = CLIの様子::束が古い {
+            場所: "C:/x/cli/warifu.exe".into(),
+            版: "0.1.46".into(),
+        };
+        assert_eq!(置き換える場所(&様子), None);
     }
 
     #[test]

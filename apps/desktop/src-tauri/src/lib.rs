@@ -1258,7 +1258,13 @@ fn cli_bundled(app: AppHandle) -> bool {
 /// 置いたら版を聞き直して返す。**置けなければ、場所を名指しで言う。**
 #[tauri::command]
 fn cli_replace(app: AppHandle) -> Answer<cli::CLIの様子> {
-    let いま = cli_state();
+    let いま = cli_state(app.clone());
+    if let cli::CLIの様子::束が古い { 場所, 版 } = &いま {
+        return Err(format!(
+            "画面の中の warifu コマンド（{場所}）が {版} のままなので、入れ替えられません。席を閉じてから、この版をもう一度入れてください"
+        )
+        .into());
+    }
     let Some(場所) = cli::置き換える場所(&いま) else {
         return Err("warifu コマンドは古くないので、入れ替えません".into());
     };
@@ -1266,7 +1272,7 @@ fn cli_replace(app: AppHandle) -> Answer<cli::CLIの様子> {
         return Err("この画面には warifu コマンドが入っていません".into());
     };
     cli::置く(&束, 場所).map_err(|e| format!("{} に置けませんでした: {e}", 場所.display()))?;
-    let 後 = cli_state();
+    let 後 = cli_state(app);
     記録!(
         "warifu コマンドを入れ替えました: {} → {後:?}",
         場所.display()
@@ -1280,25 +1286,36 @@ fn cli_replace(app: AppHandle) -> Answer<cli::CLIの様子> {
 /// **繋がらないという症状だけが残り、CLI が古いせいだと気づけない。**
 ///
 /// **見つからないのは不具合ではない**（CLI を入れていない人が普通）。
+///
+/// **先に束の中を見る**（0.1.49・Windows）。更新のとき席が束の中のコマンドを使っていると、
+/// そこだけ古いまま残る。外の場所が無い機械では、外だけ見ていると何も言えなかった。
 #[tauri::command]
-fn cli_state() -> cli::CLIの様子 {
+fn cli_state(app: AppHandle) -> cli::CLIの様子 {
+    let 画面の版 = env!("CARGO_PKG_VERSION");
+    if let Some(束) = 束の中のcli(&app) {
+        if let Some(様子) = cliの版を聞く(&束).and_then(|文| cli::束を見比べる(&束, 画面の版, &文)) {
+            return 様子;
+        }
+    }
     let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
         return cli::CLIの様子::無い;
     };
-    let 画面の版 = env!("CARGO_PKG_VERSION");
     for 場所 in cli::探す場所(std::path::Path::new(&home)) {
         if !場所.is_file() {
             continue;
         }
-        // **版を聞くだけ。**他の口は叩かない
-        let Ok(出た) = std::process::Command::new(&場所).arg("version").output() else {
+        let Some(文) = cliの版を聞く(&場所) else {
             continue;
         };
-        let 文 = String::from_utf8_lossy(&出た.stdout).to_string()
-            + &String::from_utf8_lossy(&出た.stderr);
         return cli::見比べる(&場所, 画面の版, &文);
     }
     cli::CLIの様子::無い
+}
+
+/// コマンドに版を聞く。**版を聞くだけ。**他の口は叩かない。動かせなければ `None`。
+fn cliの版を聞く(場所: &std::path::Path) -> Option<String> {
+    let 出た = std::process::Command::new(場所).arg("version").output().ok()?;
+    Some(String::from_utf8_lossy(&出た.stdout).to_string() + &String::from_utf8_lossy(&出た.stderr))
 }
 
 #[tauri::command]

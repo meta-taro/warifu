@@ -109,6 +109,7 @@ export type MessageKey =
   | 'cli.old'
   | 'cli.ahead'
   | 'cli.oldReplaceable'
+  | 'cli.bundleStale'
   | 'cli.replace'
   | 'cli.replaced'
   | 'cli.replaceFailed'
@@ -739,6 +740,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'cli.old': 'この PC の warifu コマンドが古いままです（{ver}）。{path} を消してから、新しいものを置いてください（上書きすると、起動しなくなることがあります）。画面だけ上げても、コマンドは上がりません。',
     'cli.ahead': 'この PC の warifu コマンド（{ver}）のほうが新しいです。画面を上げてください。{path}',
     'cli.oldReplaceable': 'この PC の warifu コマンドが古いままです（{ver}・{path}）。画面と同じ版に入れ替えられます。',
+    'cli.bundleStale': '画面の中の warifu コマンドが古いまま残っています（{ver}・{path}）。更新のとき、エージェントが使っていて書き換えられませんでした。エージェントをすべて閉じてから、この版をもう一度入れてください。そのあと `warifu setup` を 1 回打つと、エージェントは画面の外に写したコマンドを使うようになり、次からは止まりません。',
     'cli.replace': 'コマンドも上げる',
     'cli.replaced': 'warifu コマンドを {ver} に入れ替えました（{path}）。動いているエージェントは、立ち上げ直すと新しいコマンドで動きます。',
     'cli.replaceFailed': 'warifu コマンドを入れ替えられませんでした: {why}',
@@ -1291,6 +1293,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'cli.old': 'The warifu command on this PC is still old ({ver}). Delete {path}, then put the new one in place (overwriting it can leave a command that will not start). Updating the app does not update the command.',
     'cli.ahead': 'The warifu command on this PC ({ver}) is newer than the app. Update the app. {path}',
     'cli.oldReplaceable': 'The warifu command on this PC is still old ({ver}, {path}). It can be replaced with the same version as the app.',
+    'cli.bundleStale': 'The warifu command inside the app is still old ({ver}, {path}). An agent was using it during the update, so it could not be replaced. Close every agent, then install this version again. After that, run `warifu setup` once: agents will use a copy outside the app, and future updates will not get stuck.',
     'cli.replace': 'Update the command too',
     'cli.replaced': 'Replaced the warifu command with {ver} ({path}). Running agents use the new command after they restart.',
     'cli.replaceFailed': 'Could not replace the warifu command: {why}',
@@ -1841,6 +1844,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'cli.old': '这台电脑上的 warifu 命令还是旧版（{ver}）。请先删除 {path}，再放入新的（直接覆盖可能导致无法启动）。只更新界面不会更新命令。',
     'cli.ahead': '这台电脑上的 warifu 命令（{ver}）比界面更新。请更新界面。{path}',
     'cli.oldReplaceable': '这台电脑上的 warifu 命令还是旧版（{ver}・{path}）。可以替换为与界面相同的版本。',
+    'cli.bundleStale': '界面内的 warifu 命令仍是旧版（{ver}・{path}）。更新时代理正在使用它，所以无法替换。请关闭所有代理，然后重新安装此版本。之后运行一次 `warifu setup`，代理将使用复制到界面外的命令，以后更新不会再卡住。',
     'cli.replace': '同时更新命令',
     'cli.replaced': '已将 warifu 命令替换为 {ver}（{path}）。正在运行的代理重新启动后会使用新命令。',
     'cli.replaceFailed': '无法替换 warifu 命令：{why}',
@@ -2394,6 +2398,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'cli.old': '이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}). {path} 를 지운 뒤 새것을 놓아 주세요(덮어쓰면 실행되지 않을 수 있습니다). 화면만 올려도 명령은 올라가지 않습니다.',
     'cli.ahead': '이 PC 의 warifu 명령({ver})이 화면보다 새롭습니다. 화면을 올려 주세요. {path}',
     'cli.oldReplaceable': '이 PC 의 warifu 명령이 아직 옛 버전입니다({ver}・{path}). 화면과 같은 버전으로 바꿀 수 있습니다.',
+    'cli.bundleStale': '화면 안의 warifu 명령이 아직 옛 버전입니다({ver}・{path}). 업데이트할 때 에이전트가 사용 중이어서 바꾸지 못했습니다. 에이전트를 모두 닫은 뒤 이 버전을 다시 설치해 주세요. 그다음 `warifu setup` 을 한 번 실행하면 에이전트가 화면 밖으로 복사한 명령을 쓰게 되어, 다음부터는 멈추지 않습니다.',
     'cli.replace': '명령도 올리기',
     'cli.replaced': 'warifu 명령을 {ver} 로 바꿨습니다({path}). 실행 중인 에이전트는 다시 시작하면 새 명령으로 동작합니다.',
     'cli.replaceFailed': 'warifu 명령을 바꾸지 못했습니다: {why}',
