@@ -11,7 +11,7 @@
 // 4. **描けない書き方は、理由を返す。**黙って字に戻さない（画面がその位置に理由と元の字を出す）
 // 5. 外のものは何も読まない（画像・スクリプト・URL）。数と名前だけ
 
-export type 図の形 = '棒' | '線' | '積み上げ';
+export type 図の形 = '棒' | '縦棒' | '線' | '積み上げ' | '円';
 
 export interface 図の行 {
   /** 横軸（1 列目）の字。 */
@@ -43,7 +43,14 @@ const 形の名: Record<string, 図の形> = {
   line: '線',
   stack: '積み上げ',
   stacked: '積み上げ',
+  column: '縦棒',
+  columns: '縦棒',
+  pie: '円',
+  donut: '円',
 };
+
+/** 円の切れの上限。多いと細くて読めない（多ければ棒で）。 */
+export const 円の切れの上限 = 6;
 
 /** 囲みの頭（```の後ろ）がグラフか。`chart` で始まるものだけ。 */
 export function グラフの囲みか(情報: string): boolean {
@@ -83,7 +90,7 @@ function 升に分ける(行たち: string[]): string[][] {
 export function 図を読む(情報: string, 中身: string): 読んだ図 {
   const 指定 = 情報.trim().split(/\s+/)[1]?.toLowerCase();
   if (指定 !== undefined && !(指定 in 形の名)) {
-    return { 訳: `形「${指定}」は描けません（bar・line・stack のどれか）` };
+    return { 訳: `形「${指定}」は描けません（bar・column・line・stack・pie のどれか）` };
   }
   const 行たち = 中身.replace(/\r\n?/g, '\n').split('\n').filter((行) => 行.trim() !== '');
   let 題: string | null = null;
@@ -116,13 +123,28 @@ export function 図を読む(情報: string, 中身: string): 読んだ図 {
   if (形 === '積み上げ' && 図の行たち.some((r) => r.値.some((v) => v !== null && v < 0))) {
     return { 訳: '積み上げに負の数は描けません' };
   }
+  if (形 === '円') {
+    const 訳 = 円にできないか(系列, 図の行たち);
+    if (訳) return { 訳 };
+  }
   return { 図: { 形, 題, 横: 頭[0], 系列, 行たち: 図の行たち } };
 }
 
-/** 軸の目盛り。0 から、きりのよい刻みで最大を覆う。 */
-export function 目盛り(最小: number, 最大: number, 目安 = 4): number[] {
-  const 下 = Math.min(0, 最小);
-  const 上 = Math.max(0, 最大);
+/** 円にできない訳。できれば `null`。 */
+function 円にできないか(系列: string[], 行たち: 図の行[]): string | null {
+  if (系列.length !== 1) return `円は値の列 1 つだけ描けます（${系列.length} つあります）`;
+  if (行たち.length > 円の切れの上限) return `円は ${円の切れの上限} 切れまでです（${行たち.length} 行あります・多ければ bar で）`;
+  if (行たち.some((r) => (r.値[0] ?? 0) < 0)) return '円に負の数は描けません';
+  return null;
+}
+
+/**
+ * 軸の目盛り。きりのよい刻みで最小から最大を覆う。棒は 0 から（長さで比べるので）。
+ * 線は `ゼロから = false` で、動きの幅に合わせる（4,300 前後の毎日の増減が平らに潰れないように）。
+ */
+export function 目盛り(最小: number, 最大: number, 目安 = 4, ゼロから = true): number[] {
+  const 下 = ゼロから ? Math.min(0, 最小) : 最小;
+  const 上 = ゼロから ? Math.max(0, 最大) : 最大;
   if (上 === 下) return [0, 1];
   const 粗い = (上 - 下) / 目安;
   const 桁 = 10 ** Math.floor(Math.log10(粗い));
@@ -142,4 +164,37 @@ export function 数の字(数: number): string {
 /** 行の合計（積み上げの長さ）。 */
 export function 行の合計(行: 図の行): number {
   return 行.値.reduce<number>((s, v) => s + (v ?? 0), 0);
+}
+
+/** 円の切れ（はじめと終わりの角度・割合）。角度は 0〜1（1 周）。 */
+export function 円の切れ(行たち: 図の行[]): { 始め: number; 終わり: number; 割合: number }[] {
+  const 合計 = 行たち.reduce((s, r) => s + (r.値[0] ?? 0), 0);
+  let 今 = 0;
+  return 行たち.map((r) => {
+    const 割合 = 合計 > 0 ? (r.値[0] ?? 0) / 合計 : 0;
+    const 切れ = { 始め: 今, 終わり: 今 + 割合, 割合 };
+    今 += 割合;
+    return 切れ;
+  });
+}
+
+/** 横軸に名前を書く番。8 つまでは全部、多ければ間引いて 6 つ前後（最後は必ず書く・手前と重ねない）。 */
+export function 名を書く番(数: number): Set<number> {
+  if (数 <= 8) return new Set(Array.from({ length: 数 }, (_, i) => i));
+  const 飛ばし = Math.ceil(数 / 6);
+  const 番 = new Set<number>();
+  for (let i = 0; i < 数; i += 飛ばし) 番.add(i);
+  // 最後と、その手前の書いた所が重ならないように
+  const 最後 = 数 - 1;
+  for (const i of 番) if (i !== 最後 && 最後 - i < 飛ばし) 番.delete(i);
+  番.add(最後);
+  return 番;
+}
+
+/** 線の目盛りを 0 から始めないか。全部が正で、動きの幅が最大の半分より小さいとき。 */
+export function 線は動きに合わせるか(値たち: number[]): boolean {
+  if (値たち.length === 0) return false;
+  const 最小 = Math.min(...値たち);
+  const 最大 = Math.max(...値たち);
+  return 最小 > 0 && (最大 - 最小) / 最大 < 0.5;
 }

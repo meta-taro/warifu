@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { グラフの囲みか, 図を読む, 数にする, 目盛り } from './chart';
+import { グラフの囲みか, 図を読む, 数にする, 目盛り, 円の切れ, 名を書く番, 線は動きに合わせるか } from './chart';
 import { 塊に分ける } from './markdown';
 
 const 読めた = (情報: string, 中: string) => {
@@ -55,7 +55,7 @@ describe('図を読む', () => {
   });
 
   it('描けない書き方は、理由を返す（黙って字に戻さない）', () => {
-    expect(図を読む('chart pie', '名,a\nX,1')).toEqual({ 訳: expect.stringContaining('pie') });
+    expect(図を読む('chart radar', '名,a\nX,1')).toEqual({ 訳: expect.stringContaining('radar') });
     expect(図を読む('chart', '名,a')).toEqual({ 訳: expect.stringContaining('表がありません') });
     expect(図を読む('chart', '名\nX')).toEqual({ 訳: expect.stringContaining('列が足りません') });
     expect(図を読む('chart', '名,a\nX,たくさん')).toEqual({ 訳: expect.stringContaining('たくさん') });
@@ -93,5 +93,57 @@ describe('目盛り', () => {
   });
   it('全部 0 でも割り算で壊れない', () => {
     expect(目盛り(0, 0)).toEqual([0, 1]);
+  });
+});
+
+describe('縦の棒と円', () => {
+  it('column は縦の棒、pie は円', () => {
+    expect(読めた('chart column', '日,投稿\n11-17,267\n11-18,301').形).toBe('縦棒');
+    expect(読めた('chart pie', 'SNS,人\nX,6623\nBluesky,959').形).toBe('円');
+  });
+
+  it('円は値の列 1 つ・6 切れまで・負の数なし。断るときは理由を言う', () => {
+    expect(図を読む('chart pie', '名,a,b\nX,1,2')).toEqual({ 訳: expect.stringContaining('1 つだけ') });
+    const 多い = ['名,a', ...Array.from({ length: 7 }, (_, i) => `r${i},1`)].join('\n');
+    expect(図を読む('chart pie', 多い)).toEqual({ 訳: expect.stringContaining('6 切れまで') });
+    expect(図を読む('chart pie', '名,a\nX,-1\nY,2')).toEqual({ 訳: expect.stringContaining('負の数') });
+  });
+
+  it('円の切れは 1 周を割合で分ける', () => {
+    const 切れ = 円の切れ([
+      { 名: 'X', 値: [3] },
+      { 名: 'Y', 値: [1] },
+    ]);
+    expect(切れ).toEqual([
+      { 始め: 0, 終わり: 0.75, 割合: 0.75 },
+      { 始め: 0.75, 終わり: 1, 割合: 0.25 },
+    ]);
+  });
+});
+
+describe('横軸に名前を書く番', () => {
+  it('8 つまでは全部書く', () => {
+    expect([...名を書く番(7)]).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+  it('最後とその手前を重ねない（30 日なら 0・5・10・15・20・29）', () => {
+    expect([...名を書く番(30)].sort((a, b) => a - b)).toEqual([0, 5, 10, 15, 20, 29]);
+  });
+  it('毎日 30 日分なら、間引いても最初と最後は書き、6 つ前後に収める', () => {
+    const 番 = 名を書く番(30);
+    expect(番.has(0)).toBe(true);
+    expect(番.has(29)).toBe(true);
+    expect(番.size).toBeLessThanOrEqual(7);
+  });
+});
+
+describe('線の目盛り', () => {
+  it('毎日 4,300 前後なら、0 からではなく動きの幅に合わせる', () => {
+    expect(線は動きに合わせるか([4290, 4310, 4330])).toBe(true);
+    const 刻み = 目盛り(4290, 4330, 4, false);
+    expect(刻み[0]).toBeGreaterThan(4000);
+  });
+  it('0 に近い値や負の数があれば 0 から', () => {
+    expect(線は動きに合わせるか([2, 6614])).toBe(false);
+    expect(線は動きに合わせるか([-1, 5])).toBe(false);
   });
 });
