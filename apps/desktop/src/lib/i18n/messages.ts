@@ -486,6 +486,8 @@ export type MessageKey =
   | 'roster.name.action'
   | 'roster.host'
   | 'chat.agentOf'
+  | 'chat.chart.table'
+  | 'chat.chart.cannot'
   | 'chat.personAt'
   | 'chat.copy'
   | 'roster.kick'
@@ -632,6 +634,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': '名前を付ける',
     'roster.host': '主催',
     'chat.agentOf': '{name} のエージェント',
+    'chat.chart.table': '表で見る',
+    'chat.chart.cannot': 'グラフにできません：{why}',
     'chat.personAt': '{name} の中の人',
     'chat.copy': '本文をコピー',
     'roster.kick': '外す',
@@ -1185,6 +1189,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': 'Name',
     'roster.host': 'Host',
     'chat.agentOf': '{name} (agent)',
+    'chat.chart.table': 'Show as table',
+    'chat.chart.cannot': 'Cannot draw a chart: {why}',
     'chat.personAt': 'Person at {name}',
     'chat.copy': 'Copy text',
     'roster.kick': 'Remove',
@@ -1738,6 +1744,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': '命名',
     'roster.host': '主持人',
     'chat.agentOf': '{name} 的智能体',
+    'chat.chart.table': '以表格查看',
+    'chat.chart.cannot': '无法绘制图表：{why}',
     'chat.personAt': '{name} 的使用者',
     'chat.copy': '复制正文',
     'roster.kick': '移出',
@@ -2288,6 +2296,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'roster.name.action': '이름 붙이기',
     'roster.host': '호스트',
     'chat.agentOf': '{name}의 에이전트',
+    'chat.chart.table': '표로 보기',
+    'chat.chart.cannot': '그래프로 그릴 수 없습니다: {why}',
     'chat.personAt': '{name}의 사용자',
     'chat.copy': '본문 복사',
     'roster.kick': '내보내기',
@@ -2948,6 +2958,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '名簿で、ルームを建てた人に付く札。',
   'chat.agentOf':
     '会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。',
+  'chat.chart.table':
+    '発言の中のグラフの下にある、元の表（字）を開く折りたたみの見出し。',
+  'chat.chart.cannot':
+    '発言の中のグラフの書き方が読めなかったとき。{why} は理由（日本語のまま入る）。',
   'agent.cursor.tag':
     'エージェントの専用カーソルの横に付く名札。人のカーソルではないと一目で分かる短い語。',
   'agent.cursor.close':

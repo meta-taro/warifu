@@ -2,6 +2,7 @@
   // **発言のマークダウンを絵にする**（0.1.44）。読むのは `./markdown`（HTML にはしない）。
   // `{@html}` を使わない —— 届いた文は、どの切れも字として出る。
   import Self from './Markdown.svelte';
+  import Chart from './Chart.svelte';
   import { 塊に分ける, type 塊, type 字 } from './markdown';
   import { 本文を分ける } from './mention';
   import { openLink } from '$lib/bridge';
@@ -14,8 +15,16 @@
     見分ける名: readonly string[];
     /** 自分が呼ばれる名前（地を付ける） */
     自分の呼ばれる名: readonly string[];
+    /** グラフの周りの文言（画面の言葉で）。 */
+    文言?: { 表で見る: string; 描けない: string };
   };
-  let { 本文 = '', 塊たち, 見分ける名, 自分の呼ばれる名 }: Props = $props();
+  let {
+    本文 = '',
+    塊たち,
+    見分ける名,
+    自分の呼ばれる名,
+    文言 = { 表で見る: '表で見る', 描けない: 'グラフにできません：{why}' },
+  }: Props = $props();
 
   const 並び = $derived(塊たち ?? 塊に分ける(本文));
 
@@ -55,10 +64,20 @@
     <p class="h" class:h1={b.深さ === 1}>{@render 字たち(b.字)}</p>
   {:else if b.種 === '符'}
     <pre>{b.文}</pre>
+  {:else if b.種 === '図'}
+    <div class="figure">
+      {#if '図' in b.読んだ}
+        <Chart 図={b.読んだ.図} />
+        <details><summary>{文言.表で見る}</summary><pre>{b.文}</pre></details>
+      {:else}
+        <p class="why">{文言.描けない.replace('{why}', b.読んだ.訳)}</p>
+        <pre>{b.文}</pre>
+      {/if}
+    </div>
   {:else if b.種 === '罫'}
     <hr />
   {:else if b.種 === '引用'}
-    <blockquote><Self 塊たち={b.中} {見分ける名} {自分の呼ばれる名} /></blockquote>
+    <blockquote><Self 塊たち={b.中} {見分ける名} {自分の呼ばれる名} {文言} /></blockquote>
   {:else if b.種 === '箇条'}
     <div class="list">
       {#each b.項 as 項, k (k)}
@@ -87,7 +106,8 @@
   blockquote,
   hr,
   .list,
-  .table {
+  .table,
+  .figure {
     margin: 0;
   }
   /* 塊どうしの間。吹き出しの中で詰まりすぎないように */
@@ -96,6 +116,7 @@
   * + blockquote,
   * + .list,
   * + .table,
+  * + .figure,
   * + hr {
     margin-top: 0.5em;
   }
@@ -162,6 +183,18 @@
   }
   th {
     background: var(--bg-subtle);
+  }
+  /* グラフにできなかった理由。元の字はその下に出す */
+  .why {
+    color: var(--warning-fg);
+  }
+  details {
+    margin-top: 4px;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+  }
+  summary {
+    cursor: pointer;
   }
   /* 繋ぎ。http(s) は押すと外のブラウザで開く（画面の中では移らない）。先は title で見せる */
   .link {

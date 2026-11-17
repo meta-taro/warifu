@@ -7,6 +7,8 @@
 // 繋ぎ（`[字](先)` とむき出しの http(s) の URL）は、押すと外のブラウザで開く（11-11）。
 // 画面の中では移らない —— 移ると割符の窓ごと置き換わる。
 
+import { グラフの囲みか, 図を読む, type 読んだ図 } from './chart';
+
 /** 行の中のひと切れ。 */
 export type 字 =
   | { 種: '文'; 文: string }
@@ -22,12 +24,13 @@ export type 塊 =
   | { 種: '段'; 字: 字[] }
   | { 種: '見出し'; 深さ: number; 字: 字[] }
   | { 種: '符'; 文: string }
+  | { 種: '図'; 読んだ: 読んだ図; 文: string }
   | { 種: '箇条'; 番号つき: boolean; 項: 項[] }
   | { 種: '引用'; 中: 塊[] }
   | { 種: '表'; 頭: 字[][]; 体: 字[][][] }
   | { 種: '罫' };
 
-const 囲い = /^\s*(```|~~~)/;
+const 囲い = /^\s*(```|~~~)(.*)$/;
 const 見出し = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const 罫 = /^\s*([-*_])(\s*\1){2,}\s*$/;
 const 引用 = /^\s*>\s?(.*)$/;
@@ -66,7 +69,7 @@ export function 塊に分ける(本文: string): 塊[] {
 function 一塊を読む(行たち: string[], i: number): { 塊: 塊; 次: number } {
   const 行 = 行たち[i];
   const 囲いの頭 = 囲い.exec(行);
-  if (囲いの頭) return 符を読む(行たち, i, 囲いの頭[1]);
+  if (囲いの頭) return 符を読む(行たち, i, 囲いの頭[1], 囲いの頭[2]);
   const 見 = 見出し.exec(行);
   if (見) return { 塊: { 種: '見出し', 深さ: 見[1].length, 字: 字に分ける(見[2]) }, 次: i + 1 };
   if (表の頭か(行たち, i)) return 表を読む(行たち, i);
@@ -76,12 +79,15 @@ function 一塊を読む(行たち: string[], i: number): { 塊: 塊; 次: numbe
   return 段を読む(行たち, i);
 }
 
-function 符を読む(行たち: string[], i: number, 印: string): { 塊: 塊; 次: number } {
+function 符を読む(行たち: string[], i: number, 印: string, 情報: string): { 塊: 塊; 次: number } {
   const 中: string[] = [];
   let j = i + 1;
   while (j < 行たち.length && !行たち[j].trimStart().startsWith(印)) 中.push(行たち[j++]);
   // 閉じていなければ最後まで（閉じの行は飛ばす）
-  return { 塊: { 種: '符', 文: 中.join('\n') }, 次: j + 1 };
+  const 文 = 中.join('\n');
+  // **```chart はグラフにする**（11-17）。読めなければ理由を添えて、元の字も出す
+  if (グラフの囲みか(情報)) return { 塊: { 種: '図', 読んだ: 図を読む(情報, 文), 文 }, 次: j + 1 };
+  return { 塊: { 種: '符', 文 }, 次: j + 1 };
 }
 
 function 表の頭か(行たち: string[], i: number): boolean {
