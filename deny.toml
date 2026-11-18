@@ -16,4 +16,7 @@ ignore = [
   { id = "RUSTSEC-2026-0368", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
   { id = "RUSTSEC-2026-0369", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
   { id = "RUSTSEC-2026-0429", reason = "更新の仕組みの下・署名を確かめた束だけを開く。Tauri ごと上げる" },
+  # chrono：手入れが止まった印（脆弱性ではない）。MCP の部品（rmcp・schemars）と IMAP（async-imap）の下にあり、
+  # 割符が直に使うのは時刻を読むことだけ。上流が jiff か time へ移ったら外す（直に使う所は先に替える）
+  { id = "RUSTSEC-2026-0543", reason = "手入れ停止の印・rmcp と async-imap の下。上流待ち" },
 ]
