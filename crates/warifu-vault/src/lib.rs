@@ -150,6 +150,8 @@ const REJOIN_HEADER: &str = "warifu-rejoin-v1";
 const ROOM_NAMES_HEADER: &str = "warifu-room-names-v1";
 /// **名前を持つルームの上限。**古いものから落とす（使い終わった名前を溜めない）。
 pub const ROOM_NAMES_MAX: usize = 64;
+/// ルームでのエージェントの扱いのファイルの見出し（0.1.52）。
+const ROOM_RULES_HEADER: &str = "warifu-room-rules-v1";
 /// **帰り道を持つ上限。**鍵は秘密なので、際限なく溜めない（古いものから落とす）。
 ///
 /// 1 つの機械が入るルームの数としては十分に大きい。
@@ -708,6 +710,63 @@ impl Vault {
             out.push_str(&format!("{id}\t{名前}\n"));
         }
         self.write_private(&self.room_names_path(), &out, "ルームの名前を書く")
+    }
+
+    /// ルームでのエージェントの扱いのファイル（0.1.52）。
+    #[must_use]
+    pub fn room_rules_path(&self) -> PathBuf {
+        self.dir.join("room-rules.tsv")
+    }
+
+    /// **ルームでのエージェントの扱い**（id と扱いの数）。0（ふつう）の行は持たない。
+    ///
+    /// 数の意味は会議の層が決める（ここは運ぶだけ）。読めない行は飛ばす。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn room_rules(&self) -> Result<Vec<(String, u8)>, Error> {
+        let path = self.room_rules_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text = fs::read_to_string(&path).map_err(Error::io(&path, "ルームの扱いを読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != ROOM_RULES_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{ROOM_RULES_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(lines
+            .filter_map(|行| {
+                let (id, 数) = 行.split_once('\t')?;
+                let id = id.trim();
+                let 数 = 数.trim().parse::<u8>().ok()?;
+                (!id.is_empty() && 数 != 0).then(|| (id.to_owned(), 数))
+            })
+            .collect())
+    }
+
+    /// ルームでのエージェントの扱いを書く。**0（ふつう）なら行を消す。**
+    ///
+    /// # Errors
+    /// 読めない・書けないとき。
+    pub fn save_room_rule(&self, id: &str, 数: u8) -> Result<(), Error> {
+        let id: String = id.chars().filter(|c| !c.is_control()).collect();
+        let id = id.trim().to_owned();
+        let mut 並び = self.room_rules()?;
+        並び.retain(|(部屋, _)| *部屋 != id);
+        if 数 != 0 && !id.is_empty() {
+            並び.push((id, 数));
+        }
+        let 余り = 並び.len().saturating_sub(ROOM_NAMES_MAX);
+        並び.drain(..余り);
+        let mut out = format!("{ROOM_RULES_HEADER}\n");
+        for (id, 数) in &並び {
+            out.push_str(&format!("{id}\t{数}\n"));
+        }
+        self.write_private(&self.room_rules_path(), &out, "ルームの扱いを書く")
     }
 
     /// 帰り道のファイル。

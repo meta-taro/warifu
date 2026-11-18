@@ -2303,3 +2303,24 @@ fn 自前の中継のトークンが見えない字だけなら_トークンな�
         ))
     );
 }
+
+// ── ルームでのエージェントの扱い（0.1.52） ──
+
+#[test]
+fn ルームの扱いはルームごとに持ち_ふつうに戻すと行を消す() {
+    let dir = 仮の置き場("room-rules");
+    let vault = Vault::at(&dir);
+    assert!(vault.room_rules().expect("読める").is_empty());
+    vault.save_room_rule("ROOM-A", 2).expect("書ける");
+    vault.save_room_rule("ROOM-B", 1).expect("書ける");
+    vault.save_room_rule("ROOM-A", 1).expect("書ける");
+    assert_eq!(
+        Vault::at(&dir).room_rules().expect("読める"),
+        vec![("ROOM-B".to_owned(), 1), ("ROOM-A".to_owned(), 1)]
+    );
+    vault.save_room_rule("ROOM-B", 0).expect("書ける");
+    assert_eq!(
+        vault.room_rules().expect("読める"),
+        vec![("ROOM-A".to_owned(), 1)]
+    );
+}

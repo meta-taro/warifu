@@ -197,6 +197,9 @@
     relaySetting,
     setRelay,
     roomNames,
+    roomRules,
+    setRoomRule,
+    EVENT_ROOM_RULE,
     EVENT_ROOM_NAME,
     EVENT_LOOK,
     EVENT_SNAPSHOT_ASK,
@@ -649,6 +652,8 @@
    * **使い終わった名前が溜まっていく。**
    */
   let ルームの名前たち = $state<Record<string, string>>({});
+  /** ルームでのエージェントの扱い（0.1.52・ルーム id → 0/1/2）。ふつうの部屋は載らない。 */
+  let ルームの扱いたち = $state<Record<string, number>>({});
   /**
    * **一度でも人がルームに入ったか。**
    *
@@ -2325,6 +2330,15 @@
         }),
       );
       unsubs.push(
+        // **エージェントの扱いが届いた**（0.1.52）。主催が決め、居る人みんなで同じ扱いを持つ
+        await onEvent<[string, number]>(EVENT_ROOM_RULE, ([id, 扱い]) => {
+          const 次 = { ...ルームの扱いたち };
+          if (扱い) 次[id] = 扱い;
+          else delete 次[id];
+          ルームの扱いたち = 次;
+        }),
+      );
+      unsubs.push(
         await onEvent<[string, string?]>(EVENT_LEFT, ([key, 部屋]) => 片付ける(key, '退室', 部屋)),
       );
       unsubs.push(
@@ -2445,6 +2459,7 @@
       // （2026-10-27 に試験用の画面で実測。2 室とも同じ名前で並んだ）
       const 控え = (await roomNames().catch(() => ({}))) ?? {};
       ルームの名前たち = { ...控え, ...ルームの名前たち };
+      ルームの扱いたち = (await roomRules().catch(() => ({}))) ?? {};
     })();
   });
 
@@ -3394,6 +3409,18 @@
    * **画面の中だけで持つ。**ルーム id はその場限りのものなので、
    * 置き場所へ書くと**使い終わった名前が溜まっていく**。
    */
+  /** **エージェントの扱いを決める**（0.1.52）。主催だけが決められる（本体も主催でなければ断る）。 */
+  function ルームの扱いを決める(id: string, 扱い: number) {
+    void setRoomRule(id, 扱い)
+      .then(() => {
+        const 次 = { ...ルームの扱いたち };
+        if (扱い) 次[id] = 扱い;
+        else delete 次[id];
+        ルームの扱いたち = 次;
+      })
+      .catch((e) => (notice = 読める(e)));
+  }
+
   function ルームに名前を付ける(id: string, 名前: string) {
     // **置き場所にも書く。**画面の中だけだと、閉じたときに消える
     // （2026-09-11、付けた名前が起動し直すと消えていた）
@@ -4548,6 +4575,8 @@
         名乗りを書く={(who, name, bio) => void 名乗りを書く(who, name, bio)}
         覚え書きを書く={(key, note) => void 覚え書きを書く(key, note)}
         ルームに名前を付ける={ルームに名前を付ける}
+        ルームの扱いたち={ルームの扱いたち}
+        ルームの扱いを決める={ルームの扱いを決める}
         ルームを抜ける={(id) => void ルームを抜ける(id)}
         鍵を渡す={(相手) => void その人に鍵を渡す(相手)}
         ルームに呼ぶ={(id) => void ルームに呼ぶ(id)}

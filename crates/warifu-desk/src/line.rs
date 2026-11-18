@@ -1063,6 +1063,10 @@ pub struct 部屋の行 {
     pub 主催か: bool,
     /// 画面が見ている部屋か。
     pub 見ているか: bool,
+    /// **主催が決めたエージェントの扱い**（0.1.52・`名指しだけ` / `読むだけ`）。ふつうなら `None`。
+    /// 古い机は書かないので、無ければふつう。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub エージェントの扱い: Option<String>,
 }
 
 /// 行が読めなかった理由。
@@ -2000,6 +2004,7 @@ mod tests {
                 人数: 5,
                 主催か: true,
                 見ているか: true,
+                エージェントの扱い: None,
             }],
         };
         assert_eq!(FromDesk::読む(&返り.書く()).unwrap(), 返り);

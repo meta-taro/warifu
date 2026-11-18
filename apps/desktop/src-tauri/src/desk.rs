@@ -810,6 +810,7 @@ async fn 応じる(
             let bridge = app.state::<Bridge>();
             let 並び = crate::ルームの並び(&bridge).await;
             let 名前たち = crate::room_name::room_names();
+            let 扱いたち = crate::room_rule::控え();
             let 見ている = crate::いま見ているルーム(&bridge.いまのルーム)
                 .await
                 .map(|m| m.to_string());
@@ -820,6 +821,15 @@ async fn 応じる(
                     人数: r.members,
                     主催か: r.host,
                     見ているか: 見ている.as_deref() == Some(r.id.as_str()),
+                    エージェントの扱い: match 扱いたち.get(&r.id) {
+                        Some(warifu_meeting::エージェントの扱い::名指しだけ) => {
+                            Some("名指しだけ".to_owned())
+                        }
+                        Some(warifu_meeting::エージェントの扱い::読むだけ) => {
+                            Some("読むだけ".to_owned())
+                        }
+                        _ => None,
+                    },
                     id: r.id,
                 })
                 .collect();
@@ -1154,6 +1164,13 @@ async fn 応じる(
                     return Ok(());
                 }
             };
+            // **ルームでのエージェントの扱い**（0.1.52）。主催が「名指しだけ」「読むだけ」にした部屋では、
+            // この機械のエージェントの発言を止める（社外の人が居る部屋で、全員の呼びに全席が答えないように）
+            if let Some(why) = 扱いで断るか(app, 部屋, reply_to, 自分).await {
+                記録!("この機械からの発言を流しませんでした（ルームの扱い）");
+                let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                return Ok(());
+            }
             // **`@名前` の相手が流す部屋に居なければ、流さずに断る**（11-11）。
             // 相手の居ない部屋へ返事を流し、届かないうえに関係の無い席へ流れていた
             if let Some(why) = 呼んだ相手が居ないか(app, &body, 部屋).await {
@@ -1261,6 +1278,34 @@ fn 返信先を引く(
         )),
         _ => Ok((Some(行の部屋), Some(印))),
     }
+}
+
+/// **ルームの扱いで断るか**（0.1.52・`room_rule`）。断るなら、エージェントへ返す訳。
+///
+/// 部屋を指していなければ、画面が見ているルームの扱いを見る（流れる先と同じ読み方）。
+async fn 扱いで断るか(
+    app: &AppHandle,
+    部屋: Option<MeetingId>,
+    reply_to: Option<u64>,
+    自分: u64,
+) -> Option<String> {
+    let 部屋 = match 部屋 {
+        Some(m) => m,
+        None => crate::いま見ているルーム(&app.state::<Bridge>().いまのルーム).await?,
+    };
+    let 扱い = crate::room_rule::扱い(&部屋.to_string());
+    if 扱い == warifu_meeting::エージェントの扱い::ふつう {
+        return None;
+    }
+    let 返信先の本文 = reply_to.and_then(|番号| {
+        直近の発言.lock().ok()?.iter().find_map(|(_, 行)| match 行 {
+            FromDesk::Heard { id, body, .. } if *id == 番号 => Some(body.clone()),
+            _ => None,
+        })
+    });
+    let 名札 = エージェントたち.lock().ok()?.get(&自分).cloned()?;
+    let 呼ばれる名 = warifu_desk::呼べる名に広げる(&[名札]);
+    crate::room_rule::断る訳(扱い, 返信先の本文.as_deref(), &呼ばれる名)
 }
 
 /// **呼んだ相手が、流す部屋に居ないか**（11-11・`mention_room`）。居ない・分かるときだけ断る文を返す。

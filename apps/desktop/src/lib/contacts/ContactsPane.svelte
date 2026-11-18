@@ -96,6 +96,10 @@
     覚え書きを書く?: (key: string, note: string) => void;
     /** ルームに名前を付ける（**画面の中だけ**）。 */
     ルームに名前を付ける?: (id: string, 名前: string) => void;
+    /** ルームでのエージェントの扱い（0.1.52・ルーム id → 0 ふつう／1 名指しだけ／2 読むだけ）。 */
+    ルームの扱いたち?: Record<string, number>;
+    /** 主催がエージェントの扱いを決める。 */
+    ルームの扱いを決める?: (id: string, 扱い: number) => void;
     /**
      * そのルームを抜ける。
      *
@@ -164,6 +168,8 @@
     顔を差し替える = () => {},
     覚え書きを書く = () => {},
     ルームに名前を付ける = () => {},
+    ルームの扱いたち = {},
+    ルームの扱いを決める = () => {},
     ルームを抜ける = () => {},
     鍵を渡す = () => {},
     ルームに呼ぶ = () => {},
@@ -971,6 +977,29 @@
           </button>
         </div>
         <p class="hint">{t('room.name.hint')}</p>
+        <!-- **この部屋のエージェントの扱い**（0.1.52）。社外の人が居る部屋で、エージェントが勝手に話さないように。
+             **決めるのは主催だけ**（ゲストには今の扱いを見せるだけ） -->
+        {#each [ルームのid(相手.key)] as 部屋id (部屋id)}
+        {@const 扱い = 部屋id ? (ルームの扱いたち[部屋id] ?? 0) : 0}
+        <div class="rule">
+          <span class="label">{t('room.rule.label')}</span>
+          {#if 相手.主催か && 部屋id}
+            <select
+              value={String(扱い)}
+              onchange={(e) => ルームの扱いを決める(部屋id, Number(e.currentTarget.value))}
+            >
+              <option value="0">{t('room.rule.normal')}</option>
+              <option value="1">{t('room.rule.mention')}</option>
+              <option value="2">{t('room.rule.read')}</option>
+            </select>
+          {:else}
+            <span class:strong={扱い !== 0}>
+              {t(扱い === 1 ? 'room.rule.mention' : 扱い === 2 ? 'room.rule.read' : 'room.rule.normal')}
+            </span>
+          {/if}
+        </div>
+        <p class="hint">{t(相手.主催か ? 'room.rule.hint.host' : 'room.rule.hint.guest')}</p>
+        {/each}
         <!-- **抜ける口を置く。**入ったら出られないルームにしない -->
         <div class="tail">
           <button type="button" class="quiet" onclick={() => (抜けるか確かめている = true)}>
@@ -1753,6 +1782,24 @@
   .rename input {
     flex: 1;
     min-width: 0;
+  }
+  /* **この部屋のエージェントの扱い**（0.1.52）。見出しと選ぶ所を 1 行に。選ぶ所の形は `forms.css` */
+  .rule {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 0 2px;
+  }
+  .rule .label {
+    color: var(--text-secondary);
+  }
+  .rule select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .rule .strong {
+    font-weight: 600;
   }
   /* **プロフィールは縦に積む。**名前と紹介は別の物である */
   .rename.profile {

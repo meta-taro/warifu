@@ -1412,7 +1412,7 @@ pub fn 部屋の一覧の言い方(部屋: &[warifu_desk::部屋の行]) -> Stri
         .iter()
         .map(|r| {
             format!(
-                "{}\t{}\t{} 人\t{}{}",
+                "{}\t{}\t{} 人\t{}{}{}",
                 部屋の頭(&r.id),
                 r.名前.as_deref().unwrap_or("（名前なし）"),
                 r.人数,
@@ -1421,7 +1421,11 @@ pub fn 部屋の一覧の言い方(部屋: &[warifu_desk::部屋の行]) -> Stri
                     "\t見ている"
                 } else {
                     ""
-                }
+                },
+                r.エージェントの扱い
+                    .as_deref()
+                    .map(|扱い| format!("\tエージェントは{扱い}（主催が決めた）"))
+                    .unwrap_or_default()
             )
         })
         .collect::<Vec<_>>()
@@ -1929,6 +1933,7 @@ mod tests {
             人数: 2,
             主催か: false,
             見ているか: 見る,
+            エージェントの扱い: None,
         };
         assert_eq!(super::指さない送り先(&[], None), Ok(None));
         assert_eq!(
@@ -2153,6 +2158,7 @@ mod tests {
                 人数: 5,
                 主催か: true,
                 見ているか: true,
+                エージェントの扱い: None,
             },
             warifu_desk::部屋の行 {
                 id: "4QNXPYQIHAYIOV6OE2ZYEG4MXQ".to_owned(),
@@ -2160,11 +2166,12 @@ mod tests {
                 人数: 1,
                 主催か: false,
                 見ているか: false,
+                エージェントの扱い: Some("名指しだけ".to_owned()),
             },
         ]);
         assert_eq!(
             行,
-            "NBIW3PA2TUQ5…\t開発6台（全機）\t5 人\t主催\t見ている\n4QNXPYQIHAYI…\t（名前なし）\t1 人\tゲスト"
+            "NBIW3PA2TUQ5…\t開発6台（全機）\t5 人\t主催\t見ている\n4QNXPYQIHAYI…\t（名前なし）\t1 人\tゲスト\tエージェントは名指しだけ（主催が決めた）"
         );
         assert_eq!(部屋の一覧の言い方(&[]), "部屋はありません。");
     }

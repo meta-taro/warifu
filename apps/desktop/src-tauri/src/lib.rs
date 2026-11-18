@@ -121,6 +121,7 @@ mod recent_keep;
 mod redial;
 mod reply;
 mod room_name;
+mod room_rule;
 #[cfg(test)]
 mod room_sim;
 mod roster_sync;
@@ -3066,6 +3067,16 @@ fn 汲む(
                         }
                         continue;
                     }
+                    // **ルームでのエージェントの扱い**（0.1.52）。主催からのものだけを受ける
+                    if let Notice::RoomRule { meeting, 扱い } = &notice {
+                        if !conferences.lock().await.contains_key(meeting) {
+                            記録!("ルームの扱いを捨てました（居ないルームあて）");
+                            continue;
+                        }
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        room_rule::届いた(&app, *meeting, peer, 部屋の主催, *扱い);
+                        continue;
+                    }
                     // **合言葉を受け取ってしまう**（**D118**）。
                     //
                     // **主催以外から来たものは捨てる。**合言葉は主催が決めるものであり、
@@ -3148,6 +3159,8 @@ fn 汲む(
                             部屋の合言葉を渡す(&合言葉たち, &outbound, *who, *meeting).await;
                             // **ルームの名前も渡す**（0.1.28）。入った人にも同じ名前で見える
                             room_name::新入りへ渡す(&app.state::<Bridge>(), *who, *meeting).await;
+                            // **エージェントの扱いも渡す**（0.1.52）。入った人の機械でも同じように止める
+                            room_rule::新入りへ渡す(&app.state::<Bridge>(), *who, *meeting).await;
                             紹介を配る(&conferences, &outbound, &addresses, me, *who, *meeting)
                                 .await;
                         } else if contacts::呼びに行かせるか(peer, *who) {
@@ -4673,6 +4686,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         // **中身は出さない。**種別だけ言う —— これは合言葉を運ぶ知らせである（**D118**）
         Notice::RoomSecret { .. } => "部屋の合言葉",
         Notice::RoomName { .. } => "ルームの名前",
+        Notice::RoomRule { .. } => "ルームでのエージェントの扱い",
         Notice::Presence { .. } => "居場所",
         Notice::受けた { .. } => "受けた",
         _ => "知らない知らせ",
@@ -4977,6 +4991,8 @@ pub fn run() {
             bundle::can_update,
             rejoin_key,
             room_name::room_names,
+            room_rule::room_rules,
+            room_rule::set_room_rule,
             postbox::postbox,
             postbox::set_postbox,
             postbox::fetch_postbox,
@@ -5159,6 +5175,10 @@ mod 知らせの名の試験 {
                 meeting: 部屋,
                 from: 鍵(),
                 名前: String::new(),
+            },
+            Notice::RoomRule {
+                meeting: 部屋,
+                扱い: warifu_meeting::エージェントの扱い::読むだけ,
             },
             Notice::Presence {
                 meeting: 部屋,

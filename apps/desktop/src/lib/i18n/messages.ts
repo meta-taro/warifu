@@ -324,6 +324,12 @@ export type MessageKey =
   | 'room.leave.hint'
   | 'room.leave.do'
   | 'room.name.hint'
+  | 'room.rule.label'
+  | 'room.rule.normal'
+  | 'room.rule.mention'
+  | 'room.rule.read'
+  | 'room.rule.hint.host'
+  | 'room.rule.hint.guest'
   | 'contacts.desk.how'
   | 'connect.open'
   | 'connect.title'
@@ -961,6 +967,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.leave.hint': '抜けたことは、このルームの全員に伝わります。ここの会話は残りません。入り直すには、ルームキーをもう一度もらってください。',
     'room.leave.do': '抜ける',
     'room.name.hint': 'ルームに入っている人みんなに、同じ名前で見えます。誰が付け直しても、新しいものが勝ちます。',
+    'room.rule.label': 'このルームのエージェント',
+    'room.rule.normal': 'ふつうに話す',
+    'room.rule.mention': '名指しにだけ答える',
+    'room.rule.read': '読むだけ（話さない）',
+    'room.rule.hint.host': '社外の人がいるルームでは「名指しにだけ答える」か「読むだけ」に。入っている人の割符が、その機械のエージェントの発言を止めます（0.1.51 以前の割符には効きません）。',
+    'room.rule.hint.guest': 'エージェントの扱いは、ルームを建てた人が決めます。',
     'contacts.desk.how': '繋ぐには、そのエージェントの設定に warifu を足して、立ち上げ直します（手順は docs/mcp.md）。',
     'connect.open': 'つなぎ方を出す',
     'connect.title': 'このエージェントをつなぐ',
@@ -1516,6 +1528,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.leave.hint': 'Everyone in the room is told you left. The conversation here is not kept. To come back you need a room key again.',
     'room.leave.do': 'Leave',
     'room.name.hint': 'Everyone in the room sees the same name. Anyone can change it; the newest one wins.',
+    'room.rule.label': 'Agents in this room',
+    'room.rule.normal': 'Talk normally',
+    'room.rule.mention': 'Answer only when named',
+    'room.rule.read': 'Read only (no posts)',
+    'room.rule.hint.host': 'In rooms with people from outside, choose “Answer only when named” or “Read only”. Each member’s warifu stops its own agents from posting (warifu 0.1.51 or older ignores this).',
+    'room.rule.hint.guest': 'The person who created this room decides how agents behave here.',
     'contacts.desk.how': 'To connect an agent, write the warifu entry into the agent settings on this computer and restart the agent. The steps are in docs/mcp.md.',
     'connect.open': 'Show how to connect',
     'connect.title': 'Connect this agent',
@@ -2068,6 +2086,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.leave.hint': 'room 里的所有人都会知道你退出了。这里的会话不会保留。要再进来需要重新拿到room key。',
     'room.leave.do': '退出',
     'room.name.hint': '房间里的每个人都会看到同一个名字。谁都可以修改，以最新的为准。',
+    'room.rule.label': '这个房间的代理',
+    'room.rule.normal': '正常发言',
+    'room.rule.mention': '只在被点名时回答',
+    'room.rule.read': '只读（不发言）',
+    'room.rule.hint.host': '有外部人员的房间，请选择“只在被点名时回答”或“只读”。每位成员的割符会阻止自己机器上的代理发言（0.1.51 及更早的割符不支持）。',
+    'room.rule.hint.guest': '代理在此房间的行为由建房间的人决定。',
     'contacts.desk.how': '要连接智能体，请在这台电脑的智能体设置里写入 warifu 的入口，然后重启智能体。步骤见 docs/mcp.md。',
     'connect.open': '显示连接方法',
     'connect.title': '连接这个智能体',
@@ -2624,6 +2648,12 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'room.leave.hint': '나간 것은 이 룸의 모두에게 전해집니다. 여기의 대화는 남지 않습니다. 다시 들어오려면 룸 키를 다시 받아야 합니다.',
     'room.leave.do': '나가기',
     'room.name.hint': '방에 있는 모두에게 같은 이름으로 보입니다. 누구든 바꿀 수 있고, 가장 새로운 이름이 적용됩니다.',
+    'room.rule.label': '이 룸의 에이전트',
+    'room.rule.normal': '평소대로 말하기',
+    'room.rule.mention': '이름이 불렸을 때만 답하기',
+    'room.rule.read': '읽기만（말하지 않음）',
+    'room.rule.hint.host': '외부 사람이 있는 룸에서는 \'이름이 불렸을 때만 답하기\'나 \'읽기만\'을 고르세요. 참여한 사람의 와리후가 자기 기기의 에이전트 발언을 막습니다（0.1.51 이하의 와리후에는 적용되지 않습니다）.',
+    'room.rule.hint.guest': '에이전트의 행동은 룸을 만든 사람이 정합니다.',
     'contacts.desk.how': '연결하려면 이 PC의 에이전트 설정에 warifu 입구를 쓰고 에이전트를 다시 시작합니다. 순서는 docs/mcp.md 에 있습니다.',
     'connect.open': '연결 방법 보기',
     'connect.title': '이 에이전트를 연결하기',
@@ -2958,6 +2988,18 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '名簿で、ルームを建てた人に付く札。',
   'chat.agentOf':
     '会話の差出人が、この PC につながったエージェントのとき。{name} はエージェントが動いている場所の名前（フォルダ名など）。人の名前ではない。',
+  'room.rule.label':
+    'ルームの欄で、そのルームのエージェントの扱いを選ぶ所の見出し。',
+  'room.rule.normal':
+    'エージェントの扱いの選択肢：これまでどおり話す。',
+  'room.rule.mention':
+    'エージェントの扱いの選択肢：@名前 で呼ばれた発言への返信だけ流せる。',
+  'room.rule.read':
+    'エージェントの扱いの選択肢：エージェントは発言を流せない。',
+  'room.rule.hint.host':
+    '主催に出す説明。社外の人がいる部屋で使う扱いと、古い版には効かないこと。',
+  'room.rule.hint.guest':
+    '主催でない人に出す説明。決めるのは部屋を建てた人。',
   'chat.chart.table':
     '発言の中のグラフの下にある、元の表（字）を開く折りたたみの見出し。',
   'chat.chart.cannot':

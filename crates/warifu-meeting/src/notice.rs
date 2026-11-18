@@ -58,6 +58,46 @@ const ROOM_SECRET: &str = "meeting.roomsecret";
 const ROOM_NAME: &str = "meeting.roomname";
 /// ルームの名前の長さ（バイト）。**画面の 1 行に収まる長さ**（名乗りの名前と同じ）。
 pub const ROOM_NAME_MAX: usize = 128;
+/// **ルームでのエージェントの扱い**（0.1.52）。主催が決め、居る人みんなで同じ扱いを持つ。
+const ROOM_RULE: &str = "meeting.roomrule";
+
+/// **ルームでのエージェントの扱い**（0.1.52）。
+///
+/// 社外の人が居るルームで、エージェントが勝手に話さないようにする。**決めるのはルームの主催（人）。**
+/// 各機械の割符が、自分の機械のエージェントの発言をこの扱いで止める（古い版の機械には効かない）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum エージェントの扱い {
+    /// これまでどおり。
+    #[default]
+    ふつう,
+    /// `@名前` で呼ばれた発言への返信だけ流せる（`@all` は名指しに数えない）。
+    名指しだけ,
+    /// 読むだけ。何も流せない。
+    読むだけ,
+}
+
+impl エージェントの扱い {
+    /// 網と控えに書く 1 バイト。
+    #[must_use]
+    pub fn 数(self) -> u8 {
+        match self {
+            Self::ふつう => 0,
+            Self::名指しだけ => 1,
+            Self::読むだけ => 2,
+        }
+    }
+
+    /// [`Self::数`] の逆。知らない数は `None`（**知らないものを知っているふりはしない**）。
+    #[must_use]
+    pub fn 数から(n: u8) -> Option<Self> {
+        match n {
+            0 => Some(Self::ふつう),
+            1 => Some(Self::名指しだけ),
+            2 => Some(Self::読むだけ),
+            _ => None,
+        }
+    }
+}
 
 /// 測定値の塊の長さ。`[上り 8][下り 8][経過秒 4]`。
 const LINK_LEN: usize = 20;
@@ -277,6 +317,16 @@ pub enum Notice {
         /// 名前。[`ROOM_NAME_MAX`] まで。
         名前: String,
     },
+    /// **ルームでのエージェントの扱い**（0.1.52）。
+    ///
+    /// **主催だけが決める。**主催が配り、新しく入った人へも渡す。受け取る側は、主催からのものだけを受ける。
+    /// 古い版（〜0.1.51）は知らない知らせとして読み飛ばす（その機械のエージェントには効かない）。
+    RoomRule {
+        /// どのルームか。
+        meeting: MeetingId,
+        /// 扱い。
+        扱い: エージェントの扱い,
+    },
     /// **その部屋の文字を、ここまで持っている**（0.1.42）。入り直す客が、参加より先に主催へ送る。
     ///
     /// 線が黙って切れると、主催が気づくまで（およそ 30 秒）に配った文字は、どこにも届かず消える。
@@ -395,6 +445,7 @@ impl Notice {
             | Self::Key { meeting, .. }
             | Self::RoomSecret { meeting, .. }
             | Self::RoomName { meeting, .. }
+            | Self::RoomRule { meeting, .. }
             | Self::Since { meeting, .. }
             | Self::Presence { meeting, .. }
             | Self::受けた { meeting, .. }
@@ -547,6 +598,7 @@ impl Notice {
                 塊.extend_from_slice(名前.as_bytes());
                 (ROOM_NAME, 塊)
             }
+            Self::RoomRule { 扱い, .. } => (ROOM_RULE, vec![扱い.数()]),
             Self::Link { report, .. } => {
                 let mut 塊 = Vec::with_capacity(LINK_LEN);
                 塊.extend_from_slice(&report.uplink_bps().to_be_bytes());
@@ -680,6 +732,14 @@ impl Notice {
                     名前,
                 })
             }
+            // `[扱い 1]`。**知らない数は捨てる**（新しい版が足した扱いを、古い扱いに読み替えない）
+            ROOM_RULE => match 荷物 {
+                [n] => Ok(Self::RoomRule {
+                    meeting,
+                    扱い: エージェントの扱い::数から(*n).ok_or(Error::Malformed)?,
+                }),
+                _ => Err(Error::Malformed),
+            },
             INTRODUCE => {
                 if 荷物.len() < 32 || 荷物.len() > 32 + ADDRESS_MAX {
                     return Err(Error::Malformed);

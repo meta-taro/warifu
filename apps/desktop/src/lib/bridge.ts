@@ -87,6 +87,8 @@ export const EVENT_CLAIMED = 'warifu://claimed';
  * 名前は居る人みんなで持つ。誰が付けても、いちばん新しいものが勝つ。
  */
 export const EVENT_ROOM_NAME = 'warifu://room-name';
+/** ルームでのエージェントの扱いが届いた・変わった（0.1.52）。`[ルーム id, 扱いの数]`。 */
+export const EVENT_ROOM_RULE = 'warifu://room-rule';
 /** **見るルームが変わった**（0.1.33）。見張りが戻ったあと、前のルームへ戻したとき。読み直す */
 export const EVENT_LOOK = 'warifu://look';
 /** **画面の写しを頼まれた**（0.1.34）。中身は頼みの番号。{@link snapshotReply} で返す */
@@ -610,6 +612,12 @@ export const roomName = () => invoke<string>('room_name');
 
 /** **ルームごとの名前**（ルーム id → 名前）。入ったルームの名前もここにある（0.1.28）。 */
 export const roomNames = () => invoke<Record<string, string>>('room_names');
+
+/** ルームでのエージェントの扱い（0.1.52）。0 ふつう・1 名指しだけ・2 読むだけ。ふつうの部屋は載らない。 */
+export const roomRules = () => invoke<Record<string, number>>('room_rules');
+
+/** 主催がエージェントの扱いを決める。**主催でなければ断られる。**居る人みんなへ渡る。 */
+export const setRoomRule = (id: string, rule: number) => invoke<void>('set_room_rule', { id, rule });
 
 /**
  * **経路の札を Rust へ置く**（`direct` / `relayed` / `unknown`）。

@@ -440,6 +440,12 @@ room.own	Your room	あなたのルーム	你的房间	내 룸
 room.people	In this room ({n})	このルームに入っている（{n}）	在这个房间里（{n}）	이 룸에 있음 ({n})				
 room.people.hint	Agents on other machines appear once they speak in this room.	相手の機械のエージェントは、このルームで話した分だけ出ます。	其他电脑上的智能体，在这个房间说过话后才会显示。	다른 기기의 에이전트는 이 룸에서 말한 뒤에 나옵니다.				
 room.people.host	host	主催	主持	주최				
+room.rule.hint.guest	The person who created this room decides how agents behave here.	エージェントの扱いは、ルームを建てた人が決めます。	代理在此房间的行为由建房间的人决定。	에이전트의 행동은 룸을 만든 사람이 정합니다.		主催でない人に出す説明。決めるのは部屋を建てた人。		
+room.rule.hint.host	In rooms with people from outside, choose “Answer only when named” or “Read only”. Each member’s warifu stops its own agents from posting (warifu 0.1.51 or older ignores this).	社外の人がいるルームでは「名指しにだけ答える」か「読むだけ」に。入っている人の割符が、その機械のエージェントの発言を止めます（0.1.51 以前の割符には効きません）。	有外部人员的房间，请选择“只在被点名时回答”或“只读”。每位成员的割符会阻止自己机器上的代理发言（0.1.51 及更早的割符不支持）。	외부 사람이 있는 룸에서는 '이름이 불렸을 때만 답하기'나 '읽기만'을 고르세요. 참여한 사람의 와리후가 자기 기기의 에이전트 발언을 막습니다（0.1.51 이하의 와리후에는 적용되지 않습니다）.		主催に出す説明。社外の人がいる部屋で使う扱いと、古い版には効かないこと。		
+room.rule.label	Agents in this room	このルームのエージェント	这个房间的代理	이 룸의 에이전트		ルームの欄で、そのルームのエージェントの扱いを選ぶ所の見出し。		
+room.rule.mention	Answer only when named	名指しにだけ答える	只在被点名时回答	이름이 불렸을 때만 답하기		エージェントの扱いの選択肢：@名前 で呼ばれた発言への返信だけ流せる。		
+room.rule.normal	Talk normally	ふつうに話す	正常发言	평소대로 말하기		エージェントの扱いの選択肢：これまでどおり話す。		
+room.rule.read	Read only (no posts)	読むだけ（話さない）	只读（不发言）	읽기만（말하지 않음）		エージェントの扱いの選択肢：エージェントは発言を流せない。		
 roster.capacity	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}	{current} / {capacity}				
 roster.host	Host	主催	主持人	호스트		名簿で、ルームを建てた人に付く札。		
 roster.kick	Remove	外す	移出	내보내기		名簿の行のボタン。主催が、その人を部屋から外す（戻れなくなる）。		

@@ -147,6 +147,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                         人数: 1,
                         主催か: true,
                         見ているか: true,
+                        エージェントの扱い: None,
                     }],
                 }),
                 ToDesk::抜ける { 部屋 } => Some(FromDesk::抜けた { 部屋 }),
