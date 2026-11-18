@@ -83,7 +83,7 @@ pub struct InviteArgs {
     pub count: Option<u8>,
     /// いつまで使えるか（秒）。省くと 24 時間。
     pub ttl_secs: Option<u64>,
-    /// **この部屋の鍵でなければ出さない**（0.1.46・部屋の id かその頭）。省くと、これまでどおり
+    /// **この部屋の鍵を出す**（0.1.53・部屋の id かその頭。0.1.46 から、違えば断っていた）。省くと、これまでどおり
     /// 主催している部屋を割符が選ぶ。書いた部屋の主催でなければ断る（別の部屋の鍵を黙って返さない）。
     #[serde(default)]
     pub room: Option<String>,
@@ -102,6 +102,18 @@ pub struct KeyGiveArgs {
     /// 人の答えを何秒まで待つか（最大 60）。省くと 30 秒。
     /// 待ちきれなくても頼みは画面に残り、人が押せばその時に渡す。
     pub seconds: Option<u64>,
+    /// **どの部屋の鍵を渡すか**（0.1.53・部屋の id かその頭）。この機械が主催している部屋だけ。
+    /// 省くと `room_invite` と同じく割符が選ぶ。
+    #[serde(default)]
+    pub room: Option<String>,
+}
+
+/// [`crate::Warifu::room_create`] の引数（0.1.53）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct RoomCreateArgs {
+    /// 付ける名前（64 文字まで・省けば名前なし）。誰が居て何のための部屋かが分かる名前にする。
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 /// [`crate::Warifu::contact_call`] の引数（2026-10-16）。

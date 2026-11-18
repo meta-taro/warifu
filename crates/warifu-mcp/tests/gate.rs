@@ -310,6 +310,8 @@ fn 出している口を_数えて名前で押さえる() {
     // 読むだけの screen.read と同じ札にしない。押せるのは人が押せるものだけで、札の［通す］などは画面が断る。
     // 0.1.49 に room_reconnect を足した —— **札は chat.read**。切れた相手を呼び直すのは、
     // 割符が自分でもしていること（急がせるだけ）で、新しく読めるものも、繋がる先も増えない。
+    // 0.1.53 に room_create を足した —— **札は room.invite**。建てた部屋は空で、鍵を出さなければ
+    // 誰も入れない。人を入れる力（鍵を出す）は room_invite と同じ札の中にあるので、札を分けない。
     // 0.1.43 に chat_image を足した —— **札は chat.read**。会話に届いた画像を見るだけで、
     // chat_read で読める札の行の中身そのものである（新しく読めるものの種類は増えない）。
     let mut 名前 = Warifu::tool_names();
@@ -341,6 +343,7 @@ fn 出している口を_数えて名前で押さえる() {
             "pass_ask",
             "pass_wait",
             "profile_set",
+            "room_create",
             "room_invite",
             "room_join",
             "room_key_give",
@@ -1344,6 +1347,7 @@ fn 鍵の手渡しは_招く札が無ければ通らない() {
                 to: "だれか".to_owned(),
                 why: "試験".to_owned(),
                 seconds: None,
+                room: None,
             },
         )))
         .expect_err("札が無い")
@@ -1358,6 +1362,7 @@ fn 鍵の手渡しは_招く札が無ければ通らない() {
                     to: "だれか".to_owned(),
                     why: "試験".to_owned(),
                     seconds: None,
+                    room: None,
                 },
             ))
         )

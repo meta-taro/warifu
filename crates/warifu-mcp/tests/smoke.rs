@@ -167,6 +167,11 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::名前を付ける { 部屋, 名前 } => {
                     Some(FromDesk::付けた { 部屋, 名前 })
                 }
+                // 0.1.53：部屋を建てる口
+                ToDesk::建てる { 名前 } => Some(FromDesk::建てた {
+                    部屋: "ROOMBBBBBBBBBBBBBBBBBBBBBB".to_owned(),
+                    名前,
+                }),
                 ToDesk::Ask { 動作, .. } | ToDesk::札を待つ { 動作, .. } => {
                     Some(FromDesk::Asked {
                         動作,
@@ -505,6 +510,16 @@ async fn 口を全部_1回ずつ呼ぶ() {
         "update_check が偽の机の返りをそのまま言い直していない: {更新の文}"
     );
     結果.push((
+        "room_create",
+        format!(
+            "{:?}",
+            口.room_create(Parameters(warifu_mcp::RoomCreateArgs {
+                name: Some("2 台の試し".to_owned()),
+            }))
+            .await
+        ),
+    ));
+    結果.push((
         "room_rename",
         format!(
             "{:?}",
@@ -558,6 +573,7 @@ async fn 口を全部_1回ずつ呼ぶ() {
                 to: "試験の相手".to_owned(),
                 why: "煙の確かめ".to_owned(),
                 seconds: Some(1),
+                room: None,
             }))
             .await
         ),

@@ -618,13 +618,24 @@ async fn 応じる(
         //
         // **記録に鍵を書かない。**本数と期限だけ書く ——
         // 鍵は割符の片割れで、記録は追記であり消えない（落とし穴 8）。
-        ToDesk::招く { 何本, 秒 } => {
+        ToDesk::招く { 何本, 秒, 部屋 } => {
             let bridge = app.state::<Bridge>();
+            // **部屋を指されたら、その部屋の鍵を出す**（0.1.53）。主催していなければ、鍵を出す前に断る
+            let 部屋 = match 部屋.as_deref() {
+                Some(指定) => match crate::主催している部屋を引く(&bridge, 指定).await {
+                    Ok(m) => Some(m),
+                    Err(why) => {
+                        let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                        return Ok(());
+                    }
+                },
+                None => None,
+            };
             let ttl = 秒.unwrap_or(既定の鍵の寿命);
             let 開始 = crate::now_secs();
             let mut 鍵たち = Vec::with_capacity(何本 as usize);
             for _ in 0..何本 {
-                match crate::鍵を出す(&bridge, ttl, Some(開始)).await {
+                match crate::鍵を出す(&bridge, ttl, Some(開始), 部屋).await {
                     Ok(鍵) => 鍵たち.push(鍵),
                     Err(e) => {
                         // **途中で失敗したら、出せた分だけ返さない。**
@@ -660,10 +671,36 @@ async fn 応じる(
         //
         // **人が画面で承認してから送る**（`key_give.rs`）。鍵の文字はエージェントへ返さない ——
         // 返りの形（`手渡しの返り`）に欄が無い。
-        ToDesk::鍵を渡す { 相手, 訳, 秒 } => {
+        ToDesk::鍵を渡す {
+            相手,
+            訳,
+            秒,
+            部屋,
+        } => {
             let 待つ秒 = 秒.unwrap_or(既定の待ち秒).min(warifu_desk::札を待てる秒);
-            let 結果 =
-                crate::key_give::頼む(app, &相手, &訳, &呼び方(名乗り.as_deref()), 待つ秒).await;
+            // **部屋を指されたら、その部屋の鍵を渡す**（0.1.53）。主催していなければ、人に聞く前に断る
+            let 部屋 = match 部屋.as_deref() {
+                Some(指定) => {
+                    match crate::主催している部屋を引く(&app.state::<Bridge>(), 指定).await {
+                        Ok(m) => Some(m),
+                        Err(訳) => {
+                            let 結果 = warifu_desk::手渡しの返り::渡せない { 訳 };
+                            let _ = 口.送る(&FromDesk::手渡し { 結果 }.書く()).await;
+                            return Ok(());
+                        }
+                    }
+                }
+                None => None,
+            };
+            let 結果 = crate::key_give::頼む(
+                app,
+                &相手,
+                &訳,
+                &呼び方(名乗り.as_deref()),
+                待つ秒,
+                部屋,
+            )
+            .await;
             let _ = 口.送る(&FromDesk::手渡し { 結果 }.書く()).await;
             Ok(())
         }
@@ -919,6 +956,12 @@ async fn 応じる(
             Ok(())
         }
         // **部屋に名前を付ける**（0.1.40）。画面の［決める］と同じ道
+        // **新しい部屋を建てる**（0.1.53）。札（room.invite）は MCP 側が見る。見ている部屋は奪わない
+        ToDesk::建てる { 名前 } => {
+            let 返事 = 部屋を建てる(app, 名前.as_deref(), &呼び方(名乗り.as_deref())).await;
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
         ToDesk::名前を付ける { 部屋, 名前 } => {
             let 返事 = 部屋に名前を付ける(app, &部屋, &名前, &呼び方(名乗り.as_deref())).await;
             記録!(
@@ -2037,6 +2080,45 @@ async fn 相手に名前を付ける(
     FromDesk::名付けた {
         鍵,
         名前: 名前.to_owned(),
+    }
+}
+
+/// **口から新しい部屋を建てる**（0.1.53）。名前があれば付ける（建てた直後は誰も居ないので、配る先は無い）。
+async fn 部屋を建てる(app: &AppHandle, 名前: Option<&str>, 誰: &str) -> FromDesk {
+    let bridge = app.state::<Bridge>();
+    let Some(id) = crate::新しく建てる(&bridge).await else {
+        return FromDesk::Denied {
+            why: "部屋を建てられませんでした".to_owned(),
+        };
+    };
+    let id = id.to_string();
+    // **画面のルームの並びを読み直させる**（見ている部屋は変えない）。知らせないと、建てた部屋が画面に出ない
+    let _ = app.emit(crate::EVENT_LOOK, ());
+    let 名前 = 名前.map(str::trim).filter(|n| !n.is_empty());
+    if let Some(名前) = 名前 {
+        if let Err(e) = crate::room_name::付ける(&bridge, &id, 名前).await {
+            記録!("建てた部屋に名前を付けられませんでした: {}", e.message);
+        } else {
+            let _ = app.emit(
+                crate::room_name::EVENT_ROOM_NAME,
+                (id.clone(), 名前.to_owned()),
+            );
+        }
+    }
+    記録!(
+        "部屋を建てる: 部屋 {} を建てました（頼んだのは {誰}）",
+        crate::短く(&id)
+    );
+    配る(
+        &bridge,
+        聞いた(
+            "割符",
+            &format!("{誰} が部屋 {} を建てました", crate::短く(&id)),
+        ),
+    );
+    FromDesk::建てた {
+        部屋: id,
+        名前: 名前.map(str::to_owned),
     }
 }
 

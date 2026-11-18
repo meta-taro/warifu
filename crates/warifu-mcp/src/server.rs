@@ -855,7 +855,7 @@ impl Warifu {
     /// **ルームキーを出す**（**#32 の段 2**・2026-09-21）。
     #[tool(
         description = "この機械が主催しているルーム（見ているルームを主催していればそこ、でなければ主催している別のルーム、無ければ建てる）へ入るためのルームキーを出す。\
-                       room に部屋の id（頭だけでもよい）を書くと、その部屋の主催でなければ断る（別の部屋の鍵は返さない）。**1 本につき 1 人**で、\
+                       room に部屋の id（頭だけでもよい）を書くと、その部屋の鍵を出す（その部屋の主催でなければ断る）。新しい部屋が要るなら先に room_create で建てる。**1 本につき 1 人**で、\
                        渡した相手だけが入れる。既定は 24 時間で切れる。\
                        **渡した相手だけに渡すこと** —— 鍵は持参人式で、\
                        その文字列を持っている者が期限まで入れる。\
@@ -875,7 +875,9 @@ impl Warifu {
         self.通るか("room.invite")?;
         let この機械 = self.この機械().await?;
         let 何本 = args.count.unwrap_or(1);
-        let (鍵たち, いつまで) = この機械.招く(何本, args.ttl_secs).await?;
+        let (鍵たち, いつまで) = この機械
+            .招く(何本, args.ttl_secs, args.room.as_deref())
+            .await?;
         // **頼んだ部屋と違う部屋の鍵なら、返さずに断る**（0.1.46）。ゲストの席が頼むと、
         // 自分が主催する別の部屋の鍵が出て、招いた人が別の部屋へ入った
         if let Some(頼んだ) = args.room.as_deref()
@@ -909,6 +911,7 @@ impl Warifu {
         description = "この機械が主催しているルームのルームキーを 1 本出し、割符の線で、指定した相手の機械にだけ\
                        直接渡す（チャット・メール・Issue を通さないので、鍵が外の網に出ない）。\
                        to は連絡先の名前か鍵。いま割符でつながっている相手の機械だけに渡せる。\
+                       room に部屋の id（頭だけでもよい）を書くと、その部屋の鍵を渡す（主催している部屋だけ）。\
                        渡す前に、この PC の人が画面で承認する（why はその人が読む理由・140 文字まで）。\
                        受け取った側も、入るかは人が画面で決める。\
                        鍵の文字はあなたには返らない。返るのは渡したか・まだか・断られたか・渡せない理由だけ。\
@@ -921,7 +924,9 @@ impl Warifu {
     ) -> Result<String, ErrorData> {
         self.通るか("room.invite")?;
         let この機械 = self.この機械().await?;
-        let 結果 = この機械.鍵を渡す(&args.to, &args.why, args.seconds).await?;
+        let 結果 = この機械
+            .鍵を渡す(&args.to, &args.why, args.seconds, args.room.as_deref())
+            .await?;
         Ok(match 結果 {
             warifu_desk::手渡しの返り::渡した {
                 相手, いつまで
@@ -1214,6 +1219,28 @@ impl Warifu {
         Ok(format!(
             "{相手} を部屋 {} から外しました。その部屋へは戻れません。",
             crate::chat::部屋の頭(&args.room)
+        ))
+    }
+
+    /// **新しい部屋を建てる**（0.1.53）。
+    #[tool(
+        description = "新しい部屋（ルーム）を建てて、この機械が主催する。すでに別の部屋を主催していても、もう 1 つ建つ\
+                       （目的ごとに部屋を分けたいとき。たとえば 2 台だけで試す部屋）。name で名前を付けられる（64 文字まで・省けば名前なし）。\
+                       返るのは部屋の id で、ルームキーは出さない。人を呼ぶには、その id を room に書いて room_invite か room_key_give を使う。\
+                       画面が見ている部屋は変えない。この口には札（room.invite）が要る。無ければ pass_ask で頼む。"
+    )]
+    pub async fn room_create(
+        &self,
+        Parameters(args): Parameters<crate::tools::RoomCreateArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("room.invite")?;
+        let この機械 = self.この機械().await?;
+        let (部屋, 名前) = この機械.建てる(args.name.as_deref()).await?;
+        let 名 = 名前.map_or_else(String::new, |n| format!("（名前「{n}」）"));
+        Ok(format!(
+            "部屋 {部屋}{名} を建てました。この機械が主催です。\
+             人を呼ぶには room に「{}」を書いて room_invite か room_key_give を使ってください。",
+            crate::chat::部屋の頭(&部屋)
         ))
     }
 

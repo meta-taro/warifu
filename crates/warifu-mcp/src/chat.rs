@@ -497,8 +497,13 @@ impl Chat {
         &self,
         何本: u8,
         秒: Option<u64>,
+        部屋: Option<&str>,
     ) -> Result<(Vec<String>, String), crate::ToolError> {
-        let 行 = ToDesk::招く { 何本, 秒 };
+        let 行 = ToDesk::招く {
+            何本,
+            秒,
+            部屋: 部屋.map(|r| r.trim().to_owned()),
+        };
         // **本数は出す前に検める**（机の側でも見るが、待たせる前に落とす）
         ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
@@ -748,6 +753,30 @@ impl Chat {
         }
     }
 
+    /// **新しい部屋を建てて主催する**（0.1.53）。（部屋の id, 付けた名前）を返す。
+    ///
+    /// # Errors
+    /// 建てられない・名前を付けられない・この機械が返さないとき。
+    pub async fn 建てる(
+        &self,
+        名前: Option<&str>,
+    ) -> Result<(String, Option<String>), crate::ToolError> {
+        let 行 = ToDesk::建てる {
+            名前: 名前
+                .map(str::trim)
+                .filter(|n| !n.is_empty())
+                .map(str::to_owned),
+        };
+        ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        match self.頼んで待つ(行, 建てるの返事, 返事を待つ秒).await? {
+            FromDesk::建てた { 部屋, 名前 } => Ok((部屋, 名前)),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **部屋に名前を付ける**（0.1.40）。（部屋の id, 付けた名前）を返す。
     ///
     /// # Errors
@@ -797,6 +826,7 @@ impl Chat {
         相手: &str,
         訳: &str,
         秒: Option<u64>,
+        部屋: Option<&str>,
     ) -> Result<warifu_desk::手渡しの返り, crate::ToolError> {
         let 待つ秒 = 秒
             .unwrap_or(手渡しを待つ秒)
@@ -805,6 +835,7 @@ impl Chat {
             相手: 相手.trim().to_owned(),
             訳: 訳.trim().to_owned(),
             秒: Some(待つ秒),
+            部屋: 部屋.map(|r| r.trim().to_owned()),
         };
         // **机が待つ分に、返事の分を足して待つ**（机より先に諦めない）
         match self
@@ -1338,6 +1369,9 @@ fn 外すの返事(中身: &FromDesk) -> bool {
 fn 抜けるの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::抜けた { .. } | FromDesk::Denied { .. })
 }
+fn 建てるの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::建てた { .. } | FromDesk::Denied { .. })
+}
 fn 付けるの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::付けた { .. } | FromDesk::Denied { .. })
 }
@@ -1529,6 +1563,7 @@ fn 仕分ける(
             | FromDesk::部屋たち { .. }
             | FromDesk::抜けた { .. }
             | FromDesk::付けた { .. }
+            | FromDesk::建てた { .. }
             | FromDesk::名付けた { .. }
             // **更新の様子も返事である**（0.1.41）
             | FromDesk::更新 { .. }
@@ -1888,6 +1923,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::部屋たち { .. }
             | FromDesk::抜けた { .. }
             | FromDesk::付けた { .. }
+            | FromDesk::建てた { .. }
             | FromDesk::名付けた { .. }
             // **更新の様子も会話の行ではない**（0.1.41）
             | FromDesk::更新 { .. }

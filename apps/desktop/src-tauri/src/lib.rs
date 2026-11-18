@@ -1145,7 +1145,7 @@ async fn invite(
     ttl_secs: u64,
     starts_at: Option<u64>,
 ) -> Answer<String> {
-    鍵を出す(&bridge, ttl_secs, starts_at).await
+    鍵を出す(&bridge, ttl_secs, starts_at, None).await
 }
 
 /// **ルームキーを 1 本出す。**
@@ -1162,6 +1162,7 @@ pub(crate) async fn 鍵を出す(
     bridge: &Bridge,
     ttl_secs: u64,
     starts_at: Option<u64>,
+    部屋: Option<MeetingId>,
 ) -> Answer<String> {
     let node = bridge.node().await?;
     let address = node.address().await?.to_string();
@@ -1172,10 +1173,24 @@ pub(crate) async fn 鍵を出す(
     // 前は「いま見ている部屋」の鍵を出していたので、ゲストとして他人の部屋を見ているときに出すと、
     // 鍵で入った人は**主催の知らない所で、同じ id の部屋の 2 つめの中心**につながった
     // （鍵なしの呼び出しで 0.1.35 に直したのと同じ割れ方・10-22 に 2 台で確かめた）
-    let meeting = 招く部屋を用意する(bridge).await.ok_or_else(|| Failure {
-        message: "鍵を出す部屋を建てられませんでした".into(),
-        code: None,
-    })?;
+    //
+    // **部屋を指されたら、その部屋の鍵を出す**（0.1.53）。主催していなければ断る（呼ぶ側が先に確かめる）
+    let meeting = match 部屋 {
+        Some(m) if 主催している部屋たち(bridge).await.contains(&m) => m,
+        Some(m) => {
+            return Err(Failure {
+                message: format!(
+                    "この機械は部屋 {} の主催ではないので、その部屋の鍵は出せません",
+                    短く(&m.to_string())
+                ),
+                code: None,
+            });
+        }
+        None => 招く部屋を用意する(bridge).await.ok_or_else(|| Failure {
+            message: "鍵を出す部屋を建てられませんでした".into(),
+            code: None,
+        })?,
+    };
     // **鍵を出す前に合言葉を用意する**（**D118**）。
     // 鍵で入ってきた人へ、戸口を通った直後に渡す
     部屋の合言葉を用意する(bridge, meeting).await;
@@ -2456,18 +2471,27 @@ async fn 主催している部屋たち(bridge: &Bridge) -> Vec<MeetingId> {
 }
 
 async fn 招く部屋を用意する(bridge: &Bridge) -> Option<MeetingId> {
-    let me = bridge.device.public_key();
-    let (conferences, いまのルーム, 主催たち) =
-        (&bridge.conferences, &bridge.いまのルーム, &bridge.主催たち);
-    let 見ている = いま見ているルーム(いまのルーム).await;
+    let 見ている = いま見ているルーム(&bridge.いまのルーム).await;
     let 主催している = 主催している部屋たち(bridge).await;
     if let Some(id) = call::招く部屋を選ぶ(見ている, &主催している) {
         return Some(id);
     }
+    let id = 新しく建てる(bridge).await?;
+    記録!(
+        "待受: 主催している部屋が無いので、招くために建てました（部屋 {}）",
+        短く(&id.to_string())
+    );
+    Some(id)
+}
+
+/// **新しい部屋を建てて主催する。**見ている部屋は奪わない（0.1.53・`room_create` と、鍵を出す部屋が無いとき）。
+pub(crate) async fn 新しく建てる(bridge: &Bridge) -> Option<MeetingId> {
+    let me = bridge.device.public_key();
     let c = Conference::host(me, warifu_app::DEFAULT_CAPACITY).ok()?;
-    let id = ルームを足す_見るのは奪わない(conferences, いまのルーム, c).await;
+    let id =
+        ルームを足す_見るのは奪わない(&bridge.conferences, &bridge.いまのルーム, c).await;
     // **建てた部屋の主催は自分**（**#37**）。合言葉も渡す前に用意する（**D118**）
-    主催たち.lock().await.insert(id, me);
+    bridge.主催たち.lock().await.insert(id, me);
     主催した部屋を控える(id);
     影へ(
         bridge,
@@ -2478,11 +2502,38 @@ async fn 招く部屋を用意する(bridge: &Bridge) -> Option<MeetingId> {
     )
     .await;
     部屋の合言葉を用意する(bridge, id).await;
-    記録!(
-        "待受: 主催している部屋が無いので、招くために建てました（部屋 {}）",
-        短く(&id.to_string())
-    );
     Some(id)
+}
+
+/// **主催している部屋から、指された部屋を引く**（0.1.53・id の全文か頭）。
+pub(crate) async fn 主催している部屋を引く(
+    bridge: &Bridge,
+    指定: &str,
+) -> Result<MeetingId, String> {
+    let 主催: Vec<String> = 主催している部屋たち(bridge)
+        .await
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    if let Ok(id) = desk::部屋を引く(&主催, 指定) {
+        return id
+            .parse::<MeetingId>()
+            .map_err(|_| format!("部屋の id が読めません（{id}）"));
+    }
+    let 居る: Vec<String> = bridge
+        .conferences
+        .lock()
+        .await
+        .keys()
+        .map(ToString::to_string)
+        .collect();
+    match desk::部屋を引く(&居る, 指定) {
+        Ok(id) => Err(format!(
+            "この機械は部屋 {} の主催ではないので、その部屋の鍵は出せません。その部屋の主催の席に頼んでください",
+            短く(&id)
+        )),
+        Err(why) => Err(why),
+    }
 }
 
 /// 相手が最初に送ってくる片割れを、手元の割符と照らす。

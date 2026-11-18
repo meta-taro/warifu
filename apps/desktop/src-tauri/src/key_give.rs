@@ -65,6 +65,9 @@ pub struct 頼み {
     /// 相手の鍵（画面へは出さない）。
     #[serde(skip)]
     相手の鍵: Option<PublicKey>,
+    /// **どの部屋の鍵を渡すか**（0.1.53）。`None` なら割符が選ぶ（主催している部屋）。
+    #[serde(skip)]
+    部屋: Option<warifu_meeting::MeetingId>,
 }
 
 static 頼みの棚: Mutex<Vec<頼み>> = Mutex::new(Vec::new());
@@ -150,6 +153,7 @@ pub async fn 頼む(
     訳: &str,
     頼んだ人: &str,
     待つ秒: u64,
+    部屋: Option<warifu_meeting::MeetingId>,
 ) -> 手渡しの返り {
     if 訳.trim().is_empty() {
         return 渡せない("なぜ渡すか（why）が空です。人が読んで決めるので、必ず書いてください");
@@ -195,6 +199,7 @@ pub async fn 頼む(
             訳: 訳.trim().to_owned(),
             頼んだ人: 頼んだ人.to_owned(),
             相手の鍵: Some(相手の鍵),
+            部屋,
         };
         return 送る(&bridge, &頼).await;
     }
@@ -204,6 +209,7 @@ pub async fn 頼む(
         訳: 訳.trim().to_owned(),
         頼んだ人: 頼んだ人.to_owned(),
         相手の鍵: Some(相手の鍵),
+        部屋,
     });
     記録!("手渡し: 人に聞きます（{相手} へ・頼んだのは {頼んだ人}）");
     // **画面へ知らせる。**落ちても頼みは棚に在る（画面が起き上がったら取りに来る）
@@ -293,7 +299,7 @@ async fn 送る(bridge: &Bridge, 頼: &頼み) -> 手渡しの返り {
     };
     let 開始 = crate::now_secs();
     let 寿命 = crate::desk::既定の鍵の寿命;
-    let 鍵 = match crate::鍵を出す(bridge, 寿命, Some(開始)).await {
+    let 鍵 = match crate::鍵を出す(bridge, 寿命, Some(開始), 頼.部屋).await {
         Ok(鍵) => 鍵,
         Err(e) => return 渡せない(e.message),
     };
