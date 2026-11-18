@@ -1166,6 +1166,15 @@ async fn 応じる(
                     return Ok(());
                 }
             };
+            // **返信なら、返信先の席を `@` で呼ぶ**（0.1.52）。呼ばないと、返信先の席は起きない
+            let body = match reply_to.and_then(返信先の差出人) {
+                Some(差出人) => crate::mention_room::返信先の書き手を呼ぶ(
+                    &body,
+                    &差出人,
+                    &crate::profile::エージェントの名札(&呼び方(名乗り.as_deref())),
+                ),
+                None => body,
+            };
             // **ルームでのエージェントの扱い**（0.1.52）。主催が「名指しだけ」「読むだけ」にした部屋では、
             // この機械のエージェントの発言を止める（社外の人が居る部屋で、全員の呼びに全席が答えないように）
             if let Some(why) = 扱いで断るか(app, 部屋, reply_to, 自分).await {
@@ -1308,6 +1317,14 @@ async fn 扱いで断るか(
     let 名札 = エージェントたち.lock().ok()?.get(&自分).cloned()?;
     let 呼ばれる名 = warifu_desk::呼べる名に広げる(&[名札]);
     crate::room_rule::断る訳(扱い, 返信先の本文.as_deref(), &呼ばれる名)
+}
+
+/// 返信先（この機械の `chat_read` の番号）の発言の差出人。控えに無ければ `None`。
+fn 返信先の差出人(番号: u64) -> Option<String> {
+    直近の発言.lock().ok()?.iter().find_map(|(_, 行)| match 行 {
+        FromDesk::Heard { id, from, .. } if *id == 番号 => Some(from.clone()),
+        _ => None,
+    })
 }
 
 /// **呼んだ相手が、流す部屋に居ないか**（11-11・`mention_room`）。居ない・分かるときだけ断る文を返す。

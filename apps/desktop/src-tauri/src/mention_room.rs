@@ -103,6 +103,48 @@ fn 全員の呼びを除く(本文: &str) -> String {
     残り
 }
 
+/// **返信したら、返信先の書き手を呼ぶ**（0.1.52）。返信先の発言の差出人（`Heard` の `from`）から呼ぶ名を引き、
+/// 本文がまだ呼んでいなければ頭に `@名 ` を足す。
+///
+/// 返信（`reply_to`）で返しても、返信先の席は `@` で呼ばれていないので起きなかった。
+/// **呼べるのはエージェントだけ**（相手の機械の `鍵の頭…（席の名）`・この機械の席の名札）。
+/// 人の発言は差出人が鍵なので、相手の機械がその人への呼びと読める名を、ここでは決められない。
+/// 自分（`自分の名札`）への返信と、`@all`・写し（`cc@`）で既に呼んでいる本文には足さない。
+#[must_use]
+pub fn 返信先の書き手を呼ぶ(本文: &str, 差出人: &str, 自分の名札: &str) -> String {
+    let Some(名) = 返信先の書き手の名(差出人) else {
+        return 本文.to_owned();
+    };
+    if 名 == 自分の名札 {
+        return 本文.to_owned();
+    }
+    let 名たち = warifu_desk::呼べる名に広げる(&[名.to_owned()]);
+    if 宛てられたか(本文, &名たち) || 写しか(本文, &名たち) {
+        return 本文.to_owned();
+    }
+    format!("@{名} {本文}")
+}
+
+/// 差出人から、`@` で呼べる名。相手の機械の席なら席の名、この機械の席なら名札そのもの。人・知らせは `None`。
+fn 返信先の書き手の名(差出人: &str) -> Option<&str> {
+    if let Some((頭, 札)) = 席の名札を分ける(差出人)
+        && 差出人.contains('…')
+        && 鍵の字だけか(頭)
+    {
+        return Some(札);
+    }
+    // 鍵（人の発言）・この機械の知らせ（`割符`）・鍵の頭だけの差出人は呼ばない
+    if 差出人 == "割符" || 鍵の字だけか(差出人.trim_end_matches('…')) || 差出人.trim().is_empty() {
+        return None;
+    }
+    Some(差出人)
+}
+
+/// 公開鍵の字（base32 の大文字と 2〜7）だけか。
+fn 鍵の字だけか(字: &str) -> bool {
+    !字.is_empty() && 字.chars().all(|c| c.is_ascii_uppercase() || ('2'..='7').contains(&c))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,5 +229,38 @@ mod tests {
         let 名 = vec![("遠い席".to_owned(), "FARAWAYKEY12".to_owned())];
         let 断り = 居ない宛て先("@遠い席 聞こえますか", &名, &面々(), ここ, "MACMINIKEY12").unwrap();
         assert!(断り.contains("どこにも居ません"), "{断り}");
+    }
+
+    #[test]
+    fn 返信したら_返信先の席を呼ぶ() {
+        let 相手 = "6L7QUIAG5PWH…（はじエス担当（kaji PC）（haji-s.com））";
+        assert_eq!(
+            返信先の書き手を呼ぶ("了解です", 相手, "割符（mac mini）"),
+            "@はじエス担当（kaji PC）（haji-s.com） 了解です"
+        );
+        // この機械の席への返信は、その名札で呼ぶ
+        assert_eq!(
+            返信先の書き手を呼ぶ("見ました", "dbboard（mac mini）", "割符（mac mini）"),
+            "@dbboard（mac mini） 見ました"
+        );
+    }
+
+    #[test]
+    fn 返信先を呼ばない_既に呼んだ_自分_人_知らせ() {
+        let 相手 = "TLUTIE3HQGUD…（PdM（ドスパラ））";
+        let 自分 = "割符（mac mini）";
+        // 既に名前だけで呼んでいる・全員を呼んでいる・写しにしている
+        assert_eq!(返信先の書き手を呼ぶ("@PdM 了解", 相手, 自分), "@PdM 了解");
+        assert_eq!(返信先の書き手を呼ぶ("@all 了解", 相手, 自分), "@all 了解");
+        assert_eq!(返信先の書き手を呼ぶ("済み cc@PdM", 相手, 自分), "済み cc@PdM");
+        // 自分の発言への返信
+        assert_eq!(
+            返信先の書き手を呼ぶ("補足", "AAAABBBBCCCC…（割符（mac mini））", 自分),
+            "補足"
+        );
+        // 人（差出人が鍵）と、この機械の知らせ
+        let 鍵 = "O4FXQZLARCFBJRLEKLSYIH4NTNPRLEFQEZL7C2PU3Z464KG47DEQ";
+        assert_eq!(返信先の書き手を呼ぶ("はい", 鍵, 自分), "はい");
+        assert_eq!(返信先の書き手を呼ぶ("はい", "割符", 自分), "はい");
     }
 }

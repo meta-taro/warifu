@@ -11,6 +11,7 @@
   import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
   import { 人の名を言い換える, エージェントの名を言い換える, エージェントの札, 行の差出人名, 今のエージェントの札 } from './name';
   import { 話し手の場所 } from './speaker-place.svelte';
+  import { 返信で呼ぶ名, 返信の呼びを足す, 返信の呼びを外す } from './reply-mention';
   import type { 見出し } from './destination';
   import Avatar from '$lib/contacts/Avatar.svelte';
   import { 新しい行が来たとき, 底に着いた, 見えたときに送るか, type 位置 } from './scroll';
@@ -385,7 +386,7 @@
   }
 
   /** **いま返信している発言**（11-11）。打つ欄の上に出し、送ったら、またはやめたら消す。 */
-  let 返信する = $state<{ 印: string; 名: string; 頭: string } | null>(null);
+  let 返信する = $state<{ 印: string; 名: string; 頭: string; 足した: string | null } | null>(null);
   /** 本文の頭（1 行・短く）。添えと打つ欄の上に出す */
   const 本文の頭 = (本文: string) => {
     const 一行 = 本文.replace(/\s+/g, ' ').trim();
@@ -396,8 +397,18 @@
     行.mine ? t('tile.me') : 見せる名(行の差出人名(行, 画面での名簿, t('contacts.noname')));
   function 返信を始める(行: 会話行) {
     if (!行.印) return;
-    返信する = { 印: 行.印, 名: 差出人の名(行), 頭: 本文の頭(行.body) };
+    // **返信先の書き手を呼ぶ**（0.1.52）。前の返信で足した呼びは外してから足す
+    const 前 = 返信の呼びを外す(下書き, 返信する?.足した ?? null);
+    const 呼ぶ名 = 返信で呼ぶ名(行, 画面での名簿, t('contacts.noname'));
+    const 足し = 呼ぶ名 ? 返信の呼びを足す(前, 呼ぶ名) : { 本文: 前, 足した: null };
+    下書き = 足し.本文;
+    返信する = { 印: 行.印, 名: 差出人の名(行), 頭: 本文の頭(行.body), 足した: 足し.足した };
     打つ欄?.focus();
+  }
+  /** 返信をやめる。**足した呼びは、触っていなければ外す** */
+  function 返信をやめる() {
+    下書き = 返信の呼びを外す(下書き, 返信する?.足した ?? null);
+    返信する = null;
   }
   /** 返信の添えを押したら、元の発言まで動かす（見つからなければ何もしない） */
   async function 元の発言へ(印: string) {
@@ -739,7 +750,7 @@
     <div class="replying">
       <Icon name="reply" size={12} /><span class="who">{format(t('chat.reply.to'), { name: 返信する.名 })}</span
       ><span class="text" title={返信する.頭}>{返信する.頭}</span>
-      <button type="button" class="copy" aria-label={t('chat.reply.cancel')} title={t('chat.reply.cancel')} onclick={() => (返信する = null)}
+      <button type="button" class="copy" aria-label={t('chat.reply.cancel')} title={t('chat.reply.cancel')} onclick={返信をやめる}
         ><Icon name="close" size={12} /></button
       >
     </div>
