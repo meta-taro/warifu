@@ -59,8 +59,11 @@ fn 開く(先: &str) -> std::io::Result<()> {
 
 #[cfg(windows)]
 fn 開く(先: &str) -> std::io::Result<()> {
-    // explorer は URL を既定のブラウザへ渡す。cmd の start と違い、シェルの読み替えが無い
-    std::process::Command::new("explorer")
+    // **ShellExecute で既定のブラウザへ渡す**（url.dll の FileProtocolHandler）。
+    // 前は explorer に渡していたが、`?` や `&` の入った URL で、押してもブラウザが立ち上がらなかった。
+    // cmd の start と違い、シェルの読み替え（`&` で区切るなど）が無い
+    std::process::Command::new("rundll32")
+        .arg("url.dll,FileProtocolHandler")
         .arg(先)
         .spawn()
         .map(|_| ())
