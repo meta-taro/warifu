@@ -3,7 +3,7 @@
   //
   // 棒と積み上げは**横向き**にする。横軸の名前（店・SNS など）は日本語で長く、縦の棒の下には収まらない。
   // 線と縦の棒は日付の並び（毎日の推移）。円は 1 列の内訳。**色だけで言わない** —— 値の列が 2 つ以上なら凡例を出し、棒の端に数を書く。
-  import { 目盛り, 数の字, 行の合計, 円の切れ, 名を書く番 as 書く番, 線は動きに合わせるか, type 図 as 図の型 } from './chart';
+  import { 目盛り, 数の字, 行の合計, 円の切れ, 名を書く番 as 書く番, 線は動きに合わせるか, type 図 as 図の型, 名の欄 } from './chart';
 
   let { 図 }: { 図: 図の型 } = $props();
 
@@ -19,7 +19,9 @@
   const 色 = (k: number) => 色たち[k % 色たち.length];
 
   const 幅 = 360;
-  const 名の幅 = 96;
+  // 名前の欄は、いちばん長い名前から決める（#8）
+  const 欄 = $derived(名の欄(図.行たち.map((r) => r.名)));
+  const 名の幅 = $derived(欄.幅);
   const 数の幅 = 44;
   const 棒の高さ = 12;
   const 間 = 6;
@@ -34,7 +36,7 @@
   const 上 = $derived(刻み[刻み.length - 1]);
 
   // ── 横の棒（棒・積み上げ） ──
-  const 描く幅 = 幅 - 名の幅 - 数の幅;
+  const 描く幅 = $derived(幅 - 名の幅 - 数の幅);
   const 横へ = (v: number) => 名の幅 + ((v - 下) / (上 - 下)) * 描く幅;
   const 一行の高さ = $derived(図.形 === '積み上げ' ? 棒の高さ : 棒の高さ * 図.系列.length);
   const 棒の図の高さ = $derived(図.行たち.length * (一行の高さ + 間) + 18);
@@ -194,7 +196,7 @@
       {#each 図.行たち as r, i (i)}
         {@const 頭 = i * (一行の高さ + 間)}
         <text class="name" x={名の幅 - 6} y={頭 + 一行の高さ / 2 + 4} text-anchor="end">
-          {r.名.length > 9 ? `${r.名.slice(0, 8)}…` : r.名}<title>{r.名}</title>
+          {欄.切る(r.名)}<title>{r.名}</title>
         </text>
         {#if 図.形 === '積み上げ'}
           {@const 端 = r.値.map((_, k) => r.値.slice(0, k).reduce<number>((s, v) => s + (v ?? 0), 0))}

@@ -198,3 +198,34 @@ export function 線は動きに合わせるか(値たち: number[]): boolean {
   const 最大 = Math.max(...値たち);
   return 最小 > 0 && (最大 - 最小) / 最大 < 0.5;
 }
+
+/**
+ * 字の幅の見積もり（図の字の大きさ 10 のとき）。全角は 10、半角は 6。
+ * SVG の中で字を測らずに決めるため（測ると描くたびに揺れる）。
+ */
+export function 字の幅(字: string): number {
+  let 幅 = 0;
+  for (const c of 字) 幅 += /[\u0000-\u00ff\uff61-\uff9f]/.test(c) ? 6 : 10;
+  return 幅;
+}
+
+/**
+ * **横の棒の名前の欄**（#8）。いちばん長い名前が入る幅にし、上限を越える名前だけ「…」で切る。
+ * 前は 9 字で一律に切っていたので、左に余白があっても「M LABO S…」となり、どの行か分からなかった。
+ */
+export function 名の欄(名たち: readonly string[], 上限 = 150, 下限 = 48): { 幅: number; 切る: (名: string) => string } {
+  const 余白 = 8;
+  const 長さ = Math.max(0, ...名たち.map(字の幅));
+  const 幅 = Math.min(上限, Math.max(下限, 長さ + 余白));
+  const 入る = 幅 - 余白;
+  const 切る = (名: string): string => {
+    if (字の幅(名) <= 入る) return 名;
+    let 出 = '';
+    for (const c of 名) {
+      if (字の幅(出 + c) + 字の幅('…') > 入る) break;
+      出 += c;
+    }
+    return `${出}…`;
+  };
+  return { 幅, 切る };
+}

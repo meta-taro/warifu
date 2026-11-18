@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { グラフの囲みか, 図を読む, 数にする, 目盛り, 円の切れ, 名を書く番, 線は動きに合わせるか } from './chart';
+import { グラフの囲みか, 図を読む, 数にする, 目盛り, 円の切れ, 名を書く番, 線は動きに合わせるか, 名の欄, 字の幅 } from './chart';
 import { 塊に分ける } from './markdown';
 
 const 読めた = (情報: string, 中: string) => {
@@ -145,5 +145,24 @@ describe('線の目盛り', () => {
   it('0 に近い値や負の数があれば 0 から', () => {
     expect(線は動きに合わせるか([2, 6614])).toBe(false);
     expect(線は動きに合わせるか([-1, 5])).toBe(false);
+  });
+});
+
+describe('横の棒の名前の欄（#8）', () => {
+  it('いちばん長い名前が入る幅にし、入るものは切らない', () => {
+    const 欄 = 名の欄(['Lynx 秋葉原店', 'M LABO SPA 大宮店', 'X']);
+    expect(欄.幅).toBe(字の幅('M LABO SPA 大宮店') + 8);
+    expect(欄.切る('M LABO SPA 大宮店')).toBe('M LABO SPA 大宮店');
+  });
+  it('上限を越える名前だけ「…」で切り、切ったものも欄に収まる', () => {
+    const 長い = 'メンズエステ Royal Spa(ロイヤルスパ) 麻布十番';
+    const 欄 = 名の欄([長い, 'X']);
+    expect(欄.幅).toBe(150);
+    const 切った = 欄.切る(長い);
+    expect(切った.endsWith('…')).toBe(true);
+    expect(字の幅(切った)).toBeLessThanOrEqual(150 - 8);
+  });
+  it('短い名前ばかりでも、欄は下限より狭くしない', () => {
+    expect(名の欄(['A', 'B']).幅).toBe(48);
   });
 });

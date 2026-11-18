@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { 吹き出しの形, 機械に色を振る, 機械の頭, 機械の色合いたち, 畳むか, 畳む字数, 畳む行数 } from './bubble';
+import { 吹き出しの形, 機械に色を振る, 機械の頭, 機械の色合いたち, 畳むか, 畳む字数, 畳む行数, 図を含むか } from './bubble';
 import type { 会話行 } from '$lib/meeting/announce';
 
 const 行 = (o: Partial<会話行>): 会話行 => ({ who: '', body: 'やあ', mine: false, ...o });
@@ -82,5 +82,14 @@ describe('機械に色を振る（0.1.46）', () => {
     expect(機械の頭(行({ 顔の種: 'desk:warifu のエージェント' }))).toBeNull();
     expect(機械の頭(行({ system: true }))).toBeNull();
     expect(機械の頭(行({}))).toBeNull();
+  });
+});
+
+describe('図を含むか（#8）', () => {
+  it('chart の囲みがあれば真、ほかの囲みや本文の語では偽', () => {
+    expect(図を含むか('報告\n```chart line\n日,数\n11-17,1\n```')).toBe(true);
+    expect(図を含むか('~~~chart\nA,1\n~~~')).toBe(true);
+    expect(図を含むか('```ts\nconst chart = 1\n```')).toBe(false);
+    expect(図を含むか('chart を描きます')).toBe(false);
   });
 });

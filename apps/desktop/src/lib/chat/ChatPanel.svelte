@@ -22,7 +22,7 @@
   import { 時刻の札 } from './history';
   import Markdown from './Markdown.svelte';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
-  import { 吹き出しの形, 機械に色を振る, 機械の頭, 畳むか } from './bubble';
+  import { 吹き出しの形, 機械に色を振る, 機械の頭, 畳むか, 図を含むか } from './bubble';
   import Reach from './Reach.svelte';
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 写しか, 写しの名, 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
@@ -608,7 +608,7 @@
                 ><Icon name="reply" size={11} /><b>{差出人の名(元)}</b><span>{本文の頭(元.body)}</span></button
               >{:else}<span class="quote gone">{t('chat.reply.gone')}</span>{/if}
           {/if}
-          <div class="bubble" class:folded={長い && !開いた.has(i)}><Markdown
+          <div class="bubble" class:folded={長い && !開いた.has(i)} class:figure={図を含むか(line.body)}><Markdown
               本文={呼んだ.length > 0 || 写した.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
               {自分の呼ばれる名}
@@ -1123,6 +1123,10 @@
     max-height: 9em;
     overflow: hidden;
     mask-image: linear-gradient(to bottom, #000 60%, transparent);
+  }
+  /* **グラフを含む発言は、畳んでも 1 つ目の図が見える高さに**（#8） */
+  .bubble.folded.figure {
+    max-height: 26em;
   }
   /* **畳む・開くは吹き出しの右下に置く**（左の吹き出しでも右の吹き出しでも）。読み終えた目が行き着く所 */
   .more {
