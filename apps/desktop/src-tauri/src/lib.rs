@@ -122,6 +122,7 @@ mod redial;
 mod reply;
 mod room_name;
 mod room_rule;
+mod speaker_place;
 #[cfg(test)]
 mod room_sim;
 mod roster_sync;
@@ -3005,6 +3006,20 @@ fn 汲む(
                         reply::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
+                    // **話し手の場所**（0.1.52）。差出人の確かめは文字と同じ。主催なら面々へ配る
+                    if let Notice::話し手の場所 { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 話し手の場所の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        speaker_place::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
                     // **鍵の手渡し**（2026-10-20）。**名簿は動かさない。入るかは人が決める**
                     if let Notice::Key { from, 鍵, .. } = &notice {
                         if *from != peer {
@@ -4687,6 +4702,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::RoomSecret { .. } => "部屋の合言葉",
         Notice::RoomName { .. } => "ルームの名前",
         Notice::RoomRule { .. } => "ルームでのエージェントの扱い",
+        Notice::話し手の場所 { .. } => "話し手の場所",
         Notice::Presence { .. } => "居場所",
         Notice::受けた { .. } => "受けた",
         _ => "知らない知らせ",
@@ -5179,6 +5195,12 @@ mod 知らせの名の試験 {
             Notice::RoomRule {
                 meeting: 部屋,
                 扱い: warifu_meeting::エージェントの扱い::読むだけ,
+            },
+            Notice::話し手の場所 {
+                meeting: 部屋,
+                from: 鍵(),
+                札: "a".to_owned(),
+                場所: "b".to_owned(),
             },
             Notice::Presence {
                 meeting: 部屋,

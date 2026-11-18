@@ -1578,6 +1578,11 @@ pub(crate) async fn 流す(
         let 線たち: Vec<_> = 面々.iter().filter_map(|(_, 線)| 線.clone()).collect();
         crate::reply::送る(&線たち, meeting, 自分, 行, 先).await;
     }
+    // **話し手の場所も、発言より先に送る**（0.1.52）。受け手が名乗り直しても 1 人にまとめられるように
+    if let Some(場所) = crate::speaker_place::呼び方から場所(&呼び方) {
+        let 線たち: Vec<_> = 面々.iter().filter_map(|(_, 線)| 線.clone()).collect();
+        crate::speaker_place::送る(&線たち, meeting, 自分, &名札, 場所).await;
+    }
     let 渡せたか = 皆へ渡す(面々, &文字, 線を待てる).await;
     let 部屋の主催 = bridge.主催たち.lock().await.get(&meeting).copied();
     let 主催だ = crate::roster_sync::主催か(部屋の主催.as_ref(), &自分);

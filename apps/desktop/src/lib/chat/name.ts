@@ -106,3 +106,44 @@ export function 人の名を言い換える(名: string, 言い方: (機械: str
   const 機械 = 名.slice(0, -中の人の印.length).trim();
   return 機械 === '' ? 名 : 言い方(機械);
 }
+
+/**
+ * **話し手の場所の帳**（0.1.52）。`機械の鍵（全桁）\n名札` → 起動した場所。
+ * 相手の機械から「この名札は、この場所で起動したエージェント」と届いた分。
+ */
+export type 場所の帳 = Readonly<Record<string, string>>;
+
+/** 帳の鍵。 */
+export function 場所の帳の鍵(機械の鍵: string, 札: string): string {
+  return `${機械の鍵}\n${札}`;
+}
+
+/**
+ * **このルームで話した相手の機械のエージェントを、今の名札で 1 人ずつ並べる**（0.1.52・#6）。
+ *
+ * 名乗り直すと名札が変わり、古い名札の行も残るので、名札のままだと同じエージェントが何行も並んだ。
+ * 帳に場所が届いている名札は「機械 ＋ 場所」で 1 人にまとめ、**いちばん後の行の名札**を出す。
+ * 場所が届いていない名札（古い版の相手など）は、今までどおり名札ごとに 1 人。並びは最初に話した順。
+ */
+export function 今のエージェントの札(会話: readonly 会話行[], 帳: 場所の帳): { 頭: string; 札: string }[] {
+  const 場所を引く = (頭: string, 札: string): string | undefined => {
+    if (頭 === '') return undefined;
+    for (const [k, 場所] of Object.entries(帳)) {
+      const [鍵, 帳の札] = k.split('\n');
+      if (帳の札 === 札 && 鍵.startsWith(頭)) return 場所;
+    }
+    return undefined;
+  };
+  const 並び: string[] = [];
+  const 今の: Map<string, { 頭: string; 札: string }> = new Map();
+  for (const 行 of 会話) {
+    if (行.system || 行.mine || !行.顔の種) continue;
+    const 分けた = 相手の機械の名札を分ける(行.顔の種);
+    if (!分けた || 分けた.頭 === '') continue;
+    const 場所 = 場所を引く(分けた.頭, 分けた.札);
+    const 誰 = 場所 === undefined ? `${分けた.頭}\n札:${分けた.札}` : `${分けた.頭}\n所:${場所}`;
+    if (!今の.has(誰)) 並び.push(誰);
+    今の.set(誰, 分けた);
+  }
+  return 並び.map((誰) => 今の.get(誰)!);
+}

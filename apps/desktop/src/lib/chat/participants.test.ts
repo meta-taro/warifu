@@ -59,3 +59,38 @@ describe('参加者を並べる', () => {
     expect(参加者を並べる([], null, 私, ['docs'], [])).toEqual([]);
   });
 });
+
+describe('名乗り直したエージェント（#6）', () => {
+  const 頭 = 客.slice(0, 12);
+  const 会話 = [
+    話(`${頭}…（docs のエージェント）`),
+    話(`${頭}…（資料くん（docs））`),
+    話(`${頭}…（見積くん（estimate））`),
+    話(`${頭}…（資料係（docs））`),
+  ];
+
+  it('場所が届いていれば、機械 ＋ 場所で 1 人にまとめ、いちばん後の名札を出す', () => {
+    const 帳 = {
+      [`${客}\ndocs のエージェント`]: 'docs',
+      [`${客}\n資料くん（docs）`]: 'docs',
+      [`${客}\n資料係（docs）`]: 'docs',
+      [`${客}\n見積くん（estimate）`]: 'estimate',
+    };
+    const 並び = 参加者を並べる([客, 私], 私, 私, [], 会話, 帳);
+    expect(並び.find((p) => p.key === 客)?.エージェントたち).toEqual(['資料係（docs）', '見積くん（estimate）']);
+  });
+
+  it('場所が届いていない名札（古い版の相手）は、今までどおり名札ごとに 1 人', () => {
+    const 並び = 参加者を並べる([客, 私], 私, 私, [], 会話);
+    expect(並び.find((p) => p.key === 客)?.エージェントたち).toHaveLength(4);
+  });
+
+  it('別の機械の同じ場所は、別の人', () => {
+    const 別 = 'OTHERDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD';
+    const 帳 = { [`${客}\n資料くん（docs）`]: 'docs', [`${別}\n資料くん（docs）`]: 'docs' };
+    const 二つ = [話(`${頭}…（資料くん（docs））`), 話(`${別.slice(0, 12)}…（資料くん（docs））`)];
+    const 並び = 参加者を並べる([客, 別, 私], 私, 私, [], 二つ, 帳);
+    expect(並び.find((p) => p.key === 客)?.エージェントたち).toEqual(['資料くん（docs）']);
+    expect(並び.find((p) => p.key === 別)?.エージェントたち).toEqual(['資料くん（docs）']);
+  });
+});

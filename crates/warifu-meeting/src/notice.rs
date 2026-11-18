@@ -60,6 +60,8 @@ const ROOM_NAME: &str = "meeting.roomname";
 pub const ROOM_NAME_MAX: usize = 128;
 /// **ルームでのエージェントの扱い**（0.1.52）。主催が決め、居る人みんなで同じ扱いを持つ。
 const ROOM_RULE: &str = "meeting.roomrule";
+/// **話し手の場所**（0.1.52）。エージェントの名札と、起動した場所（机に名乗った名）を結ぶ。
+const SPEAKER_PLACE: &str = "meeting.speakerplace";
 
 /// **ルームでのエージェントの扱い**（0.1.52）。
 ///
@@ -397,6 +399,23 @@ pub enum Notice {
         /// 返信先の行の印。
         先: [u8; 32],
     },
+    /// **話し手の場所**（0.1.52）。エージェントが話すとき、発言と一緒に送る。
+    ///
+    /// 名札（`話し手`）は名乗り直すと変わるので、名札だけでは「同じエージェント」が分からない
+    /// （名乗り直すたびに、参加者の欄と `@` の候補に行が増えた）。**起動した場所**（`--as` か
+    /// 起動したフォルダ）は変わらないので、受け手は「機械 ＋ 場所」で 1 人にまとめ、いちばん新しい名札を出す。
+    ///
+    /// 発言（`Text`）の形は変えない。古い版は知らない知らせとして読み飛ばす（今までどおり名札ごとに出る）。
+    話し手の場所 {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// どの機械のエージェントか（主催ごしの確かめに使う）。
+        from: PublicKey,
+        /// 発言に載せた名札。
+        札: String,
+        /// 起動した場所（机に名乗った名）。
+        場所: String,
+    },
 }
 
 /// **どう受けたか**（[`Notice::受けた`]）。
@@ -449,7 +468,8 @@ impl Notice {
             | Self::Since { meeting, .. }
             | Self::Presence { meeting, .. }
             | Self::受けた { meeting, .. }
-            | Self::返信 { meeting, .. } => *meeting,
+            | Self::返信 { meeting, .. }
+            | Self::話し手の場所 { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -553,6 +573,19 @@ impl Notice {
                 荷物.extend_from_slice(行);
                 荷物.extend_from_slice(先);
                 (REPLY, 荷物)
+            }
+            Self::話し手の場所 {
+                from, 札, 場所, ..
+            } => {
+                // `[機械 32][札の長さ 1][札][場所]`。札と場所は発言の札と同じ決まりで検める
+                札を検める(Some(札))?;
+                札を検める(Some(場所))?;
+                let mut 荷物 = Vec::with_capacity(33 + 札.len() + 場所.len());
+                荷物.extend_from_slice(&from.to_bytes());
+                荷物.push(u8::try_from(札.len()).map_err(|_| Error::Malformed)?);
+                荷物.extend_from_slice(札.as_bytes());
+                荷物.extend_from_slice(場所.as_bytes());
+                (SPEAKER_PLACE, 荷物)
             }
             Self::Key { from, 鍵, .. } => {
                 鍵を検める(鍵)?;
@@ -675,6 +708,7 @@ impl Notice {
             PRESENCE => 居場所を読む(meeting, 荷物),
             ACK => 受けたを読む(meeting, 荷物),
             REPLY => 返信を読む(meeting, 荷物),
+            SPEAKER_PLACE => 話し手の場所を読む(meeting, 荷物),
             KEY => {
                 // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
                 let 頭: [u8; 32] = 荷物
@@ -1000,6 +1034,28 @@ fn 受けたを読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error
         話し手,
         行,
         方: 受け方::数から(荷物[札の終わり + 32])?,
+    })
+}
+
+/// `[機械 32][札の長さ 1][札][場所]` を読む。**組み立てる側と同じ検めをする。**
+fn 話し手の場所を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    if 荷物.len() < 33 || 荷物.len() > 33 + SPEAKER_MAX * 2 {
+        return Err(Error::Malformed);
+    }
+    let 頭: [u8; 32] = 荷物[..32].try_into().map_err(|_| Error::Malformed)?;
+    let from = PublicKey::from_bytes(頭).map_err(|_| Error::Malformed)?;
+    let 札の長さ = usize::from(荷物[32]);
+    let 札 = 荷物.get(33..33 + 札の長さ).ok_or(Error::Malformed)?;
+    let 場所 = &荷物[33 + 札の長さ..];
+    let 札 = String::from_utf8(札.to_vec()).map_err(|_| Error::Malformed)?;
+    let 場所 = String::from_utf8(場所.to_vec()).map_err(|_| Error::Malformed)?;
+    札を検める(Some(&札))?;
+    札を検める(Some(&場所))?;
+    Ok(Notice::話し手の場所 {
+        meeting,
+        from,
+        札,
+        場所,
     })
 }
 

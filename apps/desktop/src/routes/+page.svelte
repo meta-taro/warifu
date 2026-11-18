@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { 話し手の場所, 場所を控える } from '$lib/chat/speaker-place.svelte';
   import { tick, untrack } from 'svelte';
   // 会議の画面（M5）。**判断はここに置かない** — 規則は lib 側の純ロジックが持つ。
   //
@@ -200,6 +201,7 @@
     roomRules,
     setRoomRule,
     EVENT_ROOM_RULE,
+    EVENT_SPEAKER_PLACE,
     EVENT_ROOM_NAME,
     EVENT_LOOK,
     EVENT_SNAPSHOT_ASK,
@@ -910,6 +912,7 @@
       自分の鍵,
       この機械のAIたち,
       ルームの会話たち[部屋.id] ?? [],
+      話し手の場所.帳,
     );
   });
   /** **名簿の「主催」の札は、部屋の主催の鍵で付ける**（起動時の決め打ちを使わない）。 */
@@ -2328,6 +2331,12 @@
           else delete 次[id];
           ルームの名前たち = 次;
         }),
+      );
+      unsubs.push(
+        // **話し手の場所が届いた**（0.1.52・#6）。名乗り直したエージェントを 1 人にまとめるため
+        await onEvent<[string, string, string]>(EVENT_SPEAKER_PLACE, ([鍵, 札, 場所]) =>
+          場所を控える(鍵, 札, 場所),
+        ),
       );
       unsubs.push(
         // **エージェントの扱いが届いた**（0.1.52）。主催が決め、居る人みんなで同じ扱いを持つ

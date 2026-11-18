@@ -89,6 +89,8 @@ export const EVENT_CLAIMED = 'warifu://claimed';
 export const EVENT_ROOM_NAME = 'warifu://room-name';
 /** ルームでのエージェントの扱いが届いた・変わった（0.1.52）。`[ルーム id, 扱いの数]`。 */
 export const EVENT_ROOM_RULE = 'warifu://room-rule';
+/** 話し手の場所が届いた（0.1.52・#6）。`[機械の鍵, 名札, 場所]`。 */
+export const EVENT_SPEAKER_PLACE = 'warifu://speaker-place';
 /** **見るルームが変わった**（0.1.33）。見張りが戻ったあと、前のルームへ戻したとき。読み直す */
 export const EVENT_LOOK = 'warifu://look';
 /** **画面の写しを頼まれた**（0.1.34）。中身は頼みの番号。{@link snapshotReply} で返す */
