@@ -61,7 +61,7 @@
   {#if b.種 === '段'}
     <p>{@render 字たち(b.字)}</p>
   {:else if b.種 === '見出し'}
-    <p class="h" class:h1={b.深さ === 1}>{@render 字たち(b.字)}</p>
+    <p class="h" class:h1={b.深さ === 1} class:h2={b.深さ === 2} class:h3={b.深さ === 3}>{@render 字たち(b.字)}</p>
   {:else if b.種 === '符'}
     <pre>{b.文}</pre>
   {:else if b.種 === '図'}
@@ -127,11 +127,22 @@
   td {
     white-space: pre-wrap;
   }
+  /* 見出しは深さで大きさを変える（# が いちばん大きい・#### より深いものは本文と同じ大きさの太字） */
   .h {
     font-weight: 700;
+    line-height: 1.35;
   }
   .h1 {
-    font-size: 1.1em;
+    font-size: 1.35em;
+  }
+  .h2 {
+    font-size: 1.2em;
+  }
+  .h3 {
+    font-size: 1.08em;
+  }
+  * + .h {
+    margin-top: 0.8em;
   }
   code,
   pre {
