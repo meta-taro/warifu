@@ -6,6 +6,15 @@
   import { 塊に分ける, type 塊, type 字 } from './markdown';
   import { 本文を分ける } from './mention';
   import { openLink } from '$lib/bridge';
+  import { QRにする, 道にする } from './qr';
+
+  type QRの文言 = { 押し口: string; 説明: string; 添え: string; 閉じる: string };
+  const QRの既定: QRの文言 = {
+    押し口: 'QR',
+    説明: 'QR コードで出す（スマホで開く）',
+    添え: 'スマホのカメラで読むと、この URL が開きます',
+    閉じる: '閉じる',
+  };
 
   type Props = {
     /** 本文。`塊` を渡したときは使わない（引用の中を描くとき） */
@@ -16,7 +25,7 @@
     /** 自分が呼ばれる名前（地を付ける） */
     自分の呼ばれる名: readonly string[];
     /** グラフの周りの文言（画面の言葉で）。 */
-    文言?: { 表で見る: string; 描けない: string };
+    文言?: { 表で見る: string; 描けない: string; QR?: QRの文言 };
   };
   let {
     本文 = '',
@@ -27,6 +36,14 @@
   }: Props = $props();
 
   const 並び = $derived(塊たち ?? 塊に分ける(本文));
+  const QRの字 = $derived(文言.QR ?? QRの既定);
+
+  /**
+   * **QR コードで出している URL**（0.1.53）。PC で見ている繋ぎを、スマホのカメラで読んで開くため。
+   * 1 つの発言で 1 つだけ出す。
+   */
+  let QRの先 = $state<string | null>(null);
+  const QRの升目 = $derived(QRの先 === null ? null : QRにする(QRの先));
 
   /** http(s) の繋ぎだけ押せる（11-11）。ほかは字のまま */
   const 開ける先 = (先: string) => /^https?:\/\/\S+$/i.test(先);
@@ -48,6 +65,8 @@
         href={切.先}
         title={切.先}
         onclick={(e) => 外で開く(e, 切.先)}>{@render 呼びを分ける(切.文)}</a
+      ><button type="button" class="qr" title={QRの字.説明} aria-label={QRの字.説明} onclick={() => (QRの先 = 切.先)}
+        >{QRの字.押し口}</button
       >{:else if 切.種 === '繋'}<span class="link" title={切.先}>{@render 呼びを分ける(切.文)}</span
     >{:else}{@render 呼びを分ける(切.文)}{/if}{/each}{/snippet}
 
@@ -99,6 +118,38 @@
     </div>
   {/if}
 {/each}
+
+{#if QRの先 !== null && QRの升目 !== null}
+  <!-- 窓の外を押すか Esc で閉じる。絵は四角を並べた SVG（HTML を流し込まない） -->
+  <div class="qr-back" role="presentation" onclick={() => (QRの先 = null)}>
+    <div
+      class="qr-card"
+      role="dialog"
+      aria-modal="true"
+      aria-label={QRの字.説明}
+      tabindex="-1"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => {
+        if (e.key === 'Escape') QRの先 = null;
+      }}
+    >
+      <svg
+        class="qr-code"
+        viewBox="0 0 {QRの升目.大きさ} {QRの升目.大きさ}"
+        shape-rendering="crispEdges"
+        role="img"
+        aria-label={QRの先}
+      >
+        <rect width={QRの升目.大きさ} height={QRの升目.大きさ} fill="#fff" />
+        <path d={道にする(QRの升目)} fill="#000" />
+      </svg>
+      <p class="qr-hint">{QRの字.添え}</p>
+      <p class="qr-url" title={QRの先}>{QRの先}</p>
+      <!-- svelte-ignore a11y_autofocus -->
+      <button type="button" class="qr-close" autofocus onclick={() => (QRの先 = null)}>{QRの字.閉じる}</button>
+    </div>
+  </div>
+{/if}
 
 <style>
   p,
@@ -216,6 +267,68 @@
     text-decoration: underline;
     cursor: pointer;
     overflow-wrap: anywhere;
+  }
+  /* **QR の押し口**（0.1.53）。繋ぎのすぐ後ろに小さく置く。本文の字より目立たせない */
+  .qr {
+    margin-left: 3px;
+    padding: 0 4px;
+    font: inherit;
+    font-size: 0.75em;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    vertical-align: 1px;
+  }
+  .qr:hover {
+    color: var(--info-fg);
+    border-color: var(--info-fg);
+  }
+  .qr-back {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    background: rgb(0 0 0 / 0.45);
+  }
+  .qr-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    max-width: min(92vw, 340px);
+    padding: 16px;
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+  }
+  /* 白地と余白は QR の決まり（暗い画面でも白のまま。黒地に反転すると読めない端末がある） */
+  .qr-code {
+    width: 240px;
+    height: 240px;
+    max-width: 80vw;
+    max-height: 80vw;
+  }
+  .qr-hint {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+  .qr-url {
+    max-width: 100%;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+  .qr-close {
+    font: inherit;
+    padding: 4px 16px;
+    cursor: pointer;
   }
   /* **`@名前` で呼んだ所**（0.1.35）。誰に話しかけたかが一目で分かるように */
   .mention {

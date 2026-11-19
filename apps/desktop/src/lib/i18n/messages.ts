@@ -494,6 +494,10 @@ export type MessageKey =
   | 'chat.agentOf'
   | 'chat.chart.table'
   | 'chat.chart.cannot'
+  | 'chat.link.qr'
+  | 'chat.link.qr.title'
+  | 'chat.link.qr.hint'
+  | 'chat.link.qr.close'
   | 'chat.personAt'
   | 'chat.copy'
   | 'roster.kick'
@@ -642,6 +646,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} のエージェント',
     'chat.chart.table': '表で見る',
     'chat.chart.cannot': 'グラフにできません：{why}',
+    'chat.link.qr': 'QR',
+    'chat.link.qr.title': 'QR コードで出す（スマホで開く）',
+    'chat.link.qr.hint': 'スマホのカメラで読むと、この URL が開きます',
+    'chat.link.qr.close': '閉じる',
     'chat.personAt': '{name} の中の人',
     'chat.copy': '本文をコピー',
     'roster.kick': '外す',
@@ -1203,6 +1211,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} (agent)',
     'chat.chart.table': 'Show as table',
     'chat.chart.cannot': 'Cannot draw a chart: {why}',
+    'chat.link.qr': 'QR',
+    'chat.link.qr.title': 'Show as a QR code (open on your phone)',
+    'chat.link.qr.hint': 'Scan with your phone camera to open this URL',
+    'chat.link.qr.close': 'Close',
     'chat.personAt': 'Person at {name}',
     'chat.copy': 'Copy text',
     'roster.kick': 'Remove',
@@ -1764,6 +1776,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name} 的智能体',
     'chat.chart.table': '以表格查看',
     'chat.chart.cannot': '无法绘制图表：{why}',
+    'chat.link.qr': 'QR',
+    'chat.link.qr.title': '显示二维码（在手机上打开）',
+    'chat.link.qr.hint': '用手机相机扫描即可打开此网址',
+    'chat.link.qr.close': '关闭',
     'chat.personAt': '{name} 的使用者',
     'chat.copy': '复制正文',
     'roster.kick': '移出',
@@ -2322,6 +2338,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.agentOf': '{name}의 에이전트',
     'chat.chart.table': '표로 보기',
     'chat.chart.cannot': '그래프로 그릴 수 없습니다: {why}',
+    'chat.link.qr': 'QR',
+    'chat.link.qr.title': 'QR 코드로 표시 (휴대폰에서 열기)',
+    'chat.link.qr.hint': '휴대폰 카메라로 읽으면 이 URL이 열립니다',
+    'chat.link.qr.close': '닫기',
     'chat.personAt': '{name}의 사용자',
     'chat.copy': '본문 복사',
     'roster.kick': '내보내기',
@@ -3004,6 +3024,14 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '発言の中のグラフの下にある、元の表（字）を開く折りたたみの見出し。',
   'chat.chart.cannot':
     '発言の中のグラフの書き方が読めなかったとき。{why} は理由（日本語のまま入る）。',
+  'chat.link.qr':
+    '発言の中の URL の横に付く小さな押し口。押すとその URL の QR コードが出る。',
+  'chat.link.qr.title':
+    'QR の押し口に指を置いたときの説明。PC で見ている URL をスマホで開くためのもの。',
+  'chat.link.qr.hint':
+    'QR コードの下に出る一言。スマホのカメラで読めば開けること。',
+  'chat.link.qr.close':
+    'QR コードの窓を閉じる押し口。',
   'agent.cursor.tag':
     'エージェントの専用カーソルの横に付く名札。人のカーソルではないと一目で分かる短い語。',
   'agent.cursor.close':

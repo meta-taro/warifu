@@ -34,3 +34,31 @@ describe('Markdown の繋ぎ', () => {
     expect(screen.queryByRole('link')).toBeNull();
   });
 });
+
+describe('Markdown の QR（0.1.53）', () => {
+  const 説明 = 'QR コードで出す（スマホで開く）';
+
+  it('http(s) の繋ぎの横に QR の押し口があり、押すとその URL の QR が出て、閉じると消える', async () => {
+    render(Markdown, { 本文: '先は https://example.com/a?b=1&c=2 です', 見分ける名: [], 自分の呼ばれる名: [] });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await fireEvent.click(screen.getByRole('button', { name: 説明 }));
+    const 窓 = screen.getByRole('dialog');
+    expect(screen.getByRole('img', { name: 'https://example.com/a?b=1&c=2' })).toBeTruthy();
+    expect(窓.textContent).toContain('https://example.com/a?b=1&c=2');
+    expect(開いた, 'QR を出すだけで、ブラウザは開かない').toEqual([]);
+    await fireEvent.click(screen.getByRole('button', { name: '閉じる' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Esc でも閉じる', async () => {
+    render(Markdown, { 本文: 'https://example.com', 見分ける名: [], 自分の呼ばれる名: [] });
+    await fireEvent.click(screen.getByRole('button', { name: 説明 }));
+    await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('押せない繋ぎ（http(s) でない）には QR を付けない', () => {
+    render(Markdown, { 本文: '[ここ](javascript:alert(1))', 見分ける名: [], 自分の呼ばれる名: [] });
+    expect(screen.queryByRole('button', { name: 説明 })).toBeNull();
+  });
+});

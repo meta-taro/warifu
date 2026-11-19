@@ -623,7 +623,16 @@
               本文={呼んだ.length > 0 || 写した.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
               {自分の呼ばれる名}
-              文言={{ 表で見る: t('chat.chart.table'), 描けない: t('chat.chart.cannot') }}
+              文言={{
+                表で見る: t('chat.chart.table'),
+                描けない: t('chat.chart.cannot'),
+                QR: {
+                  押し口: t('chat.link.qr'),
+                  説明: t('chat.link.qr.title'),
+                  添え: t('chat.link.qr.hint'),
+                  閉じる: t('chat.link.qr.close'),
+                },
+              }}
             />{#if line.画像}<button
                 type="button"
                 class="pic"

@@ -72,6 +72,10 @@ chat.keep.switch	Switch to the new destination	新しい宛先に切り替える
 chat.late	while away	留守中	离线期间	부재 중				
 chat.left	{who} left	{who} が退室しました	{who} 已离开	{who} 님이 퇴장했습니다				
 chat.less	Show less	たたむ	收起	접기				
+chat.link.qr	QR	QR	QR	QR		発言の中の URL の横に付く小さな押し口。押すとその URL の QR コードが出る。		
+chat.link.qr.close	Close	閉じる	关闭	닫기		QR コードの窓を閉じる押し口。		
+chat.link.qr.hint	Scan with your phone camera to open this URL	スマホのカメラで読むと、この URL が開きます	用手机相机扫描即可打开此网址	휴대폰 카메라로 읽으면 이 URL이 열립니다		QR コードの下に出る一言。スマホのカメラで読めば開けること。		
+chat.link.qr.title	Show as a QR code (open on your phone)	QR コードで出す（スマホで開く）	显示二维码（在手机上打开）	QR 코드로 표시 (휴대폰에서 열기)		QR の押し口に指を置いたときの説明。PC で見ている URL をスマホで開くためのもの。		
 chat.lost	The connection to {who} was lost	{who} との経路が切れました	与 {who} 的连接已中断	{who} 님과의 연결이 끊어졌습니다				
 chat.mention.all	Everyone	全員	所有人	모두		`@all` / `@全員` で全員を呼んだとき、呼んだ相手の所に出る語。		
 chat.mention.cc	Cc	cc	抄送	참조		発言の上の「呼んだ相手」の行で、写し（メールの CC）の相手の前に置く短い札。		
