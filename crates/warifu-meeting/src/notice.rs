@@ -62,6 +62,8 @@ pub const ROOM_NAME_MAX: usize = 128;
 const ROOM_RULE: &str = "meeting.roomrule";
 /// **話し手の場所**（0.1.52）。エージェントの名札と、起動した場所（机に名乗った名）を結ぶ。
 const SPEAKER_PLACE: &str = "meeting.speakerplace";
+/// **送った時刻**（0.1.53）。その発言を、送った側の時計でいつ出したか。
+const SENT_AT: &str = "meeting.sentat";
 
 /// **ルームでのエージェントの扱い**（0.1.52）。
 ///
@@ -416,6 +418,21 @@ pub enum Notice {
         /// 起動した場所（机に名乗った名）。
         場所: String,
     },
+    /// **送った時刻**（0.1.53）。`行` の発言を、送った側の時計でいつ出したか。
+    ///
+    /// 発言（`Text`）は時刻を持たないので、受け手の画面は受け取った時刻を出していた。
+    /// **発言より先に送る**（受け手は控えておき、発言が届いたら結ぶ・[`Notice::返信`] と同じ）。
+    /// 発言の形は変えないので、古い版は知らない知らせとして読み飛ばすだけで、発言は読める。
+    送った時刻 {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰が送ったか（主催ごしの確かめに使う）。
+        from: PublicKey,
+        /// どの行か（[`Notice::文字の印`]）。
+        行: [u8; 32],
+        /// 送った時刻（エポックからのミリ秒・送った側の時計）。
+        ミリ秒: u64,
+    },
 }
 
 /// **どう受けたか**（[`Notice::受けた`]）。
@@ -469,7 +486,8 @@ impl Notice {
             | Self::Presence { meeting, .. }
             | Self::受けた { meeting, .. }
             | Self::返信 { meeting, .. }
-            | Self::話し手の場所 { meeting, .. } => *meeting,
+            | Self::話し手の場所 { meeting, .. }
+            | Self::送った時刻 { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -573,6 +591,17 @@ impl Notice {
                 荷物.extend_from_slice(行);
                 荷物.extend_from_slice(先);
                 (REPLY, 荷物)
+            }
+            Self::送った時刻 {
+                from, 行, ミリ秒,
+            ..
+            } => {
+                // `[差出人 32][行の印 32][ミリ秒 8・大きい桁から]`
+                let mut 荷物 = Vec::with_capacity(72);
+                荷物.extend_from_slice(&from.to_bytes());
+                荷物.extend_from_slice(行);
+                荷物.extend_from_slice(&ミリ秒.to_be_bytes());
+                (SENT_AT, 荷物)
             }
             Self::話し手の場所 {
                 from, 札, 場所, ..
@@ -709,6 +738,7 @@ impl Notice {
             ACK => 受けたを読む(meeting, 荷物),
             REPLY => 返信を読む(meeting, 荷物),
             SPEAKER_PLACE => 話し手の場所を読む(meeting, 荷物),
+            SENT_AT => 送った時刻を読む(meeting, 荷物),
             KEY => {
                 // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
                 let 頭: [u8; 32] = 荷物
@@ -1056,6 +1086,23 @@ fn 話し手の場所を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Noti
         from,
         札,
         場所,
+    })
+}
+
+/// `[差出人 32][行の印 32][ミリ秒 8]` を読む。**長さがちょうどでなければ受けない。**
+fn 送った時刻を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    if 荷物.len() != 72 {
+        return Err(Error::Malformed);
+    }
+    let 鍵: [u8; 32] = 荷物[..32].try_into().map_err(|_| Error::Malformed)?;
+    let from = PublicKey::from_bytes(鍵).map_err(|_| Error::Malformed)?;
+    let 行: [u8; 32] = 荷物[32..64].try_into().map_err(|_| Error::Malformed)?;
+    let ミリ秒 = u64::from_be_bytes(荷物[64..].try_into().map_err(|_| Error::Malformed)?);
+    Ok(Notice::送った時刻 {
+        meeting,
+        from,
+        行,
+        ミリ秒,
     })
 }
 

@@ -85,7 +85,7 @@
   import { どう送るか, 留守中の行 } from '$lib/chat/postbox';
   import { 受けたことにする, 受けたを足す, 返事で受けたことにする } from '$lib/chat/ack';
   import { 宛先の見出し } from '$lib/chat/destination';
-  import { 残す形, 戻す } from '$lib/chat/history';
+  import { 残す形, 戻す, 送った時刻の欄 } from '$lib/chat/history';
   import { 映像を始めてよいか } from '$lib/meeting/stage-one';
   import {
     未読の数,
@@ -2140,7 +2140,7 @@
         }),
       );
       unsubs.push(
-        await onEvent<[string, string, string?, string?, (string | null)?]>(EVENT_TEXT, ([key, body, ルーム, 印, 返信先]) => {
+        await onEvent<[string, string, string?, string?, (string | null)?, (number | null)?]>(EVENT_TEXT, ([key, body, ルーム, 印, 返信先, 送った]) => {
           log(話の記録('受信', 短く(key), body));
           // **この機械とルームの両方へ積む**（`issues/1`）。
           // 片方にしか積まないと、もう片方を見ている人には何も見えない。
@@ -2152,7 +2152,8 @@
             顔の種: key,
             body,
             mine: false,
-            at: いま時刻(),
+            // **送った側の時計で出す**（0.1.53）。古い版の相手は送らないので、そのときは受け取った時刻
+            ...送った時刻の欄(送った),
             // **行の印**（D130）。呼ばれた行に［受けました］を出すとき、どの行かを指す
             ...(印 ? { 印 } : {}),
             // **返信なら、返信先の行の印**（11-11）。欄が元の発言を添える

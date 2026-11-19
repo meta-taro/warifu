@@ -1608,6 +1608,13 @@ pub(crate) async fn 流す(
         return Ok((id, 名札で並べる(&届いた), None));
     };
 
+    // **送った時刻を刻む**（0.1.53）。影が預かる前に。線の無い客にも、入り直したら時刻つきで渡す
+    let 刻んだ = crate::sent_at::刻む(&warifu_meeting::Notice::Text {
+        meeting,
+        from: 自分,
+        話し手: Some(名札.clone()),
+        body: body.to_owned(),
+    });
     // **影にも言う**（Issue #1）。主催なら、線の切れた面々の分を預かる
     crate::影へ(
         &bridge,
@@ -1639,6 +1646,11 @@ pub(crate) async fn 流す(
     {
         let 線たち: Vec<_> = 面々.iter().filter_map(|(_, 線)| 線.clone()).collect();
         crate::reply::送る(&線たち, meeting, 自分, 行, 先).await;
+    }
+    // **送った時刻も、発言より先に送る**（0.1.53）。受け手の画面が受け取った時刻を出さないように
+    if let Some(刻んだ) = 刻んだ {
+        let 線たち: Vec<_> = 面々.iter().filter_map(|(_, 線)| 線.clone()).collect();
+        crate::sent_at::送る(&線たち, meeting, 自分, 刻んだ).await;
     }
     // **話し手の場所も、発言より先に送る**（0.1.52）。受け手が名乗り直しても 1 人にまとめられるように
     if let Some(場所) = crate::speaker_place::呼び方から場所(&呼び方) {

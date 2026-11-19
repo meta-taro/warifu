@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { 残す形, 戻す, 時刻の札 } from './history';
+import { 残す形, 戻す, 時刻の札, 送った時刻の欄 } from './history';
 import type { 会話行 } from '$lib/meeting/announce';
 
 const 行 = (body: string, 足し: Partial<会話行> = {}): 会話行 => ({
@@ -74,5 +74,22 @@ describe('時刻の札', () => {
   it('いつの行か分からなければ、元の時刻のまま', () => {
     expect(時刻の札(行('x', { at: '09:00' }), 今)).toBe('09:00');
     expect(時刻の札(行('x'), 今)).toBeUndefined();
+  });
+});
+
+describe('送った時刻の欄（0.1.53）', () => {
+  it('送った時刻があれば、その時刻で出し、日付のために時も持つ', () => {
+    const 送った = new Date(2026, 10, 19, 10, 20).getTime();
+    expect(送った時刻の欄(送った, new Date(2026, 10, 19, 10, 29))).toEqual({ at: '10:20', 時: 送った });
+  });
+
+  it('古い版の相手（時刻なし）は、受け取った時刻で出す', () => {
+    expect(送った時刻の欄(null, new Date(2026, 10, 19, 10, 29))).toEqual({ at: '10:29' });
+    expect(送った時刻の欄(undefined, new Date(2026, 10, 19, 10, 29))).toEqual({ at: '10:29' });
+  });
+
+  it('前の日に送られた行は、日付つきで出る', () => {
+    const 欄 = 送った時刻の欄(new Date(2026, 10, 18, 23, 50).getTime());
+    expect(時刻の札({ ...行('昨日の発言'), ...欄 }, new Date(2026, 10, 19, 0, 5))).toBe('11/18 23:50');
   });
 });

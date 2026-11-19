@@ -3,7 +3,7 @@
 // 0.1.43 まで、会話は画面の記憶の中にしか無く、**立ち上げ直す（版の入れ替えを含む）たびに消えていた。**
 // 残すのは Rust 側（`chat_keep`・機械の鍵で封をしてファイルへ）。ここは、その前後の形だけを決める。
 
-import type { 会話行 } from '$lib/meeting/announce';
+import { いま時刻, type 会話行 } from '$lib/meeting/announce';
 import type { ルームの会話 } from './rooms';
 
 /**
@@ -63,4 +63,14 @@ export function 時刻の札(行: 会話行, 今: Date = new Date()): string | u
     その日.getMonth() === 今.getMonth() &&
     その日.getDate() === 今.getDate();
   return 同じ日 ? 行.at : `${その日.getMonth() + 1}/${その日.getDate()} ${行.at}`;
+}
+
+/**
+ * **相手から届いた行の時刻の欄**（0.1.53）。送った側の時計（ミリ秒）があればそれで、無ければいま。
+ *
+ * 受け取った時刻で出すと、遅れて届いた発言や、入り直して追いついた分が、いま言われたように並ぶ。
+ */
+export function 送った時刻の欄(送った: number | null | undefined, 今: Date = new Date()): { at: string; 時?: number } {
+  if (送った === null || 送った === undefined) return { at: いま時刻(今) };
+  return { at: いま時刻(new Date(送った)), 時: 送った };
 }

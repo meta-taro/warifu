@@ -120,6 +120,7 @@ mod profile;
 mod recent_keep;
 mod redial;
 mod reply;
+mod sent_at;
 mod room_name;
 mod room_rule;
 mod speaker_place;
@@ -2829,6 +2830,13 @@ fn 汲む(
                         }
                         let mut 渡せた = false;
                         for 文 in 渡す {
+                            // **送った時刻を先に渡す**（0.1.53）。渡さないと、留守の間の発言が全部いまの時刻で並ぶ
+                            if let Some(時) = sent_at::預かりに添える(&文)
+                                && let Ok(intent) = 時.to_intent()
+                                && channel.send(&intent).await.is_err()
+                            {
+                                break;
+                            }
                             if let Ok(intent) = 文.to_intent() {
                                 if channel.send(&intent).await.is_err() {
                                     break;
@@ -2911,6 +2919,11 @@ fn 汲む(
                         let 印 = notice.文字の印().unwrap_or_default();
                         // **返信なら、返信先の印も画面へ渡す**（11-11）。返信の印は発言より先に届いて控えてある
                         let 返信先 = reply::棚で(|棚| 棚.返信先(*meeting, &印));
+                        // **送った時刻も画面へ渡す**（0.1.53）。古い版の相手は送らないので、そのときは画面が受けた時刻を出す
+                        let 送った = sent_at::出す時刻(
+                            sent_at::棚で(|棚| 棚.引く(*meeting, &印)),
+                            sent_at::いま(),
+                        );
                         let _ = app.emit(
                             EVENT_TEXT,
                             (
@@ -2919,6 +2932,7 @@ fn 汲む(
                                 meeting.to_string(),
                                 ack::印を字に(&印),
                                 返信先.map(|先| ack::印を字に(&先)),
+                                送った,
                             ),
                         );
                         // **窓が後ろに居ると、届いたことに気づけない。**押し出す。
@@ -3055,6 +3069,20 @@ fn 汲む(
                         }
                         let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
                         reply::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
+                    // **送った時刻**（0.1.53）。**名簿は動かさない。**差出人の確かめは文字と同じ。主催なら面々へ配る
+                    if let Notice::送った時刻 { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 送った時刻の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        sent_at::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
                     // **話し手の場所**（0.1.52）。差出人の確かめは文字と同じ。主催なら面々へ配る
@@ -4252,6 +4280,13 @@ async fn send_text(
             code: None,
         });
     };
+    // **送った時刻を刻む**（0.1.53）。影が預かる前に。線の無い客にも、入り直したら時刻つきで渡す
+    let 刻んだ = sent_at::刻む(&Notice::Text {
+        meeting,
+        from: bridge.device.public_key(),
+        話し手: None,
+        body: body.clone(),
+    });
     // **影にも言う**（Issue #1）。主催なら、線の切れた面々の分を預かる
     影へ(
         &bridge,
@@ -4305,6 +4340,10 @@ async fn send_text(
     {
         reply::棚で(|棚| 棚.返信を控える(meeting, 行, 先));
         reply::送る(&送り先, meeting, bridge.device.public_key(), 行, 先).await;
+    }
+    // **送った時刻も、発言より先に送る**（0.1.53）。受け手の画面が、受け取った時刻ではなくこの時刻を出す
+    if let Some(刻んだ) = 刻んだ {
+        sent_at::送る(&送り先, meeting, bridge.device.public_key(), 刻んだ).await;
     }
     for tx in &送り先 {
         // 届かない相手が居ても止めない。**送る側を待たせない**
