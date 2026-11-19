@@ -2961,7 +2961,14 @@ fn 汲む(
                             ),
                             None => body.clone(),
                         };
-                        let 聞いた = desk::聞いた_任されて(&名, &渡す本文, Some(meeting.to_string()), 任された);
+                        // **エージェントにも送った時刻で渡す**（0.1.53）。行の形は変えず、`at` の字に書く
+                        let 聞いた = desk::聞いた_送った時刻で(
+                            &名,
+                            &渡す本文,
+                            Some(meeting.to_string()),
+                            任された,
+                            送った,
+                        );
                         // **呼んでいる行は控える**（D130）。この機械のエージェントが読んだら受けたを返す
                         if let warifu_desk::FromDesk::Heard { id, .. } = &聞いた {
                             ack::控える(*id, *meeting, 印, body);

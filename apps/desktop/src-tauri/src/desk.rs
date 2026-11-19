@@ -297,6 +297,13 @@ fn 日付つき時刻() -> String {
     chrono::Local::now().format("%m-%d %H:%M").to_string()
 }
 
+/// **送った側の時刻を、机の行の形（`MM-DD HH:MM`・この PC の時計の地域）にする**（0.1.53）。
+/// 読めない値なら `None`（呼ぶ側が受けた時刻に倒す）。
+fn ミリ秒を時刻に(ミリ秒: u64) -> Option<String> {
+    let 時 = chrono::DateTime::from_timestamp_millis(i64::try_from(ミリ秒).ok()?)?;
+    Some(時.with_timezone(&chrono::Local).format("%m-%d %H:%M").to_string())
+}
+
 /// この機械を開く。**開けなくても画面は止めない。**
 ///
 /// この機械が無くても人どうしの会話は成り立つ。
@@ -2549,11 +2556,24 @@ pub fn 聞いた_任されて(
     部屋: Option<String>,
     任された: bool,
 ) -> FromDesk {
+    聞いた_送った時刻で(from, body, 部屋, 任された, None)
+}
+
+/// [`聞いた_任されて`] に、**送った側の時刻**（ミリ秒）を添えたもの（0.1.53）。
+///
+/// 机の行の形は変えない（`at` の字に送った時刻を書く）。無ければ受けた時刻。
+pub fn 聞いた_送った時刻で(
+    from: &str,
+    body: &str,
+    部屋: Option<String>,
+    任された: bool,
+    送った: Option<u64>,
+) -> FromDesk {
     let 行 = FromDesk::Heard {
         id: 番号を振る(),
         from: from.to_owned(),
         body: body.to_owned(),
-        at: 日付つき時刻(),
+        at: 送った.and_then(ミリ秒を時刻に).unwrap_or_else(日付つき時刻),
         room: 部屋,
         任された,
     };
@@ -3145,6 +3165,19 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
 
 #[cfg(test)]
 mod tests {
+    use super::ミリ秒を時刻に;
+
+    #[test]
+    fn 送った時刻は_この機械の時計の地域で机の行の形になる() {
+        let 時 = chrono::Local::now();
+        let ミリ秒 = u64::try_from(時.timestamp_millis()).unwrap();
+        assert_eq!(
+            ミリ秒を時刻に(ミリ秒).as_deref(),
+            Some(時.format("%m-%d %H:%M").to_string().as_str())
+        );
+        assert_eq!(ミリ秒を時刻に(u64::MAX), None, "読めない値は受けた時刻に倒す");
+    }
+
     /// **1 台の PC で何席も同時に動く**（11-11）。席 A の長い用事（`pass_wait` は最長 60 秒）の間も、
     /// 受け口は次の席を受け、席 B の呼びはすぐ返る。本物の受け口と `受け続ける` を使い、
     /// 席の応じ方だけを偽物にする（本物の応じ方は、この機械の身元を開くので試験で立てられない）
