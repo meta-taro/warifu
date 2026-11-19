@@ -22,6 +22,11 @@ describe('人が押すものには、押させない印がある', () => {
     for (const 帯 of 入りますか) expect(帯).toContain('data-agent-hands-off');
   });
 
+  it('メールの口の「端末の許可で送る」（0.1.53）', () => {
+    const メール = 読む('../mail/MailPane.svelte');
+    expect(メール).toMatch(/class="terminal-send"[^>]*data-agent-hands-off/);
+  });
+
   it('会話の［送る］と、秘密の確かめ', () => {
     expect(会話).toMatch(/onclick=\{\(\) => 出す\(\)\}[^>]*data-agent-hands-off/);
     expect(会話).toMatch(/class="secret-check"[^>]*data-agent-hands-off/);

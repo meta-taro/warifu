@@ -498,6 +498,8 @@ export type MessageKey =
   | 'chat.link.qr.title'
   | 'chat.link.qr.hint'
   | 'chat.link.qr.close'
+  | 'mail.terminal.label'
+  | 'mail.terminal.hint'
   | 'chat.personAt'
   | 'chat.copy'
   | 'roster.kick'
@@ -650,6 +652,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': 'QR コードで出す（スマホで開く）',
     'chat.link.qr.hint': 'スマホのカメラで読むと、この URL が開きます',
     'chat.link.qr.close': '閉じる',
+    'mail.terminal.label': '端末の許可で送る（画面の［送る］を待たない）',
+    'mail.terminal.hint': 'エージェントの道具（Claude Code など）が許可を求めるときに出す全文を見て許してください。その道具で mail_send を「いつも許す」にしないでください。',
     'chat.personAt': '{name} の中の人',
     'chat.copy': '本文をコピー',
     'roster.kick': '外す',
@@ -1215,6 +1219,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': 'Show as a QR code (open on your phone)',
     'chat.link.qr.hint': 'Scan with your phone camera to open this URL',
     'chat.link.qr.close': 'Close',
+    'mail.terminal.label': 'Send on terminal approval (do not wait for Send on this screen)',
+    'mail.terminal.hint': 'Read the full text your agent tool (such as Claude Code) shows when it asks for permission, then approve. Do not set mail_send to "always allow" in that tool.',
     'chat.personAt': 'Person at {name}',
     'chat.copy': 'Copy text',
     'roster.kick': 'Remove',
@@ -1780,6 +1786,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': '显示二维码（在手机上打开）',
     'chat.link.qr.hint': '用手机相机扫描即可打开此网址',
     'chat.link.qr.close': '关闭',
+    'mail.terminal.label': '在终端批准后发送（不等待此画面的［发送］）',
+    'mail.terminal.hint': '请在代理工具（如 Claude Code）请求许可时查看其显示的全文后再批准。不要在该工具中将 mail_send 设为“始终允许”。',
     'chat.personAt': '{name} 的使用者',
     'chat.copy': '复制正文',
     'roster.kick': '移出',
@@ -2342,6 +2350,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': 'QR 코드로 표시 (휴대폰에서 열기)',
     'chat.link.qr.hint': '휴대폰 카메라로 읽으면 이 URL이 열립니다',
     'chat.link.qr.close': '닫기',
+    'mail.terminal.label': '터미널 허가로 보내기 (이 화면의 [보내기]를 기다리지 않음)',
+    'mail.terminal.hint': '에이전트 도구(Claude Code 등)가 허가를 요청할 때 표시하는 전문을 보고 허가하세요. 그 도구에서 mail_send를 "항상 허용"으로 두지 마세요.',
     'chat.personAt': '{name}의 사용자',
     'chat.copy': '본문 복사',
     'roster.kick': '내보내기',
@@ -3032,6 +3042,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     'QR コードの下に出る一言。スマホのカメラで読めば開けること。',
   'chat.link.qr.close':
     'QR コードの窓を閉じる押し口。',
+  'mail.terminal.label':
+    '控えたメールの口ごとの切り替え。入れると、エージェントのメールを画面の確認なしで送る（人は端末で全文を見て許す）。',
+  'mail.terminal.hint':
+    '切り替えを入れた口に出す注意。端末の許可の画面で全文を読むこと、常に許す設定にしないこと。',
   'agent.cursor.tag':
     'エージェントの専用カーソルの横に付く名札。人のカーソルではないと一目で分かる短い語。',
   'agent.cursor.close':

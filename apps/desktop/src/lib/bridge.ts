@@ -280,6 +280,11 @@ export const EVENT_MAIL_SEND = 'warifu://mail-send';
 export const pendingMailSends = () => invoke<メールの頼み[]>('pending_mail_sends');
 /** **人がメールの頼みに答えた。**送るなら、ここで初めて送る（D132）。 */
 export const answerMailSend = (番号: number, 送る: boolean) => invoke<string>('answer_mail_send', { 番号, 送る });
+/** **端末の許可で送るメールの口**（0.1.53）。載っている口は、画面の［送る］を待たずに送る。 */
+export const mailTerminalSends = () => invoke<string[]>('mail_terminal_sends');
+/** 人がその口を「端末の許可で送る」にするかを決めた。**エージェントのカーソルは押せない**（画面の印）。 */
+export const setMailTerminalSend = (address: string, on: boolean) =>
+  invoke<void>('set_mail_terminal_send', { address, on });
 
 export const connectInRoom = (key: string, address: string, meeting: string) =>
   invoke<void>('connect_in_room', { key, address, meeting });

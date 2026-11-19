@@ -152,6 +152,8 @@ const ROOM_NAMES_HEADER: &str = "warifu-room-names-v1";
 pub const ROOM_NAMES_MAX: usize = 64;
 /// ルームでのエージェントの扱いのファイルの見出し（0.1.52）。
 const ROOM_RULES_HEADER: &str = "warifu-room-rules-v1";
+/// 端末の許可で送るメールの口の見出し（0.1.53）。
+const MAIL_TERMINAL_SEND_HEADER: &str = "warifu-mail-terminal-send-v1";
 /// **帰り道を持つ上限。**鍵は秘密なので、際限なく溜めない（古いものから落とす）。
 ///
 /// 1 つの機械が入るルームの数としては十分に大きい。
@@ -767,6 +769,66 @@ impl Vault {
             out.push_str(&format!("{id}\t{数}\n"));
         }
         self.write_private(&self.room_rules_path(), &out, "ルームの扱いを書く")
+    }
+
+    /// 端末の許可で送るメールの口のファイル（0.1.53）。
+    #[must_use]
+    pub fn mail_terminal_send_path(&self) -> PathBuf {
+        self.dir.join("mail-terminal-send.tsv")
+    }
+
+    /// **端末の許可で送るメールの口**（アドレス）。人が画面で入れた口だけが載る。
+    ///
+    /// 載っている口は、エージェントの `mail_send` を割符の画面の［送る］を待たずに送る。
+    /// 人は、エージェントの道具（Claude Code）が許可を求めるときに出す全文を見て許す。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn mail_terminal_sends(&self) -> Result<Vec<String>, Error> {
+        let path = self.mail_terminal_send_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let text =
+            fs::read_to_string(&path).map_err(Error::io(&path, "端末の許可で送る口を読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != MAIL_TERMINAL_SEND_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{MAIL_TERMINAL_SEND_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(lines
+            .map(str::trim)
+            .filter(|行| !行.is_empty())
+            .map(str::to_owned)
+            .collect())
+    }
+
+    /// 端末の許可で送るかを書く。**切るなら行を消す。**
+    ///
+    /// # Errors
+    /// 読めない・書けないとき。
+    pub fn save_mail_terminal_send(
+        &self, アドレス: &str, 入れる: bool
+    ) -> Result<(), Error> {
+        let アドレス: String = アドレス.chars().filter(|c| !c.is_control()).collect();
+        let アドレス = アドレス.trim().to_owned();
+        let mut 並び = self.mail_terminal_sends()?;
+        並び.retain(|a| *a != アドレス);
+        if 入れる && !アドレス.is_empty() {
+            並び.push(アドレス);
+        }
+        let mut out = format!("{MAIL_TERMINAL_SEND_HEADER}\n");
+        for a in &並び {
+            out.push_str(&format!("{a}\n"));
+        }
+        self.write_private(
+            &self.mail_terminal_send_path(),
+            &out,
+            "端末の許可で送る口を書く",
+        )
     }
 
     /// 帰り道のファイル。
@@ -2310,6 +2372,28 @@ mod 札の期限の試験 {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("作れる");
         Vault::at(dir)
+    }
+
+    #[test]
+    fn 端末の許可で送る口は_入れた口だけ載り_切ると消える() {
+        let v = 仮の置き場();
+        assert!(v.mail_terminal_sends().expect("無くても読める").is_empty());
+        v.save_mail_terminal_send("a@example.com", true)
+            .expect("書ける");
+        v.save_mail_terminal_send("b@example.com", true)
+            .expect("書ける");
+        v.save_mail_terminal_send("a@example.com", true)
+            .expect("2 回入れても 1 行");
+        assert_eq!(
+            v.mail_terminal_sends().expect("読める"),
+            vec!["b@example.com".to_owned(), "a@example.com".to_owned()]
+        );
+        v.save_mail_terminal_send("b@example.com", false)
+            .expect("書ける");
+        assert_eq!(
+            v.mail_terminal_sends().expect("読める"),
+            vec!["a@example.com".to_owned()]
+        );
     }
 
     #[test]

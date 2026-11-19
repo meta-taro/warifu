@@ -293,6 +293,8 @@ mail.tag.order	Order	受注	订单	주문		客から受けた注文。こちら�
 mail.tag.spam	Spam	迷惑	垃圾邮件	스팸				
 mail.tag.spoof	Possible spoofing	なりすまし疑い	疑似冒充	사칭 의심		「なりすまし」と断定しないこと —— 疑いである。		
 mail.tag.unsorted	Unsorted	未分類	未分类	미분류				
+mail.terminal.hint	Read the full text your agent tool (such as Claude Code) shows when it asks for permission, then approve. Do not set mail_send to "always allow" in that tool.	エージェントの道具（Claude Code など）が許可を求めるときに出す全文を見て許してください。その道具で mail_send を「いつも許す」にしないでください。	请在代理工具（如 Claude Code）请求许可时查看其显示的全文后再批准。不要在该工具中将 mail_send 设为“始终允许”。	에이전트 도구(Claude Code 등)가 허가를 요청할 때 표시하는 전문을 보고 허가하세요. 그 도구에서 mail_send를 "항상 허용"으로 두지 마세요.		切り替えを入れた口に出す注意。端末の許可の画面で全文を読むこと、常に許す設定にしないこと。		
+mail.terminal.label	Send on terminal approval (do not wait for Send on this screen)	端末の許可で送る（画面の［送る］を待たない）	在终端批准后发送（不等待此画面的［发送］）	터미널 허가로 보내기 (이 화면의 [보내기]를 기다리지 않음)		控えたメールの口ごとの切り替え。入れると、エージェントのメールを画面の確認なしで送る（人は端末で全文を見て許す）。		
 mail.title	Inbox	受信箱	收件箱	받은편지함				
 mark.kept	Waiting to be received	受信待ち	等待接收	수신 대기	★	**まだ相手に届いていない。**「送信済み」「配達済み」と読める訳にしないこと。預かり所に封のまま置いただけで、届くのは相手が次に起動したときである。		
 mark.kept.hint	It arrives once they can receive it. Until then the poste restante holds it sealed.	相手が受け取れるようになったら届きます。それまでは受け取り先が封のまま預かっています。	等对方能够接收时就会送到。在那之前由寄存处封着保管。	상대가 받을 수 있게 되면 도착합니다. 그때까지는 보관소가 봉한 채로 맡아 둡니다.				

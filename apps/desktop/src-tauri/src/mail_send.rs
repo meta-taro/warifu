@@ -142,7 +142,7 @@ pub async fn 頼む(
         Err(訳) => return 送れない(訳),
     };
     let 番号 = 次の番号.fetch_add(1, Ordering::Relaxed);
-    頼みの棚.lock().expect("毒されていない").push(頼み {
+    let 頼 = 頼み {
         番号,
         口: 口.user.clone(),
         宛先,
@@ -152,7 +152,19 @@ pub async fn 頼む(
         頼んだ人: 頼んだ人.to_owned(),
         返信先,
         参照,
-    });
+    };
+    // **人が画面でこの口を「端末の許可で送る」にしていれば、［送る］を待たずに送る**（0.1.53）。
+    // 人は、エージェントの道具が許可を求めるときに出す全文を見て許している（リモートでも送れるように）
+    if 端末の許可で送るか(&口.user) {
+        記録!("メールを送る: 端末の許可で送ります（頼んだのは {頼んだ人}）");
+        let 結果 = 送り出す(&頼).await;
+        crate::desk::配る(
+            &app.state::<crate::Bridge>(),
+            crate::desk::聞いた("割符", &format!("メールの送信（端末の許可）: {}", 結果の言い方(&結果))),
+        );
+        return 結果;
+    }
+    頼みの棚.lock().expect("毒されていない").push(頼);
     記録!("メールを送る: 人に聞きます（頼んだのは {頼んだ人}）");
     if let Err(e) = app.emit(EVENT_MAIL_SEND, 並べる()) {
         記録!("メールを送る: 画面へ知らせられませんでした: {e}");
@@ -182,12 +194,7 @@ pub async fn answer_mail_send(app: AppHandle, 番号: u64, 送る: bool) -> Answ
         記録!("メールを送る: 画面で送らないと決めました");
         メールの返り::断った
     };
-    let 言い方 = match &結果 {
-        メールの返り::送った { 宛先の数 } => format!("{宛先の数} 人へ送りました"),
-        メールの返り::断った => "送りませんでした".to_owned(),
-        メールの返り::送れない { 訳 } => format!("送れませんでした：{訳}"),
-        メールの返り::まだ => String::new(),
-    };
+    let 言い方 = 結果の言い方(&結果);
     // **エージェントにも知らせる**（待ちきれずに「まだ」を受け取った席が、結果を知れるように）
     crate::desk::配る(
         &app.state::<crate::Bridge>(),
@@ -195,6 +202,47 @@ pub async fn answer_mail_send(app: AppHandle, 番号: u64, 送る: bool) -> Answ
     );
     結果を置く(番号, 結果);
     Ok(言い方)
+}
+
+fn 結果の言い方(結果: &メールの返り) -> String {
+    match 結果 {
+        メールの返り::送った { 宛先の数 } => format!("{宛先の数} 人へ送りました"),
+        メールの返り::断った => "送りませんでした".to_owned(),
+        メールの返り::送れない { 訳 } => format!("送れませんでした：{訳}"),
+        メールの返り::まだ => String::new(),
+    }
+}
+
+/// **その口を、端末の許可で送るか**（人が画面で入れた口だけ）。控えを読めなければ送らない側に倒す。
+fn 端末の許可で送るか(口: &str) -> bool {
+    match warifu_vault::Vault::default_location().and_then(|v| v.mail_terminal_sends()) {
+        Ok(並び) => 並び.iter().any(|a| a == 口),
+        Err(e) => {
+            記録!("端末の許可で送る口を読めませんでした（画面の［送る］を待ちます）: {e}");
+            false
+        }
+    }
+}
+
+/// 画面が読む、端末の許可で送る口（アドレス）。
+#[tauri::command]
+pub fn mail_terminal_sends() -> Vec<String> {
+    warifu_vault::Vault::default_location()
+        .and_then(|v| v.mail_terminal_sends())
+        .unwrap_or_default()
+}
+
+/// **人が画面で、その口を端末の許可で送るかを決めた。**エージェントのカーソルは押せない（画面の印）。
+#[tauri::command]
+pub fn set_mail_terminal_send(address: String, on: bool) -> Answer<()> {
+    warifu_vault::Vault::default_location()
+        .and_then(|v| v.save_mail_terminal_send(&address, on))
+        .map_err(|e| Failure {
+            message: format!("書けませんでした: {e}"),
+            code: None,
+        })?;
+    記録!("メールを送る: 口を「端末の許可で送る」に{}しました", if on { "" } else { "しないように" });
+    Ok(())
 }
 
 /// 画面が帯を出すための並び（立ち上げ直したときに取りに来る）。

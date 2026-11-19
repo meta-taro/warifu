@@ -8,7 +8,16 @@
 
   import { onMount } from 'svelte';
 
-  import { mailAccounts, mailList, mailOpen, mailSecretSet, type 控えた口, type 開いたメール } from '$lib/bridge';
+  import {
+    mailAccounts,
+    mailList,
+    mailOpen,
+    mailSecretSet,
+    mailTerminalSends,
+    setMailTerminalSend,
+    type 控えた口,
+    type 開いたメール,
+  } from '$lib/bridge';
   import { メールの映り } from './seen.svelte';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
@@ -42,9 +51,26 @@
   let 置けない = $state<string | null>(null);
   let 置いた = $state<string | null>(null);
 
+  /**
+   * **端末の許可で送る口**（0.1.53）。人がここで入れた口は、エージェントの `mail_send` を
+   * 画面の［送る］を待たずに送る（人はエージェントの道具が出す全文を見て許す。リモートでも送れるように）。
+   */
+  let 端末で送る = $state<string[]>([]);
+
+  async function 端末で送るを決める(user: string, on: boolean) {
+    置けない = null;
+    try {
+      await setMailTerminalSend(user, on);
+      端末で送る = (await mailTerminalSends()) ?? [];
+    } catch (e) {
+      置けない = String((e as { message?: string })?.message ?? e);
+    }
+  }
+
   async function 口を読み直す() {
     try {
       口たち = (await mailAccounts()) ?? [];
+      端末で送る = (await mailTerminalSends().catch(() => null)) ?? [];
     } catch (e) {
       置けない = String((e as { message?: string })?.message ?? e);
     }
@@ -185,6 +211,17 @@
             >
             {#if 置いた === 口.user}<span class="saved">{t('mail.secret.saved')}</span>{/if}
             {#if 口.送る && !口.読む}<span class="hint">{t('mail.send.later')}</span>{/if}
+            {#if 口.送る}
+              <!-- **人だけが決める**（0.1.53）。エージェントのカーソルがここを押すと、自分で送りの許しを出せてしまう -->
+              <label class="terminal-send" data-agent-hands-off
+                ><input
+                  type="checkbox"
+                  checked={端末で送る.includes(口.user)}
+                  onchange={(e) => void 端末で送るを決める(口.user, e.currentTarget.checked)}
+                />{t('mail.terminal.label')}</label
+              >
+              {#if 端末で送る.includes(口.user)}<p class="hint terminal-hint">{t('mail.terminal.hint')}</p>{/if}
+            {/if}
             {#if 入れている === 口.user}
               <form class="secret-form" onsubmit={(e) => { e.preventDefault(); void 秘密を置く(口.user); }}>
                 <p class="hint">{t(口.kind === 'resend' ? 'mail.secret.hint.apikey' : 'mail.secret.hint.password')}</p>
@@ -348,6 +385,18 @@
   }
   .account:first-child {
     border-top: 0;
+  }
+  .terminal-send {
+    display: inline-flex;
+    flex: 1 1 100%;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+  }
+  .terminal-hint {
+    flex: 1 1 100%;
+    margin: 0;
   }
   .account .who {
     flex: 1 1 100%;

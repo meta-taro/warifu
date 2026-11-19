@@ -5118,6 +5118,8 @@ pub fn run() {
             mail_send::answer_mail_send,
             kick::kick_member,
             mail_send::pending_mail_sends,
+            mail_send::mail_terminal_sends,
+            mail_send::set_mail_terminal_send,
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,
