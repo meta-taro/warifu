@@ -22,8 +22,18 @@ use tauri::{AppHandle, Emitter as _, Manager as _};
 
 use crate::{Bridge, RoomRow};
 
-/// 起動してから最初に見るまでの間。**画面と口が立ち上がるのを待つ。**
-const 起動を待つ秒: u64 = 20;
+/// 起動してから最初に見るまでの間。**網の口が立ち上がるのを待つ。**
+///
+/// 0.1.52 までは 20 秒だった。網の口は起動から 1 秒足らずで立つ（記録の「中継: 使います」が +0.5 秒）ので、
+/// 20 秒は何もせずに待っているだけだった。部屋 1 つに約 5 秒かかるのと合わせて、
+/// 立ち上げ直してから部屋に戻るまで 30 秒〜1 分かかり、その間の発言は「その部屋に居ません」で断られていた（11-20）。
+const 起動を待つ秒: u64 = 5;
+
+/// **戻る途中の部屋へ流す発言を、待つ上限**（11-20）。すぐには断らず、戻るまでこの秒数だけ待つ。
+///
+/// 口（`chat_send`）は返事を 5 秒しか待たないので、それより短くする。長く待つと、口は
+/// 「流したか分からない」と返し、席が送り直して二重になる。待っても戻れなければ、戻る途中だと言って断る。
+pub(crate) const 戻りを待つ秒: u64 = 4;
 /// 戻らなくてよいときに、見直す間。
 const 見直す秒: u64 = 30;
 /// 繋がってから、戻れたかを見直すまでの間。
@@ -358,6 +368,15 @@ pub fn 戻る途中の題字(戻る先: &[String], 元の題字: Option<String>)
 }
 
 /// **戻るべきルームの帰り道**（ルーム id と鍵）。
+/// **帰り道に載っている部屋の id**（戻る途中かを見分けるのに使う）。読めなければ空。
+pub(crate) fn 帰り道の部屋() -> Vec<String> {
+    warifu_vault::Vault::default_location()
+        .ok()
+        .and_then(|v| v.rejoins().ok())
+        .map(|道| 道.into_iter().map(|(id, _)| id).collect())
+        .unwrap_or_default()
+}
+
 pub(crate) async fn いま戻る先(app: &AppHandle) -> Vec<(String, String)> {
     let Ok(vault) = warifu_vault::Vault::default_location() else {
         return Vec::new();

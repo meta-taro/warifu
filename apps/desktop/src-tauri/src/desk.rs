@@ -1186,20 +1186,10 @@ async fn 応じる(
             // **部屋を指されたら、その部屋へ**（0.1.40・内部の Issue 026）。
             // 指されなければ画面が見ているルーム（今までどおり）
             let 部屋 = match room.as_deref() {
+                // 戻る途中の部屋なら、戻るまで待ってから流す（`部屋を決める`・11-20）
                 Some(指定) => {
-                    let 候補: Vec<String> = app
-                        .state::<Bridge>()
-                        .conferences
-                        .lock()
-                        .await
-                        .keys()
-                        .map(ToString::to_string)
-                        .collect();
-                    match 部屋を引く(&候補, 指定).and_then(|id| {
-                        id.parse::<MeetingId>()
-                            .map_err(|_| format!("部屋の id が読めません（{id}）"))
-                    }) {
-                        Ok(m) => Some(m),
+                    match 部屋を決める(app, Some(指定)).await {
+                        Ok(m) => m,
                         Err(why) => {
                             let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
                             return Ok(());
@@ -1428,14 +1418,34 @@ async fn 部屋を決める(
     let Some(指定) = 指定 else {
         return Ok(crate::いま見ているルーム(&bridge.いまのルーム).await);
     };
-    let 候補: Vec<String> = bridge
-        .conferences
-        .lock()
-        .await
-        .keys()
-        .map(ToString::to_string)
-        .collect();
-    let id = 部屋を引く(&候補, 指定)?;
+    // **戻る途中の部屋なら、断らずに戻るまで待つ**（11-20）。立ち上げ直した直後は、
+    // 帰り道にある部屋へまだ戻れていない。そこへの発言を断ると、席は送り直すしかなかった
+    let 待つ限り = std::time::Instant::now()
+        + std::time::Duration::from_secs(crate::come_back::戻りを待つ秒);
+    let id = loop {
+        let 候補: Vec<String> = bridge
+            .conferences
+            .lock()
+            .await
+            .keys()
+            .map(ToString::to_string)
+            .collect();
+        match 部屋を引く(&候補, 指定) {
+            Ok(id) => break id,
+            Err(訳) => {
+                if !戻る途中か(&crate::come_back::帰り道の部屋(), 指定) {
+                    return Err(訳);
+                }
+                if std::time::Instant::now() >= 待つ限り {
+                    return Err(format!(
+                        "その部屋（{}）へは、いま戻っている途中です。立ち上げ直したあとは、1 部屋に数秒かかります。少し置いてから送り直してください（room_status で、戻れたかが分かります）",
+                        crate::短く(指定)
+                    ));
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+    };
     id.parse::<MeetingId>()
         .map(Some)
         .map_err(|_| format!("部屋の id が読めません（{id}）"))
@@ -2636,6 +2646,11 @@ fn 部屋を落とすか(行: FromDesk, 部屋も聞く: bool) -> FromDesk {
     }
 }
 
+/// **指された部屋が、帰り道に載っている（＝戻る途中の）部屋か**（11-20）。
+pub fn 戻る途中か(帰り道: &[String], 指定: &str) -> bool {
+    部屋を引く(帰り道, 指定).is_ok()
+}
+
 /// **指された部屋を、居る部屋の中から引く。**id の全文か、頭（`…` 付きでも）で 1 つに決まるもの。
 ///
 /// # Errors
@@ -3649,6 +3664,17 @@ mod tests {
         assert!(部屋を引く(&候補, "NBIW").is_err(), "2 つに当たる");
         assert!(部屋を引く(&候補, "ZZZZ").is_err(), "居ない");
         assert!(部屋を引く(&候補, " ").is_err());
+    }
+
+    #[test]
+    fn 帰り道にある部屋は_戻る途中として待つ() {
+        let 帰り道 = vec!["4QNXPYQIHAYIAAAAAAAAAAAAAA".to_owned()];
+        assert!(戻る途中か(&帰り道, "4QNX…"));
+        assert!(戻る途中か(&帰り道, "4QNXPYQIHAYIAAAAAAAAAAAAAA"));
+        assert!(!戻る途中か(&帰り道, "ZZZZ"), "帰り道に無い部屋は待たずに断る");
+        assert!(!戻る途中か(&[], "4QNX"), "帰り道が読めなければ待たない");
+        // 口は返事を 5 秒しか待たない。超えると二重に送られる
+        const { assert!(crate::come_back::戻りを待つ秒 < 5) };
     }
 
     #[test]
