@@ -48,6 +48,32 @@ pub(crate) fn 控えを見て任されたか(
     }
 }
 
+/// **任せる相手の人が、外から札を通す一言**（11-20）。`札を通す <動作>`（24 時間）か、
+/// `札を通す <動作> 取り消すまで`。1 行だけで、ほかの字が混ざっていれば札の頼みとは読まない。
+///
+/// 人が割符の画面にも端末にも触れない（外に居る）と、帯は押されず運用の席が止まった。
+/// 任せる相手の機械から**直接の線で、人が打った**（席の札が付いていない）発言だけを、この機械の人の OK として受ける。
+/// 席（エージェント）の発言と、主催ごしに届いた分は受けない —— エージェントが自分で通す形にしない。
+#[must_use]
+pub(crate) fn 札を通す一言(本文: &str) -> Option<(String, bool)> {
+    let 行 = 本文.trim();
+    if 行.contains('\n') {
+        return None;
+    }
+    let 残り = 行.strip_prefix("札を通す")?;
+    let mut 語 = 残り.split_whitespace();
+    let 動作 = 語.next()?;
+    let 取り消すまで = match 語.next() {
+        None => false,
+        Some("取り消すまで") => true,
+        Some(_) => return None,
+    };
+    if 語.next().is_some() || warifu_capability::Action::new(動作).is_err() {
+        return None;
+    }
+    Some((動作.to_owned(), 取り消すまで))
+}
+
 /// 画面へ返す 1 件。
 #[derive(Debug, serde::Serialize)]
 pub(crate) struct 任せている相手 {
@@ -102,6 +128,23 @@ pub(crate) fn delegate_forget(key: String) -> Answer<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 札を通す一言は_1行の決まった形だけ() {
+        assert_eq!(
+            札を通す一言("札を通す inbox.open.raw"),
+            Some(("inbox.open.raw".to_owned(), false))
+        );
+        assert_eq!(
+            札を通す一言(" 札を通す inbox.open.raw 取り消すまで "),
+            Some(("inbox.open.raw".to_owned(), true))
+        );
+        assert_eq!(札を通す一言("札を通す"), None);
+        assert_eq!(札を通す一言("札を通す inbox.open.raw ずっと"), None);
+        assert_eq!(札を通す一言("札を通す Inbox Open"), None, "動作の名でない");
+        assert_eq!(札を通す一言("お願い 札を通す inbox.open.raw"), None);
+        assert_eq!(札を通す一言("札を通す inbox.open.raw\nほか"), None);
+    }
     use warifu_core::Seed;
 
     fn 鍵(n: u8) -> PublicKey {

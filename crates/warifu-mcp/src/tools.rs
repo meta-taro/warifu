@@ -370,7 +370,8 @@ fn 取り消すまでの案内(動作: &str) -> &'static str {
     if matches!(動作, "inbox.open.structured" | "inbox.open.raw") {
         "人が画面の前に居ないと、帯は押されません。毎回聞かずに読ませるには、人が画面の［メール］で\
          「エージェントにメールを読ませる（取り消すまで）」を入れるか、帯の［取り消すまで聞かない］を押します。\
-         画面に触れないときは、人が端末で `warifu pass allow inbox.open.raw --until-revoked` を打ちます（人が y を打ったときだけ通ります）。"
+         画面に触れないときは、人が端末で `warifu pass allow inbox.open.raw --until-revoked` を打ちます（人が y を打ったときだけ通ります）。\
+         人が外に居るなら、その人の別の機械（この PC の「任せる相手」）から、人が `札を通す inbox.open.raw 取り消すまで` と打てば通ります（0.1.54 から）。"
     } else {
         ""
     }

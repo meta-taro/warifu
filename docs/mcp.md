@@ -83,6 +83,7 @@ Write it into the agent's MCP config file — for Claude Code, `.mcp.json` in th
 - Press Allow / Allow for 24 hours on the banner. For reading mail key fields and body (`inbox.open.structured`, `inbox.open.raw`) there is also Don't ask until revoked
 - Turn on "Let agents read mail (until revoked)" in Mail (key fields and body; not sending)
 - **Away from the screen**, the person at that PC runs `warifu pass allow <action> [--until-revoked]` in a terminal and answers `y` (24 hours by default; it refuses when stdin is not a terminal, so an agent's tools cannot issue it). `warifu pass list` lists them, `warifu pass revoke <action>` revokes
+- **When the person is away**, from their other machine (one set as this PC's delegate), the person types one line: `札を通す <action>` (24 hours) or `札を通す <action> 取り消すまで` (until revoked). Only human-typed messages over a direct line are accepted (not agent messages, not relayed by a host; 0.1.54)
 
 `command` has to be something that agent can actually execute:
 
