@@ -6658,7 +6658,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-app"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "warifu-core",
  "warifu-intent",
@@ -6667,11 +6667,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-capability"
-version = "0.1.52"
+version = "0.1.53"
 
 [[package]]
 name = "warifu-core"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "ed25519-dalek 2.2.0",
  "getrandom 0.3.4",
@@ -6682,7 +6682,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-desk"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "base64 0.22.1",
  "serde",
@@ -6692,7 +6692,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-desktop"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -6726,15 +6726,15 @@ dependencies = [
 
 [[package]]
 name = "warifu-door"
-version = "0.1.52"
+version = "0.1.53"
 
 [[package]]
 name = "warifu-guard"
-version = "0.1.52"
+version = "0.1.53"
 
 [[package]]
 name = "warifu-imap"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "async-imap",
  "base64 0.22.1",
@@ -6749,7 +6749,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-intent"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "getrandom 0.3.4",
  "warifu-core",
@@ -6758,11 +6758,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-link"
-version = "0.1.52"
+version = "0.1.53"
 
 [[package]]
 name = "warifu-meeting"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "sha2 0.10.9",
  "warifu-core",
@@ -6772,7 +6772,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-net"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "bytes",
  "futures",
@@ -6787,14 +6787,14 @@ dependencies = [
 
 [[package]]
 name = "warifu-post"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "warifu-core",
 ]
 
 [[package]]
 name = "warifu-postbox"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "warifu-core",
  "warifu-net",
@@ -6804,11 +6804,11 @@ dependencies = [
 
 [[package]]
 name = "warifu-read"
-version = "0.1.52"
+version = "0.1.53"
 
 [[package]]
 name = "warifu-seal"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "chacha20poly1305",
  "ed25519-dalek 2.2.0",
@@ -6822,7 +6822,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-turn"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "async-trait",
  "getrandom 0.3.4",
@@ -6833,7 +6833,7 @@ dependencies = [
 
 [[package]]
 name = "warifu-vault"
-version = "0.1.52"
+version = "0.1.53"
 dependencies = [
  "warifu-core",
  "zeroize",
