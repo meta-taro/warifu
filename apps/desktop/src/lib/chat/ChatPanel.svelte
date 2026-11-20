@@ -11,6 +11,7 @@
   import { 送ってよい, 差出人の顔, type 会話行 } from '$lib/meeting/announce';
   import { 人の名を言い換える, エージェントの名を言い換える, エージェントの札, 行の差出人名, 今のエージェントの札 } from './name';
   import { 話し手の場所 } from './speaker-place.svelte';
+  import { 行の顔の画 } from './peer-face';
   import { 返信で呼ぶ名, 返信の呼びを足す, 返信の呼びを外す } from './reply-mention';
   import type { 見出し } from './destination';
   import Avatar from '$lib/contacts/Avatar.svelte';
@@ -579,7 +580,7 @@
           data-mark={line.印}
         >
           <div class="head">
-            {#if 差出人の顔(line)}<Avatar 種={差出人の顔(line) ?? ''} 大きさ={14} 名="" />{/if}
+            {#if 差出人の顔(line)}<Avatar 種={差出人の顔(line) ?? ''} 大きさ={14} 画像={行の顔の画(差出人の顔(line) ?? '', 顔の画, 話し手の場所.帳)} 名="" />{/if}
             <!-- 自分の行は右に寄っているので、名前を繰り返さない -->
             {#if !line.mine}<b>{見せる名(行の差出人名(line, 画面での名簿, t('contacts.noname')))}</b>{/if}
             <!-- **人か、エージェントか**を字で言う（色だけに頼らない） -->

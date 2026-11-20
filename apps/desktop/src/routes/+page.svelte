@@ -1,5 +1,6 @@
 <script lang="ts">
   import { 話し手の場所, 場所を控える } from '$lib/chat/speaker-place.svelte';
+  import { 相手の顔の鍵 } from '$lib/chat/peer-face';
   import { tick, untrack } from 'svelte';
   // 会議の画面（M5）。**判断はここに置かない** — 規則は lib 側の純ロジックが持つ。
   //
@@ -202,6 +203,8 @@
     setRoomRule,
     EVENT_ROOM_RULE,
     EVENT_SPEAKER_PLACE,
+    EVENT_PEER_FACE,
+    peerFaces,
     EVENT_ROOM_NAME,
     EVENT_LOOK,
     EVENT_SNAPSHOT_ASK,
@@ -646,7 +649,14 @@
     名乗りたち.filter((p) => p.who === 'me' && p.name.trim() !== '').map((p) => p.name.trim())
   );
   /** 差し替えた顔（`who` → 画面に出せる URL）。**閉じれば消える。** */
-  let 顔の画たち = $state<Record<string, string>>({});
+  let この端末の顔の画 = $state<Record<string, string>>({});
+  /**
+   * **相手の人と席の顔**（0.1.53・`peer_face.rs`）。人は鍵、席は「鍵 ＋ 場所」で引く（`chat/peer-face.ts`）。
+   * 置き場所に残っているので、立ち上げ直しても読み直せる。
+   */
+  let 相手の顔の画 = $state<Record<string, string>>({});
+  /** 画面へ渡す顔の画。**この端末の分が勝つ**（鍵と `me` / `desk:` は重ならないが、念のため後ろに置く） */
+  const 顔の画たち = $derived<Record<string, string>>({ ...相手の顔の画, ...この端末の顔の画 });
   /**
    * ルームに付けた名前（ルーム id → 名前）。**閉じれば消える。**
    *
@@ -1845,6 +1855,7 @@
       void 名簿を読む();
       名乗りたち = (await profiles()) ?? [];
       await 顔を読み直す();
+      await 相手の顔を読み直す();
       // **覚えているテーマを、画面の状態にも持つ**（当てるのは app.html が済ませている）
       テーマの選び = 読み取る(localStorage.getItem(覚える鍵));
       // **置いてある預かり所を、画面にも出す。**
@@ -2332,6 +2343,12 @@
           else delete 次[id];
           ルームの名前たち = 次;
         }),
+      );
+      unsubs.push(
+        // **相手の人か席の顔が届いた**（0.1.53）。中身が空なら既定へ戻した
+        await onEvent<[string, string, number[]]>(EVENT_PEER_FACE, ([鍵, 席, 中身]) =>
+          相手の顔を置く(鍵, 席, 中身),
+        ),
       );
       unsubs.push(
         // **話し手の場所が届いた**（0.1.52・#6）。名乗り直したエージェントを 1 人にまとめるため
@@ -3394,8 +3411,29 @@
       新しい[p.who] = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 'image/png' }));
     }
     // **前の URL は手放す。**放っておくと、差し替えるたびに溜まる
-    for (const url of Object.values(顔の画たち)) URL.revokeObjectURL(url);
-    顔の画たち = 新しい;
+    for (const url of Object.values(この端末の顔の画)) URL.revokeObjectURL(url);
+    この端末の顔の画 = 新しい;
+  }
+
+  /** 相手の顔を 1 つ置き直す（中身が空なら外す）。前の URL は手放す。 */
+  function 相手の顔を置く(鍵: string, 席: string, 中身: readonly number[]) {
+    const 帳の鍵 = 相手の顔の鍵(鍵, 席);
+    const 次 = { ...相手の顔の画 };
+    if (次[帳の鍵]) URL.revokeObjectURL(次[帳の鍵]);
+    delete 次[帳の鍵];
+    if (中身.length > 0) {
+      次[帳の鍵] = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 'image/png' }));
+    }
+    相手の顔の画 = 次;
+  }
+
+  /** **置いてある相手の顔をすべて読む**（0.1.53）。古い本体は口を持たないので、読めなければ空のまま。 */
+  async function 相手の顔を読み直す() {
+    try {
+      for (const f of (await peerFaces()) ?? []) 相手の顔を置く(f.key, f.seat, f.bytes);
+    } catch (e) {
+      log(`相手の顔を読めませんでした: ${読める(e)}`);
+    }
   }
 
   /**

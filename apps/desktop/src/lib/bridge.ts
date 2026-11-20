@@ -91,6 +91,8 @@ export const EVENT_ROOM_NAME = 'warifu://room-name';
 export const EVENT_ROOM_RULE = 'warifu://room-rule';
 /** 話し手の場所が届いた（0.1.52・#6）。`[機械の鍵, 名札, 場所]`。 */
 export const EVENT_SPEAKER_PLACE = 'warifu://speaker-place';
+/** 相手の人か席の顔が届いた（0.1.53）。`[機械の鍵, 席の名乗り（空なら人）, 中身（空なら既定へ戻した）]`。 */
+export const EVENT_PEER_FACE = 'warifu://peer-face';
 /** **見るルームが変わった**（0.1.33）。見張りが戻ったあと、前のルームへ戻したとき。読み直す */
 export const EVENT_LOOK = 'warifu://look';
 /** **画面の写しを頼まれた**（0.1.34）。中身は頼みの番号。{@link snapshotReply} で返す */
@@ -420,6 +422,16 @@ export const setAvatarBytes = (who: string, bytes: Uint8Array) =>
 
 /** 置いてある顔の中身。**無ければ空。** */
 export const avatarBytes = (who: string) => invoke<number[] | null>('avatar_bytes', { who });
+
+/** 相手の人か席の顔 1 つ（0.1.53）。`seat` が空ならその機械の人。 */
+export interface PeerFace {
+  key: string;
+  seat: string;
+  bytes: number[];
+}
+
+/** **置いてある相手の顔をすべて**読む（0.1.53）。立ち上げたときに読み、以後は {@link EVENT_PEER_FACE} で直す。 */
+export const peerFaces = () => invoke<PeerFace[]>('peer_faces');
 
 /** プロフィールを書く。**名前も紹介も空にすると、その 1 人ぶんを消す。** */
 export const setProfile = (who: string, name: string, bio: string) =>
