@@ -16,6 +16,9 @@ use warifu_desk::{全員の呼び, 写しか, 宛てられたか};
 /// 届いた発言の差出人（`鍵の頭…（席の名）`）を、鍵の頭と席の名に分ける。人の発言など、形が違えば `None`。
 #[must_use]
 pub fn 席の名札を分ける(差出人: &str) -> Option<(&str, &str)> {
+    if 人の行か(差出人) {
+        return None;
+    }
     let 位置 = 差出人.find('（')?;
     if 位置 == 0 || !差出人.ends_with('）') {
         return None;
@@ -111,7 +114,9 @@ fn 全員の呼びを除く(本文: &str) -> String {
 /// 人の発言は差出人が鍵なので、相手の機械がその人への呼びと読める名を、ここでは決められない。
 /// 自分（`自分の名札`）への返信と、`@all`・写し（`cc@`）で既に呼んでいる本文には足さない。
 #[must_use]
-pub fn 返信先の書き手を呼ぶ(本文: &str, 差出人: &str, 自分の名札: &str) -> String {
+pub fn 返信先の書き手を呼ぶ(
+    本文: &str, 差出人: &str, 自分の名札: &str
+) -> String {
     let Some(名) = 返信先の書き手の名(差出人) else {
         return 本文.to_owned();
     };
@@ -127,6 +132,10 @@ pub fn 返信先の書き手を呼ぶ(本文: &str, 差出人: &str, 自分の�
 
 /// 差出人から、`@` で呼べる名。相手の機械の席なら席の名、この機械の席なら名札そのもの。人・知らせは `None`。
 fn 返信先の書き手の名(差出人: &str) -> Option<&str> {
+    // 人の発言（`名（鍵の頭…）`）は呼ばない。人の名は `@` で呼べる名ではない
+    if 人の行か(差出人) {
+        return None;
+    }
     if let Some((頭, 札)) = 席の名札を分ける(差出人)
         && 差出人.contains('…')
         && 鍵の字だけか(頭)
@@ -134,20 +143,50 @@ fn 返信先の書き手の名(差出人: &str) -> Option<&str> {
         return Some(札);
     }
     // 鍵（人の発言）・この機械の知らせ（`割符`）・鍵の頭だけの差出人は呼ばない
-    if 差出人 == "割符" || 鍵の字だけか(差出人.trim_end_matches('…')) || 差出人.trim().is_empty() {
+    if 差出人 == "割符" || 鍵の字だけか(差出人.trim_end_matches('…')) || 差出人.trim().is_empty()
+    {
         return None;
     }
     Some(差出人)
 }
 
+/// **人の発言の差出人か**（`名（鍵の頭…）`・11-20 `claimed`）。席の発言は `鍵の頭…（札）` で、括弧の中が鍵ではない。
+pub fn 人の行か(差出人: &str) -> bool {
+    let Some(位置) = 差出人.find('（') else {
+        return false;
+    };
+    if 位置 == 0 || !差出人.ends_with('）') {
+        return false;
+    }
+    let 中 = &差出人[位置 + '（'.len_utf8()..差出人.len() - '）'.len_utf8()];
+    中.strip_suffix('…').is_some_and(鍵の字だけか)
+}
+
 /// 公開鍵の字（base32 の大文字と 2〜7）だけか。
 fn 鍵の字だけか(字: &str) -> bool {
-    !字.is_empty() && 字.chars().all(|c| c.is_ascii_uppercase() || ('2'..='7').contains(&c))
+    !字.is_empty()
+        && 字
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || ('2'..='7').contains(&c))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 人の発言の差出人は_席として扱わず_返信でも呼ばない() {
+        let 人 = "NOTE-PC の中の人（ABCDEFGHJKMN…）";
+        assert!(人の行か(人));
+        assert_eq!(席の名札を分ける(人), None);
+        assert_eq!(返信先の書き手を呼ぶ("はい", 人, "割符（mac mini）"), "はい");
+        // 席の発言は今までどおり
+        assert!(!人の行か("ABCDEFGHJKMN…（docs）"));
+        assert_eq!(
+            席の名札を分ける("ABCDEFGHJKMN…（docs）"),
+            Some(("ABCDEFGHJKMN", "docs"))
+        );
+    }
 
     const ここ: &str = "NBIW3PA2TUQ52DTJNVXSQOL3G4";
     const あちら: &str = "4TOOFXPUM2QSAAAAAAAAAAAAAA";
@@ -157,7 +196,10 @@ mod tests {
             (ここ.to_owned(), vec!["TLUTIE3HQGUDRKEZFULL".to_owned()]),
             (
                 あちら.to_owned(),
-                vec!["TLUTIE3HQGUDRKEZFULL".to_owned(), "WORKSKEY1234FULL".to_owned()],
+                vec![
+                    "TLUTIE3HQGUDRKEZFULL".to_owned(),
+                    "WORKSKEY1234FULL".to_owned(),
+                ],
             ),
         ]
     }
@@ -176,7 +218,7 @@ mod tests {
             席の名札を分ける("TLUTIE3HQGUD…（PdM（ドスパラ））"),
             Some(("TLUTIE3HQGUD", "PdM（ドスパラ）"))
         );
-        assert_eq!(席の名札を分ける("ZenBook"), None, "人の発言");
+        assert_eq!(席の名札を分ける("NOTE-PC"), None, "人の発言");
         assert_eq!(席の名札を分ける("（名だけ）"), None);
     }
 
@@ -198,18 +240,37 @@ mod tests {
     #[test]
     fn 写しで呼んでも_居なければ断る() {
         assert!(
-            居ない宛て先("cc@WORKS（nighto 担当） 参考まで", &名と頭(), &面々(), ここ, "MACMINIKEY12").is_some()
+            居ない宛て先(
+                "cc@WORKS（nighto 担当） 参考まで",
+                &名と頭(),
+                &面々(),
+                ここ,
+                "MACMINIKEY12"
+            )
+            .is_some()
         );
     }
 
     #[test]
     fn 部屋に居るなら通す() {
         assert_eq!(
-            居ない宛て先("@WORKS（nighto 担当） どうぞ", &名と頭(), &面々(), あちら, "MACMINIKEY12"),
+            居ない宛て先(
+                "@WORKS（nighto 担当） どうぞ",
+                &名と頭(),
+                &面々(),
+                あちら,
+                "MACMINIKEY12"
+            ),
             None
         );
         assert_eq!(
-            居ない宛て先("@PdM（ドスパラ） どうぞ", &名と頭(), &面々(), ここ, "MACMINIKEY12"),
+            居ない宛て先(
+                "@PdM（ドスパラ） どうぞ",
+                &名と頭(),
+                &面々(),
+                ここ,
+                "MACMINIKEY12"
+            ),
             None
         );
     }
@@ -220,14 +281,22 @@ mod tests {
         assert_eq!(通す("@知らない席 こんにちは"), None, "判断できないので通す");
         assert_eq!(通す("@割符（mac mini） 自分の機械の席"), None);
         assert_eq!(通す("@all みなさん"), None);
-        assert!(通す("@ALL と @WORKS（nighto 担当）へ").is_some(), "全員と一緒でも、名指しは見る");
-        assert_eq!(通す("`@WORKS（nighto 担当）` と書くと呼べます"), None, "コードの中は呼びではない");
+        assert!(
+            通す("@ALL と @WORKS（nighto 担当）へ").is_some(),
+            "全員と一緒でも、名指しは見る"
+        );
+        assert_eq!(
+            通す("`@WORKS（nighto 担当）` と書くと呼べます"),
+            None,
+            "コードの中は呼びではない"
+        );
     }
 
     #[test]
     fn どの部屋にも居なければ_そう言う() {
         let 名 = vec![("遠い席".to_owned(), "FARAWAYKEY12".to_owned())];
-        let 断り = 居ない宛て先("@遠い席 聞こえますか", &名, &面々(), ここ, "MACMINIKEY12").unwrap();
+        let 断り =
+            居ない宛て先("@遠い席 聞こえますか", &名, &面々(), ここ, "MACMINIKEY12").unwrap();
         assert!(断り.contains("どこにも居ません"), "{断り}");
     }
 
@@ -252,14 +321,17 @@ mod tests {
         // 既に名前だけで呼んでいる・全員を呼んでいる・写しにしている
         assert_eq!(返信先の書き手を呼ぶ("@PdM 了解", 相手, 自分), "@PdM 了解");
         assert_eq!(返信先の書き手を呼ぶ("@all 了解", 相手, 自分), "@all 了解");
-        assert_eq!(返信先の書き手を呼ぶ("済み cc@PdM", 相手, 自分), "済み cc@PdM");
+        assert_eq!(
+            返信先の書き手を呼ぶ("済み cc@PdM", 相手, 自分),
+            "済み cc@PdM"
+        );
         // 自分の発言への返信
         assert_eq!(
             返信先の書き手を呼ぶ("補足", "AAAABBBBCCCC…（割符（mac mini））", 自分),
             "補足"
         );
         // 人（差出人が鍵）と、この機械の知らせ
-        let 鍵 = "O4FXQZLARCFBJRLEKLSYIH4NTNPRLEFQEZL7C2PU3Z464KG47DEQ";
+        let 鍵 = "ABCDEFGHJKMNJRLEKLSYIH4NTNPRLEFQEZL7C2PU3Z464KG47DEQ";
         assert_eq!(返信先の書き手を呼ぶ("はい", 鍵, 自分), "はい");
         assert_eq!(返信先の書き手を呼ぶ("はい", "割符", 自分), "はい");
     }

@@ -120,6 +120,7 @@ mod profile;
 mod recent_keep;
 mod redial;
 mod reply;
+mod claimed;
 mod sent_at;
 mod room_name;
 mod room_rule;
@@ -2962,8 +2963,12 @@ fn 汲む(
                             None => body.clone(),
                         };
                         // **エージェントにも送った時刻で渡す**（0.1.53）。行の形は変えず、`at` の字に書く
+                        // **人の発言には、呼び名か相手の名乗りを付けて渡す**（11-20・`claimed`）。
+                        // 鍵だけだと、席の側から人の頼みか名乗っていない席の発言かを見分けられない。
+                        // 画面へは鍵のまま渡す（画面は自分で名を引く）
+                        let 渡す名 = claimed::渡す差出人(&名, 話し手.is_some(), &key_to_string(*from));
                         let 聞いた = desk::聞いた_送った時刻で(
-                            &名,
+                            &渡す名,
                             &渡す本文,
                             Some(meeting.to_string()),
                             任された,
@@ -3025,7 +3030,12 @@ fn 汲む(
                         // エージェントは札の番号で `chat_image` を呼んで、画像そのものを見る
                         desk::配る(
                             &app.state::<Bridge>(),
-                            desk::画像を聞いた(&名, 型, 中身, Some(meeting.to_string())),
+                            desk::画像を聞いた(
+                                &claimed::渡す差出人(&名, 話し手.is_some(), &key_to_string(*from)),
+                                型,
+                                中身,
+                                Some(meeting.to_string()),
+                            ),
                         );
                         let 主催 = conferences.lock().await.contains_key(&notice.meeting())
                             && roster_sync::主催か(部屋の主催.as_ref(), &me);
@@ -3142,6 +3152,8 @@ fn 汲む(
                             名前.chars().count(),
                             紹介.chars().count()
                         );
+                        // **エージェントへ渡す差出人にも使う**（11-20・`claimed`）
+                        claimed::控える(&key_to_string(peer), 名前);
                         let _ = app.emit(
                             EVENT_CLAIMED,
                             (key_to_string(peer), 名前.clone(), 紹介.clone()),
