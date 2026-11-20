@@ -7,6 +7,7 @@
   import { 本文を分ける } from './mention';
   import { openLink } from '$lib/bridge';
   import { QRにする, 道にする } from './qr';
+  import Icon from '$lib/ui/Icon.svelte';
 
   type QRの文言 = { 押し口: string; 説明: string; 添え: string; 閉じる: string };
   const QRの既定: QRの文言 = {
@@ -66,7 +67,7 @@
         title={切.先}
         onclick={(e) => 外で開く(e, 切.先)}>{@render 呼びを分ける(切.文)}</a
       ><button type="button" class="qr" title={QRの字.説明} aria-label={QRの字.説明} onclick={() => (QRの先 = 切.先)}
-        >{QRの字.押し口}</button
+        ><Icon name="qr" size={11} /><span>{QRの字.押し口}</span></button
       >{:else if 切.種 === '繋'}<span class="link" title={切.先}>{@render 呼びを分ける(切.文)}</span
     >{:else}{@render 呼びを分ける(切.文)}{/if}{/each}{/snippet}
 
@@ -269,7 +270,11 @@
     overflow-wrap: anywhere;
   }
   /* **QR の押し口**（0.1.53）。繋ぎのすぐ後ろに小さく置く。本文の字より目立たせない */
+  /* 押せば QR が出ると見て分かるよう、アイコンを添える（字だけにしない） */
   .qr {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
     margin-left: 3px;
     padding: 0 4px;
     font: inherit;
