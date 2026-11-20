@@ -266,6 +266,8 @@ mail.noSubject	(no subject)	（件名なし）	（无主题）	(제목 없음)
 mail.none	No mail address is set up. Run warifu mail add <address> in a terminal to connect read-only.	メールのアドレスを控えていません。ターミナルで warifu mail add <アドレス> を打つと、読むだけでつなぎます。	尚未登记邮箱地址。在终端运行 warifu mail add <地址> 即可只读连接。	메일 주소가 등록되어 있지 않습니다. 터미널에서 warifu mail add <주소> 를 실행하면 읽기 전용으로 연결합니다.		コマンドは訳さない。		
 mail.opening	Opening…	開いています…	正在打开…	여는 중…				
 mail.pick	Pick a message on the left to show its text (it stays unread).	左の一覧から 1 通選ぶと、本文を文字だけで出します（既読にはしません）。	在左侧选择一封邮件即可显示正文文字（不会标为已读）。	왼쪽 목록에서 한 통을 고르면 본문을 글자로만 보여 줍니다(읽음으로 표시하지 않음).				
+mail.readStanding.hint	Agents on this PC can read the key fields and body of incoming mail without asking each time. You still confirm anything they send. Turn this off to be asked again.	この PC のエージェントは、届いたメールの要点と本文を、毎回聞かずに読めます。送るのは今までどおりあなたが確かめます。外すと、また読むたびに聞きます。	这台电脑上的代理可以不经每次询问读取来信的要点和正文。发送仍由你确认。关闭后会再次每次询问。	이 PC의 에이전트는 받은 메일의 요점과 본문을 매번 묻지 않고 읽을 수 있습니다. 보내는 것은 지금처럼 당신이 확인합니다. 끄면 다시 읽을 때마다 묻습니다.		切り替えを入れたときの説明。読むだけで、送るのは人が確かめること。外せばまた聞くこと。		
+mail.readStanding.label	Let agents read mail (until revoked; key fields and body)	エージェントにメールを読ませる（取り消すまで・要点と本文）	让代理读取邮件（直到撤销・要点和正文）	에이전트가 메일을 읽게 하기 (취소할 때까지・요점과 본문)		メールの画面の切り替え。入れると、この PC のエージェントがメールの要点と本文を取り消すまで毎回聞かずに読める。送る許しではない。		
 mail.readonly	Read-only. Opening a message does not mark it as read. You cannot send from here.	読むだけです。開いても既読にしません。ここから送ることはできません。	只读。打开邮件不会标为已读。这里不能发送。	읽기 전용입니다. 열어도 읽음으로 표시하지 않습니다. 여기서는 보낼 수 없습니다.		「送れない」を必ず残す（D49：送る経路が無い）。		
 mail.reload	Reload	読み直す	重新读取	다시 읽기				
 mail.secret.cancel	Cancel	やめる	取消	취소				
@@ -374,8 +376,10 @@ pass.action.screen.read	Reading the screen	画面の読み取り	读取屏幕	�
 pass.action.voice.say	Speaking aloud	声での読み上げ	语音朗读	음성으로 읽기				
 pass.allow	Allow	通す	允许	허용				
 pass.allow.standing	Allow for 24 hours	24 時間聞かない	24 小时内不再询问	24시간 동안 묻지 않음				
+pass.allow.untilRevoked	Don't ask until revoked	取り消すまで聞かない	撤销前不再询问	취소할 때까지 묻지 않음		エージェントの許可の帯のボタン。人が取り消すまで、同じ動作を聞かずに通す。メールを読む札にだけ出る。		
 pass.allowed	Allowed. {who} can now use {what} (you can revoke it later).	通しました。{who} は{what}を使えるようになりました（あとで取り消せます）。	已放行。{who} 现在可以使用 {what}（之后可以撤销）。	통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.				
 pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).	通しました。{who} は{what}を 24 時間、聞かれずに使えます（取り消せます）。	已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。	통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.				
+pass.allowed.untilRevoked	Allowed. {who} can use {what} without asking until you revoke it (in Mail or the list below).	通しました。{who} は{what}を、取り消すまで聞かれずに使えます（［メール］か下の一覧で取り消せます）。	已允许。{who} 可以不经询问使用{what}，直到你撤销（在［邮件］或下方列表中撤销）。	허용했습니다. {who}는 취소할 때까지 묻지 않고 {what}을(를) 사용할 수 있습니다 ([메일] 또는 아래 목록에서 취소).		取り消すまで通したあとに出る一言。どこで取り消せるか。		
 pass.asked	An agent is asking for permission	エージェントが、これを使ってよいか聞いています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다				
 pass.asked.hint	If you allow it, this agent can use that action. You can revoke it later.	通すと、このエージェントはそれを使えるようになります。あとで取り消せます。	允许后，该代理就能使用这个动作。之后可以撤销。	허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.				
 pass.refuse	Don't allow	通さない	不允许	허용하지 않음				

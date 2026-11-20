@@ -1536,6 +1536,22 @@
     }
   }
 
+  /** **取り消すまで聞かずに通せる札**（11-20・本体の `取り消すまで出せる札` と同じ。ルームの自動入室は帯からは出さない）。 */
+  const 取り消すまで出せる札 = ['inbox.open.structured', 'inbox.open.raw'];
+
+  /** **取り消すまで通す**（11-20）。帯の頼みにも答えたことになる（本体が答えを控える）。 */
+  async function 取り消すまで通す(動作: string) {
+    const 相手 = エージェントの名(待っている札たち.find((待ち) => 待ち.動作 === 動作)?.頼んだ人 ?? '');
+    try {
+      await allowUntilRevoked(動作);
+      待っている札たち = 待っている札たち.filter((待ち) => 待ち.動作 !== 動作);
+      await 持続の札を読む();
+      notice = format(t('pass.allowed.untilRevoked'), { who: 相手, what: 動作の言葉(動作, t) });
+    } catch (e) {
+      notice = 読める(e);
+    }
+  }
+
   async function 札に答える(動作: string, 許す: boolean, 持続 = false) {
     // **誰に答えたのかを、消す前に取っておく**（消したあとでは言えない）
     const 相手 = エージェントの名(待っている札たち.find((待ち) => 待ち.動作 === 動作)?.頼んだ人 ?? '');
@@ -3677,6 +3693,12 @@
       <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, true, true)}>
         {t('pass.allow.standing')}
       </button>
+      <!-- **取り消すまで聞かない**（11-20）。メールを読む札だけ。夜や朝に人が居ないと、運用の席が止まった -->
+      {#if 取り消すまで出せる札.includes(待ち.動作)}
+        <button type="button" class="quiet" onclick={() => void 取り消すまで通す(待ち.動作)}>
+          {t('pass.allow.untilRevoked')}
+        </button>
+      {/if}
       <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, false)}>
         {t('pass.refuse')}
       </button>

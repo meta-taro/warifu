@@ -500,6 +500,10 @@ export type MessageKey =
   | 'chat.link.qr.close'
   | 'mail.terminal.label'
   | 'mail.terminal.hint'
+  | 'mail.readStanding.label'
+  | 'mail.readStanding.hint'
+  | 'pass.allow.untilRevoked'
+  | 'pass.allowed.untilRevoked'
   | 'chat.personAt'
   | 'chat.copy'
   | 'roster.kick'
@@ -652,6 +656,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': 'QR コードで出す（スマホで開く）',
     'chat.link.qr.hint': 'スマホのカメラで読むと、この URL が開きます',
     'chat.link.qr.close': '閉じる',
+    'mail.readStanding.label': 'エージェントにメールを読ませる（取り消すまで・要点と本文）',
+    'mail.readStanding.hint': 'この PC のエージェントは、届いたメールの要点と本文を、毎回聞かずに読めます。送るのは今までどおりあなたが確かめます。外すと、また読むたびに聞きます。',
+    'pass.allow.untilRevoked': '取り消すまで聞かない',
+    'pass.allowed.untilRevoked': '通しました。{who} は{what}を、取り消すまで聞かれずに使えます（［メール］か下の一覧で取り消せます）。',
     'mail.terminal.label': '端末の許可で送る（画面の［送る］を待たない）',
     'mail.terminal.hint': 'エージェントの道具（Claude Code など）が許可を求めるときに出す全文を見て許してください。その道具で mail_send を「いつも許す」にしないでください。',
     'chat.personAt': '{name} の中の人',
@@ -1219,6 +1227,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': 'Show as a QR code (open on your phone)',
     'chat.link.qr.hint': 'Scan with your phone camera to open this URL',
     'chat.link.qr.close': 'Close',
+    'mail.readStanding.label': 'Let agents read mail (until revoked; key fields and body)',
+    'mail.readStanding.hint': 'Agents on this PC can read the key fields and body of incoming mail without asking each time. You still confirm anything they send. Turn this off to be asked again.',
+    'pass.allow.untilRevoked': 'Don\'t ask until revoked',
+    'pass.allowed.untilRevoked': 'Allowed. {who} can use {what} without asking until you revoke it (in Mail or the list below).',
     'mail.terminal.label': 'Send on terminal approval (do not wait for Send on this screen)',
     'mail.terminal.hint': 'Read the full text your agent tool (such as Claude Code) shows when it asks for permission, then approve. Do not set mail_send to "always allow" in that tool.',
     'chat.personAt': 'Person at {name}',
@@ -1786,6 +1798,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': '显示二维码（在手机上打开）',
     'chat.link.qr.hint': '用手机相机扫描即可打开此网址',
     'chat.link.qr.close': '关闭',
+    'mail.readStanding.label': '让代理读取邮件（直到撤销・要点和正文）',
+    'mail.readStanding.hint': '这台电脑上的代理可以不经每次询问读取来信的要点和正文。发送仍由你确认。关闭后会再次每次询问。',
+    'pass.allow.untilRevoked': '撤销前不再询问',
+    'pass.allowed.untilRevoked': '已允许。{who} 可以不经询问使用{what}，直到你撤销（在［邮件］或下方列表中撤销）。',
     'mail.terminal.label': '在终端批准后发送（不等待此画面的［发送］）',
     'mail.terminal.hint': '请在代理工具（如 Claude Code）请求许可时查看其显示的全文后再批准。不要在该工具中将 mail_send 设为“始终允许”。',
     'chat.personAt': '{name} 的使用者',
@@ -2350,6 +2366,10 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.title': 'QR 코드로 표시 (휴대폰에서 열기)',
     'chat.link.qr.hint': '휴대폰 카메라로 읽으면 이 URL이 열립니다',
     'chat.link.qr.close': '닫기',
+    'mail.readStanding.label': '에이전트가 메일을 읽게 하기 (취소할 때까지・요점과 본문)',
+    'mail.readStanding.hint': '이 PC의 에이전트는 받은 메일의 요점과 본문을 매번 묻지 않고 읽을 수 있습니다. 보내는 것은 지금처럼 당신이 확인합니다. 끄면 다시 읽을 때마다 묻습니다.',
+    'pass.allow.untilRevoked': '취소할 때까지 묻지 않음',
+    'pass.allowed.untilRevoked': '허용했습니다. {who}는 취소할 때까지 묻지 않고 {what}을(를) 사용할 수 있습니다 ([메일] 또는 아래 목록에서 취소).',
     'mail.terminal.label': '터미널 허가로 보내기 (이 화면의 [보내기]를 기다리지 않음)',
     'mail.terminal.hint': '에이전트 도구(Claude Code 등)가 허가를 요청할 때 표시하는 전문을 보고 허가하세요. 그 도구에서 mail_send를 "항상 허용"으로 두지 마세요.',
     'chat.personAt': '{name}의 사용자',
@@ -3042,6 +3062,14 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     'QR コードの下に出る一言。スマホのカメラで読めば開けること。',
   'chat.link.qr.close':
     'QR コードの窓を閉じる押し口。',
+  'mail.readStanding.label':
+    'メールの画面の切り替え。入れると、この PC のエージェントがメールの要点と本文を取り消すまで毎回聞かずに読める。送る許しではない。',
+  'mail.readStanding.hint':
+    '切り替えを入れたときの説明。読むだけで、送るのは人が確かめること。外せばまた聞くこと。',
+  'pass.allow.untilRevoked':
+    'エージェントの許可の帯のボタン。人が取り消すまで、同じ動作を聞かずに通す。メールを読む札にだけ出る。',
+  'pass.allowed.untilRevoked':
+    '取り消すまで通したあとに出る一言。どこで取り消せるか。',
   'mail.terminal.label':
     '控えたメールの口ごとの切り替え。入れると、エージェントのメールを画面の確認なしで送る（人は端末で全文を見て許す）。',
   'mail.terminal.hint':

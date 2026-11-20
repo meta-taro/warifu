@@ -39,6 +39,7 @@ mod agent;
 mod identity;
 mod mail;
 mod mcp;
+mod pass;
 mod post;
 mod relay;
 mod relay_server;
@@ -408,6 +409,11 @@ async fn 本体() -> ExitCode {
         Some("contacts") => 名簿の口(&mut args),
         // **端末から部屋を片付ける**（0.1.41）。口の room_list / room_leave / room_rename と同じ行
         Some("room") => room::口(&mut args).await,
+        // **この PC の人が、端末から札を出す**（11-20）。画面の前に居ないときの道
+        Some("pass") => match pass::読む(&mut args) {
+            Ok(設) => pass::行う(&設).map_err(Into::into),
+            Err(e) => Err(e.into()),
+        },
         _ => return 使い方(),
     };
     match result {

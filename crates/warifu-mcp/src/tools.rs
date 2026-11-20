@@ -354,11 +354,25 @@ impl core::fmt::Display for ToolError {
                  札を出せるのはこの PC の人だけです。\
                  `pass_ask` で頼めば、この PC の画面に帯が出て、人が押せば通ります。\
                  または、人がエージェントの設定（`warifu mcp` の引数）に `--allow {w}` を書きます\
-                 （`warifu setup` が書くのは会話と名乗りだけです）。"
+                 （`warifu setup` が書くのは会話と名乗りだけです）。{}",
+                取り消すまでの案内(w)
             ),
             Self::BadArgs(w) => write!(f, "引数が読めません: {w}"),
             Self::Unavailable(w) => write!(f, "出せません: {w}"),
         }
+    }
+}
+
+/// **人が画面の前に居なくても通す道の案内**（11-20）。メールの要点と本文だけ、人が一度入れれば取り消すまで聞かない。
+///
+/// 帯は人が押すまで通らないので、夜や朝に席が止まっていた（運用の窓口の席が削除依頼に返せなかった）。
+fn 取り消すまでの案内(動作: &str) -> &'static str {
+    if matches!(動作, "inbox.open.structured" | "inbox.open.raw") {
+        "人が画面の前に居ないと、帯は押されません。毎回聞かずに読ませるには、人が画面の［メール］で\
+         「エージェントにメールを読ませる（取り消すまで）」を入れるか、帯の［取り消すまで聞かない］を押します。\
+         画面に触れないときは、人が端末で `warifu pass allow inbox.open.raw --until-revoked` を打ちます（人が y を打ったときだけ通ります）。"
+    } else {
+        ""
     }
 }
 
@@ -382,6 +396,18 @@ mod 断り文の試験 {
         assert!(
             !文.contains("`warifu setup` か"),
             "setup では足せないのに、足せるように読める: {文}"
+        );
+    }
+
+    #[test]
+    fn メールを読む札は_人が居なくても通す道まで案内する() {
+        let 文 = ToolError::Denied("inbox.open.raw".to_owned()).to_string();
+        assert!(文.contains("取り消すまで"), "{文}");
+        assert!(文.contains("［メール］"), "{文}");
+        let ほか = ToolError::Denied("room.invite".to_owned()).to_string();
+        assert!(
+            !ほか.contains("［メール］"),
+            "メールでない札には出さない: {ほか}"
         );
     }
 }

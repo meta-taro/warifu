@@ -15,6 +15,9 @@
     mailSecretSet,
     mailTerminalSends,
     setMailTerminalSend,
+    standingPasses,
+    allowUntilRevoked,
+    revokePass,
     type 控えた口,
     type 開いたメール,
   } from '$lib/bridge';
@@ -67,10 +70,34 @@
     }
   }
 
+  /**
+   * **席にメールを読ませる（取り消すまで）**（11-20）。要点と本文の札を、人が一度入れれば取り消すまで聞かない。
+   * 運用の窓口の席は届いた通を読むのが仕事で、読むたびに画面で押す形では、人が居ない夜と朝に止まった。
+   * 送る札は入れない（送るのは人が確かめる）。
+   */
+  const 読ませる札 = ['inbox.open.structured', 'inbox.open.raw'];
+  let 読ませている = $state(false);
+
+  async function 読ませているかを読む() {
+    const 札 = (await standingPasses().catch(() => null)) ?? [];
+    読ませている = 読ませる札.every((動作) => 札.some(([a]) => a === 動作));
+  }
+
+  async function 読ませるを決める(on: boolean) {
+    置けない = null;
+    try {
+      for (const 動作 of 読ませる札) await (on ? allowUntilRevoked(動作) : revokePass(動作));
+    } catch (e) {
+      置けない = String((e as { message?: string })?.message ?? e);
+    }
+    await 読ませているかを読む();
+  }
+
   async function 口を読み直す() {
     try {
       口たち = (await mailAccounts()) ?? [];
       端末で送る = (await mailTerminalSends().catch(() => null)) ?? [];
+      await 読ませているかを読む();
     } catch (e) {
       置けない = String((e as { message?: string })?.message ?? e);
     }
@@ -193,6 +220,13 @@
       >
     </header>
     <p class="hint">{t('mail.readonly')}</p>
+    <!-- **人だけが決める**（11-20）。エージェントのカーソルがここを押すと、自分で読む許しを出せてしまう -->
+    <label class="read-standing" data-agent-hands-off
+      ><input type="checkbox" checked={読ませている} onchange={(e) => void 読ませるを決める(e.currentTarget.checked)} />{t(
+        'mail.readStanding.label',
+      )}</label
+    >
+    {#if 読ませている}<p class="hint">{t('mail.readStanding.hint')}</p>{/if}
 
     <details class="accounts" open={口たち.some((口) => !口.秘密がある)}>
       <summary>{t('mail.accounts.title')}<span class="count">{口たち.length}</span></summary>
@@ -385,6 +419,13 @@
   }
   .account:first-child {
     border-top: 0;
+  }
+  .read-standing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-sm-size);
+    color: var(--text-secondary);
   }
   .terminal-send {
     display: inline-flex;
