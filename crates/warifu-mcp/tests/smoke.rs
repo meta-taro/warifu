@@ -139,6 +139,13 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::Profile { .. } => Some(FromDesk::Wrote {
                     who: "試験の席".to_owned(),
                 }),
+                // 0.1.53：顔は欠片ごとに返事をし、終わりで「書いた」を返す
+                ToDesk::顔 {
+                    終わり: false, ..
+                } => Some(FromDesk::顔の途中 { 受けた: 0 }),
+                ToDesk::顔 { .. } => Some(FromDesk::Wrote {
+                    who: "試験の席".to_owned(),
+                }),
                 // 0.1.40：部屋の片付けの 3 つの口
                 ToDesk::部屋たち => Some(FromDesk::部屋たち {
                     部屋: vec![warifu_desk::部屋の行 {
@@ -366,6 +373,16 @@ async fn 口を全部_1回ずつ呼ぶ() {
             口.profile_set(Parameters(ProfileArgs {
                 name: "試験の席".to_owned(),
                 bio: "煙の確かめ".to_owned()
+            }))
+            .await
+        ),
+    ));
+    結果.push((
+        "avatar_set",
+        format!(
+            "{:?}",
+            口.avatar_set(Parameters(warifu_mcp::AvatarArgs {
+                path: String::new(),
             }))
             .await
         ),

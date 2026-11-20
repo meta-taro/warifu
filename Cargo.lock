@@ -4146,6 +4146,7 @@ dependencies = [
 name = "warifu-desk"
 version = "0.1.52"
 dependencies = [
+ "base64 0.22.1",
  "serde",
  "serde_json",
  "tokio",

@@ -51,7 +51,8 @@ use warifu_core::{PublicKey, Seed, base32};
 use zeroize::Zeroize as _;
 
 pub use avatar::{
-    AVATAR_MAX_BYTES, AVATAR_MAX_SIDE, BadImage, 顔として読む, 顔のファイル名
+    AVATAR_MAX_BYTES, AVATAR_MAX_SIDE, BadImage, 相手の顔のファイル名, 相手の顔のファイル名を読む,
+    顔として読む, 顔のファイル名,
 };
 pub use contacts::{Contact, Contacts, NOTE_MAX};
 pub use delegate::{DELEGATE_DEFAULT_SECS, DELEGATE_MAX, Delegate, 任せているか};

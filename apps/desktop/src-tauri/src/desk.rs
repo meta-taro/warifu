@@ -232,6 +232,9 @@ fn 元の名(名: &str) -> Option<&str> {
 /// **まとめて 1 人ではない。それぞれが 1 人である。**
 static エージェントたち: Mutex<BTreeMap<u64, String>> = Mutex::new(BTreeMap::new());
 
+/// **口ごとの、継ぎかけの顔**（0.1.53・`ToDesk::顔`）。切れたら捨てる。
+static 顔の継ぎたち: Mutex<BTreeMap<u64, warifu_desk::顔の継ぎ>> = Mutex::new(BTreeMap::new());
+
 /// **ルームキーの既定の寿命**（24 時間・**#32 の段 2**）。
 ///
 /// **画面と同じ値にしてある**（`+page.svelte` の `KEY_TTL_SECS`）——
@@ -426,6 +429,8 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
             棚.remove(&自分);
             番号を外す(&mut 棚);
         }
+        // 継ぎかけの顔は捨てる（半端な絵を残さない）
+        顔の継ぎたち.lock().expect("毒されていない").remove(&自分);
         // subscribe を落としてから数える。**落とす前だと自分を数えてしまう**
         drop(聞く);
         エージェントの数を伝える(&app);
@@ -438,6 +443,55 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
 /// 会議に人が居なくても、同じエージェントの AI が居るなら人は話しかけられる。
 pub fn エージェントの数を伝える(app: &AppHandle) {
     let _ = app.emit(EVENT_DESK_SEATS, つながっている顔ぶれ());
+}
+
+/// **顔の欠片を 1 つ受ける**（0.1.53）。途中なら [`FromDesk::顔の途中`]、終わりなら置いて [`FromDesk::Wrote`]。
+///
+/// 置く先は、この口が名乗った席（`desk:<呼び方>`）だけ。名乗っていなければ断る。
+async fn 顔の欠片を受ける(
+    app: &AppHandle,
+    自分: u64,
+    名乗り: Option<&str>,
+    欠片: &str,
+    終わり: bool,
+) -> FromDesk {
+    let Some(名) = 名乗り else {
+        // 名乗っていない口は席が決まらない。継ぎかけも残さない
+        顔の継ぎたち.lock().expect("毒されていない").remove(&自分);
+        return FromDesk::Denied {
+            why: "先に名乗ってください（--as か、起動した場所）".to_owned(),
+        };
+    };
+    let 継いだ = {
+        let mut 棚 = 顔の継ぎたち.lock().expect("毒されていない");
+        let 継ぎ = 棚.entry(自分).or_default();
+        let 継いだ = 継ぎ.足す(欠片, 終わり);
+        let 受けた = 継ぎ.受けた();
+        if 終わり || 継いだ.is_err() {
+            棚.remove(&自分);
+        }
+        継いだ.map(|中身| (中身, 受けた))
+    };
+    match 継いだ {
+        Err(why) => FromDesk::Denied { why },
+        Ok((None, 受けた)) => FromDesk::顔の途中 { 受けた },
+        Ok((Some(中身), _)) => {
+            let 誰 = warifu_vault::Who::Desk(呼び方(Some(名)));
+            let 置けた = if 中身.is_empty() {
+                crate::profile::顔を外す(app, &誰)
+            } else {
+                crate::profile::顔を置く(app, &誰, 中身)
+            };
+            match 置けた {
+                Ok(()) => {
+                    // **同じルームの相手の画面にも出す**（0.1.53・`peer_face`）
+                    crate::peer_face::席の顔を配る(&app.state::<Bridge>(), 名).await;
+                    FromDesk::Wrote { who: 呼び方(Some(名)) }
+                }
+                Err(e) => FromDesk::Denied { why: e.message },
+            }
+        }
+    }
 }
 
 /// いまこの機械につながっている顔ぶれ。**呼び方の並び。**
@@ -518,6 +572,8 @@ async fn 応じる(
             *名乗り = Some(名.clone());
             エージェントにつながれる(自分, &呼び方(Some(&名)));
             エージェントの数を伝える(app);
+            // **顔を置いている席なら、居るルームの相手へ配る**（0.1.53・入ったあとでつながった席の分）
+            crate::peer_face::つながった席の顔を配る(&app.state::<Bridge>(), &名).await;
             // **いつつながったかを返す**（`issues/4`）。
             // これが無いと、エージェントから「届いていない」と「つながる前だった」を見分けられない
             let who = エージェントたち
@@ -582,6 +638,14 @@ async fn 応じる(
                     Err(訳) => FromDesk::Denied { why: 訳 },
                 },
             };
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **自分の席の顔を置く**（0.1.53）。欠片を継ぎ、終わりで検めて置く。
+        //
+        // **どの席かは、この口で決まる**（`Profile` と同じ）。行の中に「誰の」は書けない
+        ToDesk::顔 { 欠片, 終わり } => {
+            let 返事 = 顔の欠片を受ける(app, 自分, 名乗り.as_deref(), &欠片, 終わり).await;
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }

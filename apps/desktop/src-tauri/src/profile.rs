@@ -114,7 +114,9 @@ pub async fn set_avatar(app: tauri::AppHandle, who: String, path: String) -> Ans
         message: format!("画像を読めませんでした（{e}）"),
         code: Some("avatar.unreadable".into()),
     })?;
-    置く(&app, &who, 中身)
+    置く(&app, &who, 中身)?;
+    配り直す(&app, &who).await;
+    Ok(())
 }
 
 /// 落とした画像を**画面へ渡す**（**D87**）。
@@ -154,7 +156,24 @@ pub async fn read_image(path: String) -> Answer<Vec<u8>> {
 /// **それでも中身は見る** —— 渡ってきたものを信じない構えは変えない。
 #[tauri::command]
 pub async fn set_avatar_bytes(app: tauri::AppHandle, who: String, bytes: Vec<u8>) -> Answer<()> {
-    置く(&app, &who, bytes)
+    置く(&app, &who, bytes)?;
+    配り直す(&app, &who).await;
+    Ok(())
+}
+
+/// **置き直した顔を、同じルームの相手へも配る**（0.1.53・`peer_face`）。この端末の人か、名乗った席だけ。
+async fn 配り直す(app: &tauri::AppHandle, who: &str) {
+    use tauri::Manager as _;
+    let 席 = match Who::from_field(who) {
+        Some(Who::Me) => String::new(),
+        Some(Who::Desk(呼び方)) => match crate::speaker_place::呼び方から場所(&呼び方) {
+            Some(場所) => 場所.to_owned(),
+            // 名乗りのない席は、相手の画面で引けない（場所で結ぶので）
+            None => return,
+        },
+        None => return,
+    };
+    crate::peer_face::顔を配る(&app.state::<Bridge>(), &席, true).await;
 }
 
 /// 顔を置く（中身は見る）。**`set_avatar` と `set_avatar_bytes` の中身。**
@@ -165,6 +184,16 @@ fn 置く(app: &tauri::AppHandle, who: &str, 中身: Vec<u8>) -> Answer<()> {
             code: None,
         });
     };
+    顔を置く(app, &誰, 中身)
+}
+
+/// **誰の顔かが決まってから置く**（中身は見る）。画面の口と、席が自分で置く口（`desk.rs`・0.1.53）の中身。
+///
+/// # Errors
+/// 画像として置けない・置き場所へ書けないとき。理由は人が読む文。
+pub fn 顔を置く(app: &tauri::AppHandle, 誰: &Who, 中身: Vec<u8>) -> Answer<()> {
+    let who = 誰.to_field();
+    let 誰 = 誰.clone();
     // **人に読める形で断る。**なぜ置けないかが分からないと、次の手が打てない
     let (幅, 高さ) = warifu_vault::顔として読む(&中身).map_err(|e| Failure {
         message: e.to_string(),
@@ -222,6 +251,18 @@ pub async fn clear_avatar(app: tauri::AppHandle, who: String) -> Answer<()> {
             code: None,
         });
     };
+    顔を外す(&app, &誰)?;
+    配り直す(&app, &who).await;
+    Ok(())
+}
+
+/// **誰の顔かが決まってから既定へ戻す**（置いた画像も消す）。`clear_avatar` と、席が自分で戻す口の中身。
+///
+/// # Errors
+/// 置き場所を開けない・書けないとき。
+pub fn 顔を外す(app: &tauri::AppHandle, 誰: &Who) -> Answer<()> {
+    let who = 誰.to_field();
+    let 誰 = 誰.clone();
     let vault = Vault::default_location().map_err(|e| Failure {
         message: e.to_string(),
         code: None,
@@ -253,15 +294,23 @@ pub async fn avatar_bytes(who: String) -> Answer<Option<Vec<u8>>> {
     let Some(誰) = Who::from_field(&who) else {
         return Ok(None);
     };
+    置いてある顔(&誰)
+}
+
+/// この端末の人か席の、置いてある顔の中身。**無ければ `None`。**（`avatar_bytes` と、相手へ配る `peer_face` の中身）
+///
+/// # Errors
+/// プロフィールを読めないとき。
+pub fn 置いてある顔(誰: &Who) -> Answer<Option<Vec<u8>>> {
     let Ok(vault) = Vault::default_location() else {
         return Ok(None);
     };
     let 面々 = 読む()?;
-    let Some(名) = 面々.find(&誰).and_then(|p| p.avatar().map(str::to_owned)) else {
+    let Some(名) = 面々.find(誰).and_then(|p| p.avatar().map(str::to_owned)) else {
         return Ok(None);
     };
     // **指している名前を信じない。**置き場所の中の、決まった名前だけを読む
-    if 名 != warifu_vault::顔のファイル名(&誰) {
+    if 名 != warifu_vault::顔のファイル名(誰) {
         記録!("顔の指し先が置き場所の名前と違います（読みません）");
         return Ok(None);
     }

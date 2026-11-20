@@ -64,6 +64,12 @@ const ROOM_RULE: &str = "meeting.roomrule";
 const SPEAKER_PLACE: &str = "meeting.speakerplace";
 /// **送った時刻**（0.1.53）。その発言を、送った側の時計でいつ出したか。
 const SENT_AT: &str = "meeting.sentat";
+/// **顔**（0.1.53）。その機械の人か席の顔（画像）。
+const FACE: &str = "meeting.face";
+/// 顔の大きさの上限（バイト）。**送る側でも受ける側でも数える**（D15）。
+///
+/// 置ける顔の上限（`warifu-vault` の `AVATAR_MAX_BYTES`）と同じ 64 KiB。
+pub const FACE_MAX: usize = 64 * 1024;
 
 /// **ルームでのエージェントの扱い**（0.1.52）。
 ///
@@ -433,6 +439,22 @@ pub enum Notice {
         /// 送った時刻（エポックからのミリ秒・送った側の時計）。
         ミリ秒: u64,
     },
+    /// **顔**（0.1.53）。その機械の人か席（エージェント）の顔の画像を、同じルームの相手へ渡す。
+    ///
+    /// [`Notice::Profile`] は名前と紹介だけなので、置いた顔は置いた機械の画面にしか出なかった。
+    /// 名乗りの形は変えず、別の知らせとして足す。**古い版は知らない知らせとして読み飛ばす。**
+    ///
+    /// **絵は読まない**（[`Notice::Image`] と同じ）。受けた画面が、置く前に形と縦横を検める。
+    顔 {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰の機械の顔か（主催ごしの確かめに使う）。
+        from: PublicKey,
+        /// どの席か（机に名乗った場所）。**空ならその機械の人。**
+        席: String,
+        /// 画像。[`FACE_MAX`] まで。**空なら既定の顔へ戻した。**
+        中身: Vec<u8>,
+    },
 }
 
 /// **どう受けたか**（[`Notice::受けた`]）。
@@ -487,7 +509,8 @@ impl Notice {
             | Self::受けた { meeting, .. }
             | Self::返信 { meeting, .. }
             | Self::話し手の場所 { meeting, .. }
-            | Self::送った時刻 { meeting, .. } => *meeting,
+            | Self::送った時刻 { meeting, .. }
+            | Self::顔 { meeting, .. } => *meeting,
             Self::Signal(s) => s.meeting(),
         }
     }
@@ -603,6 +626,9 @@ impl Notice {
                 荷物.extend_from_slice(&ミリ秒.to_be_bytes());
                 (SENT_AT, 荷物)
             }
+            Self::顔 {
+                from, 席, 中身, ..
+            } => (FACE, 顔を詰める(from, 席, 中身)?),
             Self::話し手の場所 {
                 from, 札, 場所, ..
             } => {
@@ -739,6 +765,7 @@ impl Notice {
             REPLY => 返信を読む(meeting, 荷物),
             SPEAKER_PLACE => 話し手の場所を読む(meeting, 荷物),
             SENT_AT => 送った時刻を読む(meeting, 荷物),
+            FACE => 顔を読む(meeting, 荷物),
             KEY => {
                 // `[差出人 32][鍵]`。**組み立てる側と同じ検めをする**（相手が守る保証は無い）
                 let 頭: [u8; 32] = 荷物
@@ -1124,5 +1151,53 @@ fn 返信を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
         from,
         行,
         先,
+    })
+}
+
+/// 顔の席の名を検める。**空（人）は通す。**行と欄を壊すもの・長すぎるもの・空白だけは通さない。
+fn 顔の席を検める(席: &str) -> Result<(), Error> {
+    if 席.len() > SPEAKER_MAX
+        || 席.chars().any(|c| c.is_control() || c == '\t')
+        || (!席.is_empty() && 席.trim().is_empty())
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// `[差出人 32][席の長さ 1][席][画像]` に詰める。
+fn 顔を詰める(from: &PublicKey, 席: &str, 中身: &[u8]) -> Result<Vec<u8>, Error> {
+    顔の席を検める(席)?;
+    if 中身.len() > FACE_MAX {
+        return Err(Error::Malformed);
+    }
+    let mut 荷物 = Vec::with_capacity(33 + 席.len() + 中身.len());
+    荷物.extend_from_slice(&from.to_bytes());
+    荷物.push(u8::try_from(席.len()).map_err(|_| Error::Malformed)?);
+    荷物.extend_from_slice(席.as_bytes());
+    荷物.extend_from_slice(中身);
+    Ok(荷物)
+}
+
+/// `[差出人 32][席の長さ 1][席][画像]` を読む。**組み立てる側と同じ検めをする**（相手が守る保証は無い）。
+fn 顔を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    if 荷物.len() < 33 || 荷物.len() > 33 + SPEAKER_MAX + FACE_MAX {
+        return Err(Error::Malformed);
+    }
+    let 鍵: [u8; 32] = 荷物[..32].try_into().map_err(|_| Error::Malformed)?;
+    let from = PublicKey::from_bytes(鍵).map_err(|_| Error::Malformed)?;
+    let 席の長さ = usize::from(荷物[32]);
+    let 席 = 荷物.get(33..33 + 席の長さ).ok_or(Error::Malformed)?;
+    let 席 = String::from_utf8(席.to_vec()).map_err(|_| Error::Malformed)?;
+    顔の席を検める(&席)?;
+    let 中身 = 荷物[33 + 席の長さ..].to_vec();
+    if 中身.len() > FACE_MAX {
+        return Err(Error::Malformed);
+    }
+    Ok(Notice::顔 {
+        meeting,
+        from,
+        席,
+        中身,
     })
 }

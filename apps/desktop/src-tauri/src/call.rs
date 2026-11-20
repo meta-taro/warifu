@@ -209,6 +209,10 @@ async fn 住所へ呼ぶ_見る部屋を選んで(
             )
             .await;
     }
+    // **顔も渡す**（0.1.53・`peer_face`）。古い版は知らない知らせとして読み飛ばす
+    for 顔 in crate::peer_face::入るときの顔(meeting, bridge.device.public_key()) {
+        let _ = channel.send(&顔).await;
+    }
 
     // **自分の住所を名乗る。**相手は経路からこちらの住所を知れない（D41 と同じ理由）
     if let Ok(自分の住所) = node.address().await {
@@ -409,6 +413,10 @@ pub async fn 部屋の合言葉で呼ぶ(
                 .to_intent()?,
             )
             .await;
+    }
+    // **顔も渡す**（0.1.53・`peer_face`）。古い版は知らない知らせとして読み飛ばす
+    for 顔 in crate::peer_face::入るときの顔(部屋, bridge.device.public_key()) {
+        let _ = channel.send(&顔).await;
     }
 
     // **住所は名乗らない。**

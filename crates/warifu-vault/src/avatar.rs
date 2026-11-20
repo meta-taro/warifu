@@ -207,3 +207,72 @@ pub fn 顔のファイル名(誰: &crate::Who) -> String {
     // `.png` と `.webp` が並ぶと、**どちらが今の顔か**が分からなくなる（D87）
     format!("{安全}.img")
 }
+
+/// 相手の顔の置き場所の頭。この端末の顔（`me.img`・`desk_….img`）と混ざらない。
+const 相手の顔の頭: &str = "peer_";
+
+/// **相手（ほかの機械）の人か席の顔**を置くファイル名（0.1.53）。
+///
+/// **網から来た名前をそのまま使わない。**鍵は英数字だけのときに使い、席の名は 16 進に直す ——
+/// 名前に `/` や `..` があっても、置き場所の外へ出られない。鍵が英数字でなければ `None`。
+#[must_use]
+pub fn 相手の顔のファイル名(鍵: &str, 席: &str) -> Option<String> {
+    if 鍵.is_empty() || 鍵.len() > 128 || !鍵.bytes().all(|b| b.is_ascii_alphanumeric()) {
+        return None;
+    }
+    let 十六: String = 席.bytes().map(|b| format!("{b:02x}")).collect();
+    Some(format!("{相手の顔の頭}{鍵}_{十六}.img"))
+}
+
+/// [`相手の顔のファイル名`] の逆。**この形でなければ `None`**（ほかのファイルを相手の顔と読まない）。
+#[must_use]
+pub fn 相手の顔のファイル名を読む(名: &str) -> Option<(String, String)> {
+    let 素 = 名.strip_prefix(相手の顔の頭)?.strip_suffix(".img")?;
+    let (鍵, 十六) = 素.split_once('_')?;
+    if 十六.len() % 2 != 0 {
+        return None;
+    }
+    let バイト: Option<Vec<u8>> = (0..十六.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(十六.get(i..i + 2)?, 16).ok())
+        .collect();
+    let 席 = String::from_utf8(バイト?).ok()?;
+    // 作る側と同じ形に戻るものだけ（大文字の 16 進などは通さない）
+    (相手の顔のファイル名(鍵, &席).as_deref() == Some(名)).then(|| (鍵.to_owned(), 席))
+}
+
+#[cfg(test)]
+mod 相手の顔の試験 {
+    use super::*;
+
+    #[test]
+    fn 相手の顔のファイル名は往復する() {
+        for 席 in ["", "docs", "資料/../../x", "a_b"] {
+            let 名 = 相手の顔のファイル名("ABC234", 席).unwrap();
+            assert!(!名.contains('/') && !名.contains(".."), "{名}");
+            assert_eq!(
+                相手の顔のファイル名を読む(&名),
+                Some(("ABC234".to_owned(), 席.to_owned()))
+            );
+        }
+    }
+
+    #[test]
+    fn 鍵が英数字でなければ作らない() {
+        assert_eq!(相手の顔のファイル名("../x", ""), None);
+        assert_eq!(相手の顔のファイル名("", ""), None);
+    }
+
+    #[test]
+    fn この端末の顔や壊れた名は_相手の顔と読まない() {
+        for 名 in [
+            "me.img",
+            "desk_docs.img",
+            "peer_ABC_6.img",
+            "peer_ABC_zz.img",
+            "peer_ABC_64.png",
+        ] {
+            assert_eq!(相手の顔のファイル名を読む(名), None, "{名}");
+        }
+    }
+}

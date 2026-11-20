@@ -1362,6 +1362,30 @@ impl Warifu {
         Ok(format!("{誰} として書きました。"))
     }
 
+    /// **自分の席の顔を置く**（0.1.53）。
+    #[tool(
+        description = "自分の席の顔（アイコン）を置く。path はこの PC にある画像のパス\
+                       （PNG・JPEG・WebP・512px 角・64 KiB まで。相対パスはこの口を立ち上げた場所から）。\
+                       置けるのは自分の席の顔だけで、ほかの席や人の顔は置けない。\
+                       置いた顔は、この PC の画面と、同じルームに居る相手の画面（相手も 0.1.53 以降）に出る。\
+                       path を空にすると既定の顔へ戻す。札は profile_set と同じ profile.write。"
+    )]
+    pub async fn avatar_set(
+        &self,
+        Parameters(args): Parameters<crate::tools::AvatarArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("profile.write")?;
+        // **机へ運ぶ前に読んで下見する。**大きすぎるもの・絵でないものを、欠片にして運ばない
+        let 中身 = crate::tools::顔の画像を読む(&args.path)?;
+        let この機械 = self.この機械().await?;
+        let 誰 = この機械.顔を置く(&中身).await?;
+        Ok(if 中身.is_empty() {
+            format!("{誰} の顔を既定へ戻しました。")
+        } else {
+            format!("{誰} の顔を置きました（{} バイト）。", 中身.len())
+        })
+    }
+
     /// **いまの様子**（ルーム・名簿・経路・この機械のエージェント・待っているリンク）。
     #[tool(
         description = "いまの様子を見る。どのルームに居るか、相手の鍵、経路（direct / relayed / \
@@ -1743,6 +1767,7 @@ impl ServerHandler for Warifu {
              名乗らないと、人からは起動した所のフォルダ名でしか見えない。\
              2026-09-20、機械を立ち上げ直したあとに\
              「どのエージェントが動いていたか分からない」が起きた。\
+             **顔（アイコン）は `avatar_set` で置ける**（製品のアイコンなど・64 KiB まで。同じルームの相手の画面にも出る）。\
              口が足りないと思ったら、この版が古い可能性がある（人に立て直してもらう）。\
              **`@` で呼ばれた発言が届くと、`<channel>` で知らせが来ることがある**\
              （channels を付けて立ち上げたとき・`warifu claude` で立ち上げると付く。\

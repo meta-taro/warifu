@@ -27,6 +27,7 @@
 
 #![forbid(unsafe_code)]
 
+mod face;
 mod line;
 mod mention;
 mod pipe;
@@ -34,6 +35,9 @@ mod place;
 mod secret;
 mod talk;
 
+pub use face::{
+    顔の上限, 顔の欠片の大きさ, 顔の欠片の字の上限, 顔の継ぎ, 顔を欠片にする
+};
 pub use line::{
     Error, FromDesk, ToDesk, メールの件名の上限, メールの宛先の上限, メールの本文の上限,
     メールの返り, 写しの上限, 切れの行, 名乗りの上限, 呼ぶ相手の上限, 声の上限, 声の結果,

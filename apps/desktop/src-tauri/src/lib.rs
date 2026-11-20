@@ -115,6 +115,7 @@ mod mention_room;
 mod notify;
 mod open_link;
 mod postbox;
+mod peer_face;
 mod presence;
 mod profile;
 mod recent_keep;
@@ -1712,6 +1713,10 @@ pub(crate) async fn 会議キーで入る(
             )
             .await;
     }
+    // **顔も渡す**（0.1.53・`peer_face`）。古い版は知らない知らせとして読み飛ばす
+    for 顔 in peer_face::入るときの顔(meeting_id, bridge.device.public_key()) {
+        let _ = channel.send(&顔).await;
+    }
 
     // **自分の住所を名乗る。**相手は経路からこちらの住所を知れない（D41 と同じ理由）。
     // これが無いと、主催側は相手を「呼び返す」ことが永遠にできない
@@ -2436,6 +2441,12 @@ async fn listen(app: AppHandle, bridge: State<'_, Bridge>) -> Answer<()> {
             {
                 let _ = channel.send(&intent).await;
             }
+            // **迎える側も顔を渡す**（0.1.53・`peer_face`）
+            if let Some(id) = 名乗る部屋 {
+                for 顔 in peer_face::入るときの顔(id, me) {
+                    let _ = channel.send(&顔).await;
+                }
+            }
 
             汲む(
                 app.clone(),
@@ -3114,6 +3125,20 @@ fn 汲む(
                         }
                         let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
                         speaker_place::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
+                    // **顔**（0.1.53・`peer_face`）。差出人の確かめは文字と同じ。主催なら面々へ配る
+                    if let Notice::顔 { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 顔の差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        peer_face::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
                     // **鍵の手渡し**（2026-10-20）。**名簿は動かさない。入るかは人が決める**
@@ -4812,6 +4837,8 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::RoomName { .. } => "ルームの名前",
         Notice::RoomRule { .. } => "ルームでのエージェントの扱い",
         Notice::話し手の場所 { .. } => "話し手の場所",
+        // **中身は出さない**（画像）。種別だけ
+        Notice::顔 { .. } => "顔",
         Notice::Presence { .. } => "居場所",
         Notice::受けた { .. } => "受けた",
         _ => "知らない知らせ",
@@ -5139,6 +5166,7 @@ pub fn run() {
             profile::read_image,
             profile::clear_avatar,
             profile::avatar_bytes,
+            peer_face::peer_faces,
             send_to_contact,
             voice::agent_voice_set,
             voice::agent_voice_take,
@@ -5312,6 +5340,12 @@ mod 知らせの名の試験 {
                 from: 鍵(),
                 札: "a".to_owned(),
                 場所: "b".to_owned(),
+            },
+            Notice::顔 {
+                meeting: 部屋,
+                from: 鍵(),
+                席: String::new(),
+                中身: Vec::new(),
             },
             Notice::Presence {
                 meeting: 部屋,

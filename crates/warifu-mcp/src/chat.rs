@@ -1124,6 +1124,38 @@ impl Chat {
         }
     }
 
+    /// **自分の席の顔を置く**（0.1.53）。欠片に分けて順に送り、置けたら誰の顔として置いたかを返す。
+    ///
+    /// **どの席かは口で決まる**（[`Self::名乗る`] と同じ）。中身が空なら既定の顔へ戻す。
+    ///
+    /// # Errors
+    /// 古い画面（この行を知らない）・形や大きさを断られた・この機械が返さないとき。
+    pub async fn 顔を置く(&self, 中身: &[u8]) -> Result<String, crate::ToolError> {
+        for 行 in warifu_desk::顔を欠片にする(中身) {
+            match self.頼んで待つ(行, 顔の返事, 返事を待つ秒).await? {
+                FromDesk::顔の途中 { .. } => {}
+                FromDesk::Wrote { who } => return Ok(who),
+                // **古い画面はこの行を読めず「壊れている」と断る**。版の話だと分かる言い方にする
+                FromDesk::Denied { why } if why.contains("行の形") => {
+                    return Err(crate::ToolError::Unavailable(
+                        "この版の割符は、エージェントから顔を置けません（0.1.53 から）。\
+                         人に画面を更新してもらってください"
+                            .to_owned(),
+                    ));
+                }
+                FromDesk::Denied { why } => return Err(crate::ToolError::Unavailable(why)),
+                他 => {
+                    return Err(crate::ToolError::Unavailable(format!(
+                        "この機械が想定しない返事をしました: {他:?}"
+                    )));
+                }
+            }
+        }
+        Err(crate::ToolError::Unavailable(
+            "この機械が、顔を置き終えたと返しませんでした".to_owned(),
+        ))
+    }
+
     /// まだこの機械と繋がっているか。
     ///
     /// **切れたまま送り続けない。**切れていれば、繋ぎ直す側が判断できる。
@@ -1350,6 +1382,12 @@ pub fn 届き方を言う(id: u64, 届き方: &届き方) -> String {
 fn 届き方の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Status { .. } | FromDesk::Denied { .. })
 }
+fn 顔の返事(中身: &FromDesk) -> bool {
+    matches!(
+        中身,
+        FromDesk::顔の途中 { .. } | FromDesk::Wrote { .. } | FromDesk::Denied { .. }
+    )
+}
 fn 名乗りの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Wrote { .. } | FromDesk::Denied { .. })
 }
@@ -1539,6 +1577,8 @@ fn 仕分ける(
             | FromDesk::Nobody
             | FromDesk::Denied { .. }
             | FromDesk::Wrote { .. }
+            // **顔の欠片の途中の返りも返事である**（0.1.53）。無いと次の欠片を送れない
+            | FromDesk::顔の途中 { .. }
             | FromDesk::Status { .. }
             | FromDesk::様子 { .. }
             | FromDesk::Asked { .. }
@@ -1930,7 +1970,9 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             // **居場所も会話の行ではない**（0.1.43・同時編集）。口は聞かないので、本来は来ない
             | FromDesk::居場所 { .. }
             // **画像そのものも会話の行ではない**（0.1.43・`chat_image` の返り）
-            | FromDesk::画像 { .. } => String::new(),
+            | FromDesk::画像 { .. }
+            // **顔の欠片の途中の返りも会話の行ではない**（0.1.53）
+            | FromDesk::顔の途中 { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),

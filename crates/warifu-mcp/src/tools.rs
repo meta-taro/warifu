@@ -226,6 +226,69 @@ pub struct ProfileArgs {
     pub bio: String,
 }
 
+/// [`crate::Warifu::avatar_set`] の引数（0.1.53）。
+///
+/// **「誰の」を書く場所が無いのは意図**（[`ProfileArgs`] と同じ）。置けるのは、この口で名乗った席の顔だけ。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct AvatarArgs {
+    /// この PC にある画像のパス（PNG・JPEG・WebP・512px 角・64 KiB まで）。
+    /// 相対パスは、この口を立ち上げた場所から読む。**空にすると既定の顔へ戻す。**
+    pub path: String,
+}
+
+/// **顔にする画像を読む**（0.1.53・[`crate::Warifu::avatar_set`]）。空のパスは空の中身（既定へ戻す）。
+///
+/// 読む前に大きさを見る —— 写真をまるごと読んでから断らない。形（PNG・JPEG・WebP）と縦横は、
+/// 置く前に机がもう一度検める（ここは人に早く返すための下見）。
+///
+/// # Errors
+/// 読めない・ファイルでない・空・大きすぎる・画像の頭でないとき（[`ToolError::BadArgs`]）。
+pub fn 顔の画像を読む(path: &str) -> Result<Vec<u8>, ToolError> {
+    let 上限 = warifu_desk::顔の上限;
+    let path = path.trim();
+    if path.is_empty() {
+        return Ok(Vec::new());
+    }
+    let 様子 = std::fs::metadata(path)
+        .map_err(|e| ToolError::BadArgs(format!("画像を読めませんでした（{path}: {e}）")))?;
+    if !様子.is_file() {
+        return Err(ToolError::BadArgs(format!(
+            "ファイルではありません（{path}）"
+        )));
+    }
+    let 大きさ = usize::try_from(様子.len()).unwrap_or(usize::MAX);
+    if 大きさ > 上限 {
+        return Err(ToolError::BadArgs(format!(
+            "画像が大きすぎます（{大きさ} バイト / 上限 {上限}）。\
+             512px 角・64 KiB 以下に縮めてから置いてください（PNG・JPEG・WebP）"
+        )));
+    }
+    let 中身 = std::fs::read(path)
+        .map_err(|e| ToolError::BadArgs(format!("画像を読めませんでした（{path}: {e}）")))?;
+    if 中身.is_empty() {
+        return Err(ToolError::BadArgs(format!("空のファイルです（{path}）")));
+    }
+    if 中身.len() > 上限 {
+        return Err(ToolError::BadArgs(format!(
+            "画像が大きすぎます（{} バイト / 上限 {上限}）",
+            中身.len()
+        )));
+    }
+    if !画像の頭か(&中身) {
+        return Err(ToolError::BadArgs(
+            "PNG でも JPEG でも WebP でもありません（中身の頭で見ています）".to_owned(),
+        ));
+    }
+    Ok(中身)
+}
+
+/// 頭のバイトが PNG・JPEG・WebP か。**拡張子は見ない。**
+fn 画像の頭か(中身: &[u8]) -> bool {
+    中身.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a])
+        || 中身.starts_with(&[0xFF, 0xD8, 0xFF])
+        || (中身.len() >= 12 && &中身[..4] == b"RIFF" && &中身[8..12] == b"WEBP")
+}
+
 /// [`crate::Warifu::chat_image`] の引数（0.1.43）。
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub struct ImageArgs {

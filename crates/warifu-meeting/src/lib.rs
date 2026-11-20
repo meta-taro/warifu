@@ -59,7 +59,7 @@ mod signal;
 
 pub use error::Error;
 pub use notice::{
-    IMAGE_MAX, KEY_MAX, Notice, PRESENCE_MAX, ROOM_NAME_MAX, エージェントの扱い, 受け方,
+    FACE_MAX, IMAGE_MAX, KEY_MAX, Notice, PRESENCE_MAX, ROOM_NAME_MAX, エージェントの扱い, 受け方,
 };
 // **`Notice::Link` が `Report` を持っているので、ここから辿れないといけない。**
 // 2026-09-17 まで再公開しておらず、**公開の enum に入っているのに

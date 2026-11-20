@@ -58,8 +58,9 @@ pub use server::{
     Warifu, subject, メールの口, メールの控え, 受信箱を汲む手, 建てた版
 };
 pub use tools::{
-    AskArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs, InviteArgs,
-    JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, MailSendArgs, OpenArgs,
-    ProfileArgs, RoomCreateArgs, RoomKickArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs, ScreenArgs,
-    SlotsArgs, StatusArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
+    AskArgs, AvatarArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs,
+    InviteArgs, JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, MailSendArgs,
+    OpenArgs, ProfileArgs, RoomCreateArgs, RoomKickArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs,
+    ScreenArgs, SlotsArgs, StatusArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
+    顔の画像を読む,
 };
