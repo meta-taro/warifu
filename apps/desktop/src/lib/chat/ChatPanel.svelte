@@ -22,6 +22,7 @@
   import { 画像を拾う } from './image';
   import { 時刻の札 } from './history';
   import Markdown from './Markdown.svelte';
+  import { 上限で止めたか, 欄の高さ } from './grow';
   import { 部屋を替える, type 下書きの控え as 下書きの控えの型 } from './draft';
   import { 吹き出しの形, 機械に色を振る, 機械の頭, 畳むか, 図を含むか } from './bubble';
   import Reach from './Reach.svelte';
@@ -264,6 +265,17 @@
     if (!宛先) return t('chat.title');
     const 文 = t(宛先.鍵 as MessageKey);
     return 宛先.値 ? format(文, 宛先.値) : 文;
+  });
+
+  // **書く欄を中身に合わせて伸ばす**（`./grow`）。部屋を替えて下書きが入れ替わったときも合わせ直す
+  $effect(() => {
+    void 下書き;
+    const 欄 = 打つ欄;
+    if (!欄) return;
+    欄.style.height = 'auto';
+    const 中身 = 欄.scrollHeight;
+    欄.style.height = `${欄の高さ(中身, window.innerHeight)}px`;
+    欄.style.overflowY = 上限で止めたか(中身, window.innerHeight) ? 'auto' : 'hidden';
   });
 
   // **下書きの有無を呼ぶ側へ伝える**（宛先を据え置くのに要る・`lib/chat/keep.ts`）
@@ -878,9 +890,10 @@
     object-fit: contain;
   }
   /* **送るより目立たせない。**主役は文字の欄と「送る」 */
+  /* 高さは 1 行の欄と「送る」に合わせる（欄が伸びても一緒に伸ばさない） */
   .attach {
     flex: none;
-    align-self: stretch;
+    height: 38px;
     padding: 0 var(--space-2);
     border: 1px solid var(--border);
     background: transparent;
@@ -1431,16 +1444,17 @@
     color: var(--text-secondary);
     font-weight: 600;
   }
+  /* 欄が伸びても、ボタンは下にそろえる（伸ばさない） */
   .say {
     display: flex;
+    align-items: flex-end;
     gap: var(--space-2);
   }
-  /* **形は `forms.css`。**ここは幅と伸び方だけ（打ち込みは伸ばさない） */
+  /* **形は `forms.css`。**ここは幅だけ。高さは中身に合わせて `./grow` が決める */
   .say textarea {
     flex: 1;
     min-width: 0;
     min-height: 34px;
-    max-height: 120px;
     resize: none;
   }
   button {
