@@ -84,6 +84,21 @@ impl 張り直し帳 {
         self.棚.remove(鍵);
     }
 
+    /// **その部屋に戻ってきた**（11-20）。その部屋だけを控えから外し、部屋が残っていなければ控えごと消す。
+    ///
+    /// 0.1.52 までは、どの部屋に入り直しても控えごと消していた。自分が主催の部屋へ相手が戻ると、
+    /// **ゲストどうしで居た別の部屋の張り直しまで消え**、その部屋の名簿から相手が抜けたままになった
+    /// （相手の発言だけが届き「名簿に居ない相手から」と出続けた・11-20）。
+    pub fn 部屋で戻った(&mut self, 鍵: &str, 部屋: MeetingId) {
+        let Some(c) = self.棚.get_mut(鍵) else {
+            return;
+        };
+        c.部屋たち.retain(|r| *r != 部屋);
+        if c.部屋たち.is_empty() {
+            self.棚.remove(鍵);
+        }
+    }
+
     /// 本人が抜けた。**一員でなくなったので、呼ばない。**
     pub fn 抜けた(&mut self, 鍵: &str) {
         self.棚.remove(鍵);
@@ -170,6 +185,11 @@ pub fn 戻った(鍵: &str) {
     帳を使う(|帳| 帳.戻った(鍵));
 }
 
+/// その部屋に戻ってきた（ほかの部屋の張り直しは残す）。
+pub fn 部屋で戻った(鍵: &str, 部屋: MeetingId) {
+    帳を使う(|帳| 帳.部屋で戻った(鍵, 部屋));
+}
+
 /// 本人が抜けた。
 pub fn 抜けた(鍵: &str) {
     帳を使う(|帳| 帳.抜けた(鍵));
@@ -208,21 +228,26 @@ async fn 一人呼ぶ(app: &AppHandle, 鍵: &str, 部屋たち: &[MeetingId]) {
         抜けた(鍵);
         return;
     };
-    // **もう繋がっている**（相手が叩いてきた・揺れが戻った）
-    if bridge.outbound.lock().await.contains_key(&相手.to_bytes()) {
-        記録!("張り直し: {} はもう繋がっています", crate::短く(鍵));
-        戻った(鍵);
-        return;
-    }
     let 自分 = bridge.device.public_key();
+    let 繋がっている = bridge.outbound.lock().await.contains_key(&相手.to_bytes());
     let 呼ぶ部屋 = {
         let 棚 = bridge.conferences.lock().await;
         let 主催たち = bridge.主催たち.lock().await;
         部屋たち
             .iter()
-            .find(|部屋| 呼び直すか(棚.contains_key(部屋), 主催たち.get(部屋), &自分, &相手))
+            .find(|部屋| {
+                呼び直すか(棚.contains_key(部屋), 主催たち.get(部屋), &自分, &相手)
+                    // **線が繋がっていても、その部屋の名簿に居なければ呼ぶ**（11-20）。
+                    // 別の部屋の線で戻ってきただけで、この部屋には戻っていない
+                    && !(繋がっている && 名簿に居るか(&棚, 部屋, &相手))
+            })
             .copied()
     };
+    if 呼ぶ部屋.is_none() && 繋がっている {
+        記録!("張り直し: {} はもう繋がっています", crate::短く(鍵));
+        戻った(鍵);
+        return;
+    }
     let Some(部屋) = 呼ぶ部屋 else {
         // 主催どうしの線か、部屋がもう無い。**こちらからは呼ばない**
         抜けた(鍵);
@@ -253,6 +278,14 @@ async fn 一人呼ぶ(app: &AppHandle, 鍵: &str, 部屋たち: &[MeetingId]) {
             帳を使う(|帳| 帳.しくじった(鍵, Instant::now()));
         }
     }
+}
+
+fn 名簿に居るか(
+    棚: &HashMap<MeetingId, warifu_app::Conference>,
+    部屋: &MeetingId,
+    相手: &PublicKey,
+) -> bool {
+    棚.get(部屋).is_some_and(|c| c.members().contains(相手))
 }
 
 #[cfg(test)]
@@ -321,6 +354,23 @@ mod 試験 {
         帳.抜けた("C");
         assert!(帳.叩く頃(t0 + Duration::from_secs(600)).is_empty());
         assert!(帳.切れたまま().is_empty());
+    }
+
+    #[test]
+    fn 一つの部屋に戻っても_ほかの部屋の張り直しは残す() {
+        let mut 帳 = 張り直し帳::default();
+        let t0 = Instant::now();
+        帳.切れた("B", &[部屋(1), 部屋(2)], t0, true);
+        帳.部屋で戻った("B", 部屋(1));
+        assert_eq!(
+            帳.叩く頃(t0 + Duration::from_secs(先に叩く秒)),
+            vec![("B".to_owned(), vec![部屋(2)])]
+        );
+        帳.部屋で戻った("B", 部屋(2));
+        assert!(
+            帳.切れたまま().is_empty(),
+            "全部の部屋に戻ったら控えごと消す"
+        );
     }
 
     #[test]

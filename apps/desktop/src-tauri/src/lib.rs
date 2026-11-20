@@ -4859,7 +4859,8 @@ fn emit_events(app: &AppHandle, 部屋: MeetingId, events: &[warifu_app::Event])
                 // 押し出さないと、**誰も気づかないまま相手だけが待つ**
                 let 鍵 = key_to_string(*key);
                 absence::戻った(&鍵);
-                redial::戻った(&鍵);
+                // **戻ったのはこの部屋だけ**（11-20）。ほかの部屋の張り直しは残す
+                redial::部屋で戻った(&鍵, 部屋id);
                 let 名 = desk::入退室を配る(&app.state::<Bridge>(), &鍵, true);
                 let 名 = if 名 == 鍵 { 短く(&鍵) } else { 名 };
                 notify::入ったと知らせる(app, &名);
