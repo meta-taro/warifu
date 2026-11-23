@@ -684,6 +684,59 @@ impl Chat {
         }
     }
 
+    /// **札を道具の許可で出してもらう**（0.1.55・`pass_take`）。
+    ///
+    /// # Errors
+    /// 画面の前に居ないときの承認が入っていない・古い画面・この機械が返さないとき。
+    pub async fn 札を取る(
+        &self,
+        動作: &str,
+        取り消すまで: bool,
+    ) -> Result<String, crate::ToolError> {
+        let 行 = ToDesk::札を取る {
+            動作: 動作.to_owned(),
+            取り消すまで,
+        };
+        match self.頼んで待つ(行, 札の答え, 返事を待つ秒).await? {
+            FromDesk::Asked { 動作, 答え } => Ok(答えの言い方(&動作, &答え)),
+            FromDesk::Denied { why } => {
+                Err(crate::ToolError::Unavailable(古い画面なら言い直す(why)))
+            }
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
+    /// **新しい版を落として入れ替えてもらう**（0.1.55・`update_install`）。
+    ///
+    /// # Errors
+    /// 画面の前に居ないときの承認が入っていない・古い画面・この機械が返さないとき。
+    pub async fn 入れ替える(&self) -> Result<String, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::入れ替える, 入れ替えの返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::入れ替え {
+                いまの版,
+                新しい版,
+                始めた,
+                訳,
+            } => Ok(入れ替えの言い方(
+                &いまの版,
+                新しい版.as_deref(),
+                始めた,
+                訳.as_deref(),
+            )),
+            FromDesk::Denied { why } => {
+                Err(crate::ToolError::Unavailable(古い画面なら言い直す(why)))
+            }
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **切れたままのルームの相手を並べる**（0.1.49）。`今すぐ` なら、いますぐ張り直してもらう。
     ///
     /// 古い画面はこの行を知らない。`room_status` は古い画面でも止めないよう、`None` を返す。
@@ -1408,6 +1461,37 @@ fn 部屋たちの返事(中身: &FromDesk) -> bool {
 fn 更新の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::更新 { .. } | FromDesk::Denied { .. })
 }
+fn 入れ替えの返事(中身: &FromDesk) -> bool {
+    matches!(中身, FromDesk::入れ替え { .. } | FromDesk::Denied { .. })
+}
+
+/// **古い画面は新しい行を「行の形」で断る。**版の話だと分かる言い方にする（0.1.55 の口）。
+fn 古い画面なら言い直す(why: String) -> String {
+    if why.contains("行の形") {
+        "この画面の版には、この口がありません（0.1.55 から）。人に画面を入れ替えてもらってください"
+            .to_owned()
+    } else {
+        why
+    }
+}
+
+/// 入れ替えの返りを読む 1 行（0.1.55）。
+fn 入れ替えの言い方(
+    いまの版: &str,
+    新しい版: Option<&str>,
+    始めた: bool,
+    訳: Option<&str>,
+) -> String {
+    match (始めた, 新しい版, 訳) {
+        (true, Some(版), _) => format!(
+            "{いまの版} → {版} を落として入れ替えています。済むと割符が立て直り、この口は一度切れます。\
+             少し置いてから呼び直し、about で版を確かめてください。"
+        ),
+        (_, _, Some(訳)) => format!("入れ替えませんでした（いまの版 {いまの版}）：{訳}"),
+        _ => format!("入れ替えませんでした（いまの版 {いまの版}）"),
+    }
+}
+
 fn 張り直すの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::切れたまま { .. } | FromDesk::Denied { .. })
 }
@@ -1618,6 +1702,7 @@ fn 仕分ける(
             | FromDesk::名付けた { .. }
             // **更新の様子も返事である**（0.1.41）
             | FromDesk::更新 { .. }
+            | FromDesk::入れ替え { .. }
             // **画像そのものも返事である**（0.1.43）。煙の試験が「返事をしません」で見つけた（同じ穴）
             | FromDesk::画像 { .. }
     );
@@ -1978,6 +2063,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::名付けた { .. }
             // **更新の様子も会話の行ではない**（0.1.41）
             | FromDesk::更新 { .. }
+            | FromDesk::入れ替え { .. }
             // **居場所も会話の行ではない**（0.1.43・同時編集）。口は聞かないので、本来は来ない
             | FromDesk::居場所 { .. }
             // **画像そのものも会話の行ではない**（0.1.43・`chat_image` の返り）

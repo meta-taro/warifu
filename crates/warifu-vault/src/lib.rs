@@ -155,6 +155,8 @@ pub const ROOM_NAMES_MAX: usize = 64;
 const ROOM_RULES_HEADER: &str = "warifu-room-rules-v1";
 /// 端末の許可で送るメールの口の見出し（0.1.53）。
 const MAIL_TERMINAL_SEND_HEADER: &str = "warifu-mail-terminal-send-v1";
+/// 画面の前に居ないとき、道具の許可で通すかの見出し（0.1.55）。
+const TERMINAL_APPROVAL_HEADER: &str = "warifu-terminal-approval-v1";
 /// **帰り道を持つ上限。**鍵は秘密なので、際限なく溜めない（古いものから落とす）。
 ///
 /// 1 つの機械が入るルームの数としては十分に大きい。
@@ -829,6 +831,57 @@ impl Vault {
             &self.mail_terminal_send_path(),
             &out,
             "端末の許可で送る口を書く",
+        )
+    }
+
+    /// 画面の前に居ないとき、道具の許可で通すかのファイル（0.1.55）。
+    #[must_use]
+    pub fn terminal_approval_path(&self) -> PathBuf {
+        self.dir.join("terminal-approval.tsv")
+    }
+
+    /// **画面の前に居ないとき、エージェントの道具（Claude Code）の許可で通すか**（0.1.55）。
+    ///
+    /// 人が画面で入れたときだけ真。入れた機械では、札を出す・メールを送る・入れ替える を、
+    /// 画面の帯を待たずに行う。人は道具が許可を求めるときに出す中身を見て許す（リモートでも）。
+    /// **読めないときは偽に倒す**のは呼ぶ側の役目（ここは誤りを返す）。
+    ///
+    /// # Errors
+    /// 見出しが違うとき [`Error::Malformed`]、読めないとき [`Error::Io`]。
+    pub fn terminal_approval(&self) -> Result<bool, Error> {
+        let path = self.terminal_approval_path();
+        if !path.exists() {
+            return Ok(false);
+        }
+        let text =
+            fs::read_to_string(&path).map_err(Error::io(&path, "道具の許可で通すかを読む"))?;
+        let mut lines = text.lines();
+        let header = lines.next().unwrap_or_default().trim();
+        if header != TERMINAL_APPROVAL_HEADER {
+            return Err(Error::malformed(
+                &path,
+                format!("見出しが違います（{TERMINAL_APPROVAL_HEADER} を待っていました）"),
+            ));
+        }
+        Ok(lines.any(|行| 行.trim() == "on"))
+    }
+
+    /// 道具の許可で通すかを書く。**切るならファイルを消す。**
+    ///
+    /// # Errors
+    /// 書けない・消せないとき。
+    pub fn save_terminal_approval(&self, 入れる: bool) -> Result<(), Error> {
+        let path = self.terminal_approval_path();
+        if !入れる {
+            if path.exists() {
+                fs::remove_file(&path).map_err(Error::io(&path, "道具の許可で通すのをやめる"))?;
+            }
+            return Ok(());
+        }
+        self.write_private(
+            &path,
+            &format!("{TERMINAL_APPROVAL_HEADER}\non\n"),
+            "道具の許可で通すかを書く",
         )
     }
 
@@ -2373,6 +2426,17 @@ mod 札の期限の試験 {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("作れる");
         Vault::at(dir)
+    }
+
+    #[test]
+    fn 道具の許可で通すかは_入れて切れる_無ければ偽() {
+        let v = 仮の置き場();
+        assert!(!v.terminal_approval().expect("無くても読める"));
+        v.save_terminal_approval(true).expect("書ける");
+        assert!(v.terminal_approval().expect("読める"));
+        v.save_terminal_approval(false).expect("消せる");
+        assert!(!v.terminal_approval().expect("読める"));
+        v.save_terminal_approval(false).expect("無くても消せる");
     }
 
     #[test]

@@ -61,6 +61,6 @@ pub use tools::{
     AskArgs, AvatarArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs,
     InviteArgs, JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, MailSendArgs,
     OpenArgs, ProfileArgs, RoomCreateArgs, RoomKickArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs,
-    ScreenArgs, SlotsArgs, StatusArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
+    ScreenArgs, SlotsArgs, StatusArgs, TakePassArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
     顔の画像を読む,
 };

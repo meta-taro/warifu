@@ -502,6 +502,8 @@ export type MessageKey =
   | 'mail.terminal.hint'
   | 'mail.readStanding.label'
   | 'mail.readStanding.hint'
+  | 'away.approve.label'
+  | 'away.approve.hint'
   | 'pass.allow.untilRevoked'
   | 'pass.allowed.untilRevoked'
   | 'chat.personAt'
@@ -658,6 +660,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': '閉じる',
     'mail.readStanding.label': 'エージェントにメールを読ませる（取り消すまで・要点と本文）',
     'mail.readStanding.hint': 'この PC のエージェントは、届いたメールの要点と本文を、毎回聞かずに読めます。送るのは今までどおりあなたが確かめます。外すと、また読むたびに聞きます。',
+    'away.approve.label': 'この PC の前にいないときは、エージェントの道具の許可で通す（札・メールの送信・割符の入れ替え）',
+    'away.approve.hint': 'エージェントの道具（Claude Code など）が許可を求めるときに出す中身を、あなたの承認として扱います。リモートでもその確認で中身を見て許してください。道具の側で割符の口を「いつも許す」にしないでください（すると承認が無くなります）。',
     'pass.allow.untilRevoked': '取り消すまで聞かない',
     'pass.allowed.untilRevoked': '通しました。{who} は{what}を、取り消すまで聞かれずに使えます（［メール］か下の一覧で取り消せます）。',
     'mail.terminal.label': '端末の許可で送る（画面の［送る］を待たない）',
@@ -1229,6 +1233,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': 'Close',
     'mail.readStanding.label': 'Let agents read mail (until revoked; key fields and body)',
     'mail.readStanding.hint': 'Agents on this PC can read the key fields and body of incoming mail without asking each time. You still confirm anything they send. Turn this off to be asked again.',
+    'away.approve.label': 'When I\'m away from this PC, approve through the agent\'s tool (permissions, sending mail, updating warifu)',
+    'away.approve.hint': 'The permission prompt the agent\'s tool (such as Claude Code) shows is treated as your approval. Read what it asks before allowing it, remotely too. Do not set warifu\'s tools to \"always allow\" in that tool, or there is no approval left.',
     'pass.allow.untilRevoked': 'Don\'t ask until revoked',
     'pass.allowed.untilRevoked': 'Allowed. {who} can use {what} without asking until you revoke it (in Mail or the list below).',
     'mail.terminal.label': 'Send on terminal approval (do not wait for Send on this screen)',
@@ -1800,6 +1806,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': '关闭',
     'mail.readStanding.label': '让代理读取邮件（直到撤销・要点和正文）',
     'mail.readStanding.hint': '这台电脑上的代理可以不经每次询问读取来信的要点和正文。发送仍由你确认。关闭后会再次每次询问。',
+    'away.approve.label': '不在这台电脑前时，通过代理工具的许可放行（许可・发送邮件・更新割符）',
+    'away.approve.hint': '代理工具（如 Claude Code）请求许可时显示的内容将视为你的批准。远程时也请看清内容再允许。不要在该工具中把割符的接口设为“始终允许”（否则就没有批准了）。',
     'pass.allow.untilRevoked': '撤销前不再询问',
     'pass.allowed.untilRevoked': '已允许。{who} 可以不经询问使用{what}，直到你撤销（在［邮件］或下方列表中撤销）。',
     'mail.terminal.label': '在终端批准后发送（不等待此画面的［发送］）',
@@ -2368,6 +2376,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': '닫기',
     'mail.readStanding.label': '에이전트가 메일을 읽게 하기 (취소할 때까지・요점과 본문)',
     'mail.readStanding.hint': '이 PC의 에이전트는 받은 메일의 요점과 본문을 매번 묻지 않고 읽을 수 있습니다. 보내는 것은 지금처럼 당신이 확인합니다. 끄면 다시 읽을 때마다 묻습니다.',
+    'away.approve.label': '이 PC 앞에 없을 때는 에이전트 도구의 허가로 통과 (허가・메일 보내기・와리후 교체)',
+    'away.approve.hint': '에이전트 도구(Claude Code 등)가 허가를 요청할 때 보여 주는 내용을 당신의 승인으로 취급합니다. 원격에서도 내용을 확인하고 허락하세요. 그 도구에서 와리후의 도구를 \"항상 허용\"으로 하지 마세요 (승인이 없어집니다).',
     'pass.allow.untilRevoked': '취소할 때까지 묻지 않음',
     'pass.allowed.untilRevoked': '허용했습니다. {who}는 취소할 때까지 묻지 않고 {what}을(를) 사용할 수 있습니다 ([메일] 또는 아래 목록에서 취소).',
     'mail.terminal.label': '터미널 허가로 보내기 (이 화면의 [보내기]를 기다리지 않음)',
@@ -3066,6 +3076,10 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     'メールの画面の切り替え。入れると、この PC のエージェントがメールの要点と本文を取り消すまで毎回聞かずに読める。送る許しではない。',
   'mail.readStanding.hint':
     '切り替えを入れたときの説明。読むだけで、送るのは人が確かめること。外せばまた聞くこと。',
+  'away.approve.label':
+    'メールの画面の切り替え（機械ごと）。入れると、人が画面の前に居ないとき、札・メールの送信・入れ替えを、エージェントの道具（Claude Code）の許可の確認で通す。',
+  'away.approve.hint':
+    '切り替えを入れたときの注意。道具の許可の確認が人の承認になること。道具の側で「いつも許す」にすると承認が無くなること。',
   'pass.allow.untilRevoked':
     'エージェントの許可の帯のボタン。人が取り消すまで、同じ動作を聞かずに通す。メールを読む札にだけ出る。',
   'pass.allowed.untilRevoked':

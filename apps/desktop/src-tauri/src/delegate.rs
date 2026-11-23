@@ -74,6 +74,41 @@ pub(crate) fn 札を通す一言(本文: &str) -> Option<(String, bool)> {
     Some((動作.to_owned(), 取り消すまで))
 }
 
+/// **任せる相手の人が、外から打つ一言**（0.1.55）。札のほかに、メールの［送る］と入れ替え。
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum 外からの一言 {
+    /// `メールを送る` / `メールを送る <番号>`。
+    メールを送る(Option<u64>),
+    /// `割符を入れ替える`。
+    入れ替える,
+}
+
+/// 1 行の決まった形だけを読む。ほかの字が混ざっていれば読まない（[`札を通す一言`] と同じ構え）。
+#[must_use]
+pub(crate) fn 外からの一言を読む(本文: &str) -> Option<外からの一言> {
+    let 行 = 本文.trim();
+    if 行.contains('\n') {
+        return None;
+    }
+    if 行 == "割符を入れ替える" {
+        return Some(外からの一言::入れ替える);
+    }
+    let 残り = 行.strip_prefix("メールを送る")?;
+    let mut 語 = 残り.split_whitespace();
+    let 番号 = match 語.next() {
+        None => None,
+        Some(n) => Some(n.parse::<u64>().ok()?),
+    };
+    if 語.next().is_some() || (番号.is_none() && !残り.trim().is_empty()) {
+        return None;
+    }
+    // 「メールを送る3」のように間が無いものは読まない
+    if 番号.is_some() && !残り.starts_with(char::is_whitespace) {
+        return None;
+    }
+    Some(外からの一言::メールを送る(番号))
+}
+
 /// 画面へ返す 1 件。
 #[derive(Debug, serde::Serialize)]
 pub(crate) struct 任せている相手 {
@@ -128,6 +163,28 @@ pub(crate) fn delegate_forget(key: String) -> Answer<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn 外からの一言は_送ると入れ替えの決まった形だけ() {
+        assert_eq!(
+            外からの一言を読む("メールを送る"),
+            Some(外からの一言::メールを送る(None))
+        );
+        assert_eq!(
+            外からの一言を読む(" メールを送る 3 "),
+            Some(外からの一言::メールを送る(Some(3)))
+        );
+        assert_eq!(
+            外からの一言を読む("割符を入れ替える"),
+            Some(外からの一言::入れ替える)
+        );
+        assert_eq!(外からの一言を読む("メールを送る3"), None);
+        assert_eq!(外からの一言を読む("メールを送る 三"), None);
+        assert_eq!(外からの一言を読む("メールを送る 3 4"), None);
+        assert_eq!(外からの一言を読む("メールを送るのは待って"), None);
+        assert_eq!(外からの一言を読む("割符を入れ替える？"), None);
+        assert_eq!(外からの一言を読む("メールを送る\nほか"), None);
+    }
 
     #[test]
     fn 札を通す一言は_1行の決まった形だけ() {

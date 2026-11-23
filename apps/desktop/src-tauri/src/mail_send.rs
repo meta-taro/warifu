@@ -155,7 +155,8 @@ pub async fn 頼む(
     };
     // **人が画面でこの口を「端末の許可で送る」にしていれば、［送る］を待たずに送る**（0.1.53）。
     // 人は、エージェントの道具が許可を求めるときに出す全文を見て許している（リモートでも送れるように）
-    if 端末の許可で送るか(&口.user) {
+    // 画面の前に居ないときの承認（0.1.55・`away`）を入れた機械は、全部の口で同じ扱いにする
+    if 端末の許可で送るか(&口.user) || crate::away::通すか() {
         記録!("メールを送る: 端末の許可で送ります（頼んだのは {頼んだ人}）");
         let 結果 = 送り出す(&頼).await;
         crate::desk::配る(
@@ -202,6 +203,45 @@ pub async fn answer_mail_send(app: AppHandle, 番号: u64, 送る: bool) -> Answ
     );
     結果を置く(番号, 結果);
     Ok(言い方)
+}
+
+/// **任せる相手の人が、外から［送る］を押す**（0.1.55・`delegate::外からの一言を読む`）。
+///
+/// 番号を指さなければ、待っている頼みが 1 通のときだけ送る。2 通以上なら番号を並べて返す（送らない）。
+/// 返りは人とエージェントが読む 1 行。
+pub async fn 外から送る(app: &AppHandle, 番号: Option<u64>) -> String {
+    let 待っている: Vec<(u64, String)> = 頼みの棚
+        .lock()
+        .expect("毒されていない")
+        .iter()
+        .map(|頼| (頼.番号, 頼.件名.clone()))
+        .collect();
+    let 選んだ = match 選ぶ(&待っている, 番号) {
+        Ok(n) => n,
+        Err(文) => return 文,
+    };
+    match answer_mail_send(app.clone(), 選んだ, true).await {
+        Ok(言い方) => format!("任せる相手の人の［送る］で、メール {選んだ} を送りました：{言い方}"),
+        Err(e) => format!("メール {選んだ} を送れませんでした：{}", e.message),
+    }
+}
+
+/// 待っている頼み（番号・件名）から、送る 1 通を選ぶ。選べなければ人が読む訳。
+fn 選ぶ(待っている: &[(u64, String)], 番号: Option<u64>) -> Result<u64, String> {
+    match (番号, 待っている) {
+        (_, []) => Err("送るのを待っているメールはありません".to_owned()),
+        (Some(n), _) if 待っている.iter().any(|(m, _)| *m == n) => Ok(n),
+        (Some(n), _) => Err(format!("メール {n} は待っていません")),
+        (None, [(n, _)]) => Ok(*n),
+        (None, 多い) => Err(format!(
+            "送るのを待っているメールが {} 通あります。番号を付けて打ってください：{}",
+            多い.len(),
+            多い.iter()
+                .map(|(n, 件名)| format!("「メールを送る {n}」（{件名}）"))
+                .collect::<Vec<_>>()
+                .join("、")
+        )),
+    }
 }
 
 fn 結果の言い方(結果: &メールの返り) -> String {
@@ -291,6 +331,20 @@ async fn 送り出す(頼: &頼み) -> メールの返り {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn 外から送る1通は_1通なら番号なしで_多ければ番号が要る() {
+        let 一通 = vec![(3, "Re: 削除".to_owned())];
+        assert_eq!(super::選ぶ(&一通, None), Ok(3));
+        assert_eq!(super::選ぶ(&一通, Some(3)), Ok(3));
+        assert!(super::選ぶ(&一通, Some(4)).is_err());
+        assert!(super::選ぶ(&[], None).is_err());
+        let 二通 = vec![(3, "a".to_owned()), (5, "b".to_owned())];
+        let 訳 = super::選ぶ(&二通, None).unwrap_err();
+        assert!(訳.contains("メールを送る 5"), "{訳}");
+        assert_eq!(super::選ぶ(&二通, Some(5)), Ok(5));
+    }
+
     use super::*;
 
     fn 口(user: &str, kind: MailKind) -> MailAccount {

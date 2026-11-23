@@ -94,6 +94,7 @@ macro_rules! 記録 {
 
 // 記録! を使うので、**この宣言はマクロの後ろに置く**（マクロは書いた順にしか見えない）
 mod absence;
+mod away;
 mod agent_cursor;
 mod ack;
 mod kick;
@@ -1918,24 +1919,78 @@ fn allow_until_revoked(動作: String) -> Answer<()> {
 }
 
 /// **任せる相手の人から届いた「札を通す」を、この機械の人の答えとして控える**（11-20）。
+fn 外から札を通す(app: &AppHandle, 誰: &str, 動作: &str, 取り消すまで: bool) {
+    let 出どころ = format!("任せる相手（{}）から", 短く(誰));
+    let _ = 札を控えて知らせる(app, &出どころ, 動作, 取り消すまで);
+}
+
+/// **任せる相手の人の一言（［送る］・入れ替え）を果たし、この機械のエージェントに 1 行で知らせる**（0.1.55）。
+fn 外からの一言を果たす(app: &AppHandle, 誰: &str, 一言: delegate::外からの一言) {
+    let app = app.clone();
+    let 誰 = format!("任せる相手（{}）", 短く(誰));
+    tauri::async_runtime::spawn(async move {
+        let 文 = match 一言 {
+            delegate::外からの一言::メールを送る(番号) => mail_send::外から送る(&app, 番号).await,
+            delegate::外からの一言::入れ替える => {
+                let 返り = away::入れ替える(&app, &誰).await;
+                format!("{誰}の一言で：{}", away::入れ替えの言い方(&返り))
+            }
+        };
+        記録!("{文}");
+        desk::配る(&app.state::<Bridge>(), desk::聞いた("割符", &文));
+    });
+}
+
+/// **人の承認として札を控え、この機械のエージェントと画面に知らせる**（11-20・0.1.55）。
 ///
 /// 取り消すまでにできるのは `取り消すまで出せる札` だけ。ほかは 24 時間。
-/// 通したことは、この機械のエージェントにも 1 行で知らせる（帯は消える）。
-fn 外から札を通す(app: &AppHandle, 誰: &str, 動作: &str, 取り消すまで: bool) {
+/// 動作の名として読めないものは控えない。返りは知らせた 1 行（書けなければ誤り）。
+fn 札を控えて知らせる(
+    app: &AppHandle, 出どころ: &str, 動作: &str, 取り消すまで: bool
+) -> Result<String, String> {
+    if warifu_capability::Action::new(動作).is_err() {
+        return Err(format!("{動作} は動作の名として読めません"));
+    }
     let 取り消すまで = 取り消すまで && 取り消すまで出せる札.contains(&動作);
     let 秒 = if 取り消すまで { key_give::取り消すまでの秒 } else { 持続の札の秒 };
-    let 文 = match desk::人が答えた(動作, true, Some(now_secs().saturating_add(秒))) {
-        Ok(()) => format!(
-            "任せる相手（{}）から、札 {動作} を通しました（{}）",
-            短く(誰),
-            if 取り消すまで { "取り消すまで" } else { "24 時間" }
-        ),
-        Err(e) => format!("任せる相手から札 {動作} を通そうとしましたが、控えに書けませんでした（{e}）"),
+    let 結果 = desk::人が答えた(動作, true, Some(now_secs().saturating_add(秒)))
+        .map(|()| {
+            format!(
+                "{出どころ}、札 {動作} を通しました（{}）",
+                if 取り消すまで { "取り消すまで" } else { "24 時間" }
+            )
+        })
+        .map_err(|e| format!("{出どころ}札 {動作} を通そうとしましたが、控えに書けませんでした（{e}）"));
+    let 文 = match &結果 {
+        Ok(文) | Err(文) => 文.clone(),
     };
     記録!("{文}");
     desk::配る(&app.state::<Bridge>(), desk::聞いた("割符", &文));
     // 画面の帯を出し直す（答えの出た頼みは消える）
     let _ = app.emit(EVENT_PASS, desk::待っている札());
+    結果
+}
+
+/// **道具の許可で札を出す**（0.1.55・`ToDesk::札を取る`）。人が画面で「画面の前に居ないときは、
+/// 道具の許可で通す」を入れた機械だけ。入れていなければ断る（帯は出さない）。
+pub(crate) fn 道具の許可で札を出す(
+    app: &AppHandle, 名乗り: &str, 動作: &str, 取り消すまで: bool
+) -> warifu_desk::FromDesk {
+    use warifu_desk::{FromDesk, 頼みの返り};
+    if !away::通すか() {
+        return FromDesk::Denied {
+            why: away::入れていない訳.to_owned(),
+        };
+    }
+    let 出どころ = format!("道具の許可で（頼んだのは {名乗り}）");
+    let 答え = match 札を控えて知らせる(app, &出どころ, 動作, 取り消すまで) {
+        Ok(_) => 頼みの返り::許した,
+        Err(訳) => 頼みの返り::受け付けない { 訳 },
+    };
+    FromDesk::Asked {
+        動作: 動作.to_owned(),
+        答え,
+    }
 }
 
 /// **人が前もって出している札**（動作と期限）。画面が並べ、取り消せる（0.1.41）。
@@ -2997,6 +3052,13 @@ fn 汲む(
                             && let Some((動作, 取り消すまで)) = delegate::札を通す一言(body)
                         {
                             外から札を通す(&app, &key_to_string(*from), &動作, 取り消すまで);
+                        }
+                        // **任せる相手の人が、外から［送る］と入れ替えを押す**（0.1.55）。同じく人が打った行だけ
+                        if 任された
+                            && 話し手.is_none()
+                            && let Some(一言) = delegate::外からの一言を読む(body)
+                        {
+                            外からの一言を果たす(&app, &key_to_string(*from), 一言);
                         }
                         // **エージェントへは、返信先をこの機械の番号で本文の頭に書く**（11-11）
                         let 渡す本文 = match 返信先 {
@@ -5193,6 +5255,8 @@ pub fn run() {
             mail_send::pending_mail_sends,
             mail_send::mail_terminal_sends,
             mail_send::set_mail_terminal_send,
+            away::terminal_approval,
+            away::set_terminal_approval,
             profile::profiles,
             profile::set_profile,
             profile::set_avatar,

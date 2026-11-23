@@ -283,6 +283,9 @@ export const pendingMailSends = () => invoke<メールの頼み[]>('pending_mail
 /** **人がメールの頼みに答えた。**送るなら、ここで初めて送る（D132）。 */
 export const answerMailSend = (番号: number, 送る: boolean) => invoke<string>('answer_mail_send', { 番号, 送る });
 /** **端末の許可で送るメールの口**（0.1.53）。載っている口は、画面の［送る］を待たずに送る。 */
+/** **画面の前に居ないとき、道具の許可で通すか**（0.1.55・機械ごと）。人だけが切り替える。 */
+export const terminalApproval = () => invoke<boolean>('terminal_approval');
+export const setTerminalApproval = (on: boolean) => invoke<void>('set_terminal_approval', { on });
 export const mailTerminalSends = () => invoke<string[]>('mail_terminal_sends');
 /** 人がその口を「端末の許可で送る」にするかを決めた。**エージェントのカーソルは押せない**（画面の印）。 */
 export const setMailTerminalSend = (address: string, on: boolean) =>

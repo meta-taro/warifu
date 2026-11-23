@@ -57,6 +57,16 @@ pub struct AskArgs {
     pub why: String,
 }
 
+/// [`crate::Warifu::pass_take`] の引数（0.1.55）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct TakePassArgs {
+    /// 何をしたいか（`inbox.open.raw` など）。
+    pub action: String,
+    /// 取り消すまで効かせるか（メールの要点・本文とルームの自動入室だけ。ほかは 24 時間）。省くと 24 時間。
+    #[serde(default)]
+    pub until_revoked: Option<bool>,
+}
+
 /// [`crate::Warifu::pass_wait`] の引数（2026-09-24）。
 ///
 /// **引数名は ASCII だけ**（この上の `AskArgs` で踏んだ）。
@@ -371,9 +381,10 @@ fn 取り消すまでの案内(動作: &str) -> &'static str {
         "人が画面の前に居ないと、帯は押されません。毎回聞かずに読ませるには、人が画面の［メール］で\
          「エージェントにメールを読ませる（取り消すまで）」を入れるか、帯の［取り消すまで聞かない］を押します。\
          画面に触れないときは、人が端末で `warifu pass allow inbox.open.raw --until-revoked` を打ちます（人が y を打ったときだけ通ります）。\
-         人が外に居るなら、その人の別の機械（この PC の「任せる相手」）から、人が `札を通す inbox.open.raw 取り消すまで` と打てば通ります（0.1.54 から）。"
+         人が外に居るなら、その人の別の機械（この PC の「任せる相手」）から、人が `札を通す inbox.open.raw 取り消すまで` と打てば通ります（0.1.54 から）。\
+         人が画面で「画面の前に居ないときは、エージェントの道具の許可で通す」を入れた機械なら、`pass_take` で出せます（0.1.55 から）。"
     } else {
-        ""
+        "人が画面の前に居ないなら、人が画面で「画面の前に居ないときは、エージェントの道具の許可で通す」を入れた機械でだけ、`pass_take` で出せます（0.1.55 から）。"
     }
 }
 

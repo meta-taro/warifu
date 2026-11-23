@@ -165,6 +165,17 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     何が変わったか: Some("試験の直し".to_owned()),
                     確かめられない: None,
                 }),
+                // 0.1.55：画面の前に居ない人の承認の口
+                ToDesk::札を取る { 動作, .. } => Some(FromDesk::Asked {
+                    動作,
+                    答え: warifu_desk::頼みの返り::許した,
+                }),
+                ToDesk::入れ替える => Some(FromDesk::入れ替え {
+                    いまの版: "0.1.55".to_owned(),
+                    新しい版: Some("0.1.56".to_owned()),
+                    始めた: true,
+                    訳: None,
+                }),
                 ToDesk::相手に名前を付ける { 名前, .. } => {
                     Some(FromDesk::名付けた {
                         鍵: "PEERAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
@@ -525,6 +536,24 @@ async fn 口を全部_1回ずつ呼ぶ() {
     assert!(
         更新の文.contains("新しい版: 0.1.42") && 更新の文.contains("入れ替えは人が押します"),
         "update_check が偽の机の返りをそのまま言い直していない: {更新の文}"
+    );
+    // 0.1.55：画面の前に居ない人の承認の口（返りの中身まで見る）
+    let 取った = 口
+        .pass_take(Parameters(warifu_mcp::TakePassArgs {
+            action: "inbox.open.raw".to_owned(),
+            until_revoked: Some(true),
+        }))
+        .await;
+    結果.push(("pass_take", format!("{取った:?}")));
+    assert!(
+        取った.as_deref().unwrap_or("").contains("許されました"),
+        "pass_take が許したを言っていない: {取った:?}"
+    );
+    let 入れ替え = 口.update_install().await;
+    結果.push(("update_install", format!("{入れ替え:?}")));
+    assert!(
+        入れ替え.as_deref().unwrap_or("").contains("0.1.56"),
+        "update_install が入れる版を言っていない: {入れ替え:?}"
     );
     結果.push((
         "room_create",

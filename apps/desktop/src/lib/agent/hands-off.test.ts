@@ -27,6 +27,14 @@ describe('人が押すものには、押させない印がある', () => {
     expect(メール).toMatch(/class="terminal-send"[^>]*data-agent-hands-off/);
   });
 
+  it('メールを読ませる（11-20）と、画面の前に居ないときの承認（0.1.55）', () => {
+    const メール = 読む('../mail/MailPane.svelte');
+    const 切り替え = メール.match(/<label class="read-standing"[^>]*>/g) ?? [];
+    expect(切り替え.length).toBe(2);
+    for (const 一つ of 切り替え) expect(一つ).toContain('data-agent-hands-off');
+    expect(メール).toMatch(/data-agent-hands-off[\s\S]{0,200}留守の承認を決める/);
+  });
+
   it('会話の［送る］と、秘密の確かめ', () => {
     expect(会話).toMatch(/onclick=\{\(\) => 出す\(\)\}[^>]*data-agent-hands-off/);
     expect(会話).toMatch(/class="secret-check"[^>]*data-agent-hands-off/);

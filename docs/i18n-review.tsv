@@ -35,6 +35,8 @@ agent.cursor.tag	Agent	エージェント	智能体	에이전트		エージェ�
 app.name	warifu	warifu	warifu	warifu				
 avatar.owner.agent	Agent	エージェント	智能体	에이전트		顔の右上に付ける小さな印に重ねたときの説明。人ではなく AI エージェントであることを言う。		
 avatar.owner.person	Person	人	人	사람		顔の右上に付ける小さな印に重ねたときの説明。AI エージェントではなく人であることを言う。		
+away.approve.hint	The permission prompt the agent's tool (such as Claude Code) shows is treated as your approval. Read what it asks before allowing it, remotely too. Do not set warifu's tools to "always allow" in that tool, or there is no approval left.	エージェントの道具（Claude Code など）が許可を求めるときに出す中身を、あなたの承認として扱います。リモートでもその確認で中身を見て許してください。道具の側で割符の口を「いつも許す」にしないでください（すると承認が無くなります）。	代理工具（如 Claude Code）请求许可时显示的内容将视为你的批准。远程时也请看清内容再允许。不要在该工具中把割符的接口设为“始终允许”（否则就没有批准了）。	에이전트 도구(Claude Code 등)가 허가를 요청할 때 보여 주는 내용을 당신의 승인으로 취급합니다. 원격에서도 내용을 확인하고 허락하세요. 그 도구에서 와리후의 도구를 "항상 허용"으로 하지 마세요 (승인이 없어집니다).		切り替えを入れたときの注意。道具の許可の確認が人の承認になること。道具の側で「いつも許す」にすると承認が無くなること。		
+away.approve.label	When I'm away from this PC, approve through the agent's tool (permissions, sending mail, updating warifu)	この PC の前にいないときは、エージェントの道具の許可で通す（札・メールの送信・割符の入れ替え）	不在这台电脑前时，通过代理工具的许可放行（许可・发送邮件・更新割符）	이 PC 앞에 없을 때는 에이전트 도구의 허가로 통과 (허가・메일 보내기・와리후 교체)		メールの画面の切り替え（機械ごと）。入れると、人が画面の前に居ないとき、札・メールの送信・入れ替えを、エージェントの道具（Claude Code）の許可の確認で通す。		
 browser.only	This is open in a browser. Rooms only work in the warifu window.	ブラウザで開いています。ルームは warifu の窓でだけ動きます。	你在浏览器里打开了。房间只在 warifu 的窗口里工作。	브라우저에서 열려 있습니다. 방은 warifu 창에서만 움직입니다.				
 call.camera	Camera	カメラ	摄像头	카메라				
 call.controls	Turn the call on and off. Separate from checking your gear — this stops what you are sending now.	通話の入切。支度の確認とは別で、いま送っているものを止めます。	通话的开关。与设备确认不同，这会停止你现在正在发送的内容。	통화 켜고 끄기. 기기 확인과는 다르며, 지금 보내고 있는 것을 멈춥니다.				
