@@ -152,7 +152,10 @@ fn 返信先の書き手の名(差出人: &str) -> Option<&str> {
 
 /// **人の発言の差出人か**（`名（鍵の頭…）`・11-20 `claimed`）。席の発言は `鍵の頭…（札）` で、括弧の中が鍵ではない。
 pub fn 人の行か(差出人: &str) -> bool {
-    let Some(位置) = 差出人.find('（') else {
+    // **最後の括弧を見る**（0.1.58）。人の名に括弧が入る（`MMJ（galleria）（鍵の頭…）`）と、
+    // 最初の括弧では鍵に当たらず、人の発言を席と読んで `@MMJ（galleria）（鍵…）` を本文の頭に足し、
+    // 「呼んだ相手が部屋に居ない」と断って返信できなかった
+    let Some(位置) = 差出人.rfind('（') else {
         return false;
     };
     if 位置 == 0 || !差出人.ends_with('）') {
@@ -186,6 +189,18 @@ mod tests {
             席の名札を分ける("ABCDEFGHJKMN…（docs）"),
             Some(("ABCDEFGHJKMN", "docs"))
         );
+    }
+
+    #[test]
+    fn 名に括弧の入った人の発言も人として扱い_返信で呼ばない() {
+        let 人 = "MMJ（galleria）（BCDTEYTS4GQ2…）";
+        assert!(人の行か(人));
+        assert_eq!(席の名札を分ける(人), None);
+        assert_eq!(返信先の書き手を呼ぶ("はい", 人, "割符（mac mini）"), "はい");
+        // 札に括弧の入った席は、今までどおり席
+        let 席 = "TLUTIE3HQGUD…（PdM（ドスパラ））";
+        assert!(!人の行か(席));
+        assert_eq!(席の名札を分ける(席), Some(("TLUTIE3HQGUD", "PdM（ドスパラ）")));
     }
 
     const ここ: &str = "NBIW3PA2TUQ52DTJNVXSQOL3G4";

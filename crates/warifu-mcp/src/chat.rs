@@ -51,6 +51,8 @@ pub struct Chat {
     /// 返事が声掛けの来た部屋へ戻らなかった —— `chat_send` が部屋を指さなければ、
     /// 画面が見ているルームではなく**ここ**へ流す（呼ばれた所へ返す）。
     最後に聞いた部屋: Arc<Mutex<Option<String>>>,
+    /// **最後にこの席を `@` で呼んだ発言の部屋**（0.1.58）。部屋を指さない `chat_send` の送り先の拠り所。
+    最後に呼ばれた部屋: Arc<Mutex<Option<String>>>,
     /// **机が部屋を付けてくれるか。**古い机は `部屋も聞く` の欄を断るので、そのときは偽に戻して
     /// 名乗り直す（部屋を指す行も送らない）。
     部屋を使える: Arc<std::sync::atomic::AtomicBool>,
@@ -63,7 +65,7 @@ pub struct Chat {
     ///
     /// **返事を溜めに混ぜない。**混ぜると、`chat_read` が
     /// 自分の送信結果を「誰かの発言」として読むことになる。
-    返事待ち: Arc<Mutex<Option<返事の待ち>>>,
+    返事待ち: 返事の棚,
     /// **いつこのエージェントにつながったか**（`HH:MM`・`issues/4` の 1 番）。
     ///
     /// **「届いていない」と「つながる前だった」を、エージェントから見分けられるようにする。**
@@ -232,12 +234,15 @@ impl Chat {
         let 使える写し = Arc::clone(&部屋を使える);
         let 最後に聞いた部屋: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
         let 部屋の写し = Arc::clone(&最後に聞いた部屋);
+        let 最後に呼ばれた部屋: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let 呼ばれた部屋の写し = Arc::clone(&最後に呼ばれた部屋);
+        let 名の写し = Arc::clone(&呼ばれる名);
         let mut 名乗り直し = 名乗りの下げ方(名乗り, どこから);
 
         let (送り, mut 受け) = mpsc::channel::<ToDesk>(送り待ちの数);
         let 聞いた = Arc::new(Mutex::new(VecDeque::new()));
         let 溜め先 = Arc::clone(&聞いた);
-        let 返事待ち: Arc<Mutex<Option<返事の待ち>>> = Arc::new(Mutex::new(None));
+        let 返事待ち: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
         let 返し先 = Arc::clone(&返事待ち);
         let 来た = Arc::new(Notify::new());
         let 起こす = Arc::clone(&来た);
@@ -270,7 +275,12 @@ impl Chat {
                                     continue;
                                 }
                                 // **どの部屋から来たかを覚える**（返事をそこへ返すため）
-                                if let Ok(FromDesk::Heard { room: Some(部屋), .. }) = FromDesk::読む(&行) {
+                                if let Ok(FromDesk::Heard { room: Some(部屋), body, .. }) = FromDesk::読む(&行) {
+                                    // **この席を呼んだ発言の部屋も覚える**（0.1.58・部屋を指さない返事の送り先）
+                                    let 名 = warifu_desk::呼べる名に広げる(&名の写し.lock().expect("毒されていない"));
+                                    if crate::push::宛てられたか(&body, &名) {
+                                        *呼ばれた部屋の写し.lock().expect("毒されていない") = Some(部屋.clone());
+                                    }
                                     *部屋の写し.lock().expect("毒されていない") = Some(部屋);
                                 }
                                 // **鈴が鳴る前に積む** —— 起きた側が見たときに在るように
@@ -301,6 +311,7 @@ impl Chat {
             知らせ待ち,
             呼ばれる名,
             最後に聞いた部屋,
+            最後に呼ばれた部屋,
             部屋を使える,
         })
     }
@@ -328,10 +339,12 @@ impl Chat {
         部屋: Option<&str>,
         返信先: Option<u64>,
     ) -> Result<流した, crate::ToolError> {
-        let 部屋 = self.流す部屋を選ぶ(部屋, 返信先).await?;
+        let (部屋, 選び方) = self.流す部屋を選ぶ(部屋, 返信先).await?;
         let 行 = ToDesk::say_reply(body, 部屋, 返信先)
             .map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
-        self.流して待つ(行).await
+        let mut 流した = self.流して待つ(行).await?;
+        流した.選び方 = 選び方;
+        Ok(流した)
     }
 
     /// **流す部屋を選ぶ**（`chat_send` と `chat_image_send` で同じ決まり）。`None` なら机に任せる。
@@ -342,9 +355,14 @@ impl Chat {
         &self,
         部屋: Option<&str>,
         返信先: Option<u64>,
-    ) -> Result<Option<String>, crate::ToolError> {
+    ) -> Result<(Option<String>, Option<String>), crate::ToolError> {
         let 最後 = self
             .最後に聞いた部屋
+            .lock()
+            .expect("毒されていない")
+            .clone();
+        let 呼ばれた = self
+            .最後に呼ばれた部屋
             .lock()
             .expect("毒されていない")
             .clone();
@@ -358,17 +376,16 @@ impl Chat {
         // 最後に届いた発言の部屋を覚えていないなら、机が「見ている部屋」へ流す（別の部屋へ黙って行かない）
         // **返信なら、部屋を指さなくても返信先の部屋へ流れる**（11-11・机が返信先の行の部屋を引く）
         let 部屋 = if 指した.is_none() && 返信先.is_some() {
-            None
+            (None, None)
         } else if 指した.is_none() && 使える && 最後.is_some() {
             match self.部屋たち().await {
-                Ok(並び) => {
-                    指さない送り先(&並び, 最後.as_deref()).map_err(crate::ToolError::BadArgs)?
-                }
+                Ok(並び) => 指さない送り先(&並び, 最後.as_deref(), 呼ばれた.as_deref())
+                    .map_err(crate::ToolError::BadArgs)?,
                 // 部屋を並べられない古い机には、今までどおり机に任せる
-                Err(_) => None,
+                Err(_) => (None, None),
             }
         } else {
-            流す部屋(指した, 最後.as_deref(), 使える)
+            (流す部屋(指した, 最後.as_deref(), 使える), None)
         };
         Ok(部屋)
     }
@@ -376,10 +393,14 @@ impl Chat {
     /// 言う行を送り、流した返りを待つ。
     async fn 流して待つ(&self, 行: ToDesk) -> Result<流した, crate::ToolError> {
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 言うの返事,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 言うの返事,
+                長い: false,
+            });
 
         self.送り
             .send(行)
@@ -405,6 +426,7 @@ impl Chat {
                 id,
                 届いた,
                 部屋: room,
+                選び方: None,
             }),
             // **画面には出ている。**同じエージェントの人は読んでいるので、そこまで言う。
             // 「届かなかった」だけだと、言い直しを促すことになる
@@ -450,10 +472,14 @@ impl Chat {
         // **書き手の側でも検める**（長さ・行や欄を壊すもの）
         let 行 = ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 札の答え,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 札の答え,
+                長い: false,
+            });
 
         self.送り
             .send(行)
@@ -511,10 +537,14 @@ impl Chat {
     /// **画面が持っている値をそのまま運ぶ。**ここで数え直さない。
     pub async fn 様子(&self) -> Result<FromDesk, crate::ToolError> {
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 様子の返事,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 様子の返事,
+                長い: false,
+            });
 
         self.送り
             .send(ToDesk::Status様子)
@@ -551,10 +581,14 @@ impl Chat {
         // **本数は出す前に検める**（机の側でも見るが、待たせる前に落とす）
         ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 招くの返事,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 招くの返事,
+                長い: false,
+            });
 
         self.送り
             .send(行)
@@ -999,6 +1033,32 @@ impl Chat {
         }
     }
 
+    /// **［送る］を待っているメールを並べる**（0.1.58・`mail_pending`）。
+    ///
+    /// # Errors
+    /// 画面が古い（0.1.57 まで）・閉じている・返事をしないとき。
+    pub async fn メールの待ち(
+        &self,
+    ) -> Result<Vec<warifu_desk::メールの待ちの行>, crate::ToolError> {
+        match self
+            .頼んで待つ(ToDesk::メールの待ち, メールの待ちの返事, 返事を待つ秒)
+            .await?
+        {
+            FromDesk::メールの待ち { 並び } => Ok(並び),
+            // **古い画面はこの行を知らない**（行の形の断り）。版の話だと分かる言い方にする
+            FromDesk::Denied { why } if why.contains("行の形") => Err(
+                crate::ToolError::Unavailable(
+                    "この版の割符は、待っているメールを並べられません（0.1.58 から）。画面の割符を上げてください"
+                        .to_owned(),
+                ),
+            ),
+            FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
+            他 => Err(crate::ToolError::Unavailable(format!(
+                "この機械が想定しない返事をしました: {他:?}"
+            ))),
+        }
+    }
+
     /// **届いた画像そのものを取る**（0.1.43）。返るのは種類と中身（base64）。
     ///
     /// # Errors
@@ -1025,8 +1085,14 @@ impl Chat {
     ) -> Result<FromDesk, crate::ToolError> {
         ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") =
-            Some(返事の待ち { 返す, 受ける });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける,
+                長い: false,
+            });
         self.送り
             .send(行)
             .await
@@ -1053,10 +1119,14 @@ impl Chat {
         // **書き手の側でも検める**（長さ・制御文字）。待たせる前に落とす
         let 行 = ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 声の返事,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 声の返事,
+                長い: false,
+            });
 
         self.送り
             .send(行)
@@ -1101,10 +1171,14 @@ impl Chat {
         };
         let 行 = ToDesk::読む(&行.書く()).map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 札の答え,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 札の答え,
+                長い: true,
+            });
 
         self.送り
             .send(行)
@@ -1142,10 +1216,14 @@ impl Chat {
     /// この機械が閉じているとき、返事が来ないとき。
     pub async fn 届き方(&self, id: u64) -> Result<届き方, crate::ToolError> {
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 届き方の返事,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 届き方の返事,
+                長い: false,
+            });
 
         self.送り
             .send(ToDesk::Status { id })
@@ -1187,10 +1265,14 @@ impl Chat {
             紹介: 紹介.to_owned(),
         };
         let (返す, 待つ) = oneshot::channel();
-        *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
-            返す,
-            受ける: 名乗りの返事,
-        });
+        self.返事待ち
+            .lock()
+            .expect("毒されていない")
+            .push_back(返事の待ち {
+                返す,
+                受ける: 名乗りの返事,
+                長い: false,
+            });
 
         self.送り
             .send(行)
@@ -1265,7 +1347,7 @@ impl Chat {
         部屋: Option<&str>,
         返信先: Option<u64>,
     ) -> Result<流した, crate::ToolError> {
-        let 部屋 = self.流す部屋を選ぶ(部屋, 返信先).await?;
+        let (部屋, 選び方) = self.流す部屋を選ぶ(部屋, 返信先).await?;
         for 行 in warifu_desk::画像を欠片にする(中身, 部屋, 返信先) {
             match self.頼んで待つ(行, 画像を流した返事, 返事を待つ秒).await? {
                 FromDesk::画像の途中 { .. } => {}
@@ -1280,6 +1362,7 @@ impl Chat {
                         id,
                         届いた,
                         部屋: room,
+                        選び方,
                     });
                 }
                 FromDesk::Nobody => {
@@ -1443,7 +1526,16 @@ fn 最後の番号(出た: &[FromDesk]) -> Option<u64> {
 pub(crate) struct 返事の待ち {
     pub(crate) 返す: oneshot::Sender<FromDesk>,
     pub(crate) 受ける: fn(&FromDesk) -> bool,
+    /// **机があとで返す待ち**（`pass_wait`・0.1.58）。机は人が答えるまで返さず、その間にほかの返事が先に来る。
+    /// 断り（`Denied`）は種類で見分けられないので、短い待ちが居ればそちらへ渡す
+    pub(crate) 長い: bool,
 }
+
+/// **返事を待っている呼びの並び**（0.1.58）。
+///
+/// 前は 1 つしか置けず、`pass_wait` で待っている間にほかの口を呼ぶと待ちが上書きされ、
+/// 待っていた側が「この機械が閉じました」で落ちていた。机は届いた順に返すので、古い順に渡す。
+type 返事の棚 = Arc<Mutex<VecDeque<返事の待ち>>>;
 
 fn 言うの返事(中身: &FromDesk) -> bool {
     matches!(
@@ -1465,6 +1557,12 @@ fn 招くの返事(中身: &FromDesk) -> bool {
 }
 fn 連絡先の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::連絡先たち { .. } | FromDesk::Denied { .. })
+}
+fn メールの待ちの返事(中身: &FromDesk) -> bool {
+    matches!(
+        中身,
+        FromDesk::メールの待ち { .. } | FromDesk::Denied { .. }
+    )
 }
 fn 書き出しの返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::書き出し { .. } | FromDesk::Denied { .. })
@@ -1703,21 +1801,27 @@ fn 声の返事(中身: &FromDesk) -> bool {
 /// 待っている呼びが**この種類を待っていれば**渡す。渡せたら `None`、渡せなければ中身を返す。
 ///
 /// **合わなければ、待ちは残す**（その呼びの返事はまだ来ていない）。
-fn 待っている呼びへ渡す(
-    返し先: &Arc<Mutex<Option<返事の待ち>>>,
-    中身: FromDesk,
-) -> Option<FromDesk> {
+fn 待っている呼びへ渡す(返し先: &返事の棚, 中身: FromDesk) -> Option<FromDesk> {
     let mut 棚 = 返し先.lock().expect("毒されていない");
-    match 棚.as_ref() {
-        Some(待ち) if (待ち.受ける)(&中身) => {
-            if let Some(待ち) = 棚.take() {
-                // 待っている人が居なくなっていても構わない。**捨てて先へ進む**
-                let _ = 待ち.返す.send(中身);
-            }
-            None
-        }
-        _ => Some(中身),
+    // **諦めた呼び（時間切れ）は先に捨てる。**遅れて来た返事を、居ない呼びへ渡さない
+    棚.retain(|待ち| !待ち.返す.is_closed());
+    let 断りか = matches!(中身, FromDesk::Denied { .. });
+    // 断りは種類で見分けられない。**あとで返す待ち（`pass_wait`）より、短い待ちへ先に渡す**
+    let 先 = if 断りか {
+        棚.iter()
+            .position(|待ち| !待ち.長い && (待ち.受ける)(&中身))
+            .or_else(|| 棚.iter().position(|待ち| (待ち.受ける)(&中身)))
+    } else {
+        棚.iter().position(|待ち| (待ち.受ける)(&中身))
+    };
+    let Some(先) = 先 else {
+        return Some(中身);
+    };
+    if let Some(待ち) = 棚.remove(先) {
+        // 待っている人が居なくなっていても構わない。**捨てて先へ進む**
+        let _ = 待ち.返す.send(中身);
     }
+    None
 }
 
 /// 来た 1 行を、**返事**と**発言**に仕分ける。
@@ -1726,7 +1830,7 @@ fn 待っている呼びへ渡す(
 /// 自分の送信結果を「誰かの発言」として読むことになる。
 fn 仕分ける(
     箱: &Arc<Mutex<VecDeque<FromDesk>>>,
-    返し先: &Arc<Mutex<Option<返事の待ち>>>,
+    返し先: &返事の棚,
     起こす: &Arc<Notify>,
     つながった: &Arc<Mutex<Option<String>>>,
     行: &str,
@@ -1792,6 +1896,7 @@ fn 仕分ける(
             | FromDesk::外した { .. }
             | FromDesk::切れたまま { .. }
             | FromDesk::書き出し { .. }
+            | FromDesk::メールの待ち { .. }
             // **手渡しの返りも返事である**（2026-10-20）。足し忘れると時間切れになる（同じ穴）
             | FromDesk::手渡し { .. }
             // **部屋の一覧・抜けた・付けたも返事である**（0.1.40）。同じ穴に落とさない
@@ -1843,6 +1948,8 @@ pub struct 流した {
     pub 届いた: Vec<String>,
     /// 流した先の部屋（会議 id）。古い机なら `None`。
     pub 部屋: Option<String>,
+    /// **部屋を指さなかったとき、どう選んだか**（0.1.58）。指したなら `None`。
+    pub 選び方: Option<String>,
 }
 
 impl 流した {
@@ -1861,8 +1968,12 @@ impl 流した {
             "。**この部屋に相手は居ません**（この PC の画面とエージェントにだけ出ました）"
                 .to_owned()
         };
+        let 選び方 = self
+            .選び方
+            .as_deref()
+            .map_or_else(String::new, |訳| format!("（room を省いたので、{訳}）"));
         format!(
-            "#{} を {} 人へ流しました{部屋}: {}{相手}。読まれたかは chat_status で見られます。",
+            "#{} を {} 人へ流しました{部屋}{選び方}: {}{相手}。読まれたかは chat_status で見られます。",
             self.id,
             self.人数,
             self.届いた.join("・")
@@ -1888,36 +1999,50 @@ pub fn 流す部屋(
         .map(str::to_owned)
 }
 
-/// **部屋を指さないときの送り先**（0.1.42）。居る部屋が 1 つならそこ、0 なら机に任せる（`None`）。
-/// **2 つ以上なら送らず、候補を並べて部屋を指すよう返す**（黙って別の部屋へ流さない）。
+/// **部屋を指さないときの送り先**（0.1.42・0.1.58）。居る部屋が 1 つならそこ、0 なら机に任せる（`None`）。
+///
+/// **2 つ以上なら**：最後にこの席を `@` で呼んだ発言の部屋 → 画面が見ている部屋、の順で選ぶ（0.1.58）。
+/// 前は 2 つ以上で必ず止めていて、席は毎回 `room` を書き直す手間がかかった。最後に届いた発言の部屋
+/// （横の部屋の誰かが書くたびに変わる）は拠り所にしない（0.1.42 で別の部屋へ 3 回流れた）。
+/// どちらも無いときだけ、候補を並べて止める。返りの 2 つ目は、どう選んだか（返りの文に足す）。
 ///
 /// # Errors
-/// 部屋が 2 つ以上あるとき（人とエージェントが読む 1 文）。
+/// 部屋が 2 つ以上あり、呼ばれた部屋も見ている部屋も無いとき（人とエージェントが読む 1 文）。
 pub fn 指さない送り先(
     部屋: &[warifu_desk::部屋の行],
     最後に聞いた: Option<&str>,
-) -> Result<Option<String>, String> {
+    最後に呼ばれた: Option<&str>,
+) -> Result<(Option<String>, Option<String>), String> {
     match 部屋 {
-        [] => Ok(None),
-        [一つ] => Ok(Some(一つ.id.clone())),
+        [] => Ok((None, None)),
+        [一つ] => Ok((Some(一つ.id.clone()), None)),
         多い => {
+            if let Some(呼ばれた) = 最後に呼ばれた
+                && let Some(行) = 多い.iter().find(|r| r.id == 呼ばれた)
+            {
+                return Ok((
+                    Some(行.id.clone()),
+                    Some("最後にあなたを呼んだ発言の部屋へ流しました".to_owned()),
+                ));
+            }
+            if let Some(行) = 多い.iter().find(|r| r.見ているか) {
+                return Ok((
+                    Some(行.id.clone()),
+                    Some("画面が見ている部屋へ流しました".to_owned()),
+                ));
+            }
             let 候補: Vec<String> = 多い
                 .iter()
                 .map(|r| {
                     let 名 = r.名前.clone().unwrap_or_else(|| "名前なし".to_owned());
-                    let 印 = if r.見ているか {
-                        "・見ている"
-                    } else {
-                        ""
-                    };
-                    format!("{名}（{}{印}）", 部屋の頭(&r.id))
+                    format!("{名}（{}）", 部屋の頭(&r.id))
                 })
                 .collect();
             let 最後 = 最後に聞いた
                 .map(|id| format!("最後に届いた発言は部屋 {} から。", 部屋の頭(id)))
                 .unwrap_or_default();
             Err(format!(
-                "この機械は {} つの部屋に居ます。送らずに止めました —— room に部屋の id の頭を付けて送り直してください（候補：{}）。{最後}",
+                "{} つの部屋に居て、どこへ送るか決められません。room に部屋の id の頭を書いてください（候補：{}）。{最後}",
                 多い.len(),
                 候補.join("・")
             ))
@@ -2165,6 +2290,7 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             | FromDesk::外した { .. }
             | FromDesk::切れたまま { .. }
             | FromDesk::書き出し { .. }
+            | FromDesk::メールの待ち { .. }
             | FromDesk::手渡し { .. }
             // **部屋の一覧・抜けた・付けたも返事で、会話の行ではない**（0.1.40）
             | FromDesk::部屋たち { .. }
@@ -2213,7 +2339,8 @@ mod tests {
         ));
     }
     #[test]
-    fn 部屋を指さないとき_1_つならそこ_無ければ机に任せ_2_つ以上なら止めて候補を言う() {
+    fn 部屋を指さないとき_1_つならそこ_2_つ以上なら呼ばれた部屋_見ている部屋_無ければ止めて候補を言う()
+     {
         let 行 = |id: &str, 名: Option<&str>, 見る: bool| warifu_desk::部屋の行 {
             id: id.to_owned(),
             名前: 名.map(str::to_owned),
@@ -2222,21 +2349,36 @@ mod tests {
             見ているか: 見る,
             エージェントの扱い: None,
         };
-        assert_eq!(super::指さない送り先(&[], None), Ok(None));
+        assert_eq!(super::指さない送り先(&[], None, None), Ok((None, None)));
         assert_eq!(
-            super::指さない送り先(&[行("NBIWAAAAAAAAAAAA", Some("開発"), true)], None),
-            Ok(Some("NBIWAAAAAAAAAAAA".to_owned()))
+            super::指さない送り先(&[行("NBIWAAAAAAAAAAAA", Some("開発"), true)], None, None),
+            Ok((Some("NBIWAAAAAAAAAAAA".to_owned()), None))
         );
+        let 二つ = [
+            行("NBIWAAAAAAAAAAAA", Some("開発"), true),
+            行("DDUYAAAAAAAAAAAA", None, false),
+        ];
+        // 呼ばれた部屋が見ている部屋より先
+        let (先, 訳) = super::指さない送り先(&二つ, None, Some("DDUYAAAAAAAAAAAA")).unwrap();
+        assert_eq!(先.as_deref(), Some("DDUYAAAAAAAAAAAA"));
+        assert!(訳.unwrap().contains("あなたを呼んだ"));
+        // 呼ばれていなければ見ている部屋。**最後に届いた発言の部屋は拠り所にしない**
+        let (先, 訳) = super::指さない送り先(&二つ, Some("DDUYAAAAAAAAAAAA"), None).unwrap();
+        assert_eq!(先.as_deref(), Some("NBIWAAAAAAAAAAAA"));
+        assert!(訳.unwrap().contains("見ている部屋"));
+        // 呼ばれた部屋をもう抜けていて、見ている部屋も無ければ止める
+        let 見ていない = [
+            行("NBIWAAAAAAAAAAAA", Some("開発"), false),
+            行("DDUYAAAAAAAAAAAA", None, false),
+        ];
         let 文 = super::指さない送り先(
-            &[
-                行("NBIWAAAAAAAAAAAA", Some("開発"), true),
-                行("DDUYAAAAAAAAAAAA", None, false),
-            ],
+            &見ていない,
             Some("DDUYAAAAAAAAAAAA"),
+            Some("ZZZZAAAAAAAAAAAA"),
         )
         .unwrap_err();
         assert!(文.contains("2 つの部屋"));
-        assert!(文.contains("開発（NBIWAAAAAAAA…・見ている）"));
+        assert!(文.contains("開発（NBIWAAAAAAAA…）"));
         assert!(文.contains("名前なし（DDUYAAAAAAAA…）"));
         assert!(文.contains("最後に届いた発言は部屋 DDUYAAAAAAAA… から"));
     }
@@ -2408,6 +2550,7 @@ mod tests {
             id: 8,
             届いた: vec!["画面".to_owned(), "ルームの相手".to_owned()],
             部屋: Some("NBIW3PA2TUQ52DTJNVXSQOL3G4".to_owned()),
+            選び方: None,
         };
         assert_eq!(
             届いた.言い方(),
@@ -2418,6 +2561,7 @@ mod tests {
             id: 9,
             届いた: vec!["画面".to_owned()],
             部屋: Some("AFUF2T4ECVKMAAAAAAAAAAAAAA".to_owned()),
+            選び方: None,
         };
         assert!(
             独り.言い方().contains("この部屋に相手は居ません"),
@@ -2429,6 +2573,7 @@ mod tests {
             id: 12,
             届いた: vec!["画面".to_owned(), "ルームの相手".to_owned()],
             部屋: None,
+            選び方: None,
         };
         assert_eq!(
             古い.言い方(),
@@ -2614,7 +2759,7 @@ mod tests {
     #[test]
     fn 壊れた行は_会話を止めない() {
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
-        let 返し先 = Arc::new(Mutex::new(None));
+        let 返し先: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
         仕分ける(
             &箱,
             &返し先,
@@ -2628,15 +2773,133 @@ mod tests {
         );
     }
 
+    /// **`pass_wait` で待っている間にほかの口を呼んでも、待ちは消えない**（0.1.58）。
+    /// 前は待ちを 1 つしか置けず、上書きされた `pass_wait` が「この機械が閉じました」で落ちた
+    #[tokio::test]
+    async fn 札を待つ間にほかの口を呼んでも_札の待ちは消えず_返事はそれぞれへ渡る() {
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let 返し先: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
+        let (札を返す, 札を待つ) = oneshot::channel();
+        let (言うを返す, 言うを待つ) = oneshot::channel();
+        返し先.lock().unwrap().push_back(返事の待ち {
+            返す: 札を返す,
+            受ける: 札の答え,
+            長い: true,
+        });
+        返し先.lock().unwrap().push_back(返事の待ち {
+            返す: 言うを返す,
+            受ける: 言うの返事,
+            長い: false,
+        });
+        let 起こす = Arc::new(Notify::new());
+        let つながった = Arc::new(Mutex::new(None));
+        // 机は言うの返事を先に返し（札の答えは人が押すまで来ない）
+        仕分ける(
+            &箱,
+            &返し先,
+            &起こす,
+            &つながった,
+            &FromDesk::Sent {
+                to: 1,
+                id: 7,
+                届いた: vec!["画面".to_owned()],
+                room: None,
+            }
+            .書く(),
+        );
+        assert!(matches!(
+            言うを待つ.await.unwrap(),
+            FromDesk::Sent { id: 7, .. }
+        ));
+        仕分ける(
+            &箱,
+            &返し先,
+            &起こす,
+            &つながった,
+            &FromDesk::Asked {
+                動作: "chat.read".to_owned(),
+                答え: warifu_desk::頼みの返り::許した,
+            }
+            .書く(),
+        );
+        assert!(matches!(札を待つ.await.unwrap(), FromDesk::Asked { .. }));
+        assert!(返し先.lock().unwrap().is_empty());
+    }
+
+    /// **断りは、あとで返す待ち（`pass_wait`）より短い待ちへ先に渡す**（0.1.58）
+    #[tokio::test]
+    async fn 断りは_札を待つ呼びより先に_短い呼びへ渡る() {
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let 返し先: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
+        let (札を返す, mut 札を待つ) = oneshot::channel();
+        let (言うを返す, 言うを待つ) = oneshot::channel();
+        返し先.lock().unwrap().push_back(返事の待ち {
+            返す: 札を返す,
+            受ける: 札の答え,
+            長い: true,
+        });
+        返し先.lock().unwrap().push_back(返事の待ち {
+            返す: 言うを返す,
+            受ける: 言うの返事,
+            長い: false,
+        });
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::Denied {
+                why: "その部屋に居ません".to_owned(),
+            }
+            .書く(),
+        );
+        assert!(matches!(言うを待つ.await.unwrap(), FromDesk::Denied { .. }));
+        assert!(札を待つ.try_recv().is_err(), "札の待ちは残っている");
+        assert_eq!(返し先.lock().unwrap().len(), 1);
+    }
+
+    /// **時間切れで諦めた呼びには渡さない**（次の呼びへ渡す）
+    #[tokio::test]
+    async fn 諦めた呼びは捨てて_次の呼びへ渡す() {
+        let 箱 = Arc::new(Mutex::new(VecDeque::new()));
+        let 返し先: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
+        let (諦めた, 受け手) = oneshot::channel();
+        drop(受け手);
+        let (返す, 待つ) = oneshot::channel();
+        返し先.lock().unwrap().push_back(返事の待ち {
+            返す: 諦めた,
+            受ける: 様子の返事,
+            長い: false,
+        });
+        返し先.lock().unwrap().push_back(返事の待ち {
+            返す,
+            受ける: 言うの返事,
+            長い: false,
+        });
+        仕分ける(
+            &箱,
+            &返し先,
+            &Arc::new(Notify::new()),
+            &Arc::new(Mutex::new(None)),
+            &FromDesk::Denied {
+                why: "断り".to_owned(),
+            }
+            .書く(),
+        );
+        assert!(matches!(待つ.await.unwrap(), FromDesk::Denied { .. }));
+        assert!(返し先.lock().unwrap().is_empty());
+    }
+
     #[tokio::test]
     async fn 送信の返事を_誰かの発言に混ぜない() {
         // **混ぜると chat_read が自分の送信結果を発言として読む**
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, 待つ) = oneshot::channel();
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: |_| true,
-        })));
+            長い: false,
+        }])));
 
         仕分ける(
             &箱,
@@ -2670,10 +2933,11 @@ mod tests {
         // **机は出しているのに、頼んだ側は時間切れになる。**
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, 待つ) = oneshot::channel();
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: |_| true,
-        })));
+            長い: false,
+        }])));
 
         仕分ける(
             &箱,
@@ -2702,7 +2966,7 @@ mod tests {
         // **鍵だけは例外。**割符の片割れを会話の箱に残さない
         // （`並べる` も出さないので、置いても誰も読めない）
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
-        let 返し先 = Arc::new(Mutex::new(None));
+        let 返し先: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
         仕分ける(
             &箱,
             &返し先,
@@ -2723,10 +2987,11 @@ mod tests {
         // **`pass_ask` は引数名を直したあとも時間切れになっていた。**
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, 待つ) = oneshot::channel();
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: |_| true,
-        })));
+            長い: false,
+        }])));
 
         仕分ける(
             &箱,
@@ -2756,10 +3021,11 @@ mod tests {
         // （`招いた`・`Asked` で同じ穴が空いていた）
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, 待つ) = oneshot::channel();
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: 声の返事,
-        })));
+            長い: false,
+        }])));
 
         仕分ける(
             &箱,
@@ -2786,10 +3052,11 @@ mod tests {
         // 時間切れのあとに遅れて来た声の返りを、様子の呼びへ渡さない
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, mut 待つ) = oneshot::channel();
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: 様子の返事,
-        })));
+            長い: false,
+        }])));
         仕分ける(
             &箱,
             &返し先,
@@ -2801,7 +3068,7 @@ mod tests {
             .書く(),
         );
         assert!(待つ.try_recv().is_err(), "様子の呼びに渡さない");
-        assert!(返し先.lock().unwrap().is_some(), "待ちは残す");
+        assert!(!返し先.lock().unwrap().is_empty(), "待ちは残す");
     }
 
     #[test]
@@ -2841,7 +3108,7 @@ mod tests {
         // **待っていない返事は捨てない。**捨てると、
         // 会話が閉じたことに人が気づけない
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
-        let 返し先 = Arc::new(Mutex::new(None));
+        let 返し先: 返事の棚 = Arc::new(Mutex::new(VecDeque::new()));
         仕分ける(
             &箱,
             &返し先,
@@ -2859,10 +3126,11 @@ mod tests {
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, mut 待つ) = oneshot::channel();
         // いま待っているのは **様子**（`room_status`）
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: 様子の返事,
-        })));
+            長い: false,
+        }])));
         let 仕分け = |行: &str| {
             仕分ける(
                 &箱,
@@ -2882,17 +3150,18 @@ mod tests {
         );
         assert!(待つ.try_recv().is_err(), "鍵を様子の呼びへ渡さない");
         assert!(箱.lock().unwrap().is_empty(), "鍵は溜めにも残さない");
-        assert!(返し先.lock().unwrap().is_some(), "待ちは残す");
+        assert!(!返し先.lock().unwrap().is_empty(), "待ちは残す");
     }
 
     #[test]
     fn 種類の合わない返事は_待ちを消さずに溜めへ落とす() {
         let 箱 = Arc::new(Mutex::new(VecDeque::new()));
         let (返す, mut 待つ) = oneshot::channel();
-        let 返し先 = Arc::new(Mutex::new(Some(返事の待ち {
+        let 返し先 = Arc::new(Mutex::new(VecDeque::from([返事の待ち {
             返す,
             受ける: 招くの返事,
-        })));
+            長い: false,
+        }])));
         仕分ける(
             &箱,
             &返し先,
@@ -2901,7 +3170,7 @@ mod tests {
             &FromDesk::Nobody.書く(),
         );
         assert!(待つ.try_recv().is_err(), "招く呼びに Nobody を渡さない");
-        assert!(返し先.lock().unwrap().is_some(), "待ちは残す");
+        assert!(!返し先.lock().unwrap().is_empty(), "待ちは残す");
         assert_eq!(箱.lock().unwrap().len(), 1);
     }
 }

@@ -136,6 +136,40 @@ async fn 一覧に_ヘッダの仕分けの札が出る() {
     assert!(一覧.lines().nth(1).unwrap().ends_with("\t請求"), "{一覧}");
 }
 
+/// **件名は、原文を読める席にだけ出す**（0.1.58）。依頼のメールを探すのに 1 通ずつ開くしかなかった
+#[tokio::test]
+async fn 件名は_原文を読む札があるときだけ一覧に出て_無ければ札の名を言う() {
+    let 通 = || {
+        受信箱()
+            .into_iter()
+            .map(|r| {
+                r.with_claims(warifu_read::Claims::new().with("Subject", "ページ削除のお願い"))
+            })
+            .collect::<Vec<_>>()
+    };
+    let 読めない = Warifu::new(
+        通(),
+        RuleStore::new(),
+        札を出す(&["inbox.list"]),
+        1_756_000_000,
+    );
+    let 一覧 = 読めない.inbox_list().await.unwrap();
+    assert!(!一覧.contains("ページ削除のお願い"), "{一覧}");
+    assert!(一覧.contains("inbox.open.raw"), "{一覧}");
+    assert!(一覧.contains("規則なし"), "{一覧}");
+    assert!(!一覧.contains("unknown"), "{一覧}");
+
+    let 読める = Warifu::new(
+        通(),
+        RuleStore::new(),
+        札を出す(&["inbox.list", "inbox.open.raw"]),
+        1_756_000_000,
+    );
+    let 一覧 = 読める.inbox_list().await.unwrap();
+    assert!(一覧.lines().next().unwrap().contains("\t件名\t"), "{一覧}");
+    assert!(一覧.contains("ページ削除のお願い"), "{一覧}");
+}
+
 #[tokio::test]
 async fn 一覧に本文が入らない() {
     // Level 0 のまま数える。**段を上げるのは別の tool・別の札。**
@@ -348,6 +382,7 @@ fn 出している口を_数えて名前で押さえる() {
             "mail_account_add",
             "mail_account_list",
             "mail_account_remove",
+            "mail_pending",
             "mail_send",
             "pass_ask",
             "pass_take",

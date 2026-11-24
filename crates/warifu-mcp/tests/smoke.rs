@@ -251,6 +251,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::入る { .. } => Some(FromDesk::入った {
                     ルーム: "ROOMAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
                 }),
+                ToDesk::メールの待ち => Some(FromDesk::メールの待ち { 並び: vec![] }),
                 ToDesk::書き出す => Some(FromDesk::書き出し {
                     行たち: vec![warifu_desk::書き出しの行 {
                         番号: 1,
@@ -505,6 +506,7 @@ async fn 口を全部_1回ずつ呼ぶ() {
         ),
     ));
     結果.push(("chat_export", format!("{:?}", 口.chat_export().await)));
+    結果.push(("mail_pending", format!("{:?}", 口.mail_pending().await)));
     結果.push((
         "contact_call",
         format!(

@@ -394,14 +394,22 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
         // **どこで動いているか分からないエージェントを、一覧に出さない。**
         // 出しても「どの階層のエージェントか不明」で、押しても意味が無い。
         // つながれるのは `ToDesk::Listen { 場所: Some(..) }` が来たときだけ。
+        // **あとで返す返事の道**（0.1.58）。`pass_wait` は人が押すまで最長 300 秒待つ。
+        // その間もこの席のほかの呼びと、届いた発言を通すため、待ちは別の task に出して答えをここへ戻す
+        let (後で, mut 後で来た) = tokio::sync::mpsc::unbounded_channel::<FromDesk>();
         loop {
             tokio::select! {
                 来た = 口.受ける() => {
                     let Ok(Some(行)) = 来た else { break };
-                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 聞き方)
+                    if 応じる(&app, &行, &mut 口, 自分, &mut 名乗り, &mut 聞き方, &後で)
                         .await
                         .is_err()
                     {
+                        break;
+                    }
+                }
+                Some(返事) = 後で来た.recv() => {
+                    if 口.送る(&返事.書く()).await.is_err() {
                         break;
                     }
                 }
@@ -647,6 +655,7 @@ async fn 応じる(
     自分: u64,
     名乗り: &mut Option<String>,
     聞き方: &mut 聞き方,
+    後で: &tokio::sync::mpsc::UnboundedSender<FromDesk>,
 ) -> Result<(), ()> {
     let 中身 = match ToDesk::読む(行) {
         Ok(中身) => 中身,
@@ -851,17 +860,22 @@ async fn 応じる(
             let 待つ秒 = 秒.unwrap_or(既定の待ち秒).min(warifu_desk::札を待てる秒);
             // **まず帯を出す。**待つ前に頼んでおかないと、人は何も見ない
             let 答え = 頼みを受ける(app, &動作, &訳, 名乗り.as_deref());
-            let 答え = if matches!(答え, warifu_desk::頼みの返り::まだ) {
-                記録!(
-                    "札: 待ちます（{動作}・{待つ秒} 秒・{}）",
-                    呼び方(名乗り.as_deref())
-                );
-                答えを待つ(&動作, 待つ秒).await
-            } else {
+            if !matches!(答え, warifu_desk::頼みの返り::まだ) {
                 // **すでに答えが出ているものは待たない**（許した／断った／受け付けない）
-                答え
-            };
-            let _ = 口.送る(&FromDesk::Asked { 動作, 答え }.書く()).await;
+                let _ = 口.送る(&FromDesk::Asked { 動作, 答え }.書く()).await;
+                return Ok(());
+            }
+            記録!(
+                "札: 待ちます（{動作}・{待つ秒} 秒・{}）",
+                呼び方(名乗り.as_deref())
+            );
+            // **待ちは別の task で**（0.1.58）。ここで待つと、この席のほかの呼びと届いた発言が
+            // 最長 300 秒止まり、`chat_send` が「未確認」で返っていた。答えは席の輪へ戻して送る
+            let 後で = 後で.clone();
+            tauri::async_runtime::spawn(async move {
+                let 答え = 答えを待つ(&動作, 待つ秒).await;
+                let _ = 後で.send(FromDesk::Asked { 動作, 答え });
+            });
             Ok(())
         }
         // **ルームキーを出す**（**#32 の段 2**・2026-09-21）。
@@ -1031,6 +1045,12 @@ async fn 応じる(
                 Err(why) => FromDesk::Denied { why },
             };
             let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **［送る］を待っているメールを並べる**（0.1.58）。札（mail.send）は MCP 側が見る
+        ToDesk::メールの待ち => {
+            let 並び = crate::mail_send::待ちの行(&crate::mail_send::並べる());
+            let _ = 口.送る(&FromDesk::メールの待ち { 並び }.書く()).await;
             Ok(())
         }
         ToDesk::書き出す => {
@@ -1762,6 +1782,26 @@ const 誰も居ない: &str = "まだ誰も居ません";
 /// 眠っている相手の線が詰まると、そこで止まって 5 秒を越え、**届いているのに
 /// 「この機械が返事をしません」が返り、エージェントが送り直して同じ発言が 2 回並んだ**（11-02）。
 const 線を待てる: std::time::Duration = std::time::Duration::from_millis(1500);
+
+/// **発言に添える知らせ**（返信の印・送った時刻・話し手の場所）を、面々へ**同時に・時間を区切って**渡す（0.1.58）。
+///
+/// 前は相手ごとに順に `send().await` していて、詰まった線が 1 本あると机はそこで止まり、
+/// 口（`chat_send`）が 5 秒で諦めて「未確認」を返していた（発言の本体は `皆へ渡す` で区切っていたが、
+/// 先に送る添え物は区切っていなかった）。落ちても発言そのものは届くので、渡せたかは数えない。
+pub(crate) async fn 添え物を配る(
+    線たち: &[tokio::sync::mpsc::Sender<warifu_meeting::Notice>],
+    知らせ: &warifu_meeting::Notice,
+) {
+    let mut 組 = tokio::task::JoinSet::new();
+    for tx in 線たち {
+        let tx = tx.clone();
+        let 知らせ = 知らせ.clone();
+        組.spawn(async move {
+            let _ = tokio::time::timeout(線を待てる, tx.send(知らせ)).await;
+        });
+    }
+    while 組.join_next().await.is_some() {}
+}
 
 /// 面々へ同じ知らせを**同時に**渡す。詰まった線は `待てる` で諦めて「渡せなかった」に数える。
 ///
@@ -3244,6 +3284,10 @@ pub fn 呼び方(名乗り: Option<&str>) -> String {
     }
 }
 
+/// **訳が長すぎるときの断り**（0.1.58）。**上限の数を言う** —— 前は「訳が長すぎます」だけで、
+/// 席は何文字まで縮めればよいか分からなかった。上限は机の行と札で同じ（文字）
+const 訳が長いの言い方: &str = "訳が長すぎます（上限 140 文字）";
+
 /// **札の頼みを受ける**（**D119**）。返すのは**いまの答え**だけ。
 ///
 /// **札はここで出さない。**出るのは**人が画面で押したとき**である（**D56** を保つ）。
@@ -3275,7 +3319,7 @@ fn 頼みを受ける(
             let 言い方 = match 訳け {
                 受け付けない訳::動作が読めない => "動作の名が読めません",
                 受け付けない訳::訳が無い => "訳がありません",
-                受け付けない訳::訳が長い => "訳が長すぎます",
+                受け付けない訳::訳が長い => 訳が長いの言い方,
             };
             記録!("札: 受け付けませんでした（{動作}・{言い方}）");
             頼みの返り::受け付けない {
@@ -4232,6 +4276,41 @@ mod tests {
                 .all(|r| r.名前 == 名前の無いルームの相手 && !r.住所あり),
             "住所は知らない（呼べない）が、名前は付けられる"
         );
+    }
+
+    #[test]
+    fn 訳が長いの断りは_上限の文字数を言い_机の行と札の上限がそろっている() {
+        assert_eq!(warifu_capability::訳の上限, warifu_desk::訳の上限);
+        assert!(super::訳が長いの言い方.contains(&format!("上限 {} 文字", warifu_desk::訳の上限)));
+    }
+
+    /// **返信の印・送った時刻・話し手の場所も、詰まった線で机を止めない**（0.1.58）。
+    /// 前は相手ごとに順に待ち、詰まった線が 3 本あると添え物だけで口の待ち（5 秒）を越えて「未確認」になった
+    #[tokio::test]
+    async fn 添え物は詰まった線を待たずに_他の相手へ渡して返る() {
+        use warifu_core::Seed;
+        let 鍵 = Seed::from_bytes([9; 32])
+            .profile("Personal")
+            .device(warifu_core::端末の呼び名)
+            .public_key();
+        let 知らせ = warifu_meeting::Notice::Text {
+            meeting: MeetingId::generate(),
+            from: 鍵,
+            話し手: None,
+            body: "やあ".to_owned(),
+        };
+        let (詰まり, _詰まりの受け) = tokio::sync::mpsc::channel(1);
+        詰まり.try_send(知らせ.clone()).expect("1 通は入る");
+        let (空き, mut 空きの受け) = tokio::sync::mpsc::channel(4);
+        let 線たち = vec![詰まり.clone(), 詰まり.clone(), 詰まり, 空き];
+        let 始め = std::time::Instant::now();
+        super::添え物を配る(&線たち, &知らせ).await;
+        let かかった = 始め.elapsed();
+        assert!(
+            かかった < std::time::Duration::from_secs(3),
+            "詰まった線を順に待った: {かかった:?}"
+        );
+        assert!(空きの受け.try_recv().is_ok(), "空いた線には渡っている");
     }
 
     /// **詰まった相手が居ても、口の待ち（5 秒）より先に返る**（0.1.42・11-02）。

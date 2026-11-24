@@ -39,9 +39,8 @@ pub(crate) async fn 送る(
     if 知らせ.to_intent().is_err() {
         return;
     }
-    for tx in 線たち {
-        let _ = tx.send(知らせ.clone()).await;
-    }
+    // 届かない相手が居ても止めない。**詰まった線で机を止めない**（同時に・時間を区切って渡す）
+    crate::desk::添え物を配る(線たち, &知らせ).await;
 }
 
 /// **届いた。**画面へ出し、主催ならほかの面々へ配る。差出人の確かめは呼ぶ側が済ませてある。

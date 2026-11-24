@@ -35,6 +35,8 @@ pub struct 頼み {
     pub 返信: bool,
     /// どのエージェントが頼んだか。
     pub 頼んだ人: String,
+    /// いつ頼んだか（`MM-DD HH:MM`・0.1.58・`mail_pending` が出す）。
+    pub 頼んだ時刻: String,
     #[serde(skip)]
     返信先: Option<String>,
     #[serde(skip)]
@@ -54,6 +56,22 @@ fn 答えの知らせ口() -> &'static tokio::sync::Notify {
 #[must_use]
 pub fn 並べる() -> Vec<頼み> {
     頼みの棚.lock().expect("毒されていない").clone()
+}
+
+/// **［送る］を待っているメールを、席へ返す形にする**（0.1.58・`mail_pending`）。本文は載せない
+pub(crate) fn 待ちの行(並び: &[頼み]) -> Vec<warifu_desk::メールの待ちの行> {
+    並び
+        .iter()
+        .map(|頼| warifu_desk::メールの待ちの行 {
+            番号: 頼.番号,
+            口: 頼.口.clone(),
+            宛先: 頼.宛先.clone(),
+            件名: 頼.件名.clone(),
+            返信: 頼.返信,
+            頼んだ人: 頼.頼んだ人.clone(),
+            頼んだ時刻: 頼.頼んだ時刻.clone(),
+        })
+        .collect()
 }
 
 fn 結果を置く(番号: u64, 結果: メールの返り) {
@@ -150,6 +168,7 @@ pub async fn 頼む(
         本文,
         返信: 返信先.is_some(),
         頼んだ人: 頼んだ人.to_owned(),
+        頼んだ時刻: chrono::Local::now().format("%m-%d %H:%M").to_string(),
         返信先,
         参照,
     };
