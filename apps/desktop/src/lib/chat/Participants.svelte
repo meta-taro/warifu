@@ -3,7 +3,8 @@
   import Avatar from '$lib/contacts/Avatar.svelte';
   import type { Locale } from '$lib/i18n/locales';
   import { MESSAGES, format, type MessageKey } from '$lib/i18n/messages';
-  import { エージェントの名を言い換える } from './name';
+  import { エージェントの名を言い換える, type 場所の帳 as 帳の形 } from './name';
+  import { 席の顔の画 } from './peer-face';
   import type { 参加者 } from './participants';
 
   interface Props {
@@ -19,9 +20,19 @@
     顔の画?: Readonly<Record<string, string>>;
     /** この機械のエージェントの名札（届く先と同じ形・`連動（docs）`）。 */
     席の名札?: (席: string) => string;
+    /** 話し手の場所の帳。**相手の機械の席の顔を、名札から引く**（11-24） */
+    場所の帳?: 帳の形;
   }
 
-  const { locale, 並び, 名, 自分の名 = null, 顔の画 = {}, 席の名札 = (席: string) => 席 }: Props = $props();
+  const {
+    locale,
+    並び,
+    名,
+    自分の名 = null,
+    顔の画 = {},
+    席の名札 = (席: string) => 席,
+    場所の帳 = {},
+  }: Props = $props();
 
   const t = (key: MessageKey) => MESSAGES[locale][key];
   const 主の名 = (主: '人' | 'エージェント') =>
@@ -52,6 +63,15 @@
             <ul class="agents">
               {#each p.エージェントたち as 札 (札)}
                 <li>
+                  <!-- **席の顔**（11-24）。置いた絵が無ければ既定の顔。顔は名前の言い換えなので、読み上げからは外す -->
+                  <span class="seat-face" aria-hidden="true">
+                    <Avatar
+                      種={p.自分 ? `desk:${札}` : `${p.key}\n${札}`}
+                      大きさ={16}
+                      画像={席の顔の画(p.key, 札, p.自分, 顔の画, 場所の帳)}
+                      名=""
+                    />
+                  </span>
                   <span class="kind">{t('avatar.owner.agent')}</span>
                   <span class="name" title={エージェントの名(p.自分 ? 席の名札(札) : 札)}>{エージェントの名(p.自分 ? 席の名札(札) : 札)}</span>
                 </li>
@@ -68,6 +88,10 @@
 {/if}
 
 <style>
+  .seat-face {
+    display: inline-flex;
+    flex: none;
+  }
   .people {
     margin-top: var(--space-4);
     padding-top: var(--space-3);

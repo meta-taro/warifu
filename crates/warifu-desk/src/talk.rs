@@ -21,7 +21,8 @@ pub const 返事の上限: usize = 1024 * 1024;
 /// 行で読み書きする口。
 pub struct 口<S> {
     読み: BufReader<S>,
-    行: String,
+    /// **受けかけの行**（11-24）。[`口::受ける`] が取り消されても、読んだ分をここに残す。
+    行: Vec<u8>,
     上限: usize,
 }
 
@@ -30,7 +31,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> 口<S> {
     pub fn 新しく(下: S) -> Self {
         Self {
             読み: BufReader::new(下),
-            行: String::new(),
+            行: Vec::new(),
             上限: 行の上限,
         }
     }
@@ -55,17 +56,24 @@ impl<S: AsyncRead + AsyncWrite + Unpin> 口<S> {
     ///
     /// **長すぎる行は、切り詰めずに落とす。**切り詰めると
     /// 「途中まで通った」形になり、読み手が半端な JSON を見る。
+    ///
+    /// **取り消しても崩れない**（11-24）。画面の机は「エージェントから来る行」と「配るもの」を
+    /// `select!` で同時に待つ。読みかけの分は [`口::行`] に残り、次に呼んだときに続きから読む
+    /// （頭で捨てると、行の後半だけを JSON として読んで線を切っていた）。
     pub async fn 受ける(&mut self) -> io::Result<Option<String>> {
-        self.行.clear();
-        let mut 枠 = (&mut self.読み).take(self.上限 as u64 + 1);
-        let 読んだ = 枠.read_line(&mut self.行).await?;
-        if 読んだ == 0 {
+        let 残り = (self.上限 + 1).saturating_sub(self.行.len());
+        let mut 枠 = (&mut self.読み).take(残り as u64);
+        let 読んだ = 枠.read_until(b'\n', &mut self.行).await?;
+        if 読んだ == 0 && self.行.is_empty() {
             return Ok(None);
         }
-        if 読んだ > self.上限 {
+        let 行 = std::mem::take(&mut self.行);
+        if 行.len() > self.上限 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "行が長すぎます"));
         }
-        Ok(Some(self.行.trim_end().to_owned()))
+        let 行 = String::from_utf8(行)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "行が UTF-8 ではありません"))?;
+        Ok(Some(行.trim_end().to_owned()))
     }
 }
 
@@ -104,5 +112,28 @@ mod 試験 {
     #[tokio::test]
     async fn この機械からの返事にも_上限はある() {
         assert!(一行を流す(返事の上限 + 300, true).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn 受けている途中で取り消されても_行は崩れない() {
+        let (mut 送り, 受け) = tokio::io::duplex(64);
+        let mut 受ける口 = 口::新しく(受け);
+        送り
+            .write_all("{\"型\":\"顔\",\"欠".as_bytes())
+            .await
+            .unwrap();
+        送り.flush().await.unwrap();
+        // 行の前半だけが届いた所で、受けるのを取り消す（select! で別の枝が先に来た形）
+        tokio::select! {
+            _ = 受ける口.受ける() => panic!("改行の前に返った"),
+            () = tokio::time::sleep(std::time::Duration::from_millis(20)) => {}
+        }
+        送り
+            .write_all("片\":\"あいう\"}\n".as_bytes())
+            .await
+            .unwrap();
+        送り.flush().await.unwrap();
+        let 行 = 受ける口.受ける().await.unwrap();
+        assert_eq!(行.as_deref(), Some("{\"型\":\"顔\",\"欠片\":\"あいう\"}"));
     }
 }

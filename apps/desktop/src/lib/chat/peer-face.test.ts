@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { 相手の顔の鍵, 行の顔の画 } from './peer-face';
+import { 席の顔の画, 相手の顔の鍵, 行の顔の画 } from './peer-face';
 import { 場所の帳の鍵 } from './name';
 
 const 鍵A = 'AAAAAAAAAAAABBBBBBBBBBBBCCCCCCCCCCCCDDDDDDDDDDDDEEEE';
@@ -33,5 +33,20 @@ describe('相手の顔', () => {
     expect(行の顔の画('AAAAAAAAAAAABB…（知らない札）', 顔の画, {})).toBeNull();
     const 帳 = { [場所の帳の鍵(鍵A, '札')]: 'docs', [場所の帳の鍵(鍵B, '札')]: 'docs' };
     expect(行の顔の画('AAAAAAAAAAAA…（札）', 顔の画, 帳)).toBeNull();
+  });
+});
+
+describe('名簿の席の顔（このルームに入っている）', () => {
+  const 鍵 = 'A'.repeat(52);
+  it('この機械の席は desk:<場所> で引く', () => {
+    expect(席の顔の画(鍵, 'docs', true, { 'desk:docs': 'blob:1' }, {})).toBe('blob:1');
+  });
+  it('相手の機械の席は、名札から場所を引いてから引く', () => {
+    const 帳 = { [場所の帳の鍵(鍵, '連動（docs）')]: 'docs' };
+    const 画 = { [相手の顔の鍵(鍵, 'docs')]: 'blob:2' };
+    expect(席の顔の画(鍵, '連動（docs）', false, 画, 帳)).toBe('blob:2');
+  });
+  it('場所が届いていなければ出さない（取り違えない）', () => {
+    expect(席の顔の画(鍵, '連動（docs）', false, { [相手の顔の鍵(鍵, 'docs')]: 'blob:2' }, {})).toBeNull();
   });
 });

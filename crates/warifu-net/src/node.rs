@@ -483,6 +483,7 @@ impl Node {
             connection,
             send,
             recv,
+            受けかけ: Vec::new(),
             _endpoint: self.endpoint.clone(),
         })
     }
@@ -556,6 +557,7 @@ impl Node {
             connection,
             send,
             recv,
+            受けかけ: Vec::new(),
             _endpoint: self.endpoint.clone(),
         })
     }
@@ -585,6 +587,8 @@ pub struct Session {
     connection: Connection,
     send: SendStream,
     recv: RecvStream,
+    /// **受けかけの分**（11-24）。[`Session::recv`] が取り消されても、読んだ分をここに残す。
+    受けかけ: Vec<u8>,
     /// **読まないが、手放さない。**
     ///
     /// 結び目は最後の持ち手が落ちた時点で閉じ、その上の経路も道連れになる。
@@ -710,33 +714,34 @@ impl Session {
 
     /// バイト列を 1 つ受け取る。
     ///
+    /// **取り消しても崩れない**（11-24）。画面は「送るもの」と「届くもの」を `select!` で同時に待つので、
+    /// 受けかけの `recv` はたびたび取り消される。`read_exact` は取り消すと読んだ分を捨てるので、
+    /// 次の長さを荷物の途中から読み、線が「大きすぎる」で落ちた（顔の荷物＝数十 KiB を配った直後）。
+    /// 読んだ分は [`Session::受けかけ`] に残し、取り消しても安全な `read` だけで読む。
+    ///
     /// # Errors
     /// 相手が挨拶して閉じたら [`Error::Closed`]。
     /// 宣言された長さが [`MAX_MESSAGE`] を超えたら [`Error::TooLarge`]。
     /// 経路が切れたら [`Error::Network`]。
     pub async fn recv(&mut self) -> Result<Vec<u8>, Error> {
-        let mut len = [0u8; 4];
-        self.recv
-            .read_exact(&mut len)
-            .await
-            // **荷物の切れ目で終わったなら、それは「閉じた」であって「落ちた」ではない。**
-            // 途中（`FinishedEarly(1..)`）で終わったのは荷物が千切れているので落ちた扱い
-            .map_err(|e| match e {
-                ReadExactError::FinishedEarly(0) => Error::Closed,
-                other => Error::network("受け取る")(other),
-            })?;
-
-        let len = u32::from_be_bytes(len) as usize;
-        if len > MAX_MESSAGE {
-            return Err(Error::TooLarge);
+        loop {
+            if let Some(荷物) = 荷物を切り出す(&mut self.受けかけ)? {
+                return Ok(荷物);
+            }
+            let mut 欠片 = [0u8; 16 * 1024];
+            match self.recv.read(&mut 欠片).await {
+                Ok(Some(n)) => self.受けかけ.extend_from_slice(&欠片[..n]),
+                // **荷物の切れ目で終わったなら、それは「閉じた」であって「落ちた」ではない。**
+                // 途中で終わったのは荷物が千切れているので落ちた扱い
+                Ok(None) if self.受けかけ.is_empty() => return Err(Error::Closed),
+                Ok(None) => {
+                    return Err(Error::network("受け取る")(
+                        ReadExactError::FinishedEarly(self.受けかけ.len()),
+                    ));
+                }
+                Err(e) => return Err(Error::network("受け取る")(e)),
+            }
         }
-
-        let mut message = vec![0u8; len];
-        self.recv
-            .read_exact(&mut message)
-            .await
-            .map_err(Error::network("受け取る"))?;
-        Ok(message)
     }
 }
 
@@ -1033,6 +1038,26 @@ async fn 口を渡されるまで頼み直す(係: std::sync::Weak<口開けの�
             借り = Some(借りた);
         }
     }
+}
+
+/// **受けかけから、荷物を 1 つ切り出す**（長さ 4 バイト ＋ 中身）。まだ揃っていなければ `None`。
+///
+/// # Errors
+/// 宣言された長さが [`MAX_MESSAGE`] を超えたら [`Error::TooLarge`]。
+fn 荷物を切り出す(受けかけ: &mut Vec<u8>) -> Result<Option<Vec<u8>>, Error> {
+    let Some(頭) = 受けかけ.first_chunk::<4>() else {
+        return Ok(None);
+    };
+    let len = u32::from_be_bytes(*頭) as usize;
+    if len > MAX_MESSAGE {
+        return Err(Error::TooLarge);
+    }
+    if 受けかけ.len() < 4 + len {
+        return Ok(None);
+    }
+    let 荷物 = 受けかけ[4..4 + len].to_vec();
+    受けかけ.drain(..4 + len);
+    Ok(Some(荷物))
 }
 
 #[cfg(test)]

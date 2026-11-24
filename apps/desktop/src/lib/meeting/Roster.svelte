@@ -53,9 +53,20 @@
      * 外した相手はその部屋へ戻れないので、2 段で押す
      */
     onKick?: (key: string) => void;
+    /** 置いた顔の画（`me` と相手の機械の鍵）。**置いた絵があれば既定の顔の代わりに出す**（11-24） */
+    顔の画?: Readonly<Record<string, string>>;
   }
-  let { locale, members, capacity, names = {}, onRename, この機械のAIたち = [], 経路を出す = true, onKick }: Props =
-    $props();
+  let {
+    locale,
+    members,
+    capacity,
+    names = {},
+    onRename,
+    この機械のAIたち = [],
+    経路を出す = true,
+    onKick,
+    顔の画 = {},
+  }: Props = $props();
   /** いま「外しますか」を聞いている行の鍵 */
   let 外す確かめ = $state<string | null>(null);
 
@@ -124,7 +135,7 @@
           <!-- **連絡帳と同じ顔を出す。**呼び名を付けていない相手は名前が鍵の頭なので、
                字だけでは誰が誰か追えない（2026-09-12）。
                **確かめるのは全桁の鍵**であって、顔は見分けにすぎない -->
-          <Avatar 種={m.key} 大きさ={18} 名="" />
+          <Avatar 種={m.key} 大きさ={18} 画像={顔の画[m.me ? 'me' : m.key] ?? null} 名="" />
           <span class="name" title={`${名の札(m.key)}${m.me ? `（${t('tile.me')}）` : ''}`}>{名(m.key)}{m.me ? `（${t('tile.me')}）` : ''}</span>
           {#if m.host}<span class="host">{t('roster.host')}</span>{/if}
           {#if 経路を出す && !m.me}<LinkBadge {locale} path={m.path} />{/if}

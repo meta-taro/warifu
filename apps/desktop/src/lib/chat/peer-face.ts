@@ -4,7 +4,7 @@
 // 相手の人は機械の鍵（全桁）で引く。相手の席は「鍵 ＋ 席の名乗り（場所）」で引く —— 名札は
 // 名乗り直すと変わるが、場所は変わらない（`speaker-place.svelte.ts` と同じ考え）。
 
-import type { 場所の帳 } from './name';
+import { 場所の帳の鍵, type 場所の帳 } from './name';
 
 /** 顔の画の帳での、相手の人か席の鍵。席が空ならその機械の人（鍵そのまま）。 */
 export function 相手の顔の鍵(機械の鍵: string, 席: string): string {
@@ -39,4 +39,23 @@ export function 行の顔の画(
   if (機械.size !== 1) return null;
   const { 鍵, 場所 } = 当たり[当たり.length - 1];
   return 顔の画[相手の顔の鍵(鍵, 場所)] ?? null;
+}
+
+/**
+ * **名簿に並べる席の顔の画**（無ければ `null`・11-24）。「このルームに入っている」の席の行に顔を出す。
+ *
+ * - この機械の席は、札がそのまま場所なので `desk:<場所>` で引く
+ * - 相手の機械の席は、札（名札）から話し手の場所の帳で場所を引いてから引く。場所が届いていなければ引かない
+ */
+export function 席の顔の画(
+  機械の鍵: string,
+  札: string,
+  自分の機械か: boolean,
+  顔の画: Readonly<Record<string, string>>,
+  帳: 場所の帳,
+): string | null {
+  if (自分の機械か) return 顔の画[`desk:${札}`] ?? null;
+  const 場所 = 帳[場所の帳の鍵(機械の鍵, 札)];
+  if (!場所) return null;
+  return 顔の画[相手の顔の鍵(機械の鍵, 場所)] ?? null;
 }

@@ -584,3 +584,49 @@ async fn 包みの口が残ったまま会話だけ手放すと_閉じたと見�
     );
     assert_eq!(訳, None, "結び目は映像の道が持っているので、まだ開いている");
 }
+
+#[tokio::test]
+async fn 受けている途中で取り消されても_荷物は崩れない() {
+    // 画面は「送るもの」と「届くもの」を select! で同時に待つ。送るものが先に来ると、
+    // 受けかけの recv は取り消される。読みかけの分が消えると、次の長さが荷物の途中から読まれ、
+    // 線が「大きすぎる」で落ちた（顔の荷物＝数十 KiB を配った直後）
+    let alice = 端末(1, "PC");
+    let bob = 端末(2, "スマホ");
+
+    let 受け手 = Node::bind_without_relay(&alice).await.unwrap();
+    let 呼ぶ側 = Node::bind_without_relay(&bob).await.unwrap();
+    let 宛先 = 受け手.address().await.unwrap();
+
+    const 数: usize = 8;
+    let 荷物 =
+        |i: usize| -> Vec<u8> { (0..256 * 1024).map(|j| ((i * 7 + j) % 251) as u8).collect() };
+
+    let 待ち受け = tokio::spawn(async move {
+        let mut s = 受け手.accept(&Revocations::new()).await.unwrap();
+        let mut 集めた = Vec::new();
+        let mut 取り消した = 0_u32;
+        while 集めた.len() < 数 {
+            tokio::select! {
+                r = s.recv() => 集めた.push(r.unwrap()),
+                () = tokio::time::sleep(Duration::from_micros(50)) => 取り消した += 1,
+            }
+        }
+        (集めた, 取り消した)
+    });
+
+    let mut session = 時間を切る(呼ぶ側.connect(&宛先, &Revocations::new()))
+        .await
+        .unwrap();
+    for i in 0..数 {
+        時間を切る(session.send(&荷物(i))).await.unwrap();
+    }
+
+    let (集めた, 取り消した) = 時間を切る(待ち受け).await.unwrap();
+    assert!(
+        取り消した > 0,
+        "取り消しが一度も起きていない（試験になっていない）"
+    );
+    for (i, 中身) in 集めた.iter().enumerate() {
+        assert!(中身 == &荷物(i), "{i} 個目が崩れた");
+    }
+}

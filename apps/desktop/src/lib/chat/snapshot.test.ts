@@ -27,6 +27,20 @@ describe('画面の写し', () => {
     expect(写し).toContain('15:56 自分「いいいい」');
   });
 
+  it('届く先ごとに、置いた絵か既定の顔かを書く（絵が渡ったかを席どうしで文字で見比べる）', () => {
+    const 元 = 素材(1);
+    const 写し = 画面の写しを書く({
+      ...元,
+      見ている: { ...元.見ている!, 届く先: ['ZenBook', 'ASUS'], 届く先の絵: [true, false] },
+    });
+    expect(写し).toContain('届く先 ZenBook・ASUS');
+    expect(写し).toContain('届く先の顔 ZenBook 置いた絵・ASUS 既定の顔');
+  });
+
+  it('届く先の顔が分からなければ、顔の行は書かない', () => {
+    expect(画面の写しを書く(素材(1))).not.toContain('届く先の顔');
+  });
+
   it('多くても長くても、上限のバイトに収める', () => {
     const 写し = 画面の写しを書く(素材(200, 'う'.repeat(500)));
     expect(new TextEncoder().encode(写し).length).toBeLessThanOrEqual(写しの上限);
