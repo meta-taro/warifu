@@ -119,6 +119,8 @@ fn 使い方() -> ExitCode {
          \x20 warifu room [list]                   この PC の割符が居る部屋を並べる（画面が開いていること）\n\
          \x20 warifu room leave <部屋>              部屋を抜ける（主催なら畳む。札 room.leave が要る）\n\
          \x20 warifu room rename <部屋> <名前>      部屋に名前を付ける（札 room.rename が要る）\n\
+         \x20 warifu room say <部屋> [--as <名乗り>] <本文>\n\
+         \x20            部屋へ 1 行流す（git の hook などの仕組みから知らせる）\n\
          \x20 warifu relay-server set <URL>         自前の中継を控える（トークンは標準入力から）\n\
          \x20 warifu relay-server [show|clear]      控えを見る（トークンは出さない）／消す\n\
          \x20 warifu mail add <アドレス> [--host <IMAP>] [--port <番号>]\n\

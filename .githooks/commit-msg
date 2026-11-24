@@ -20,6 +20,19 @@ else
   exit 1
 fi
 
+# **機能を足すなら、着手を部屋へ出したことを書く**（0.1.56）。
+# 使う側が待つ口を黙って作ると、版が出るまで使う側からは「無い」と同じになる
+printf '  %-38s' "着手を知らせたか"
+if command -v python3 >/dev/null 2>&1; then py=python3; else py=python; fi
+if out=$("$py" scripts/check-started.py "$1" 2>&1); then
+  printf 'ok\n'
+else
+  printf 'NG\n'
+  printf '%s\n' "$out" >&2
+  printf '\033[31m%s\033[0m\n' "**--no-verify で回避しないこと。**頼まれていないなら「着手: 頼まれていない（訳）」と書きます。" >&2
+  exit 1
+fi
+
 # **画面を触ったなら、実物を見たことを書く**（2026-09-24）。
 #
 # **規則には書いてあったが、工程には入っていなかった** ——

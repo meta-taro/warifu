@@ -5,6 +5,10 @@
 # 別の手で commit されたものもここで止める。**--no-verify で外さない。**
 set -u
 here="$(git rev-parse --show-toplevel)"
+# 送る枝の一覧（標準入力）は 1 回しか読めないので、控えてから 2 回読む
+refs_file="$(mktemp)"
+trap 'rm -f "$refs_file"' EXIT
+cat > "$refs_file"
 printf '  %-38s' "置き場所"
 bash "$here/.github/scripts/oss-placement-check.sh" || exit 1
 # 共通の検査と重ならない分（語と、.claude/ の外の記録の置き場所）。送る版の木を見る
@@ -12,4 +16,12 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   case "$local_sha" in *[!0]*) ;; *) continue ;; esac
   printf '  %-38s' "公開しない語（${local_ref}）"
   bash "$here/scripts/check-public-words.sh" "$local_sha" || exit 1
-done
+done < "$refs_file"
+
+# **機能を足す commit が develop へ出るなら、部屋へ「入る版・口の名前」を知らせる**（0.1.56）。
+# 席が言い忘れても出るように、ここで流す。知らせられなくても push は止めない
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "refs/heads/develop" ] || continue
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+  bash "$here/scripts/announce-feat.sh" "$remote_sha" "$local_sha"
+done < "$refs_file"
