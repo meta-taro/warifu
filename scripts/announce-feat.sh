@@ -8,8 +8,8 @@
 #
 # 流す部屋は、この clone の git config に置く（部屋の id は公開のリポに書かない）:
 #   git config warifu.announce-room <部屋の id か頭>
-# 置いていなければ、知らせずにその旨だけ出す。**知らせられなくても push は止めない**
-# （割符の画面が閉じている機械からも push できるように）。
+# 置いていなければ push を止める。部屋は決まっていて流すのに失敗したとき（画面が閉じている等）は、
+# 止めずに大きく言う（割符の画面が閉じている機械からも push できるように）。
 set -u
 
 old="${1:-}"
@@ -31,14 +31,22 @@ esac
 feats="$(git log --reverse --format='%h%x09%s' $range | grep -E $'\t''feat(\([^)]*\))?!?:' || true)"
 [ -z "$feats" ] && exit 0
 
-# 入る版 ＝ いまの版の次（版を上げる commit は chore なので、ここに来るのは上げる前）
-cur="$(sed -n 's/^version = "\([0-9.]*\)"/\1/p' "$here/Cargo.toml" | head -1)"
-next="$(printf '%s' "$cur" | awk -F. '{ printf "%d.%d.%d", $1, $2, $3 + 1 }')"
+# 入る版：送る範囲で版が上がっていれば、その版。上がっていなければ、いまの版の次
+版を読む() { git show "$1:Cargo.toml" 2>/dev/null | sed -n 's/^version = "\([0-9.]*\)"/\1/p' | head -1; }
+new_ver="$(版を読む "$new")"
+case "$old" in *[!0]*) old_ver="$(版を読む "$old")" ;; *) old_ver="" ;; esac
+if [ -n "$old_ver" ] && [ "$new_ver" != "$old_ver" ]; then
+  next="$new_ver"
+else
+  next="$(printf '%s' "$new_ver" | awk -F. '{ printf "%d.%d.%d", $1, $2, $3 + 1 }')"
+fi
 
+# **部屋が決まっていなければ push を止める。**黙って通すと、新しい機械では知らせが出ないまま develop に入る
 if [ -z "$room" ]; then
-  echo "  部屋へ知らせていません（git config warifu.announce-room が無い）。手で知らせてください:" >&2
-  printf '%s\n' "$feats" | sed 's/^/    /' >&2
-  exit 0
+  echo "  知らせる部屋が決まっていないので、push を止めました。次を打ってから push し直してください:" >&2
+  echo "    git config warifu.announce-room <部屋の id か頭>   （scripts/setup-hooks.sh も聞きます）" >&2
+  printf '%s\n' "$feats" | sed 's/^/    知らせる commit: /' >&2
+  exit 1
 fi
 
 if ! command -v warifu >/dev/null 2>&1; then

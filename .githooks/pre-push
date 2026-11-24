@@ -19,9 +19,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done < "$refs_file"
 
 # **機能を足す commit が develop へ出るなら、部屋へ「入る版・口の名前」を知らせる**（0.1.56）。
-# 席が言い忘れても出るように、ここで流す。知らせられなくても push は止めない
+# 席が言い忘れても出るように、ここで流す。部屋が決まっていなければ止める
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$remote_ref" = "refs/heads/develop" ] || continue
   case "$local_sha" in *[!0]*) ;; *) continue ;; esac
-  bash "$here/scripts/announce-feat.sh" "$remote_sha" "$local_sha"
+  bash "$here/scripts/announce-feat.sh" "$remote_sha" "$local_sha" || exit 1
 done < "$refs_file"
