@@ -314,6 +314,7 @@ fn 出している口を_数えて名前で押さえる() {
     // 割符が自分でもしていること（急がせるだけ）で、新しく読めるものも、繋がる先も増えない。
     // 0.1.53 に room_create を足した —— **札は room.invite**。建てた部屋は空で、鍵を出さなければ
     // 誰も入れない。人を入れる力（鍵を出す）は room_invite と同じ札の中にあるので、札を分けない。
+    // 0.1.56 に chat_image_send を足した —— **札は chat_send と同じ chat.send**（会話へ流す）。
     // 0.1.43 に chat_image を足した —— **札は chat.read**。会話に届いた画像を見るだけで、
     // chat_read で読める札の行の中身そのものである（新しく読めるものの種類は増えない）。
     // 0.1.55 に pass_take / update_install を足した —— **札は要らない**（札を出す口・入れ替える口）。
@@ -333,6 +334,7 @@ fn 出している口を_数えて名前で押さえる() {
             "changes",
             "chat_export",
             "chat_image",
+            "chat_image_send",
             "chat_read",
             "chat_send",
             "chat_status",
@@ -1221,6 +1223,10 @@ fn 外へ出る引数名は_asciiだけ() {
         &schemars::schema_for!(warifu_mcp::MailAccountRemoveArgs),
     );
     名を検める("chat_image", &schemars::schema_for!(warifu_mcp::ImageArgs));
+    名を検める(
+        "chat_image_send",
+        &schemars::schema_for!(warifu_mcp::ImageSendArgs),
+    );
     名を検める(
         "profile_set",
         &schemars::schema_for!(warifu_mcp::ProfileArgs),

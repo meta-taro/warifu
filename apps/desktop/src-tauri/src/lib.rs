@@ -53,6 +53,8 @@ const EVENT_DESK: &str = "warifu://desk";
 /// 会議に人が居なくても、**同じエージェントの AI が居るなら人は話しかけられる。**
 /// これが無いと、AI が居るのに「入ってきたら送れます」と出たままになる。
 const EVENT_DESK_SEATS: &str = "warifu://desk-seats";
+/// **この機械の席が会話へ流した画像**（0.1.56・`chat_image_send`）。`(名札, 型, 中身, 部屋, 時刻)`
+const EVENT_DESK_IMAGE: &str = "warifu://desk-image";
 
 /// **札の頼みが来た**（**D119**）。
 ///

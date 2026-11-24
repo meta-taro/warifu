@@ -1421,6 +1421,34 @@ impl Warifu {
         })
     }
 
+    /// **画像を会話へ流す**（0.1.56）。
+    #[tool(
+        description = "画像を 1 枚、会話へ流す（席が撮った画面を見せる）。path はこの PC にある画像のパス\
+                       （PNG・JPEG・WebP・512 KiB まで。相対パスはこの口を立ち上げた場所から）。\
+                       同じ PC の人の画面と、同じルームの相手（相手も 0.1.56 以降）に、あなたの席の発言として出る。\
+                       相手の席は chat_image で見られる。`room` と `reply_to` は chat_send と同じ\
+                       （部屋を指さず、居る部屋が 2 つ以上なら送らずに候補を返す）。\
+                       添える文は、続けて chat_send で送る。**送る前に自分で画像を開き、見せたいものが写っているかを確かめる。**\
+                       画面にトークン・パスワード・ルームキーなど秘密が写っていれば送らない（送ったら消せない）。札は chat.send。"
+    )]
+    pub async fn chat_image_send(
+        &self,
+        Parameters(args): Parameters<crate::tools::ImageSendArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通るか("chat.send")?;
+        // **机へ運ぶ前に読んで下見する。**大きすぎるもの・絵でないものを、欠片にして運ばない
+        let 中身 = crate::tools::会話の画像を読む(&args.path)?;
+        let この機械 = self.この機械().await?;
+        let 流した = この機械
+            .画像を流す(&中身, args.room.as_deref(), args.reply_to)
+            .await?;
+        Ok(format!(
+            "画像（{} KB）: {}",
+            中身.len().div_ceil(1024),
+            流した.言い方()
+        ))
+    }
+
     /// **いまの様子**（ルーム・名簿・経路・この機械のエージェント・待っているリンク）。
     #[tool(
         description = "いまの様子を見る。どのルームに居るか、相手の鍵、経路（direct / relayed / \

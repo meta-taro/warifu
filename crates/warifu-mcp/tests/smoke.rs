@@ -146,6 +146,16 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                 ToDesk::顔 { .. } => Some(FromDesk::Wrote {
                     who: "試験の席".to_owned(),
                 }),
+                // 0.1.56：画像を会話へ流す
+                ToDesk::画像 {
+                    終わり: false, ..
+                } => Some(FromDesk::画像の途中 { 受けた: 0 }),
+                ToDesk::画像 { .. } => Some(FromDesk::Sent {
+                    to: 1,
+                    id: 1,
+                    届いた: Vec::new(),
+                    room: None,
+                }),
                 // 0.1.40：部屋の片付けの 3 つの口
                 ToDesk::部屋たち => Some(FromDesk::部屋たち {
                     部屋: vec![warifu_desk::部屋の行 {
@@ -394,6 +404,18 @@ async fn 口を全部_1回ずつ呼ぶ() {
             "{:?}",
             口.avatar_set(Parameters(warifu_mcp::AvatarArgs {
                 path: String::new(),
+            }))
+            .await
+        ),
+    ));
+    結果.push((
+        "chat_image_send",
+        format!(
+            "{:?}",
+            口.chat_image_send(Parameters(warifu_mcp::ImageSendArgs {
+                path: "まだ無い.png".to_owned(),
+                room: None,
+                reply_to: None,
             }))
             .await
         ),

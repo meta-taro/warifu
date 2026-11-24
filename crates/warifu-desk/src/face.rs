@@ -16,6 +16,10 @@ use crate::{Error, ToDesk};
 /// 机はこれより大きいものを継がない。置く前に `顔として読む` でもう一度数える。
 pub const 顔の上限: usize = 64 * 1024;
 
+/// 会話へ流せる画像の大きさ（バイト・0.1.56）。**画面で人が貼る画像と同じ 512 KiB**
+/// （`warifu-meeting` の `IMAGE_MAX`）。机はこれより大きいものを継がない。
+pub const 画像の上限: usize = 512 * 1024;
+
 /// 1 行に載せる欠片の大きさ（バイト・base64 にする前）。base64 にすると 4096 字。
 pub const 顔の欠片の大きさ: usize = 3 * 1024;
 
@@ -42,6 +46,46 @@ pub fn 顔を欠片にする(中身: &[u8]) -> Vec<ToDesk> {
         .collect()
 }
 
+/// **会話へ流す画像を、机へ送る行に分ける**（0.1.56）。`room` と `reply_to` は終わりの行にだけ載せる。
+#[must_use]
+pub fn 画像を欠片にする(
+    中身: &[u8],
+    room: Option<String>,
+    reply_to: Option<u64>,
+) -> Vec<ToDesk> {
+    let 数 = 中身.chunks(顔の欠片の大きさ).count().max(1);
+    let mut 行たち: Vec<ToDesk> = 中身
+        .chunks(顔の欠片の大きさ)
+        .map(|欠片| ToDesk::画像 {
+            欠片: STANDARD.encode(欠片),
+            終わり: false,
+            room: None,
+            reply_to: None,
+        })
+        .collect();
+    if 行たち.is_empty() {
+        行たち.push(ToDesk::画像 {
+            欠片: String::new(),
+            終わり: false,
+            room: None,
+            reply_to: None,
+        });
+    }
+    debug_assert_eq!(行たち.len(), 数);
+    if let Some(ToDesk::画像 {
+        終わり: 末,
+        room: 部屋,
+        reply_to: 返信,
+        ..
+    }) = 行たち.last_mut()
+    {
+        *末 = true;
+        *部屋 = room;
+        *返信 = reply_to;
+    }
+    行たち
+}
+
 /// 欠片の形を見る（書き手の側でも、机の側でも）。**長さと字だけ。**絵かどうかは机が置く前に見る。
 pub(crate) fn 欠片を検める(欠片: &str) -> Result<(), Error> {
     if 欠片.len() > 顔の欠片の字の上限 {
@@ -61,13 +105,35 @@ pub(crate) fn 欠片を検める(欠片: &str) -> Result<(), Error> {
     Ok(())
 }
 
-/// **机の側で欠片を継ぐ。**口ごとに 1 つ持つ。
-#[derive(Debug, Default)]
+/// **机の側で欠片を継ぐ。**口ごとに 1 つ持つ。顔と画像（0.1.56）で上限だけが違う。
+#[derive(Debug)]
 pub struct 顔の継ぎ {
     溜め: Vec<u8>,
+    上限: usize,
+    何: &'static str,
+}
+
+impl Default for 顔の継ぎ {
+    fn default() -> Self {
+        Self {
+            溜め: Vec::new(),
+            上限: 顔の上限,
+            何: "顔",
+        }
+    }
 }
 
 impl 顔の継ぎ {
+    /// **会話へ流す画像を継ぐ**（0.1.56）。上限は [`画像の上限`]。
+    #[must_use]
+    pub fn 画像用() -> Self {
+        Self {
+            溜め: Vec::new(),
+            上限: 画像の上限,
+            何: "画像",
+        }
+    }
+
     /// 欠片を 1 つ継ぐ。終わりなら継いだ中身を返す（空なら「既定へ戻す」）。
     ///
     /// **しくじったら、溜めた分を捨てる。**半端な絵を、次の頼みに混ぜない。
@@ -80,7 +146,7 @@ impl 顔の継ぎ {
             .and_then(|()| {
                 STANDARD
                     .decode(欠片)
-                    .map_err(|_| "顔の欠片を読めません（base64 ではありません）".to_owned())
+                    .map_err(|_| format!("{}の欠片を読めません（base64 ではありません）", self.何))
             });
         let 中身 = match 継いだ {
             Ok(中身) => 中身,
@@ -89,12 +155,20 @@ impl 顔の継ぎ {
                 return Err(訳);
             }
         };
-        if self.溜め.len() + 中身.len() > 顔の上限 {
+        if self.溜め.len() + 中身.len() > self.上限 {
             let 数 = self.溜め.len() + 中身.len();
+            let 上限 = self.上限;
             self.溜め.clear();
-            return Err(format!(
-                "画像が大きすぎます（{数} バイト以上 / 上限 {顔の上限}）。512px 角・64 KiB 以下に縮めてから置いてください"
-            ));
+            return Err(if self.何 == "顔" {
+                format!(
+                    "画像が大きすぎます（{数} バイト以上 / 上限 {上限}）。512px 角・64 KiB 以下に縮めてから置いてください"
+                )
+            } else {
+                format!(
+                    "画像が大きすぎます（{数} バイト以上 / 上限 {上限}）。{} KiB 以下に縮めてから送ってください",
+                    上限 / 1024
+                )
+            });
         }
         self.溜め.extend_from_slice(&中身);
         if 終わり {
@@ -197,5 +271,46 @@ mod 試験 {
             終わり: true,
         };
         assert!(ToDesk::読む(&行.書く()).is_err());
+    }
+
+    #[test]
+    fn 画像は_顔より大きくても継げて_部屋と返信は終わりの行にだけ載る() {
+        let 中身: Vec<u8> = (0..画像の上限).map(|i| (i % 251) as u8).collect();
+        let 行たち = 画像を欠片にする(&中身, Some("ABCD".into()), Some(7));
+        assert_eq!(行たち.len(), 画像の上限.div_ceil(顔の欠片の大きさ));
+        let mut 継ぎ = 顔の継ぎ::画像用();
+        let mut 出来 = None;
+        for (i, 行) in 行たち.iter().enumerate() {
+            let ToDesk::画像 {
+                欠片,
+                終わり,
+                room,
+                reply_to,
+            } = ToDesk::読む(&行.書く()).expect("読める")
+            else {
+                panic!("画像の行ではない");
+            };
+            let 末 = i + 1 == 行たち.len();
+            assert_eq!(終わり, 末);
+            assert_eq!(room.is_some(), 末, "部屋は終わりの行だけ");
+            assert_eq!(reply_to.is_some(), 末, "返信は終わりの行だけ");
+            出来 = 継ぎ.足す(&欠片, 終わり).unwrap();
+        }
+        assert_eq!(出来, Some(中身));
+    }
+
+    #[test]
+    fn 画像の上限を超えたら継がない() {
+        let mut 継ぎ = 顔の継ぎ::画像用();
+        let 欠片 = STANDARD.encode(vec![0u8; 顔の欠片の大きさ]);
+        let 断り =
+            (0..=(画像の上限 / 顔の欠片の大きさ)).find_map(|_| 継ぎ.足す(&欠片, false).err());
+        assert!(断り.expect("上限を超えたら断る").contains("512 KiB"));
+        assert_eq!(継ぎ.受けた(), 0);
+    }
+
+    #[test]
+    fn 画像の行に_誰のかは書けない() {
+        assert!(ToDesk::読む(r#"{"型":"画像","欠片":"","終わり":true,"who":"me"}"#).is_err());
     }
 }

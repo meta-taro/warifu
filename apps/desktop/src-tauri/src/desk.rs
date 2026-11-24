@@ -26,7 +26,7 @@ use tokio::sync::broadcast;
 use warifu_desk::{FromDesk, ToDesk, この機械の場所, 受け口, 口};
 use warifu_meeting::MeetingId;
 
-use crate::{Bridge, EVENT_DESK, EVENT_DESK_SEATS};
+use crate::{Bridge, EVENT_DESK, EVENT_DESK_IMAGE, EVENT_DESK_SEATS};
 
 /// この機械につながっている相手へ配る溜め。
 ///
@@ -235,6 +235,9 @@ static エージェントたち: Mutex<BTreeMap<u64, String>> = Mutex::new(BTree
 /// **口ごとの、継ぎかけの顔**（0.1.53・`ToDesk::顔`）。切れたら捨てる。
 static 顔の継ぎたち: Mutex<BTreeMap<u64, warifu_desk::顔の継ぎ>> = Mutex::new(BTreeMap::new());
 
+/// **口ごとの、継ぎかけの画像**（0.1.56・`ToDesk::画像`）。切れたら捨てる。
+static 画像の継ぎたち: Mutex<BTreeMap<u64, warifu_desk::顔の継ぎ>> = Mutex::new(BTreeMap::new());
+
 /// **ルームキーの既定の寿命**（24 時間・**#32 の段 2**）。
 ///
 /// **画面と同じ値にしてある**（`+page.svelte` の `KEY_TTL_SECS`）——
@@ -431,6 +434,7 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
         }
         // 継ぎかけの顔は捨てる（半端な絵を残さない）
         顔の継ぎたち.lock().expect("毒されていない").remove(&自分);
+        画像の継ぎたち.lock().expect("毒されていない").remove(&自分);
         // subscribe を落としてから数える。**落とす前だと自分を数えてしまう**
         drop(聞く);
         エージェントの数を伝える(&app);
@@ -492,6 +496,126 @@ async fn 顔の欠片を受ける(
             }
         }
     }
+}
+
+/// **画像の欠片を 1 つ受ける**（0.1.56）。途中なら [`FromDesk::画像の途中`]、終わりなら継いだ中身。
+///
+/// 名乗っていない口からは受けない（誰の発言か決まらない）。しくじったら継ぎかけを捨てる。
+fn 画像の欠片を受ける(
+    自分: u64,
+    名乗り: Option<&str>,
+    欠片: &str,
+    終わり: bool,
+) -> Result<Option<Vec<u8>>, FromDesk> {
+    if 名乗り.is_none() {
+        画像の継ぎたち.lock().expect("毒されていない").remove(&自分);
+        return Err(FromDesk::Denied {
+            why: 名乗ってください.to_owned(),
+        });
+    }
+    let mut 棚 = 画像の継ぎたち.lock().expect("毒されていない");
+    let 継ぎ = 棚.entry(自分).or_insert_with(warifu_desk::顔の継ぎ::画像用);
+    let 継いだ = 継ぎ.足す(欠片, 終わり);
+    let 受けた = 継ぎ.受けた();
+    if 終わり || 継いだ.is_err() {
+        棚.remove(&自分);
+    }
+    match 継いだ {
+        Err(why) => Err(FromDesk::Denied { why }),
+        Ok(None) => Err(FromDesk::画像の途中 { 受けた }),
+        Ok(Some(中身)) => Ok(Some(中身)),
+    }
+}
+
+/// **画像の型を、中身の頭から決める**（0.1.56）。席から流せるのは PNG・JPEG・WebP だけ。
+fn 画像の型(中身: &[u8]) -> Option<&'static str> {
+    if 中身.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]) {
+        Some("image/png")
+    } else if 中身.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some("image/jpeg")
+    } else if 中身.len() >= 12 && &中身[..4] == b"RIFF" && &中身[8..12] == b"WEBP" {
+        Some("image/webp")
+    } else {
+        None
+    }
+}
+
+/// **席の画像を会話へ流す**（0.1.56・`chat_image_send`）。人が［画像］で貼るのと同じ道を、席の発言として通る。
+///
+/// 返りは [`流す`] と同じ（番号・届いた先・流した部屋）。
+async fn 画像を流す(
+    app: &AppHandle,
+    中身: Vec<u8>,
+    出所: u64,
+    呼び方: String,
+    部屋: Option<MeetingId>,
+) -> Result<(u64, Vec<String>, Option<MeetingId>), String> {
+    let Some(型) = 画像の型(&中身) else {
+        return Err("PNG でも JPEG でも WebP でもありません（中身の頭で見ています）".to_owned());
+    };
+    let bridge = app.state::<Bridge>();
+    let 自分 = bridge.device.public_key();
+    let 見ている = crate::いま見ているルーム(&bridge.いまのルーム).await;
+    let 流す先 = 部屋.or(見ている);
+    if let Some(m) = 部屋
+        && !bridge.conferences.lock().await.contains_key(&m)
+    {
+        return Err(format!(
+            "その部屋に居ません（{}）",
+            crate::短く(&m.to_string())
+        ));
+    }
+    let 名札 = crate::profile::エージェントの名札(&呼び方);
+    // **先に人の画面へ出す。**会議が無くても、この PC の人には見える
+    let 部屋の札 = 流す先.map(|m| m.to_string()).unwrap_or_default();
+    let _ = app.emit(
+        EVENT_DESK_IMAGE,
+        (
+            名札.clone(),
+            型,
+            中身.clone(),
+            部屋の札.clone(),
+            いま時刻(),
+        ),
+    );
+    // この機械の**他の**エージェントにも見せる（言った本人には返さない）。番号は `chat_image` の id
+    let 行 = 画像を聞いた(&名札, 型, &中身, 流す先.map(|m| m.to_string()));
+    let FromDesk::Heard { id, .. } = &行 else {
+        unreachable!("画像を聞いた は Heard を返す");
+    };
+    let id = *id;
+    let _ = bridge.desk.send((出所, 行));
+    let mut 届いた = 届いた先を並べる(出所);
+    let Some(meeting) = 流す先 else {
+        届けた(id, 届いた.clone());
+        return Ok((id, 名札で並べる(&届いた), None));
+    };
+    let 知らせ = warifu_meeting::Notice::Image {
+        meeting,
+        from: 自分,
+        話し手: Some(名札.clone()),
+        型: 型.to_owned(),
+        中身,
+    };
+    // **先に組み立てて確かめる。**壊れたものを黙って配らない（人の［画像］と同じ）
+    if 知らせ.to_intent().is_err() {
+        return Err("この画像は送れない形です（PNG・JPEG・WebP・512 KiB まで）".to_owned());
+    }
+    let 送り先 =
+        crate::そのルームの相手(&bridge.conferences, &bridge.outbound, meeting, 自分).await;
+    if 送り先.is_empty() {
+        届けた(id, 届いた.clone());
+        return Err(誰も居ない.to_owned());
+    }
+    記録!("送信: 席の画像を {} 人へ", 送り先.len());
+    for tx in &送り先 {
+        // 届かない相手が居ても止めない（人の［画像］と同じ）
+        if tx.send(知らせ.clone()).await.is_ok() {
+            届いた.push(ルームの相手.to_owned());
+        }
+    }
+    届けた(id, 届いた.clone());
+    Ok((id, 名札で並べる(&届いた), Some(meeting)))
 }
 
 /// いまこの機械につながっている顔ぶれ。**呼び方の並び。**
@@ -646,6 +770,62 @@ async fn 応じる(
         // **どの席かは、この口で決まる**（`Profile` と同じ）。行の中に「誰の」は書けない
         ToDesk::顔 { 欠片, 終わり } => {
             let 返事 = 顔の欠片を受ける(app, 自分, 名乗り.as_deref(), &欠片, 終わり).await;
+            let _ = 口.送る(&返事.書く()).await;
+            Ok(())
+        }
+        // **席の画像を会話へ流す**（0.1.56）。欠片を継ぎ、終わりで部屋と返信先を決めて流す。
+        //
+        // 差出人はこの口で名乗った席（`Say` と同じ）。行の中に「誰の」は書けない
+        ToDesk::画像 {
+            欠片,
+            終わり,
+            room,
+            reply_to,
+        } => {
+            let 中身 = match 画像の欠片を受ける(自分, 名乗り.as_deref(), &欠片, 終わり) {
+                Ok(Some(中身)) => 中身,
+                Ok(None) => return Ok(()),
+                Err(返事) => {
+                    let _ = 口.送る(&返事.書く()).await;
+                    return Ok(());
+                }
+            };
+            let 部屋 = match room.as_deref() {
+                Some(指定) => match 部屋を決める(app, Some(指定)).await {
+                    Ok(m) => m,
+                    Err(why) => {
+                        let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                        return Ok(());
+                    }
+                },
+                None => None,
+            };
+            // 返信先は、部屋を指していなければ返信先の部屋を引くためだけに使う（画像の行は印を持たない）
+            let 部屋 = match 返信先を引く(reply_to, 部屋) {
+                Ok((部屋, _)) => 部屋,
+                Err(why) => {
+                    let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                    return Ok(());
+                }
+            };
+            if let Some(why) = 扱いで断るか(app, 部屋, reply_to, 自分).await {
+                記録!("この機械からの画像を流しませんでした（ルームの扱い）");
+                let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                return Ok(());
+            }
+            let 返事 = match 画像を流す(app, 中身, 自分, 呼び方(名乗り.as_deref()), 部屋).await {
+                Ok((id, 届いた, 流した先)) => FromDesk::Sent {
+                    to: 届いた.len(),
+                    id,
+                    届いた,
+                    room: 流した先.map(|m| m.to_string()),
+                },
+                Err(訳) if 訳 == 誰も居ない => FromDesk::Nobody,
+                Err(訳) => {
+                    記録!("この機械からの画像を流せませんでした: {訳}");
+                    FromDesk::Denied { why: 訳 }
+                }
+            };
             let _ = 口.送る(&返事.書く()).await;
             Ok(())
         }
@@ -3266,6 +3446,20 @@ pub fn 人が答えた(動作: &str, 許した: bool, まで: Option<u64>) -> Re
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn 席の画像の上限は_人が貼る画像と同じ() {
+        assert_eq!(warifu_desk::画像の上限, warifu_meeting::IMAGE_MAX);
+    }
+
+    #[test]
+    fn 画像の型は中身の頭で決め_それ以外は断る() {
+        assert_eq!(super::画像の型(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 0]), Some("image/png"));
+        assert_eq!(super::画像の型(&[0xFF, 0xD8, 0xFF, 0xE0]), Some("image/jpeg"));
+        assert_eq!(super::画像の型(b"RIFF\0\0\0\0WEBPVP8 "), Some("image/webp"));
+        assert_eq!(super::画像の型(b"GIF89a......"), None);
+        assert_eq!(super::画像の型(b"<svg></svg>"), None);
+    }
+
     use super::ミリ秒を時刻に;
 
     #[test]

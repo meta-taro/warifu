@@ -35,6 +35,8 @@ export const EVENT_ACK = 'warifu://ack';
 export const EVENT_DESK = 'warifu://desk';
 /** 相手から画像が届いた（`[名, 型, 中身]`）。 */
 export const EVENT_IMAGE = 'warifu://image';
+/** **この機械の席が会話へ流した画像**（0.1.56・`chat_image_send`）。`[名札, 型, 中身, 部屋, 時刻]` */
+export const EVENT_DESK_IMAGE = 'warifu://desk-image';
 /**
  * **この機械につながっている顔ぶれ**が変わった（呼び方の並びが届く）。
  *

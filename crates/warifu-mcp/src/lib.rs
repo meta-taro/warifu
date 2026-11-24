@@ -59,8 +59,8 @@ pub use server::{
 };
 pub use tools::{
     AskArgs, AvatarArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs,
-    InviteArgs, JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs, MailSendArgs,
-    OpenArgs, ProfileArgs, RoomCreateArgs, RoomKickArgs, RoomLeaveArgs, RoomRenameArgs, SayArgs,
-    ScreenArgs, SlotsArgs, StatusArgs, TakePassArgs, ToolError, VoiceArgs, WaitArgs, WaitPassArgs,
-    顔の画像を読む,
+    ImageSendArgs, InviteArgs, JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs,
+    MailSendArgs, OpenArgs, ProfileArgs, RoomCreateArgs, RoomKickArgs, RoomLeaveArgs,
+    RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs, StatusArgs, TakePassArgs, ToolError, VoiceArgs,
+    WaitArgs, WaitPassArgs, 会話の画像を読む, 顔の画像を読む,
 };

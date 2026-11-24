@@ -167,6 +167,7 @@
     EVENT_DESK,
     EVENT_IMAGE,
     EVENT_DESK_SEATS,
+    EVENT_DESK_IMAGE,
     EVENT_THEME,
     EVENT_LINK,
     EVENT_HANDOFF,
@@ -2243,6 +2244,27 @@
           // **そのエージェントとの 1 対 1 にも積む**（**D86**）。
           // **エージェントの名札で来る**ので、エージェントそのもの（`alpha のエージェント`）に戻す
           ルームの会話たち = エージェントへ足す(ルームの会話たち, エージェントに戻す(呼び方), その行);
+          },
+        ),
+      );
+      unsubs.push(
+        // **この機械の席が流した画像**（0.1.56・`chat_image_send`）。席の発言と同じ形で積む
+        await onEvent<[string, string, number[], string, string]>(
+          EVENT_DESK_IMAGE,
+          ([呼び方, 型, 中身, ルーム, at]) => {
+            log(`送信: 席の画像（${中身.length} バイト）${呼び方}`);
+            const 画像 = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 型 }));
+            const その行 = {
+              who: 呼び方,
+              顔の種: `${この機械の印}${エージェントに戻す(呼び方)}`,
+              body: '',
+              画像,
+              mine: false,
+              agent: true as const,
+              at,
+            };
+            ルームの会話たち = この機械とルームへ足す(ルームの会話たち, ルーム || いまのルーム, その行);
+            ルームの会話たち = エージェントへ足す(ルームの会話たち, エージェントに戻す(呼び方), その行);
           },
         ),
       );

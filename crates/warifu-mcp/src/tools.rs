@@ -254,11 +254,49 @@ pub struct AvatarArgs {
 /// # Errors
 /// 読めない・ファイルでない・空・大きすぎる・画像の頭でないとき（[`ToolError::BadArgs`]）。
 pub fn 顔の画像を読む(path: &str) -> Result<Vec<u8>, ToolError> {
-    let 上限 = warifu_desk::顔の上限;
-    let path = path.trim();
-    if path.is_empty() {
+    if path.trim().is_empty() {
         return Ok(Vec::new());
     }
+    画像を読む(
+        path,
+        warifu_desk::顔の上限,
+        "512px 角・64 KiB 以下に縮めてから置いてください",
+    )
+}
+
+/// [`crate::Warifu::chat_image_send`] の引数（0.1.56）。
+///
+/// **「誰の」を書く場所が無いのは意図**（[`SayArgs`] と同じ）。差出人は、この口で名乗った席。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct ImageSendArgs {
+    /// この PC にある画像のパス（PNG・JPEG・WebP・512 KiB まで）。相対パスは、この口を立ち上げた場所から読む。
+    pub path: String,
+    /// どの部屋へ流すか（`chat_send` の `room` と同じ）。
+    #[serde(default)]
+    pub room: Option<String>,
+    /// どの発言への返信か（`chat_send` の `reply_to` と同じ）。
+    #[serde(default)]
+    pub reply_to: Option<u64>,
+}
+
+/// **会話へ流す画像を読む**（0.1.56・[`crate::Warifu::chat_image_send`]）。空のパスは断る。
+///
+/// # Errors
+/// パスが空・読めない・ファイルでない・空・大きすぎる・画像の頭でないとき（[`ToolError::BadArgs`]）。
+pub fn 会話の画像を読む(path: &str) -> Result<Vec<u8>, ToolError> {
+    if path.trim().is_empty() {
+        return Err(ToolError::BadArgs("画像のパスが空です".to_owned()));
+    }
+    画像を読む(
+        path,
+        warifu_desk::画像の上限,
+        "512 KiB 以下に縮めてから送ってください（長い辺 1600px の JPEG なら、たいてい収まります）",
+    )
+}
+
+/// 画像を読む。読む前に大きさを見る。
+fn 画像を読む(path: &str, 上限: usize, 縮め方: &str) -> Result<Vec<u8>, ToolError> {
+    let path = path.trim();
     let 様子 = std::fs::metadata(path)
         .map_err(|e| ToolError::BadArgs(format!("画像を読めませんでした（{path}: {e}）")))?;
     if !様子.is_file() {
@@ -269,8 +307,7 @@ pub fn 顔の画像を読む(path: &str) -> Result<Vec<u8>, ToolError> {
     let 大きさ = usize::try_from(様子.len()).unwrap_or(usize::MAX);
     if 大きさ > 上限 {
         return Err(ToolError::BadArgs(format!(
-            "画像が大きすぎます（{大きさ} バイト / 上限 {上限}）。\
-             512px 角・64 KiB 以下に縮めてから置いてください（PNG・JPEG・WebP）"
+            "画像が大きすぎます（{大きさ} バイト / 上限 {上限}）。{縮め方}（PNG・JPEG・WebP）"
         )));
     }
     let 中身 = std::fs::read(path)

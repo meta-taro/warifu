@@ -326,6 +326,21 @@ impl Chat {
         部屋: Option<&str>,
         返信先: Option<u64>,
     ) -> Result<流した, crate::ToolError> {
+        let 部屋 = self.流す部屋を選ぶ(部屋, 返信先).await?;
+        let 行 = ToDesk::say_reply(body, 部屋, 返信先)
+            .map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        self.流して待つ(行).await
+    }
+
+    /// **流す部屋を選ぶ**（`chat_send` と `chat_image_send` で同じ決まり）。`None` なら机に任せる。
+    ///
+    /// # Errors
+    /// 部屋を指さず、居る部屋が 2 つ以上のとき（候補を返す）。
+    async fn 流す部屋を選ぶ(
+        &self,
+        部屋: Option<&str>,
+        返信先: Option<u64>,
+    ) -> Result<Option<String>, crate::ToolError> {
         let 最後 = self
             .最後に聞いた部屋
             .lock()
@@ -353,8 +368,11 @@ impl Chat {
         } else {
             流す部屋(指した, 最後.as_deref(), 使える)
         };
-        let 行 = ToDesk::say_reply(body, 部屋, 返信先)
-            .map_err(|e| crate::ToolError::BadArgs(e.to_string()))?;
+        Ok(部屋)
+    }
+
+    /// 言う行を送り、流した返りを待つ。
+    async fn 流して待つ(&self, 行: ToDesk) -> Result<流した, crate::ToolError> {
         let (返す, 待つ) = oneshot::channel();
         *self.返事待ち.lock().expect("毒されていない") = Some(返事の待ち {
             返す,
@@ -1220,6 +1238,62 @@ impl Chat {
         ))
     }
 
+    /// **画像を会話へ流す**（0.1.56・`chat_image_send`）。欠片に分けて順に送り、流せたら届いた先を返す。
+    ///
+    /// 部屋の選び方は [`Self::部屋へ言う`] と同じ。差出人はこの口で名乗った席（机が決める）。
+    ///
+    /// # Errors
+    /// 古い画面（この行を知らない）・形や大きさを断られた・誰も居ない・この機械が返さないとき。
+    pub async fn 画像を流す(
+        &self,
+        中身: &[u8],
+        部屋: Option<&str>,
+        返信先: Option<u64>,
+    ) -> Result<流した, crate::ToolError> {
+        let 部屋 = self.流す部屋を選ぶ(部屋, 返信先).await?;
+        for 行 in warifu_desk::画像を欠片にする(中身, 部屋, 返信先) {
+            match self.頼んで待つ(行, 画像を流した返事, 返事を待つ秒).await? {
+                FromDesk::画像の途中 { .. } => {}
+                FromDesk::Sent {
+                    to,
+                    id,
+                    届いた,
+                    room,
+                } => {
+                    return Ok(流した {
+                        人数: to,
+                        id,
+                        届いた,
+                        部屋: room,
+                    });
+                }
+                FromDesk::Nobody => {
+                    return Err(crate::ToolError::Unavailable(
+                        "この PC の画面には出ましたが、ルームには誰も居ないので誰にも届いていません"
+                            .to_owned(),
+                    ));
+                }
+                // **古い画面はこの行を読めず「壊れている」と断る**。版の話だと分かる言い方にする
+                FromDesk::Denied { why } if why.contains("行の形") => {
+                    return Err(crate::ToolError::Unavailable(
+                        "この版の割符は、エージェントから画像を流せません（0.1.56 から）。\
+                         人に画面を更新してもらってください"
+                            .to_owned(),
+                    ));
+                }
+                FromDesk::Denied { why } => return Err(crate::ToolError::Unavailable(why)),
+                他 => {
+                    return Err(crate::ToolError::Unavailable(format!(
+                        "この機械が想定しない返事をしました: {他:?}"
+                    )));
+                }
+            }
+        }
+        Err(crate::ToolError::Unavailable(
+            "この機械が、画像を流し終えたと返しませんでした".to_owned(),
+        ))
+    }
+
     /// まだこの機械と繋がっているか。
     ///
     /// **切れたまま送り続けない。**切れていれば、繋ぎ直す側が判断できる。
@@ -1445,6 +1519,15 @@ pub fn 届き方を言う(id: u64, 届き方: &届き方) -> String {
 
 fn 届き方の返事(中身: &FromDesk) -> bool {
     matches!(中身, FromDesk::Status { .. } | FromDesk::Denied { .. })
+}
+fn 画像を流した返事(中身: &FromDesk) -> bool {
+    matches!(
+        中身,
+        FromDesk::画像の途中 { .. }
+            | FromDesk::Sent { .. }
+            | FromDesk::Nobody
+            | FromDesk::Denied { .. }
+    )
 }
 fn 顔の返事(中身: &FromDesk) -> bool {
     matches!(
@@ -1674,6 +1757,8 @@ fn 仕分ける(
             | FromDesk::Wrote { .. }
             // **顔の欠片の途中の返りも返事である**（0.1.53）。無いと次の欠片を送れない
             | FromDesk::顔の途中 { .. }
+            // **画像の欠片の途中の返りも返事である**（0.1.56）
+            | FromDesk::画像の途中 { .. }
             | FromDesk::Status { .. }
             | FromDesk::様子 { .. }
             | FromDesk::Asked { .. }
@@ -2069,7 +2154,8 @@ pub fn 宛ても見て並べる(発言: &[FromDesk], 名前たち: &[String]) ->
             // **画像そのものも会話の行ではない**（0.1.43・`chat_image` の返り）
             | FromDesk::画像 { .. }
             // **顔の欠片の途中の返りも会話の行ではない**（0.1.53）
-            | FromDesk::顔の途中 { .. } => String::new(),
+            | FromDesk::顔の途中 { .. }
+            | FromDesk::画像の途中 { .. } => String::new(),
             FromDesk::Nobody => "\t\t（まだ誰も居ません）".to_owned(),
             FromDesk::Denied { why } => format!("\t\t（断られました: {why}）"),
             FromDesk::Wrote { who } => format!("\t\t（{who} として書きました）"),
