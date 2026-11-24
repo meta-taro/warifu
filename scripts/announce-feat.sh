@@ -32,9 +32,9 @@ feats="$(git log --reverse --format='%h%x09%s' $range | grep -E $'\t''feat(\([^)
 [ -z "$feats" ] && exit 0
 
 # 入る版：送る範囲で版が上がっていれば、その版。上がっていなければ、いまの版の次
-版を読む() { git show "$1:Cargo.toml" 2>/dev/null | sed -n 's/^version = "\([0-9.]*\)"/\1/p' | head -1; }
-new_ver="$(版を読む "$new")"
-case "$old" in *[!0]*) old_ver="$(版を読む "$old")" ;; *) old_ver="" ;; esac
+read_ver() { git show "$1:Cargo.toml" 2>/dev/null | sed -n 's/^version = "\([0-9.]*\)"/\1/p' | head -1; }
+new_ver="$(read_ver "$new")"
+case "$old" in *[!0]*) old_ver="$(read_ver "$old")" ;; *) old_ver="" ;; esac
 if [ -n "$old_ver" ] && [ "$new_ver" != "$old_ver" ]; then
   next="$new_ver"
 else
@@ -57,9 +57,9 @@ fi
 while IFS=$'\t' read -r sha subject; do
   body="develop に入りました（${sha}）：${subject#*: } —— **入る版 ${next}**（まだ出していません。出たら知らせます）"
   if out="$(warifu room say "$room" --as "割符の開発（自動の知らせ）" "$body" 2>&1)"; then
-    echo "  部屋へ知らせました: $out"
+    echo "  部屋へ知らせました: ${out}"
   else
-    echo "  部屋へ知らせられませんでした（$out）。手で知らせてください: $sha $subject" >&2
+    echo "  部屋へ知らせられませんでした（${out}）。手で知らせてください: ${sha} ${subject}" >&2
   fi
 done <<EOF
 $feats
