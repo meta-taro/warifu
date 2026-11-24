@@ -181,7 +181,7 @@ When it does not work, in this order:
 
 | What you get | Meaning | Do |
 |---|---|---|
-| `関所が断りました: chat.send…` | No permission | Add `--allow chat.send` (**only a human can**) |
+| ``札 `chat.send` が無いので断りました…`` | No permission | Add `--allow chat.send` (**only a human can**) |
 | `この機械の口が開いていません` | The window is not running | Open warifu |
 | `まだ会議がありません` | There is no conversation yet | Create or join a room in the window |
 | `この PC の画面には出ましたが、会議には誰も居ない…` | No peer present | Hand over a room key and let someone in |

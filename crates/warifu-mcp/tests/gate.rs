@@ -95,7 +95,7 @@ async fn 札が無ければ一覧すら出せない() {
     let 結果 = 口.inbox_list().await;
 
     assert!(結果.is_err(), "札が無いのに一覧が出ました");
-    assert!(format!("{結果:?}").contains("関所が断りました"));
+    assert!(format!("{結果:?}").contains("が無いので断りました"));
 }
 
 #[tokio::test]
@@ -530,7 +530,7 @@ fn 札が無ければ空き枠を出せない() {
     let 結果 = 空き枠を尋ねる(&口, 3_600, 14_400);
 
     assert!(結果.is_err(), "札が無いのに空き枠が出ました");
-    assert!(format!("{結果:?}").contains("関所が断りました"));
+    assert!(format!("{結果:?}").contains("が無いので断りました"));
 }
 
 #[test]
@@ -565,7 +565,7 @@ fn 窓が広すぎれば断られるが札の問題とは混ぜない() {
     assert!(結果.is_err());
     assert!(文言.contains("窓が広すぎます"), "{文言}");
     assert!(
-        !文言.contains("関所が断りました"),
+        !文言.contains("が無いので断りました"),
         "札の問題と混ざっています: {文言}"
     );
 }
@@ -609,7 +609,7 @@ async fn 札が無ければ_会話へ流せない() {
         ))
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
     assert!(
         !文.contains("この機械"),
         "札の話にこの機械の話を混ぜない: {文}"
@@ -646,7 +646,7 @@ async fn 札が無ければ_プロフィールも書けない() {
         ))
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
     assert!(
         !文.contains("この機械"),
         "札の話にこの機械の話を混ぜない: {文}"
@@ -686,7 +686,7 @@ async fn 画面のカーソルは_札が無ければ動かせず_読む札では
     // **人の画面が動く**（11-12）。読むだけの screen.read では通さない
     let 口 = 用意(&["screen.read"]);
     let 文 = format!("{:?}", 口.screen(指し("click")).await.unwrap_err());
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
 }
 
 #[tokio::test]
@@ -721,7 +721,7 @@ fn 送る頼み(
 async fn メールは_送る札が無ければ頼めず_読む札では足りない() {
     let 口 = 用意(&["inbox.list"]);
     let 文 = format!("{:?}", 口.mail_send(送る頼み(Some(0))).await.unwrap_err());
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
 }
 
 #[tokio::test]
@@ -755,14 +755,14 @@ async fn 客を外すのは_外す札が無ければできず_抜ける札では
         .await
         .unwrap_err()
     );
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
 }
 
 #[tokio::test]
 async fn 札が無ければ_会話を読めない() {
     let 口 = 用意(&[]);
     let 文 = format!("{:?}", 口.chat_read().await.unwrap_err());
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
 }
 
 #[tokio::test]
@@ -1007,7 +1007,7 @@ async fn 札が無ければ_待つこともできない() {
         ))
         .await;
     let 文 = format!("{:?}", 出た.unwrap_err());
-    assert!(文.contains("関所"), "{文}");
+    assert!(文.contains("が無いので断りました"), "{文}");
 }
 
 #[tokio::test]

@@ -29,6 +29,21 @@ async fn 札が無くても概要を返す() {
     );
 }
 
+/// **頭に要点と版を出す**（0.1.58）。全文は長く、人も席も一度で読み切れなかった。
+#[tokio::test]
+async fn 概要は頭に要点と版を出す() {
+    let 出た = 口().about().await.expect("返る");
+    assert!(
+        出た.starts_with("## 要点"),
+        "{}",
+        &出た[..200.min(出た.len())]
+    );
+    let 頭: String = 出た.split("\n---\n").next().unwrap_or("").to_owned();
+    assert!(頭.contains("いま繋がっている版"), "{頭}");
+    assert!(頭.contains("`pass_wait`"), "{頭}");
+    assert!(頭.lines().count() <= 9, "要点が長い: {頭}");
+}
+
 #[tokio::test]
 async fn 概要はいまの版を名乗る() {
     let 出た = 口().about().await.expect("返る");
