@@ -177,6 +177,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         }
         .書く(),
     )
@@ -222,6 +223,7 @@ pub async fn 待つ(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                             届かない先も聞く: false,
                             読みも聞く: false,
                             任されも聞く: false,
+                            承認も聞く: false,
                         }
                         .書く(),
                     )

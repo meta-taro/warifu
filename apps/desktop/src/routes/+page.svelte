@@ -106,6 +106,7 @@
   import { 届きを見る, 打てない訳 } from '$lib/chat/delivery';
   import { 出す名, 呼び名 } from '$lib/meeting/names';
   import { 動作の言葉 } from '$lib/pass/action';
+  import PassDialog from '$lib/pass/PassDialog.svelte';
   import { 秘密を言う } from '$lib/chat/secret';
   import { エージェントの名を言い換える, 受けた人の名 } from '$lib/chat/name';
   import { 渡してあるか, 足す as 鍵を足す, type 出した鍵 } from '$lib/meeting/handout';
@@ -179,6 +180,8 @@
     reportAgentVoice,
     roomLink,
     answerPass,
+    terminalApproval,
+    setTerminalApproval,
     standingPasses,
     revokePass,
     allowUntilRevoked,
@@ -1538,6 +1541,24 @@
     }
   }
 
+  /**
+   * **離れていても Claude Code の確認で通すか**（0.1.55 の切り替え・0.1.57 で［メール］の奥から窓と題字の帯へ移した）。
+   * 機械ごと。入っているときだけ題字の帯に印を出し、押せば切れる。
+   */
+  let 離れていても通す = $state(false);
+  async function 離れていても通すを読む() {
+    if (!inTauri()) return;
+    離れていても通す = (await terminalApproval().catch(() => false)) ?? false;
+  }
+  async function 離れていても通すを決める(on: boolean) {
+    try {
+      await setTerminalApproval(on);
+    } catch (e) {
+      notice = 読める(e);
+    }
+    await 離れていても通すを読む();
+  }
+
   /** **取り消すまで聞かずに通せる札**（11-20・本体の `取り消すまで出せる札` と同じ。ルームの自動入室は帯からは出さない）。 */
   const 取り消すまで出せる札 = ['inbox.open.structured', 'inbox.open.raw'];
 
@@ -2097,6 +2118,8 @@
         await onEvent<待っている札[]>('warifu://pass', (待ち) => {
           // **札の頼みが来た**（**D119**）。**部屋の会話には出さない**（**#26**）
           待っている札たち = 待ち;
+          // 窓の切り替えは、ほかの所（端末など）で変わっていることがあるので読み直す
+          void 離れていても通すを読む();
         }),
       );
       unsubs.push(
@@ -2307,6 +2330,7 @@
       // **画面を入れ替えると知らせは飛ばない**ので、溜まっている分が出なくなる。
       // **リンクの有無に関わらず読む**（前はリンクの条件の中に入っていて、同じく走っていなかった）
       待っている札たち = (await pendingPasses().catch(() => null)) ?? [];
+      await 離れていても通すを読む();
       // **手渡しの頼みも読み直す**（画面を入れ替えると知らせは飛ばない）
       手渡しの頼みたち = (await pendingHandoffs().catch(() => null)) ?? [];
       メールの頼みたち = (await pendingMailSends().catch(() => null)) ?? [];
@@ -3559,6 +3583,8 @@
 
 <TitleBar
   {locale}
+  離れていても通す={離れていても通す}
+  離れていても通すを切る={() => void 離れていても通すを決める(false)}
   status={状態 === '会議中'
     ? t(
         つながりの言い方({
@@ -3695,39 +3721,22 @@
   「#19 にメッセージを送信するための許可が必要です」が**部屋の発言として**届いた（**#26**）。
   **聞く口と流す口を分ける。**
 
-  **誘いの帯と同じ形にしてある**（人が同じ読み方をできるように）。
+  **窓（ポップアップ）にした**（0.1.57）。細い帯では人が気づかず、席が止まった。
+  Enter で既定の許し、ほかに［今回だけ］［断る］。離れていても通すかも、ここで切り替える。
 -->
-{#each 待っている札たち as 待ち (待ち.動作)}
-  <!--
-    **1 行に収める**（0.1.49）。見出し・頼み・理由・説明を 4 段に積むと、頼みが 2 つで画面の上が埋まった。
-    誰が何を・なぜ（必ず出す）を 1 行に、ボタンを右に。説明は［通す］に乗せる
-  -->
-  <div class="invited pass-ask" role="alertdialog" aria-live="polite" aria-label={t('pass.asked')} data-agent-hands-off>
-    <p class="hint">
-      <strong>{format(t('pass.who'), { who: エージェントの名(待ち.頼んだ人), what: 動作の言葉(待ち.動作, t) })}</strong>
-      <!-- **なぜ要るかを必ず出す。**出せない頼みは、ここへ来ない（受け付けていない） -->
-      <span>— {待ち.訳}</span>
-    </p>
-    <div class="tail">
-      <button type="button" title={t('pass.asked.hint')} onclick={() => void 札に答える(待ち.動作, true)}>
-        {t('pass.allow')}
-      </button>
-      <!-- **人が前もって出す札**（0.1.41・D129）。24 時間、同じ動作をこの機械の席に聞かない。取り消せる -->
-      <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, true, true)}>
-        {t('pass.allow.standing')}
-      </button>
-      <!-- **取り消すまで聞かない**（11-20）。メールを読む札だけ。夜や朝に人が居ないと、運用の席が止まった -->
-      {#if 取り消すまで出せる札.includes(待ち.動作)}
-        <button type="button" class="quiet" onclick={() => void 取り消すまで通す(待ち.動作)}>
-          {t('pass.allow.untilRevoked')}
-        </button>
-      {/if}
-      <button type="button" class="quiet" onclick={() => void 札に答える(待ち.動作, false)}>
-        {t('pass.refuse')}
-      </button>
-    </div>
-  </div>
-{/each}
+<PassDialog
+  {locale}
+  待ちたち={待っている札たち}
+  {取り消すまで出せる札}
+  名を言う={エージェントの名}
+  動作を言う={(動作) => 動作の言葉(動作, t)}
+  離れていても通す={離れていても通す}
+  今回だけ={(動作) => void 札に答える(動作, true)}
+  一日通す={(動作) => void 札に答える(動作, true, true)}
+  取り消すまで通す={(動作) => void 取り消すまで通す(動作)}
+  断る={(動作) => void 札に答える(動作, false)}
+  離れていても通すを決める={(on) => void 離れていても通すを決める(on)}
+/>
 
 <!-- **出している持続の札**（0.1.41・D129）。何を誰に任せているかが見え、いつでも取り消せる -->
 <!--
@@ -5132,25 +5141,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
-  }
-
-  /* 札の頼みは 1 行（0.1.49）。狭い窓では理由が折り返し、ボタンは右に残る */
-  .invited.pass-ask {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.35rem 0.6rem;
-    margin-top: 0.3rem;
-  }
-
-  .invited.pass-ask .hint {
-    flex: 1;
-    min-width: 0;
-    margin: 0;
-  }
-
-  .invited.pass-ask .tail {
-    flex: none;
   }
 
   /* 持続の札は小さな 1 行にたたむ（開いたときだけ並べる）。×で隠せる */

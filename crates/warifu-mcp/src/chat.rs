@@ -222,6 +222,8 @@ impl Chat {
                 読みも聞く: true,
                 // **任せた相手からの行に印を付けてもらう**（0.1.44）
                 任されも聞く: true,
+                // **画面の前に居ないときの承認が入っているかも聞く**（0.1.57）
+                承認も聞く: true,
             }
             .書く(),
         )
@@ -428,6 +430,19 @@ impl Chat {
     /// この機械が閉じている・返事をしないとき [`crate::ToolError::Unavailable`]。
     /// 訳が長い・行を壊すとき [`crate::ToolError::BadArgs`]。
     pub async fn 札を頼む(&self, 動作: &str, 訳: &str) -> Result<String, crate::ToolError> {
+        let 答え = self.札を頼んで答えを読む(動作, 訳).await?;
+        Ok(答えの言い方(動作, &答え))
+    }
+
+    /// **札を頼み、いまの答えをそのまま返す**（0.1.57）。札の無い口を呼んだとき、口が自分で人に尋ねるのに使う。
+    ///
+    /// # Errors
+    /// [`Self::札を頼む`] と同じ。
+    pub async fn 札を頼んで答えを読む(
+        &self,
+        動作: &str,
+        訳: &str,
+    ) -> Result<warifu_desk::頼みの返り, crate::ToolError> {
         let 行 = ToDesk::Ask {
             動作: 動作.to_owned(),
             訳: 訳.to_owned(),
@@ -451,7 +466,7 @@ impl Chat {
             .map_err(|_| crate::ToolError::Unavailable("この機械が閉じました".to_owned()))?;
 
         match 返事 {
-            FromDesk::Asked { 動作, 答え } => Ok(答えの言い方(&動作, &答え)),
+            FromDesk::Asked { 答え, .. } => Ok(答え),
             // **古い画面は、この口を知らない。**
             //
             // 行そのものを「形が壊れている」と断ってくるので、
@@ -1923,9 +1938,20 @@ fn 名乗りの下げ方(場所: Option<String>, どこから: Option<u64>) -> V
         届かない先も聞く,
         読みも聞く,
         任されも聞く: false,
+        承認も聞く: false,
     };
-    // 0.1.43 の机・0.1.42 の机・0.1.41 の机・0.1.40 の机・それより前
+    // 0.1.44〜0.1.56 の机（任されまで）・0.1.43 の机・0.1.42 の机・0.1.41 の机・0.1.40 の机・それより前
     vec![
+        ToDesk::Listen {
+            場所: 場所.clone(),
+            どこから,
+            部屋も聞く: true,
+            点検も聞く: true,
+            届かない先も聞く: true,
+            読みも聞く: true,
+            任されも聞く: true,
+            承認も聞く: false,
+        },
         形(true, true, true, true),
         形(true, true, true, false),
         形(true, true, false, false),
@@ -2461,6 +2487,15 @@ mod tests {
         .書く();
         let まだ = Arc::new(Mutex::new(None));
         let mut 控え = 名乗りの下げ方(Some("docs".to_owned()), None);
+        // 0.1.44〜0.1.56 の机（任されまで・承認は知らない）
+        assert!(matches!(
+            古い机に断られたら名乗り直す(&断り, &まだ, &mut 控え),
+            Some(ToDesk::Listen {
+                任されも聞く: true,
+                承認も聞く: false,
+                ..
+            })
+        ));
         let 聞き方 = |t: Option<ToDesk>| match t {
             Some(ToDesk::Listen {
                 部屋も聞く,
@@ -2468,6 +2503,7 @@ mod tests {
                 届かない先も聞く,
                 読みも聞く: false,
                 任されも聞く: false,
+                承認も聞く: false,
                 ..
             }) => Some((部屋も聞く, 点検も聞く, 届かない先も聞く)),
             _ => None,
@@ -2478,6 +2514,7 @@ mod tests {
             Some(ToDesk::Listen {
                 読みも聞く: true,
                 任されも聞く: false,
+                承認も聞く: false,
                 ..
             })
         ));

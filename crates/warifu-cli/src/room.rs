@@ -174,6 +174,7 @@ pub async fn 口(
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         }
         .書く(),
     )

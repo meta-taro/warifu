@@ -17,7 +17,8 @@ const 手渡し = readFileSync(
 );
 
 function 動作たち(): string[] {
-  const 拾った = [...口.matchAll(/通るか\("([a-z.]+)"\)/g)].map((m) => m[1]);
+  // 0.1.57 から口は `通すか尋ねる`（札が無ければその場で人に尋ねる）で関所を通る。前の `通るか` も拾う
+  const 拾った = [...口.matchAll(/(?:通るか|通すか尋ねる)\("([a-z.]+)"\)/g)].map((m) => m[1]);
   // `inbox.open.{段}` は段ごとに別の札（`inbox_open` の match の腕）
   const 段 = [...口.matchAll(/"([a-z]+)" => Level::/g)].map((m) => `inbox.open.${m[1]}`);
   const 札 = /聞かずに渡す札: &str = "([a-z.]+)"/.exec(手渡し)?.[1];

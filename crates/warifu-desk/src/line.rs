@@ -111,6 +111,11 @@ pub enum ToDesk {
         /// 同じ理由で opt-in。名乗った口にだけ机は `任された` の欄を付ける（立っていなければ欄を書かない）。
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         任されも聞く: bool,
+        /// **様子に「画面の前に居ないときの承認が入っているか」を付けてほしい**（0.1.57）。
+        ///
+        /// 同じ理由で opt-in。名乗った口にだけ机は `離席中の承認` の欄を付ける。
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        承認も聞く: bool,
     },
     /// **そこまで読んだ**と告げる（**既読**・**D76**）。
     ///
@@ -716,9 +721,9 @@ pub const 招ける本数: u8 = 12;
 
 /// **札を待てる秒**（2026-09-24）。
 ///
-/// **`chat_wait` と同じ 60 秒**にしてある ——
-/// **2 か所で違う上限を持つと、どちらが本当か分からなくなる。**
-pub const 札を待てる秒: u64 = 60;
+/// **300 秒**（0.1.57）。前は `chat_wait` と同じ 60 秒で、人が窓に気づく前に「まだ」で返り、
+/// 席が何度も待ち直していた（人が画面の前に戻るまでの間を、1 回の待ちで覆う）。
+pub const 札を待てる秒: u64 = 300;
 
 /// 待つ秒を検める。**上限を超えるものは、この機械まで運ばない。**
 fn 待つ秒を検める(秒: Option<u64>) -> Result<(), Error> {
@@ -910,6 +915,10 @@ pub enum FromDesk {
         /// 受けられるかが見分けられないので、**最後に読んだ時と、読んでいない数**で人が見分ける。
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         読み: Vec<読みの様子>,
+        /// **画面の前に居ないときの承認（道具の許可で通す）が入っているか**（0.1.57）。
+        /// `Listen` で `承認も聞く` と名乗った口にだけ付ける。付けていなければ `None`（分からない）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        離席中の承認: Option<bool>,
     },
     /// **出したルームキー**（[`ToDesk::招く`] の返り）。
     ///
@@ -1675,8 +1684,64 @@ mod 様子の試験 {
             題字: Some(
                 "つながっています（相手の映像を受けています。あなたは送っていません）".to_owned(),
             ),
+            離席中の承認: None,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
+    }
+
+    #[test]
+    fn 離席中の承認は_付けたときだけ書き_読み戻せる() {
+        let 元 = FromDesk::様子 {
+            食い違い: Vec::new(),
+            読み: Vec::new(),
+            ルーム: None,
+            名簿: vec![],
+            経路: None,
+            エージェント: vec![],
+            待っているリンク: 0,
+            待っているルーム: vec![],
+            送っている: None,
+            受けている: None,
+            掴んでいる: None,
+            題字: None,
+            離席中の承認: Some(true),
+        };
+        let 行 = 元.書く();
+        assert!(行.contains("離席中の承認"), "{行}");
+        assert_eq!(FromDesk::読む(&行).unwrap(), 元);
+        // 付けなければ欄そのものを書かない（古い口は知らない欄で 1 行も読めなくなる）
+        let FromDesk::様子 { .. } = 元 else {
+            unreachable!()
+        };
+        let 無し = FromDesk::読む(r#"{"型":"様子","ルーム":null,"名簿":[],"経路":null,"エージェント":[],"待っているリンク":0}"#).unwrap();
+        assert!(matches!(
+            無し,
+            FromDesk::様子 {
+                離席中の承認: None,
+                ..
+            }
+        ));
+        assert!(!無し.書く().contains("離席中の承認"));
+    }
+
+    #[test]
+    fn 承認も聞くは_名乗った口だけが書く() {
+        let 行 = r#"{"型":"listen","承認も聞く":true}"#;
+        assert!(matches!(
+            ToDesk::読む(行),
+            Ok(ToDesk::Listen {
+                承認も聞く: true,
+                ..
+            })
+        ));
+        let 古い = r#"{"型":"listen"}"#;
+        assert!(matches!(
+            ToDesk::読む(古い),
+            Ok(ToDesk::Listen {
+                承認も聞く: false,
+                ..
+            })
+        ));
     }
 
     #[test]
@@ -1700,6 +1765,7 @@ mod 様子の試験 {
                 受けている: None,
                 掴んでいる: None,
                 題字: None,
+                離席中の承認: None,
             }
         );
     }
@@ -1749,6 +1815,7 @@ mod 様子の試験 {
                 "つながっています（カメラとマイクは点いていますが、相手へは何も送っていません）"
                     .to_owned(),
             ),
+            離席中の承認: None,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1769,6 +1836,7 @@ mod 様子の試験 {
             受けている: None,
             掴んでいる: None,
             題字: None,
+            離席中の承認: None,
         };
         assert_eq!(FromDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1901,6 +1969,7 @@ mod tests {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1918,6 +1987,7 @@ mod tests {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).unwrap(), 元);
     }
@@ -1935,6 +2005,7 @@ mod tests {
                 届かない先も聞く: false,
                 読みも聞く: false,
                 任されも聞く: false,
+                承認も聞く: false,
             }
         );
     }
@@ -1950,6 +2021,7 @@ mod tests {
                 届かない先も聞く: false,
                 読みも聞く: false,
                 任されも聞く: false,
+                承認も聞く: false,
             }
             .書く();
             assert!(ToDesk::読む(&行).is_err(), "{壊す:?} を受け取った");
@@ -1967,6 +2039,7 @@ mod tests {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         }
         .書く();
         assert!(ToDesk::読む(&行).is_err());
@@ -1988,6 +2061,7 @@ mod tests {
                 届かない先も聞く: false,
                 読みも聞く: false,
                 任されも聞く: false,
+                承認も聞く: false,
             }
         );
     }
@@ -2002,6 +2076,7 @@ mod tests {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
     }
@@ -2066,6 +2141,7 @@ mod tests {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         };
         assert_eq!(ToDesk::読む(&元.書く()).expect("読める"), 元);
         let 行 = r#"{"型":"listen","場所":"docs"}"#;
@@ -2088,6 +2164,7 @@ mod tests {
             届かない先も聞く: false,
             読みも聞く: false,
             任されも聞く: false,
+            承認も聞く: false,
         };
         assert!(!聞かない.書く().contains("部屋も聞く"));
         assert!(!聞かない.書く().contains("点検も聞く"));
@@ -2522,7 +2599,7 @@ mod 札を待つ試験 {
     #[test]
     fn 上限は_chat_waitと同じ() {
         // **2 か所で違う上限を持つと、どちらが本当か分からなくなる**
-        assert_eq!(札を待てる秒, 60);
+        assert_eq!(札を待てる秒, 300);
     }
 }
 

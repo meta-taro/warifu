@@ -226,6 +226,15 @@ export type MessageKey =
   | 'pass.allowed'
   | 'pass.refused'
   | 'pass.who'
+  | 'pass.dialog.title'
+  | 'pass.dialog.why'
+  | 'pass.dialog.allowDay'
+  | 'pass.dialog.allowUntilRevoked'
+  | 'pass.dialog.once'
+  | 'pass.dialog.refuse'
+  | 'pass.dialog.more'
+  | 'away.chip'
+  | 'away.chip.title'
   | 'pass.allow.standing'
   | 'pass.allowed.standing'
   | 'pass.standing'
@@ -660,8 +669,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': '閉じる',
     'mail.readStanding.label': 'エージェントにメールを読ませる（取り消すまで・要点と本文）',
     'mail.readStanding.hint': 'この PC のエージェントは、届いたメールの要点と本文を、毎回聞かずに読めます。送るのは今までどおりあなたが確かめます。外すと、また読むたびに聞きます。',
-    'away.approve.label': 'この PC の前にいないときは、エージェントの道具の許可で通す（札・メールの送信・割符の入れ替え）',
-    'away.approve.hint': 'エージェントの道具（Claude Code など）が許可を求めるときに出す中身を、あなたの承認として扱います。リモートでもその確認で中身を見て許してください。道具の側で割符の口を「いつも許す」にしないでください（すると承認が無くなります）。',
+    'away.approve.label': 'この PC を離れているときは、Claude Code の確認で通す',
+    'away.approve.hint': 'Claude Code が出す許可の確認で、あなたが許したものだけ通ります。Claude Code の側で割符の道具を「いつも許可」にはしないでください。',
     'pass.allow.untilRevoked': '取り消すまで聞かない',
     'pass.allowed.untilRevoked': '通しました。{who} は{what}を、取り消すまで聞かれずに使えます（［メール］か下の一覧で取り消せます）。',
     'mail.terminal.label': '端末の許可で送る（画面の［送る］を待たない）',
@@ -891,6 +900,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '通しました。{who} は{what}を使えるようになりました（あとで取り消せます）。',
     'pass.refused': '通しませんでした。{who} は{what}を使えません。',
     'pass.who': '{who} が{what}を使いたい',
+    'pass.dialog.title': 'エージェントが許可を求めています',
+    'pass.dialog.why': 'わけ',
+    'pass.dialog.allowDay': '許可する（24 時間）',
+    'pass.dialog.allowUntilRevoked': '許可する（外すまで）',
+    'pass.dialog.once': '今回だけ',
+    'pass.dialog.refuse': '断る',
+    'pass.dialog.more': 'ほかに {n} 件待っています',
+    'away.chip': '離れていても通す：入',
+    'away.chip.title': '押すと切ります。切ると、許可とメールの送信は、この画面で押すまで通りません',
     'pass.allow.standing': '24 時間聞かない',
     'pass.allowed.standing': '通しました。{who} は{what}を 24 時間、聞かれずに使えます（取り消せます）。',
     'pass.standing': '{what}は、あと {hours} 時間は聞かずに通します',
@@ -1233,8 +1251,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': 'Close',
     'mail.readStanding.label': 'Let agents read mail (until revoked; key fields and body)',
     'mail.readStanding.hint': 'Agents on this PC can read the key fields and body of incoming mail without asking each time. You still confirm anything they send. Turn this off to be asked again.',
-    'away.approve.label': 'When I\'m away from this PC, approve through the agent\'s tool (permissions, sending mail, updating warifu)',
-    'away.approve.hint': 'The permission prompt the agent\'s tool (such as Claude Code) shows is treated as your approval. Read what it asks before allowing it, remotely too. Do not set warifu\'s tools to \"always allow\" in that tool, or there is no approval left.',
+    'away.approve.label': 'When I\'m away from this PC, approve through Claude Code\'s prompt',
+    'away.approve.hint': 'Only what you allow in Claude Code\'s permission prompt goes through. Do not set warifu\'s tools to \"always allow\" in Claude Code.',
     'pass.allow.untilRevoked': 'Don\'t ask until revoked',
     'pass.allowed.untilRevoked': 'Allowed. {who} can use {what} without asking until you revoke it (in Mail or the list below).',
     'mail.terminal.label': 'Send on terminal approval (do not wait for Send on this screen)',
@@ -1464,6 +1482,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': 'Allowed. {who} can now use {what} (you can revoke it later).',
     'pass.refused': 'Not allowed. {who} cannot use {what}.',
     'pass.who': '{who} wants to use {what}',
+    'pass.dialog.title': 'An agent is asking for permission',
+    'pass.dialog.why': 'Why',
+    'pass.dialog.allowDay': 'Allow (24 hours)',
+    'pass.dialog.allowUntilRevoked': 'Allow (until removed)',
+    'pass.dialog.once': 'Just this once',
+    'pass.dialog.refuse': 'Refuse',
+    'pass.dialog.more': '{n} more waiting',
+    'away.chip': 'Allow while away: on',
+    'away.chip.title': 'Click to turn off. When off, permissions and sending mail wait until you press them on this screen',
     'pass.allow.standing': 'Allow for 24 hours',
     'pass.allowed.standing': 'Allowed. {who} can use {what} for 24 hours without asking (you can revoke it).',
     'pass.standing': '{what} passes without asking for {hours} more hours',
@@ -1806,8 +1833,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': '关闭',
     'mail.readStanding.label': '让代理读取邮件（直到撤销・要点和正文）',
     'mail.readStanding.hint': '这台电脑上的代理可以不经每次询问读取来信的要点和正文。发送仍由你确认。关闭后会再次每次询问。',
-    'away.approve.label': '不在这台电脑前时，通过代理工具的许可放行（许可・发送邮件・更新割符）',
-    'away.approve.hint': '代理工具（如 Claude Code）请求许可时显示的内容将视为你的批准。远程时也请看清内容再允许。不要在该工具中把割符的接口设为“始终允许”（否则就没有批准了）。',
+    'away.approve.label': '离开这台电脑时，通过 Claude Code 的确认放行',
+    'away.approve.hint': '只有你在 Claude Code 的许可确认中允许的才会放行。不要在 Claude Code 中把割符的工具设为“始终允许”。',
     'pass.allow.untilRevoked': '撤销前不再询问',
     'pass.allowed.untilRevoked': '已允许。{who} 可以不经询问使用{what}，直到你撤销（在［邮件］或下方列表中撤销）。',
     'mail.terminal.label': '在终端批准后发送（不等待此画面的［发送］）',
@@ -2035,6 +2062,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '已放行。{who} 现在可以使用 {what}（之后可以撤销）。',
     'pass.refused': '没有放行。{who} 不能使用 {what}。',
     'pass.who': '{who} 想使用 {what}',
+    'pass.dialog.title': '代理正在请求许可',
+    'pass.dialog.why': '原因',
+    'pass.dialog.allowDay': '允许（24 小时）',
+    'pass.dialog.allowUntilRevoked': '允许（直到撤销）',
+    'pass.dialog.once': '仅此一次',
+    'pass.dialog.refuse': '拒绝',
+    'pass.dialog.more': '还有 {n} 件在等待',
+    'away.chip': '离开时也放行：开',
+    'away.chip.title': '点击关闭。关闭后，许可和发送邮件要在此画面按下才会放行',
     'pass.allow.standing': '24 小时内不再询问',
     'pass.allowed.standing': '已放行。{who} 在 24 小时内无需询问即可使用 {what}（可撤销）。',
     'pass.standing': '{what} 在接下来 {hours} 小时内无需询问即可通过',
@@ -2376,8 +2412,8 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.link.qr.close': '닫기',
     'mail.readStanding.label': '에이전트가 메일을 읽게 하기 (취소할 때까지・요점과 본문)',
     'mail.readStanding.hint': '이 PC의 에이전트는 받은 메일의 요점과 본문을 매번 묻지 않고 읽을 수 있습니다. 보내는 것은 지금처럼 당신이 확인합니다. 끄면 다시 읽을 때마다 묻습니다.',
-    'away.approve.label': '이 PC 앞에 없을 때는 에이전트 도구의 허가로 통과 (허가・메일 보내기・와리후 교체)',
-    'away.approve.hint': '에이전트 도구(Claude Code 등)가 허가를 요청할 때 보여 주는 내용을 당신의 승인으로 취급합니다. 원격에서도 내용을 확인하고 허락하세요. 그 도구에서 와리후의 도구를 \"항상 허용\"으로 하지 마세요 (승인이 없어집니다).',
+    'away.approve.label': '이 PC를 떠나 있을 때는 Claude Code의 확인으로 통과',
+    'away.approve.hint': 'Claude Code의 허가 확인에서 당신이 허락한 것만 통과합니다. Claude Code에서 와리후 도구를 \"항상 허용\"으로 하지 마세요.',
     'pass.allow.untilRevoked': '취소할 때까지 묻지 않음',
     'pass.allowed.untilRevoked': '허용했습니다. {who}는 취소할 때까지 묻지 않고 {what}을(를) 사용할 수 있습니다 ([메일] 또는 아래 목록에서 취소).',
     'mail.terminal.label': '터미널 허가로 보내기 (이 화면의 [보내기]를 기다리지 않음)',
@@ -2609,6 +2645,15 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'pass.allowed': '통과시켰습니다. {who} 이(가) {what} 을(를) 쓸 수 있게 되었습니다（나중에 취소할 수 있습니다）.',
     'pass.refused': '통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.',
     'pass.who': '{who} 이(가) {what} 을(를) 쓰고 싶어 합니다',
+    'pass.dialog.title': '에이전트가 허가를 요청하고 있습니다',
+    'pass.dialog.why': '이유',
+    'pass.dialog.allowDay': '허가 (24시간)',
+    'pass.dialog.allowUntilRevoked': '허가 (해제할 때까지)',
+    'pass.dialog.once': '이번만',
+    'pass.dialog.refuse': '거절',
+    'pass.dialog.more': '{n}건 더 기다리고 있습니다',
+    'away.chip': '자리를 비워도 통과: 켜짐',
+    'away.chip.title': '누르면 끕니다. 끄면 허가와 메일 보내기는 이 화면에서 누를 때까지 통과하지 않습니다',
     'pass.allow.standing': '24시간 동안 묻지 않음',
     'pass.allowed.standing': '통과시켰습니다. {who} 이(가) 24시간 동안 묻지 않고 {what} 을(를) 쓸 수 있습니다（취소할 수 있습니다）.',
     'pass.standing': '{what} 은(는) 앞으로 {hours}시간 동안 묻지 않고 통과합니다',
@@ -3080,6 +3125,24 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     'メールの画面の切り替え（機械ごと）。入れると、人が画面の前に居ないとき、札・メールの送信・入れ替えを、エージェントの道具（Claude Code）の許可の確認で通す。',
   'away.approve.hint':
     '切り替えを入れたときの注意。道具の許可の確認が人の承認になること。道具の側で「いつも許す」にすると承認が無くなること。',
+  'pass.dialog.title':
+    'エージェントが許可（札）を求めたときに、画面の真ん中に出る窓の見出し。',
+  'pass.dialog.why':
+    '窓の中で、エージェントが書いた「なぜ要るか」の前に付く見出し。',
+  'pass.dialog.allowDay':
+    '窓の既定のボタン（Enter）。24 時間、同じ動作を聞かずに通す。',
+  'pass.dialog.allowUntilRevoked':
+    '窓の既定のボタン（Enter）。人が外すまで聞かずに通す。メールを読む札にだけ出る。',
+  'pass.dialog.once':
+    '窓のボタン。この 1 回だけ通す。',
+  'pass.dialog.refuse':
+    '窓のボタン。通さない。',
+  'pass.dialog.more':
+    '窓の下に出る一言。後ろにまだ頼みが並んでいる数。',
+  'away.chip':
+    '画面の上の帯に出る小さな印。人が離れていても Claude Code の確認で通す設定が入っていること。',
+  'away.chip.title':
+    'その印に指を置いたときの説明。押すと切れること。',
   'pass.allow.untilRevoked':
     'エージェントの許可の帯のボタン。人が取り消すまで、同じ動作を聞かずに通す。メールを読む札にだけ出る。',
   'pass.allowed.untilRevoked':

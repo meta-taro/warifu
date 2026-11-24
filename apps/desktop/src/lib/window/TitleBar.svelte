@@ -10,8 +10,12 @@
     locale: Locale;
     /** 帯の中央に出す、今の状態。無ければ空のままにする。 */
     status?: string;
+    /** 離れていても Claude Code の確認で通す設定が入っているか（0.1.57）。入っているときだけ印を出す。 */
+    離れていても通す?: boolean;
+    /** 印を押したとき（切る）。 */
+    離れていても通すを切る?: () => void;
   }
-  let { locale, status = '' }: Props = $props();
+  let { locale, status = '', 離れていても通す = false, 離れていても通すを切る }: Props = $props();
 
   let maximized = $state(false);
   $effect(() => {
@@ -77,6 +81,21 @@
     {/if}
   </span>
   <span class="center" title={status}>{status}</span>
+  <!--
+    **離れていても Claude Code の確認で通す印**（0.1.57）。入っているときだけ出し、押せば切れる。
+    ［メール］の奥に隠れていて、入っているかが一目で分からなかった。人だけが押す（カーソルは押さない）
+  -->
+  {#if 離れていても通す}
+    <span class="away-slot">
+      <button
+        type="button"
+        class="away-chip"
+        title={t('away.chip.title')}
+        data-agent-hands-off
+        onclick={() => 離れていても通すを切る?.()}>{t('away.chip')}</button
+      >
+    </span>
+  {/if}
   <span class="ctrls">
     {#each controls as c (c.id)}
       <button
@@ -144,6 +163,26 @@
   .ctrls {
     display: flex;
     align-items: stretch;
+  }
+  .away-slot {
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-2);
+  }
+  /* 入っていることが一目で分かるように、枠と地を付ける。押すと切れる */
+  .away-chip {
+    padding: 1px var(--space-2);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-full);
+    background: var(--accent-subtle);
+    color: var(--text-primary);
+    font: inherit;
+    font-size: var(--text-xs-size);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .away-chip:hover {
+    background: var(--bg-hover);
   }
   /* 右上角にフル高で密着させる（Fitts の法則・DESIGN.md §8） */
   .ctrls button {

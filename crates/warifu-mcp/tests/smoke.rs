@@ -135,6 +135,7 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     受けている: None,
                     掴んでいる: None,
                     題字: None,
+                    離席中の承認: None,
                 }),
                 ToDesk::Profile { .. } => Some(FromDesk::Wrote {
                     who: "試験の席".to_owned(),
@@ -300,7 +301,7 @@ async fn 口を全部_1回ずつ呼ぶ() {
 
     // **机を使わない口**（受信箱・予定・説明）
     let mut 結果: Vec<(&str, String)> = Vec::new();
-    結果.push(("about", format!("{:?}", 口.about())));
+    結果.push(("about", format!("{:?}", 口.about().await)));
     結果.push((
         "changes",
         format!("{:?}", 口.changes(Parameters(ChangesArgs::default()))),

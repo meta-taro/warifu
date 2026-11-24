@@ -25,9 +25,9 @@ use tokio::sync::Notify;
 
 /// 入力が閉じたあと、返事を待つ上限。
 ///
-/// **いちばん長い呼びより長くする** —— `pass_wait` と `chat_wait` は最長 60 秒、
+/// **いちばん長い呼びより長くする** —— `pass_wait` は最長 300 秒、`chat_wait` は 60 秒、
 /// `voice_say` は読み上げの長さだけかかる。
-pub const 待つ上限: Duration = Duration::from_secs(160);
+pub const 待つ上限: Duration = Duration::from_secs(400);
 
 /// 入力が閉じたあと、読んだ頼みが走り出すまで待つ間。
 const 走り出す間: Duration = Duration::from_millis(300);

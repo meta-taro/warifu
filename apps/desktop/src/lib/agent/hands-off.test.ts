@@ -12,8 +12,12 @@ describe('人が押すものには、押させない印がある', () => {
   const 画面 = 読む('../../routes/+page.svelte');
   const 会話 = 読む('../chat/ChatPanel.svelte');
 
-  it('札の頼みの帯・常設の札の一覧・入りますかの帯', () => {
-    expect(画面).toMatch(/class="invited pass-ask"[^>]*data-agent-hands-off/);
+  it('札の頼みの窓・常設の札の一覧・入りますかの帯', () => {
+    // **札の頼みは窓になった**（0.1.57）。窓の箱ごと印を付け、中のボタン・切り替えはその内側にある
+    const 窓 = 読む('../pass/PassDialog.svelte');
+    expect(窓).toMatch(/class="箱 pass-dialog"[\s\S]{0,200}data-agent-hands-off/);
+    expect(窓).toMatch(/data-agent-hands-off[\s\S]*離れていても通すを決める/);
+    expect(画面).toContain('<PassDialog');
     expect(画面).toMatch(/class="standing-list"[^>]*data-agent-hands-off/);
     // メールを送ってよいか（D132）。送るのは人
     expect(画面).toMatch(/class="invited mail-ask"[^>]*data-agent-hands-off/);
@@ -27,12 +31,16 @@ describe('人が押すものには、押させない印がある', () => {
     expect(メール).toMatch(/class="terminal-send"[^>]*data-agent-hands-off/);
   });
 
-  it('メールを読ませる（11-20）と、画面の前に居ないときの承認（0.1.55）', () => {
+  it('メールを読ませる（11-20）', () => {
     const メール = 読む('../mail/MailPane.svelte');
     const 切り替え = メール.match(/<label class="read-standing"[^>]*>/g) ?? [];
-    expect(切り替え.length).toBe(2);
+    expect(切り替え.length).toBe(1);
     for (const 一つ of 切り替え) expect(一つ).toContain('data-agent-hands-off');
-    expect(メール).toMatch(/data-agent-hands-off[\s\S]{0,200}留守の承認を決める/);
+  });
+
+  it('離れていても通す印（0.1.57・題字の帯）。押すと切れるので、カーソルには押させない', () => {
+    const 帯 = 読む('../window/TitleBar.svelte');
+    expect(帯).toMatch(/class="away-chip"[\s\S]{0,120}data-agent-hands-off/);
   });
 
   it('会話の［送る］と、秘密の確かめ', () => {

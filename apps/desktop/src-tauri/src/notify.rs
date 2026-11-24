@@ -81,6 +81,20 @@ pub fn 承認を頼む(app: &AppHandle, 本文: &str) {
     知らせを出す(app, 本文);
 }
 
+/// **札の頼みが来たら、窓を前に出す**（0.1.57）。
+///
+/// 頼みは窓の中の窓（ポップアップ）に出る。窓が後ろや最小化のままだと、人は頼みに気づけず、
+/// 席は待ち続けた。前に出したうえで、OS の知らせも出す（画面の前に居なくても、戻ったときに分かる）。
+pub fn 札の頼みで前に出す(app: &AppHandle, 本文: &str) {
+    if let Some(窓) = app.get_webview_window("main") {
+        let _ = 窓.unminimize();
+        let _ = 窓.show();
+        let _ = 窓.set_focus();
+        let _ = 窓.request_user_attention(Some(tauri::UserAttentionType::Critical));
+    }
+    知らせを出す(app, 本文);
+}
+
 /// **誰かがルームに入った**ことを知らせる（2026-10-20）。
 ///
 /// 連絡先から呼ばれた側は、知り合いなら人に聞かずにルームへ入る。

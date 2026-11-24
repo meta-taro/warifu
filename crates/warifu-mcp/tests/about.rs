@@ -14,9 +14,9 @@ fn 口() -> Warifu {
     Warifu::new(Vec::new(), RuleStore::new(), Gate::new(), 0)
 }
 
-#[test]
-fn 札が無くても概要を返す() {
-    let 出た = 口().about().expect("札は要らない");
+#[tokio::test]
+async fn 札が無くても概要を返す() {
+    let 出た = 口().about().await.expect("札は要らない");
     assert!(出た.contains("割符"), "{出た}");
     // **守ることが書いてあること。**ここが落ちたら、渡す意味が半分無くなる
     assert!(
@@ -29,17 +29,17 @@ fn 札が無くても概要を返す() {
     );
 }
 
-#[test]
-fn 概要はいまの版を名乗る() {
-    let 出た = 口().about().expect("返る");
+#[tokio::test]
+async fn 概要はいまの版を名乗る() {
+    let 出た = 口().about().await.expect("返る");
     assert!(出た.contains(env!("CARGO_PKG_VERSION")), "{出た}");
 }
 
 /// **建てた commit まで名乗る** —— 同じ版番号のまま直しを配るので、
 /// 版番号だけでは直す前の版と見分けられない。
 /// git の無い所で建てたときは版番号だけになるので、git が在るときだけ見る
-#[test]
-fn 概要は建てた_commit_まで名乗る() {
+#[tokio::test]
+async fn 概要は建てた_commit_まで名乗る() {
     let Some(印) = std::process::Command::new("git")
         .args(["rev-parse", "--short=7", "HEAD"])
         .output()
@@ -49,7 +49,7 @@ fn 概要は建てた_commit_まで名乗る() {
     else {
         return;
     };
-    let 出た = 口().about().expect("返る");
+    let 出た = 口().about().await.expect("返る");
     let 版 = format!("{}+{}", env!("CARGO_PKG_VERSION"), 印.trim());
     assert!(出た.contains(&版), "{版} が無い: {出た}");
 }
@@ -119,9 +119,9 @@ fn 無い版は_無いと言う() {
 /// 2026-10-15 に見たとき、`room_invite`・`room_status`・`pass_ask`・`pass_wait` の
 /// 4 つが表に無かった。**エージェントは概要を読んでも、その口があることを知れない。**
 /// 口を足すたびに人が思い出す形では漏れるので、ここで止める。
-#[test]
-fn 口はすべて概要に載っている() {
-    let 出た = 口().about().expect("返る");
+#[tokio::test]
+async fn 口はすべて概要に載っている() {
+    let 出た = 口().about().await.expect("返る");
     let 載っていない: Vec<String> = Warifu::tool_names()
         .into_iter()
         .filter(|名| !出た.contains(&format!("`{名}`")))

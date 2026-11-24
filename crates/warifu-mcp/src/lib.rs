@@ -52,6 +52,16 @@ mod server;
 mod tools;
 
 pub use chat::{Chat, 部屋の一覧の言い方};
+
+/// **画面の前に居ないときの承認を、席が読める 1 行にする**（0.1.57）。`about` と `room_status` で同じ言い方。
+#[must_use]
+pub fn 離席中の承認の行(入っている: bool) -> String {
+    if 入っている {
+        "離席中の承認: 入っている（人が Claude Code の確認で許せば、札・メールの送信・入れ替えが通る）".to_owned()
+    } else {
+        "離席中の承認: 切っている（札とメールの送信は、この PC の割符の画面で人が押す）".to_owned()
+    }
+}
 pub use handshake::{握手へ戻す, 握手を待つ口};
 pub use inflight::{呼びの札, 呼び中, 待つ上限, 閉じを待つ入力};
 pub use server::{
@@ -64,3 +74,15 @@ pub use tools::{
     RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs, StatusArgs, TakePassArgs, ToolError, VoiceArgs,
     WaitArgs, WaitPassArgs, 会話の画像を読む, 顔の画像を読む,
 };
+
+#[cfg(test)]
+mod 離席中の承認の試験 {
+    use super::離席中の承認の行;
+
+    #[test]
+    fn 入っているか切っているかを_1_行で言う() {
+        assert!(離席中の承認の行(true).starts_with("離席中の承認: 入っている"));
+        assert!(離席中の承認の行(false).starts_with("離席中の承認: 切っている"));
+        assert!(!離席中の承認の行(true).contains('\n'));
+    }
+}

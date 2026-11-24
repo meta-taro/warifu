@@ -76,7 +76,7 @@ pub struct WaitPassArgs {
     pub action: String,
     /// **なぜ要るか。**人が一言で読める長さにする（帯に出るのはこれ）。
     pub why: String,
-    /// 何秒まで待つか。省くと 30 秒。**上限は 60 秒。**
+    /// 何秒まで待つか。省くと 30 秒。**上限は 300 秒。**
     ///
     /// **永遠には待たない。**待っている間、そのエージェントは何もできない。
     pub seconds: Option<u64>,
@@ -375,6 +375,8 @@ pub struct WaitArgs {
 pub enum ToolError {
     /// 関所が断った。**札が無いか、期限切れか、範囲外。**
     Denied(String),
+    /// **札が無いので、人に尋ねた**（0.1.57）。この PC の画面に窓が出ている。`pass_wait` で待てばよい。
+    Asked(String),
     /// 引数が読めない。
     BadArgs(String),
     /// 読み取り層が出せなかった（解釈器が要る等）。
@@ -404,6 +406,12 @@ impl core::fmt::Display for ToolError {
                  （`warifu setup` が書くのは会話と名乗りだけです）。{}",
                 取り消すまでの案内(w)
             ),
+            // **短く言う**（0.1.57）。頼む口を別に呼ばせない —— 呼んだだけで画面に窓が出ている
+            Self::Asked(w) => write!(
+                f,
+                "人に尋ねています（{w}）。この PC の割符の画面に窓を出しました。\
+                 `pass_wait`（action に {w}）で待ってください。最長 300 秒です。"
+            ),
             Self::BadArgs(w) => write!(f, "引数が読めません: {w}"),
             Self::Unavailable(w) => write!(f, "出せません: {w}"),
         }
@@ -430,6 +438,15 @@ impl core::error::Error for ToolError {}
 #[cfg(test)]
 mod 断り文の試験 {
     use super::ToolError;
+
+    #[test]
+    fn 尋ねた文は短く_待つ口と動作を言う() {
+        let 文 = ToolError::Asked("room.invite".to_owned()).to_string();
+        assert!(文.contains("人に尋ねています"), "{文}");
+        assert!(文.contains("pass_wait"), "{文}");
+        assert!(文.contains("room.invite"), "{文}");
+        assert!(文.chars().count() < 120, "長すぎる: {文}");
+    }
 
     #[test]
     fn 断り文は_実際にある道だけを案内する() {

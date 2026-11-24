@@ -16,8 +16,6 @@
     mailTerminalSends,
     setMailTerminalSend,
     standingPasses,
-    terminalApproval,
-    setTerminalApproval,
     allowUntilRevoked,
     revokePass,
     type 控えた口,
@@ -95,28 +93,11 @@
     await 読ませているかを読む();
   }
 
-  /**
-   * **画面の前に居ないときは、道具の許可で通す**（0.1.55・機械ごと）。人が外に居ると帯は押されず、
-   * 札・メールの送信・入れ替えが止まった。入れると、エージェントの道具の許可の確認を人の承認として扱う。
-   */
-  let 留守の承認 = $state(false);
-
-  async function 留守の承認を決める(on: boolean) {
-    置けない = null;
-    try {
-      await setTerminalApproval(on);
-    } catch (e) {
-      置けない = String((e as { message?: string })?.message ?? e);
-    }
-    留守の承認 = (await terminalApproval().catch(() => false)) ?? false;
-  }
-
   async function 口を読み直す() {
     try {
       口たち = (await mailAccounts()) ?? [];
       端末で送る = (await mailTerminalSends().catch(() => null)) ?? [];
       await 読ませているかを読む();
-      留守の承認 = (await terminalApproval().catch(() => false)) ?? false;
     } catch (e) {
       置けない = String((e as { message?: string })?.message ?? e);
     }
@@ -246,13 +227,10 @@
       )}</label
     >
     {#if 読ませている}<p class="hint">{t('mail.readStanding.hint')}</p>{/if}
-    <!-- **人だけが決める**（0.1.55）。エージェントのカーソルがここを押すと、自分で承認の道を開けてしまう -->
-    <label class="read-standing" data-agent-hands-off
-      ><input type="checkbox" checked={留守の承認} onchange={(e) => void 留守の承認を決める(e.currentTarget.checked)} />{t(
-        'away.approve.label',
-      )}</label
-    >
-    {#if 留守の承認}<p class="hint">{t('away.approve.hint')}</p>{/if}
+    <!--
+      **離れていても Claude Code の確認で通す切り替えは、ここから外した**（0.1.57）。
+      ［メール］の奥に隠れて見つからなかったので、許可の窓の中と、題字の帯の印へ移した
+    -->
 
     <details class="accounts" open={口たち.some((口) => !口.秘密がある)}>
       <summary>{t('mail.accounts.title')}<span class="count">{口たち.length}</span></summary>

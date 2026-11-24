@@ -35,8 +35,10 @@ agent.cursor.tag	Agent	エージェント	智能体	에이전트		エージェ�
 app.name	warifu	warifu	warifu	warifu				
 avatar.owner.agent	Agent	エージェント	智能体	에이전트		顔の右上に付ける小さな印に重ねたときの説明。人ではなく AI エージェントであることを言う。		
 avatar.owner.person	Person	人	人	사람		顔の右上に付ける小さな印に重ねたときの説明。AI エージェントではなく人であることを言う。		
-away.approve.hint	The permission prompt the agent's tool (such as Claude Code) shows is treated as your approval. Read what it asks before allowing it, remotely too. Do not set warifu's tools to "always allow" in that tool, or there is no approval left.	エージェントの道具（Claude Code など）が許可を求めるときに出す中身を、あなたの承認として扱います。リモートでもその確認で中身を見て許してください。道具の側で割符の口を「いつも許す」にしないでください（すると承認が無くなります）。	代理工具（如 Claude Code）请求许可时显示的内容将视为你的批准。远程时也请看清内容再允许。不要在该工具中把割符的接口设为“始终允许”（否则就没有批准了）。	에이전트 도구(Claude Code 등)가 허가를 요청할 때 보여 주는 내용을 당신의 승인으로 취급합니다. 원격에서도 내용을 확인하고 허락하세요. 그 도구에서 와리후의 도구를 "항상 허용"으로 하지 마세요 (승인이 없어집니다).		切り替えを入れたときの注意。道具の許可の確認が人の承認になること。道具の側で「いつも許す」にすると承認が無くなること。		
-away.approve.label	When I'm away from this PC, approve through the agent's tool (permissions, sending mail, updating warifu)	この PC の前にいないときは、エージェントの道具の許可で通す（札・メールの送信・割符の入れ替え）	不在这台电脑前时，通过代理工具的许可放行（许可・发送邮件・更新割符）	이 PC 앞에 없을 때는 에이전트 도구의 허가로 통과 (허가・메일 보내기・와리후 교체)		メールの画面の切り替え（機械ごと）。入れると、人が画面の前に居ないとき、札・メールの送信・入れ替えを、エージェントの道具（Claude Code）の許可の確認で通す。		
+away.approve.hint	Only what you allow in Claude Code's permission prompt goes through. Do not set warifu's tools to "always allow" in Claude Code.	Claude Code が出す許可の確認で、あなたが許したものだけ通ります。Claude Code の側で割符の道具を「いつも許可」にはしないでください。	只有你在 Claude Code 的许可确认中允许的才会放行。不要在 Claude Code 中把割符的工具设为“始终允许”。	Claude Code의 허가 확인에서 당신이 허락한 것만 통과합니다. Claude Code에서 와리후 도구를 "항상 허용"으로 하지 마세요.		切り替えを入れたときの注意。道具の許可の確認が人の承認になること。道具の側で「いつも許す」にすると承認が無くなること。		
+away.approve.label	When I'm away from this PC, approve through Claude Code's prompt	この PC を離れているときは、Claude Code の確認で通す	离开这台电脑时，通过 Claude Code 的确认放行	이 PC를 떠나 있을 때는 Claude Code의 확인으로 통과		メールの画面の切り替え（機械ごと）。入れると、人が画面の前に居ないとき、札・メールの送信・入れ替えを、エージェントの道具（Claude Code）の許可の確認で通す。		
+away.chip	Allow while away: on	離れていても通す：入	离开时也放行：开	자리를 비워도 통과: 켜짐		画面の上の帯に出る小さな印。人が離れていても Claude Code の確認で通す設定が入っていること。		
+away.chip.title	Click to turn off. When off, permissions and sending mail wait until you press them on this screen	押すと切ります。切ると、許可とメールの送信は、この画面で押すまで通りません	点击关闭。关闭后，许可和发送邮件要在此画面按下才会放行	누르면 끕니다. 끄면 허가와 메일 보내기는 이 화면에서 누를 때까지 통과하지 않습니다		その印に指を置いたときの説明。押すと切れること。		
 browser.only	This is open in a browser. Rooms only work in the warifu window.	ブラウザで開いています。ルームは warifu の窓でだけ動きます。	你在浏览器里打开了。房间只在 warifu 的窗口里工作。	브라우저에서 열려 있습니다. 방은 warifu 창에서만 움직입니다.				
 call.camera	Camera	カメラ	摄像头	카메라				
 call.controls	Turn the call on and off. Separate from checking your gear — this stops what you are sending now.	通話の入切。支度の確認とは別で、いま送っているものを止めます。	通话的开关。与设备确认不同，这会停止你现在正在发送的内容。	통화 켜고 끄기. 기기 확인과는 다르며, 지금 보내고 있는 것을 멈춥니다.				
@@ -384,6 +386,13 @@ pass.allowed.standing	Allowed. {who} can use {what} for 24 hours without asking 
 pass.allowed.untilRevoked	Allowed. {who} can use {what} without asking until you revoke it (in Mail or the list below).	通しました。{who} は{what}を、取り消すまで聞かれずに使えます（［メール］か下の一覧で取り消せます）。	已允许。{who} 可以不经询问使用{what}，直到你撤销（在［邮件］或下方列表中撤销）。	허용했습니다. {who}는 취소할 때까지 묻지 않고 {what}을(를) 사용할 수 있습니다 ([메일] 또는 아래 목록에서 취소).		取り消すまで通したあとに出る一言。どこで取り消せるか。		
 pass.asked	An agent is asking for permission	エージェントが、これを使ってよいか聞いています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다				
 pass.asked.hint	If you allow it, this agent can use that action. You can revoke it later.	通すと、このエージェントはそれを使えるようになります。あとで取り消せます。	允许后，该代理就能使用这个动作。之后可以撤销。	허용하면 이 에이전트가 그 동작을 쓸 수 있습니다. 나중에 취소할 수 있습니다.				
+pass.dialog.allowDay	Allow (24 hours)	許可する（24 時間）	允许（24 小时）	허가 (24시간)		窓の既定のボタン（Enter）。24 時間、同じ動作を聞かずに通す。		
+pass.dialog.allowUntilRevoked	Allow (until removed)	許可する（外すまで）	允许（直到撤销）	허가 (해제할 때까지)		窓の既定のボタン（Enter）。人が外すまで聞かずに通す。メールを読む札にだけ出る。		
+pass.dialog.more	{n} more waiting	ほかに {n} 件待っています	还有 {n} 件在等待	{n}건 더 기다리고 있습니다		窓の下に出る一言。後ろにまだ頼みが並んでいる数。		
+pass.dialog.once	Just this once	今回だけ	仅此一次	이번만		窓のボタン。この 1 回だけ通す。		
+pass.dialog.refuse	Refuse	断る	拒绝	거절		窓のボタン。通さない。		
+pass.dialog.title	An agent is asking for permission	エージェントが許可を求めています	代理正在请求许可	에이전트가 허가를 요청하고 있습니다		エージェントが許可（札）を求めたときに、画面の真ん中に出る窓の見出し。		
+pass.dialog.why	Why	わけ	原因	이유		窓の中で、エージェントが書いた「なぜ要るか」の前に付く見出し。		
 pass.refuse	Don't allow	通さない	不允许	허용하지 않음				
 pass.refused	Not allowed. {who} cannot use {what}.	通しませんでした。{who} は{what}を使えません。	没有放行。{who} 不能使用 {what}。	통과시키지 않았습니다. {who} 은(는) {what} 을(를) 쓸 수 없습니다.				
 pass.revoke	Revoke	取り消す	撤销	취소				
