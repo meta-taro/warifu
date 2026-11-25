@@ -1583,13 +1583,39 @@ async fn 札が無ければ送信済みを汲みにも行かない() {
 /// **二重送信の止め**（0.1.60）の試験の口。送信済みの手は `並び` を返す（`Err` なら読めない）。
 fn 二重送信を見る口(並び: Result<Vec<warifu_mcp::送信済みの通>, String>) -> Warifu {
     use std::sync::Arc;
-    Warifu::new(Vec::new(), 規則(), 札を出す(&["mail.send"]), 1_756_000_000).送信済みを汲むには(
-        Arc::new(move || {
-            let 並び = 並び.clone();
-            Box::pin(async move { 並び })
+    let 遡り = 並び.map(|通| warifu_mcp::dup_send::遡った送信済み {
+        通,
+        ..Default::default()
+    });
+    Warifu::new(Vec::new(), 規則(), 札を出す(&["mail.send"]), 1_756_000_000).二重送信を見るには(
+        Arc::new(move |_| {
+            let 遡り = 遡り.clone();
+            Box::pin(async move { 遡り })
         }),
-        Arc::new(|_, _| Box::pin(async { Ok((String::new(), Vec::new())) })),
     )
+}
+
+/// **送る前に遡るのは、24 時間前から**（手に渡る「いつから」が今から 24 時間前）
+#[tokio::test]
+async fn 二重送信を見る手には_24_時間前からを渡す() {
+    use std::sync::{Arc, Mutex};
+    let 渡った = Arc::new(Mutex::new(None));
+    let 控え = Arc::clone(&渡った);
+    let 口 = Warifu::new(Vec::new(), 規則(), 札を出す(&["mail.send"]), 1_756_000_000)
+        .二重送信を見るには(Arc::new(move |いつから| {
+            *控え.lock().unwrap() = Some(いつから);
+            Box::pin(async { Ok(warifu_mcp::dup_send::遡った送信済み::default()) })
+        }));
+    let _ = 口.mail_send(新しく送る頼み("見積の件", false)).await;
+    let 今 = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    )
+    .unwrap();
+    let いつから = 渡った.lock().unwrap().expect("手が呼ばれること");
+    assert!((今 - 24 * 3600 - いつから).abs() <= 5, "{いつから}");
 }
 
 fn 一時間前に送った() -> Vec<warifu_mcp::送信済みの通> {

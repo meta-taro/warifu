@@ -68,6 +68,8 @@ pub struct Warifu {
     送信済みを汲む: Option<送信済みを汲む手>,
     /// **送信済みの 1 通を開く手**（0.1.59）。`sent_open` が呼ぶ。
     送信済みを開く: Option<送信済みを開く手>,
+    /// **二重送信を見るために送信済みを遡る手**（0.1.60）。`mail_send` が送る前に呼ぶ。
+    二重送信を見る: Option<二重送信を見る手>,
     /// いちばん新しい `sent_list` の並び。`sent_open` の番号はこの並びの位置。
     送信済み: Arc<Mutex<Vec<送信済みの通>>>,
     /// **メールの口の控え**（0.1.45）。この層は置き場所を知らないので、外から渡す。
@@ -134,6 +136,7 @@ impl Warifu {
             受信箱を汲む: None,
             送信済みを汲む: None,
             送信済みを開く: None,
+            二重送信を見る: None,
             送信済み: Arc::default(),
             メールの控え: None,
             控えた名を読む: None,
@@ -220,6 +223,14 @@ impl Warifu {
     ) -> Self {
         self.送信済みを汲む = Some(汲む);
         self.送信済みを開く = Some(開く);
+        self
+    }
+
+    /// **二重送信を見るために送信済みを遡る手を渡す**（0.1.60）。手は「いつから」（epoch 秒）を受け、
+    /// 口ごとに、その時刻より古い通に届くまで（[`crate::dup_send::遡る上限`] 通まで）遡る。
+    #[must_use]
+    pub fn 二重送信を見るには(mut self, 手: 二重送信を見る手) -> Self {
+        self.二重送信を見る = Some(手);
         self
     }
 
@@ -697,6 +708,20 @@ pub type 送信済みを汲む手 = Arc<
         + Sync,
 >;
 
+/// **二重送信を見るために送信済みを遡る手**（0.1.60）。引数は「いつから」（epoch 秒）。
+/// 全部の口が読めないときだけ `Err`。一部の口が読めない・遡りきれないときは返りの中に名指しで入れる。
+pub type 二重送信を見る手 = Arc<
+    dyn Fn(
+            i64,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<Output = Result<crate::dup_send::遡った送信済み, String>>
+                    + Send,
+            >,
+        > + Send
+        + Sync,
+>;
+
 /// **送信済みの 1 通を開く手**（0.1.59）。引数は（口のアドレス・UID）、返りは（本文の文字・添付の名前）。
 pub type 送信済みを開く手 = Arc<
     dyn Fn(
@@ -975,7 +1000,7 @@ impl Warifu {
                        最長 seconds 秒（1〜60・既定 30）待ち、押されなければ「まだ」が返る（頼みは画面に残り、押されると送って、結果は会話に「メールの送信: …」で届く）。同じ頼みを繰り返さない。\
                        ただし人が画面でその口を「端末の許可で送る」にしていれば、［送る］を待たずにすぐ送る（人はこの道具の許可の画面で全文を見て許す）。\
                        返りにはその通の Message-ID が付く（sent_list の印の列と突き合わせて、送信済みに入ったかを確かめられる）。\
-                       **送る前に送信済みを見て、同じ口・同じ宛先・同じ件名の通が 24 時間以内にあれば送らずに止める**（前の通の時刻と Message-ID を返す）。もう一度送ると分かっているときだけ send_again: true を付ける。送信済みを読めなかったときは、そう書いて［送る］へ進む。\
+                       **送る前に送信済みを見て、同じ口・同じ宛先・同じ件名の通が 24 時間以内にあれば送らずに止める**（前の通の時刻と Message-ID を返す）。もう一度送ると分かっているときだけ send_again: true を付ける。口ごとに 24 時間前まで（200 通まで）遡る。読めなかった口・遡りきれなかった口は、どの口か・なぜかを返りに書いて［送る］へ進む。\
                        いま送れるのは Gmail の口だけ（受信箱と同じアプリパスワード）。この口には札（mail.send）が要る。無ければ pass_ask で頼む。"
     )]
     pub async fn mail_send(
@@ -1024,8 +1049,10 @@ impl Warifu {
                 .前に送った同じ通(args.from.as_deref(), &宛先, &件名)
                 .await
             {
-                Ok(Some(前)) => return Ok(二重送信を止めた言い方(&前)),
-                Ok(None) => String::new(),
+                Ok(crate::dup_send::見立て::当たった(前)) => {
+                    return Ok(二重送信を止めた言い方(&前));
+                }
+                Ok(crate::dup_send::見立て::無い { 注 }) => 注.unwrap_or_default(),
                 Err(訳) => format!(
                     "（送信済みを確かめられませんでした：{訳}。同じ通を前に送ったかは確かめずに進めます）\n"
                 ),
@@ -1077,16 +1104,19 @@ impl Warifu {
         口: Option<&str>,
         宛先: &[String],
         件名: &str,
-    ) -> Result<Option<送信済みの通>, String> {
-        let 汲む = self
-            .送信済みを汲む
+    ) -> Result<crate::dup_send::見立て, String> {
+        let 遡る = self
+            .二重送信を見る
             .clone()
             .ok_or_else(|| "この口では送信済みを読めません".to_owned())?;
-        let 並び = tokio::time::timeout(std::time::Duration::from_secs(20), 汲む())
-            .await
-            .map_err(|_| "20 秒で読み終わりませんでした".to_owned())??;
         let 今 = chrono::Utc::now().timestamp();
-        Ok(crate::dup_send::同じ通を探す(&並び, 口, 宛先, 件名, 今).cloned())
+        let 遡り = tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            遡る(今 - crate::dup_send::見る間),
+        )
+        .await
+        .map_err(|_| "30 秒で読み終わりませんでした".to_owned())??;
+        Ok(crate::dup_send::見立てる(&遡り, 口, 宛先, 件名, 今))
     }
 
     /// 1 通の段を上げて読む。**段ごとに別の札が要る。**

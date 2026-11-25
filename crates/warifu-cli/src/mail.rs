@@ -642,6 +642,61 @@ pub async fn 送信済みを汲む(
     Ok(通)
 }
 
+/// **二重送信を見るために、控えた全部の口の送信済みを遡る**（0.1.60・`mail_send` の前）。
+///
+/// 口ごとに、まず [`warifu_mcp::dup_send::最初に見る通`] 通を見て、まだ `いつから` より古い通に
+/// 届いていなければ [`warifu_mcp::dup_send::遡る上限`] 通まで遡る。上限でも届かなければ名指しで返す。
+/// 読めなかった口も、訳と一緒に名指しで返す（**黙って飛ばさない**）。全部が読めないときだけ失敗。
+pub async fn 二重送信のために遡る(
+    いつから: i64,
+) -> Result<warifu_mcp::dup_send::遡った送信済み, String> {
+    use warifu_mcp::dup_send::{もっと遡るか, 最初に見る通, 遡る上限};
+    let vault = Vault::default_location().map_err(|e| e.to_string())?;
+    let 控え = vault.inboxes().map_err(|e| e.to_string())?;
+    if 控え.is_empty() {
+        return Err("メールのアドレスを控えていません（warifu mail add <アドレス>）".to_owned());
+    }
+    let mut 遡り = warifu_mcp::dup_send::遡った送信済み::default();
+    for c in &控え {
+        let 最古 = |行: &[warifu_imap::送った見出し]| 行.iter().filter_map(|h| h.送った).min();
+        let 汲んだ = async {
+            let mut 行 = 一つの送信済み(c, 最初に見る通).await?;
+            if もっと遡るか(行.len(), 最初に見る通, 最古(&行), いつから) {
+                行 = 一つの送信済み(c, 遡る上限).await?;
+            }
+            Ok::<_, Box<dyn std::error::Error>>(行)
+        }
+        .await;
+        match 汲んだ {
+            Ok(行) => {
+                if もっと遡るか(行.len(), 遡る上限, 最古(&行), いつから) {
+                    遡り.遡りきれなかった口.push(c.user.clone());
+                }
+                遡り
+                    .通
+                    .extend(行.into_iter().map(|h| warifu_mcp::送信済みの通 {
+                        口: c.user.clone(),
+                        uid: h.uid,
+                        送った: h.送った,
+                        宛先: h.宛先,
+                        件名: h.件名,
+                        印: h.印,
+                    }));
+            }
+            Err(e) => 遡り.読めなかった口.push((c.user.clone(), e.to_string())),
+        }
+    }
+    if 遡り.読めなかった口.len() == 控え.len() {
+        return Err(遡り
+            .読めなかった口
+            .iter()
+            .map(|(k, e)| format!("{k}: {e}"))
+            .collect::<Vec<_>>()
+            .join("・"));
+    }
+    Ok(遡り)
+}
+
 /// **送信済みの 1 通を開く**（0.1.59・`sent_open`）。返りは（本文・添付の名前）。
 pub async fn 送信済みを開く(口: String, uid: u32) -> Result<(String, Vec<String>), String> {
     let vault = Vault::default_location().map_err(|e| e.to_string())?;

@@ -326,6 +326,10 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             std::sync::Arc::new(|| Box::pin(crate::mail::送信済みを汲む(一度に汲む通))),
             std::sync::Arc::new(|口, uid| Box::pin(crate::mail::送信済みを開く(口, uid))),
         )
+        // **送る前に、24 時間より古い通に届くまで送信済みを遡る**（0.1.60・二重送信の止め）
+        .二重送信を見るには(std::sync::Arc::new(|いつから| {
+            Box::pin(crate::mail::二重送信のために遡る(いつから))
+        }))
         .メールの控えを渡す(std::sync::Arc::new(crate::mail::控えの手))
         // **繋ぐたびに、画面に控えた名乗りを呼ばれる名へ足す**（0.1.46）
         .控えた名を読むには({

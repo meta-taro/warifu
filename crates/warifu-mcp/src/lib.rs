@@ -42,7 +42,7 @@
 //! 関所の照合は完全一致なので、`inbox.open.raw` の札で `inbox.list` は通らない。
 
 mod chat;
-mod dup_send;
+pub mod dup_send;
 mod handshake;
 mod heard;
 mod inflight;
@@ -66,8 +66,8 @@ pub fn 離席中の承認の行(入っている: bool) -> String {
 pub use handshake::{握手へ戻す, 握手を待つ口};
 pub use inflight::{呼びの札, 呼び中, 待つ上限, 閉じを待つ入力};
 pub use server::{
-    Warifu, subject, メールの口, メールの控え, 受信箱を汲む手, 建てた版, 送った時刻の言い方,
-    送信済みの通, 送信済みを汲む手, 送信済みを開く手,
+    Warifu, subject, メールの口, メールの控え, 二重送信を見る手, 受信箱を汲む手, 建てた版,
+    送った時刻の言い方, 送信済みの通, 送信済みを汲む手, 送信済みを開く手,
 };
 pub use tools::{
     AskArgs, AvatarArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs,

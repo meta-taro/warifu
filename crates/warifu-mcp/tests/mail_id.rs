@@ -134,3 +134,79 @@ async fn 古い画面は印を外して頼み直し_印は分からないと言�
     assert!(返り.contains("送りました"), "{返り}");
     assert!(返り.contains("分かりません"), "{返り}");
 }
+
+/// **二重送信の止め**（0.1.60）：遡った送信済みを返す手を渡した口
+fn 遡りを返す口(遡り: warifu_mcp::dup_send::遡った送信済み) -> Warifu {
+    用意().二重送信を見るには(std::sync::Arc::new(move |_| {
+        let 遡り = 遡り.clone();
+        Box::pin(async move { Ok(遡り) })
+    }))
+}
+
+/// **口の 1 つが読めなかったら、黙って飛ばさず、どの口が・なぜ読めなかったかを返りに書いて送る**
+#[tokio::test]
+async fn 一つの口が読めなければ_口と訳を返りに書いて送る() {
+    let (場所, 机) = 机を立てる("dup-one-down", false).await;
+    let 口 = 遡りを返す口(warifu_mcp::dup_send::遡った送信済み {
+        読めなかった口: vec![(
+            "other@example.com".to_owned(),
+            "送信済みの印の付いた箱が見つかりません".to_owned(),
+        )],
+        ..Default::default()
+    })
+    .この機械につながる_控えは(&場所, &試験の控え("dup-one-down"))
+    .await
+    .expect("つながれること");
+    let 返り = 口.mail_send(Parameters(頼み())).await.expect("返ること");
+    机.await.unwrap();
+    assert!(返り.contains("送信済みを確かめられませんでした"), "{返り}");
+    assert!(返り.contains("other@example.com"), "{返り}");
+    assert!(返り.contains("箱が見つかりません"), "{返り}");
+    assert!(返り.contains("送りました"), "{返り}");
+}
+
+/// **上限まで遡っても 24 時間前に届かなかった口は、「遡りきれなかった」を返りに書く**
+#[tokio::test]
+async fn 遡りきれなかった口は_返りに書いて送る() {
+    let (場所, 机) = 机を立てる("dup-too-deep", false).await;
+    let 口 = 遡りを返す口(warifu_mcp::dup_send::遡った送信済み {
+        遡りきれなかった口: vec!["me@example.com".to_owned()],
+        ..Default::default()
+    })
+    .この機械につながる_控えは(&場所, &試験の控え("dup-too-deep"))
+    .await
+    .expect("つながれること");
+    let 返り = 口.mail_send(Parameters(頼み())).await.expect("返ること");
+    机.await.unwrap();
+    assert!(返り.contains("me@example.com"), "{返り}");
+    assert!(
+        返り.contains(&format!(
+            "{} 通遡っても 24 時間前に届きませんでした",
+            warifu_mcp::dup_send::遡る上限
+        )),
+        "{返り}"
+    );
+}
+
+/// **from に書いた口が読めないなら、全部が読めないときと同じく「確かめられませんでした」を書く**
+#[tokio::test]
+async fn 書いた口が読めなければ_全体が読めないときと同じ注を書く() {
+    let (場所, 机) = 机を立てる("dup-from-down", false).await;
+    let 口 = 遡りを返す口(warifu_mcp::dup_send::遡った送信済み {
+        読めなかった口: vec![("me@example.com".to_owned(), "繋がりません".to_owned())],
+        ..Default::default()
+    })
+    .この機械につながる_控えは(&場所, &試験の控え("dup-from-down"))
+    .await
+    .expect("つながれること");
+    let mut 頼み = 頼み();
+    頼み.from = Some("ME@example.com".to_owned());
+    let 返り = 口.mail_send(Parameters(頼み)).await.expect("返ること");
+    机.await.unwrap();
+    assert!(
+        返り.contains(
+            "送信済みを確かめられませんでした：me@example.com の送信済みが読めません（繋がりません）"
+        ),
+        "{返り}"
+    );
+}
