@@ -364,14 +364,14 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
             for c in 見る {
                 let 行たち = 一つの送信済み(c, *件数).await?;
                 println!(
-                    "{}: 送信済み 新しいほうから {} 通（ヘッダだけ・時刻・宛先・件名・Message-ID。時刻は epoch 秒）",
+                    "{}: 送信済み 新しいほうから {} 通（ヘッダだけ・時刻・宛先・件名・Message-ID。時刻はこの PC の時計）",
                     c.user,
                     行たち.len()
                 );
                 for 行 in 行たち {
                     println!(
                         "  {}\t{}\t{}\t{}",
-                        行.送った.unwrap_or_default(),
+                        warifu_mcp::送った時刻の言い方(行.送った),
                         行.宛先.join(", "),
                         行.件名,
                         行.印.unwrap_or_default()

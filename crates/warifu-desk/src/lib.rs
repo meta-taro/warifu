@@ -30,6 +30,8 @@
 mod face;
 mod line;
 mod mention;
+/// 端末で `warifu` と打つと、どれが動くか（0.1.60）。
+pub mod on_path;
 mod pipe;
 mod place;
 mod secret;

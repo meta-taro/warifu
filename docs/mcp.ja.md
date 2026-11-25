@@ -158,7 +158,7 @@ warifu の口は、もう入っています。入れ直します。
 | `inbox.open.structured` | `inbox_open` | 構造化した項目まで（その送り元に人が承認した規則があるときだけ。無ければ断りに raw の道を書く・0.1.58） |
 | `inbox.open.raw` | `inbox_open` | 本文まで |
 | `inbox.open.attachments` | `inbox_open` | 添付の名前と大きさ |
-| `inbox.list` | **`sent_list`** | **送ったメール（送信済み）を新しい順に並べる**（0.1.59）。番号・送った時刻・口・宛先（To と Cc）・Message-ID（本文は出ません）。箱の名前ではなく、サーバが付ける送信済みの印（`\Sent`・RFC 6154）で探すので、ブラウザから送った通も出ます。原文を読む札 `inbox.open.raw` がある席には件名も出します |
+| `inbox.list` | **`sent_list`** | **送ったメール（送信済み）を新しい順に並べる**（0.1.59）。番号・送った時刻・口・宛先（To と Cc）・Message-ID（本文は出ません）。箱の名前ではなく、サーバが付ける送信済みの印（`\Sent`・RFC 6154）で探すので、ブラウザから送った通も出ます。原文を読む札 `inbox.open.raw` がある席には件名も出します。端末の `warifu mail sent` は札が無くても件名を出します —— 端末は人が自分で打って読む道具で、エージェントへ渡す口だけを札で絞るためです |
 | `inbox.open.raw` | **`sent_open`** | 送ったメールの 1 通を `sent_list` の番号で開く（本文の文字・添付の名前・0.1.59） |
 | `calendar.freebusy` | `calendar_slots` | 空き枠だけ（予定の題名は出ません） |
 | `rules.list` | `rules_list` | 承認済みの読み取り規則 |

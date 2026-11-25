@@ -719,12 +719,58 @@ fn 通の印を作る() -> String {
     )
 }
 
+/// **端末で `warifu` と打つと動くものが、この口と別のファイルで版も違うなら、その 1 行**（0.1.60）。
+///
+/// 人が `~/bin` などに手で置いた古い `warifu` が PATH の前にあると、更新しても打つと古いほうが動く。
+/// 版を聞くために 1 回動かすので、待ちの道（spawn_blocking）で調べる。
+async fn 打つと動くwarifuの食い違い() -> Option<String> {
+    tokio::task::spawn_blocking(|| warifu_desk::on_path::この機械の食い違い(建てた版))
+        .await
+        .ok()
+        .flatten()
+}
+
 /// 送信済みの一覧の時刻（この PC の時計の `YYYY-MM-DD HH:MM`）。読めなければ空。
-fn 送った時刻の言い方(秒: Option<i64>) -> String {
-    use chrono::TimeZone as _;
-    秒.and_then(|t| chrono::Local.timestamp_opt(t, 0).single())
+///
+/// 端末の `warifu mail sent` も同じ形で出す（0.1.60。epoch 秒のままでは人が読めない）。
+pub fn 送った時刻の言い方(秒: Option<i64>) -> String {
+    帯で時刻を言う(秒, &chrono::Local)
+}
+
+/// [`送った時刻の言い方`] の中身。時刻帯を外から渡せるので、**試験は帯を固定して走る**。
+fn 帯で時刻を言う<Tz: chrono::TimeZone>(秒: Option<i64>, 帯: &Tz) -> String
+where
+    Tz::Offset: core::fmt::Display,
+{
+    秒.and_then(|t| 帯.timestamp_opt(t, 0).single())
         .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod 時刻の言い方の試験 {
+    use super::帯で時刻を言う;
+
+    #[test]
+    fn 日本時間なら_9_時間進めて分まで出す() {
+        let 日本 = chrono::FixedOffset::east_opt(9 * 3600).unwrap();
+        // 2026-11-24 14:28:13 UTC
+        assert_eq!(
+            帯で時刻を言う(Some(1_795_530_493), &日本),
+            "2026-11-24 23:28"
+        );
+    }
+
+    #[test]
+    fn 世界時ならそのまま() {
+        assert_eq!(帯で時刻を言う(Some(0), &chrono::Utc), "1970-01-01 00:00");
+    }
+
+    #[test]
+    fn 読めない時刻は空() {
+        assert_eq!(帯で時刻を言う(None, &chrono::Utc), "");
+        assert_eq!(帯で時刻を言う(Some(i64::MAX), &chrono::Utc), "");
+    }
 }
 
 impl Warifu {
@@ -1046,6 +1092,7 @@ impl Warifu {
     #[tool(
         description = "送ったメール（控えた口の送信済み）を、新しい順に並べる。番号・送った時刻・口・宛先・Message-ID（mail_send の返りの印と同じ形）。本文は返らない。\
                        割符から送った通も、ブラウザから送った通も出る。件名は原文を読む札（inbox.open.raw）があるときだけ出る（受信箱と同じ）。\
+                       端末の warifu mail sent は件名を出すが、それは人が自分で打って読む道具だから。エージェントへ渡すこの口は札で絞る。\
                        1 通を開くには sent_open に番号を渡す。札は inbox.list。"
     )]
     pub async fn sent_list(&self) -> Result<String, ErrorData> {
@@ -1894,6 +1941,9 @@ impl Warifu {
         }
         行たち.extend(crate::reading::読みを並べる(&読み));
         行たち.push(format!("この口の起こし方: {}", self.起こし方.言い方()));
+        if let Some(行) = 打つと動くwarifuの食い違い().await {
+            行たち.push(行);
+        }
         Ok(行たち.join("\n"))
     }
 
@@ -2038,9 +2088,14 @@ impl Warifu {
             },
             Err(_) => String::new(),
         };
+        // **端末で打つと動く warifu が、この口と版が違うか**（0.1.60）。違うときだけ 1 行
+        let 打つと動く行 = 打つと動くwarifuの食い違い()
+            .await
+            .map(|行| format!("{行}\n"))
+            .unwrap_or_default();
         // **頭に要点**（0.1.58）。全文は長いので、一度読めば動ける分を先に出す
         Ok(format!(
-            "{}\nいま繋がっている版: {}\n{承認の行}\n---\n\n{}",
+            "{}\nいま繋がっている版: {}\n{承認の行}{打つと動く行}\n---\n\n{}",
             要点, 建てた版, 概要
         ))
     }

@@ -1320,6 +1320,18 @@ fn cli_state(app: AppHandle) -> cli::CLIの様子 {
             return 様子;
         }
     }
+    // **先に、端末で打つと動くものを見る**（0.1.60）。人が `~/bin` などに手で置いた古い `warifu` が
+    // PATH の前にあると、決まった場所だけ見ていては「同じ」と言い、打つと古いほうが動いていた。
+    // 束の中そのものなら、上で見たので飛ばす
+    if let Some(打つと) = warifu_desk::on_path::打つと動く() {
+        let 束と同じ = 束の中のcli(&app)
+            .is_some_and(|束| warifu_desk::on_path::同じファイルか(&束, &打つと));
+        if !束と同じ {
+            if let Some(文) = cliの版を聞く(&打つと) {
+                return cli::見比べる(&打つと, 画面の版, &文);
+            }
+        }
+    }
     let Some(home) = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")) else {
         return cli::CLIの様子::無い;
     };
