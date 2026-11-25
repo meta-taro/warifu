@@ -322,3 +322,77 @@ describe('ChatPanel', () => {
     expect(container.querySelectorAll('.bubble')[0].classList.contains('folded')).toBe(true);
   });
 });
+
+describe('ChatPanel の画像（0.1.62）', () => {
+  const 絵 = (印: string, extra: Partial<会話行> = {}): 会話行 => ({
+    who: '山田さん',
+    body: '',
+    画像: `blob:${印}`,
+    mine: false,
+    at: '10:00',
+    時: 0,
+    印,
+    ...extra,
+  });
+
+  it('同じ人の画像の連投は 1 つの行に横並びで出し、1 枚ずつ印と返信の押し所を持つ', () => {
+    const { container } = render(ChatPanel, {
+      ...素,
+      会話: [{ who: '山田さん', body: '写真です', mine: false, at: '10:00', 時: 0, 印: 'T' }, 絵('A'), 絵('B'), 絵('C')],
+    });
+    expect(container.querySelectorAll('.line').length).toBe(1);
+    const 並び = container.querySelector('.pics');
+    expect(並び?.querySelectorAll('img').length).toBe(3);
+    expect([...container.querySelectorAll('.thumb')].map((t) => t.getAttribute('data-mark'))).toEqual(['A', 'B', 'C']);
+    expect(container.querySelectorAll('.thumb-reply').length).toBe(3);
+    expect(container.querySelector('.bubble')?.textContent).toContain('写真です');
+  });
+
+  it('1 枚だけなら今の見た目のまま（吹き出しの中に出す）', () => {
+    const { container } = render(ChatPanel, { ...素, 会話: [絵('A')] });
+    expect(container.querySelector('.pics')).toBeNull();
+    expect(container.querySelector('.bubble img')).toBeTruthy();
+  });
+
+  it('画像を添えて文字と一緒に送ると、文字 → 画像の順に 1 つずつ送り、添えは消える', async () => {
+    URL.createObjectURL = (() => { let n = 0; return () => `blob:見本${n++}`; })();
+    URL.revokeObjectURL = () => {};
+    const 順: string[] = [];
+    const 送る = vi.fn(async (body: string) => {
+      順.push(`文字:${body}`);
+    });
+    const 画像を送る = vi.fn(async (f: File) => {
+      await new Promise((r) => setTimeout(r, 5));
+      順.push(`画像:${f.name}`);
+    });
+    const { container } = render(ChatPanel, { ...素, 送る, 画像を送る });
+    const 口 = container.querySelector('input[type=file]') as HTMLInputElement;
+    const files = [new File(['1'], '1.png', { type: 'image/png' }), new File(['2'], '2.png', { type: 'image/png' })];
+    Object.defineProperty(口, 'files', { value: files, configurable: true });
+    await fireEvent.change(口);
+    expect(container.querySelectorAll('.attached li').length).toBe(2);
+    // 1 枚外す
+    await fireEvent.click(screen.getAllByRole('button', { name: /この画像を外す/ })[1]);
+    expect(container.querySelectorAll('.attached li').length).toBe(1);
+    await 打つ('見てください');
+    await fireEvent.keyDown(打つ欄(), { key: 'Enter' });
+    await vi.waitFor(() => expect(順).toEqual(['文字:見てください', '画像:1.png']));
+    expect(container.querySelector('.attached')).toBeNull();
+  });
+
+  it('文字が無くても、添えた画像があれば送れる', async () => {
+    URL.createObjectURL = (() => { let n = 0; return () => `blob:見本${n++}`; })();
+    URL.revokeObjectURL = () => {};
+    const 送る = vi.fn();
+    const 画像を送る = vi.fn();
+    const { container } = render(ChatPanel, { ...素, 送る, 画像を送る });
+    const 口 = container.querySelector('input[type=file]') as HTMLInputElement;
+    Object.defineProperty(口, 'files', { value: [new File(['1'], '1.png', { type: 'image/png' })], configurable: true });
+    await fireEvent.change(口);
+    const 押し所 = screen.getAllByRole('button').find((b) => b.closest('.say') && !b.classList.contains('attach')) as HTMLButtonElement;
+    expect(押し所.disabled).toBe(false);
+    await fireEvent.click(押し所);
+    await vi.waitFor(() => expect(画像を送る).toHaveBeenCalledTimes(1));
+    expect(送る).not.toHaveBeenCalled();
+  });
+});

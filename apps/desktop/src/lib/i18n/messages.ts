@@ -64,6 +64,8 @@ export type MessageKey =
   | 'chat.placeholder'
   | 'pane.divider'
   | 'chat.image.attach'
+  | 'chat.image.attached'
+  | 'chat.image.remove'
   | 'chat.image.alt'
   | 'chat.image.close'
   | 'chat.image.save'
@@ -739,7 +741,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': '同じルームに入っている人へ届きます。残りません — 閉じると消えます。',
     'chat.placeholder': '書いて Enter（改行は Shift+Enter）',
     'pane.divider': '仕切り（左右にドラッグで幅を変える・ダブルクリックで元の幅）',
-    'chat.image.attach': '画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）',
+    'chat.image.attach': '画像を添える（何枚でも。貼り付けでも添えられます。［送る］で文字と一緒に送ります。ドラッグした画像はすぐ送ります。大きい画像は縮めて送ります）',
+    'chat.image.attached': '添えた画像',
+    'chat.image.remove': 'この画像を外す',
     'chat.image.alt': '{who} が送った画像',
     'chat.image.close': '閉じる',
     'chat.image.save': 'ダウンロードに保存',
@@ -1322,7 +1326,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': 'It reaches everyone in the room. Nothing is kept — it goes when you close.',
     'chat.placeholder': 'Type and press Enter (Shift+Enter for a new line)',
     'pane.divider': 'Divider (drag left or right to resize; double-click to reset)',
-    'chat.image.attach': 'Send an image (you can also paste or drag one in; large images are shrunk before sending)',
+    'chat.image.attach': 'Attach images (as many as you like; pasting works too. They go out with your text when you press Send. Dragged-in images are sent right away. Large images are shrunk before sending)',
+    'chat.image.attached': 'Attached images',
+    'chat.image.remove': 'Remove this image',
     'chat.image.alt': 'Image from {who}',
     'chat.image.close': 'Close',
     'chat.image.save': 'Save to Downloads',
@@ -1903,7 +1909,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': '会送达房间里的所有人。不会保留 —— 关掉就没了。',
     'chat.placeholder': '输入后按 Enter（换行用 Shift+Enter）',
     'pane.divider': '分隔线（左右拖动调整宽度，双击恢复原宽度）',
-    'chat.image.attach': '发送图片（也可以粘贴或拖进来；大图会先缩小再发送）',
+    'chat.image.attach': '添加图片（可多张；也可以粘贴。按［发送］时与文字一起发出。拖进来的图片会立即发送。大图会先缩小再发送）',
+    'chat.image.attached': '已添加的图片',
+    'chat.image.remove': '移除这张图片',
     'chat.image.alt': '{who} 发来的图片',
     'chat.image.close': '关闭',
     'chat.image.save': '保存到下载',
@@ -2487,7 +2495,9 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.hint': '같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.',
     'chat.placeholder': '입력 후 Enter (줄바꿈은 Shift+Enter)',
     'pane.divider': '구분선 (좌우로 끌어 너비 조절, 더블클릭하면 원래 너비)',
-    'chat.image.attach': '이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)',
+    'chat.image.attach': '이미지 첨부 (여러 장 가능. 붙여넣기로도 첨부됩니다. [보내기]를 누르면 글과 함께 보냅니다. 끌어다 놓은 이미지는 바로 보냅니다. 큰 이미지는 줄여서 보냅니다)',
+    'chat.image.attached': '첨부한 이미지',
+    'chat.image.remove': '이 이미지 빼기',
     'chat.image.alt': '{who}이(가) 보낸 이미지',
     'chat.image.close': '닫기',
     'chat.image.save': '다운로드에 저장',

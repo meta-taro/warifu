@@ -63,7 +63,9 @@ chat.empty	Nothing yet	まだ何もありません	还没有内容	아직 아무
 chat.hint	It reaches everyone in the room. Nothing is kept — it goes when you close.	同じルームに入っている人へ届きます。残りません — 閉じると消えます。	会送达房间里的所有人。不会保留 —— 关掉就没了。	같은 방에 있는 사람에게 갑니다. 남지 않습니다 — 닫으면 사라집니다.				
 chat.history.unreadable	Could not open the earlier conversation. It does not seem to have been saved on this machine (set aside; starting empty)	前の会話を開けませんでした。この機械で残したものではないようです（脇へ退けて、空から始めます）	无法打开之前的对话。它似乎不是在本机上保存的（已移到一旁，从空白开始）	이전 대화를 열지 못했습니다. 이 기기에서 저장한 것이 아닌 것 같습니다(옆으로 옮기고 빈 상태로 시작합니다)				
 chat.image.alt	Image from {who}	{who} が送った画像	{who} 发来的图片	{who}이(가) 보낸 이미지				
-chat.image.attach	Send an image (you can also paste or drag one in; large images are shrunk before sending)	画像を送る（貼り付け・ドラッグでも送れます。大きい画像は縮めて送ります）	发送图片（也可以粘贴或拖进来；大图会先缩小再发送）	이미지 보내기 (붙여넣기나 끌어다 놓기로도 보낼 수 있습니다. 큰 이미지는 줄여서 보냅니다)				
+chat.image.attach	Attach images (as many as you like; pasting works too. They go out with your text when you press Send. Dragged-in images are sent right away. Large images are shrunk before sending)	画像を添える（何枚でも。貼り付けでも添えられます。［送る］で文字と一緒に送ります。ドラッグした画像はすぐ送ります。大きい画像は縮めて送ります）	添加图片（可多张；也可以粘贴。按［发送］时与文字一起发出。拖进来的图片会立即发送。大图会先缩小再发送）	이미지 첨부 (여러 장 가능. 붙여넣기로도 첨부됩니다. [보내기]를 누르면 글과 함께 보냅니다. 끌어다 놓은 이미지는 바로 보냅니다. 큰 이미지는 줄여서 보냅니다)				
+chat.image.attached	Attached images	添えた画像	已添加的图片	첨부한 이미지				
+chat.image.remove	Remove this image	この画像を外す	移除这张图片	이 이미지 빼기				
 chat.image.close	Close	閉じる	关闭	닫기				
 chat.image.nobody	Images go to the people in the room. Nobody from another machine is here right now.	画像はルームの相手に届きます。いまはほかの機械の人がいません。	图片会送到房间里的人。现在没有其他机器的人在。	이미지는 방에 있는 사람에게 갑니다. 지금은 다른 기기의 사람이 없습니다.		「いまは」を落とさないこと —— 相手が入れば送れる。		
 chat.image.notKept	[An image was here. It was received before the restart and can no longer be shown]	［画像がありました。立ち上げ直す前のものなので、見られません］	［此处有一张图片。它是重新启动之前收到的，已无法显示］	［여기에 이미지가 있었습니다. 다시 시작하기 전에 받은 것이라 볼 수 없습니다］				

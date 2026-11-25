@@ -30,6 +30,7 @@
   import { 秘密らしいもの, 秘密を言う, type 秘密の種類 } from './secret';
   import { 写しか, 写しの名, 呼べる名に広げる, 候補を入れる, 候補を出す, 宛ての名, 宛てられたか, 頭の呼びを外す, 全員の呼び, type 打ちかけ } from './mention';
   import { 受けを見る, 受ける押し所を出すか } from './ack';
+  import { 画像をまとめる } from './pic-run';
   import { 一度に描く行, 描く頭, 行が増えたときの描く数, 前を読んだ描く数, 含める描く数 } from './draw-window';
 
   interface Props {
@@ -54,7 +55,7 @@
      * `秘密を承知` は、秘密らしいものを人が確かめて［それでも送る］を押したとき真（0.1.42）
      */
     /** 送る。**返信なら、返信先の行の印を添える**（11-11）。 */
-    送る: (body: string, 秘密を承知: boolean, 返信先?: string) => void;
+    送る: (body: string, 秘密を承知: boolean, 返信先?: string) => unknown;
     /**
      * **いま見ている部屋**（ルームの鍵、またはこの機械のルーム）。
      *
@@ -62,8 +63,11 @@
      * 控えないと、ASUS の部屋に書きかけた文が開発の部屋の欄にそのまま残る。
      */
     部屋?: string | null;
-    /** 画像を送る。**渡されなければ、画像の口を出さない**（預かり所ごしなど、送れない所） */
-    画像を送る?: (画像: File) => void;
+    /**
+     * 画像を送る。**渡されなければ、画像の口を出さない**（預かり所ごしなど、送れない所）。
+     * ［送る］は文字 → 画像の順に、返りを待って 1 つずつ呼ぶ（0.1.62）
+     */
+    画像を送る?: (画像: File) => unknown;
     /** **画像を保存する**（0.1.43）。返りは書いた場所。渡されなければ［保存］を出さない */
     画像を保存?: (画像: string) => Promise<string>;
     /**
@@ -237,12 +241,30 @@
   }
   let 画像の口: HTMLInputElement | undefined = $state();
 
-  function 選んだ画像を送る(e: Event) {
+  /**
+   * **添えた画像**（0.1.62）。選んだ・貼った画像はすぐ送らず、打つ欄の上に小さく並べ、
+   * ［送る］で文字と一緒に送る。1 枚ずつ外せる。`見本` は縮み絵の `blob:`（外したら手放す）。
+   */
+  let 添えた = $state<{ 画像: File; 見本: string }[]>([]);
+
+  function 添える(画像たち: Iterable<File>) {
+    if (!画像を送る) return;
+    const 足す = [...画像たち].map((画像) => ({ 画像, 見本: URL.createObjectURL(画像) }));
+    if (足す.length > 0) 添えた = [...添えた, ...足す];
+  }
+
+  function 添えを外す(k: number) {
+    const 外す = 添えた[k];
+    if (外す) URL.revokeObjectURL(外す.見本);
+    添えた = 添えた.filter((_, n) => n !== k);
+  }
+
+  function 選んだ画像を添える(e: Event) {
     const 口 = e.currentTarget as HTMLInputElement;
-    const f = 口.files?.[0];
+    const 選んだ = [...(口.files ?? [])];
     // **同じ画像をもう一度選べるように空ける**（空けないと change が来ない）
     口.value = '';
-    if (f && 画像を送る) 画像を送る(f);
+    添える(選んだ);
   }
 
   function 貼った(e: ClipboardEvent) {
@@ -251,7 +273,7 @@
     // **文字の貼り付けは邪魔しない。**画像が入っていたときだけ取る
     if (!f) return;
     e.preventDefault();
-    画像を送る(f);
+    添える([f]);
   }
 
   /**
@@ -304,6 +326,8 @@
   let 描く数 = $state(一度に描く行);
   const 頭 = $derived(描く頭(会話.length, 描く数));
   const 描く行 = $derived(会話.slice(頭));
+  /** **続けて送られた画像の塊**（0.1.62・`./pic-run`）。描く行の中の位置で持つ */
+  const まとめ = $derived(画像をまとめる(描く行));
 
   /** ［前を読む］。足した分だけ上に伸びるので、読んでいた位置を保つ */
   async function 前を読む() {
@@ -380,10 +404,11 @@
    */
   let 秘密の確かめ = $state<秘密の種類[] | null>(null);
 
-  function 出す(秘密を承知 = false) {
+  async function 出す(秘密を承知 = false) {
     const body = 下書き.trim();
-    if (!body) return;
-    if (!秘密を承知) {
+    const 画像たち = 添えた;
+    if (!body && 画像たち.length === 0) return;
+    if (body && !秘密を承知) {
       const 見つけた = 秘密らしいもの(body);
       if (見つけた.length > 0) {
         秘密の確かめ = 見つけた;
@@ -391,11 +416,19 @@
       }
     }
     秘密の確かめ = null;
-    if (返信する) 送る(body, 秘密を承知, 返信する.印);
-    else 送る(body, 秘密を承知);
+    const 返信先 = 返信する?.印;
     下書き = '';
     呼びかけ = null;
-    返信する = null;
+    添えた = [];
+    // 画面から送る画像には返信先を付けられない。**文字が無いなら返信の添えは残す**（黙って落とさない）
+    if (body) 返信する = null;
+    // **文字 → 画像の順に、1 つずつ待って流す**（0.1.62）。網の形は変えない（古い版の相手にも届く）。
+    // 待たないと、縮めるのに時間のかかる画像が文字より先に並ぶ
+    if (body) await (返信先 !== undefined ? 送る(body, 秘密を承知, 返信先) : 送る(body, 秘密を承知));
+    for (const { 画像, 見本 } of 画像たち) {
+      URL.revokeObjectURL(見本);
+      await 画像を送る?.(画像);
+    }
   }
 
   /** **いま返信している発言**（11-11）。打つ欄の上に出し、送ったら、またはやめたら消す。 */
@@ -560,7 +593,11 @@
       {@const 長い = !line.system && 畳むか(line.body)}
       {@const 機械 = 機械の頭(line)}
       {@const 色合い = 機械 === null ? null : (機械の色.get(機械) ?? null)}
-      {#if line.system}
+      {@const 続く = まとめ.頭.get(j)}
+      {@const 塊の絵 = 続く ? [...(line.画像 ? [{ 行: line, 頭: true }] : []), ...続く.map((k) => ({ 行: 描く行[k], 頭: false }))] : null}
+      {#if まとめ.続き.has(j)}
+        <!-- 塊の頭の行に、横に並べて描いた -->
+      {:else if line.system}
         <!-- **会議からの知らせ**は吹き出しにしない。真ん中に小さく -->
         <p class="line system">
           {#if 時刻の札(line)}<span class="at">{時刻の札(line)}</span>{/if}{line.body}
@@ -632,7 +669,7 @@
                 ><Icon name="reply" size={11} /><b>{差出人の名(元)}</b><span>{本文の頭(元.body) || (元.画像 ? t('chat.reply.image') : '')}</span></button
               >{:else}<span class="quote gone">{t('chat.reply.gone')}</span>{/if}
           {/if}
-          <div class="bubble" class:folded={長い && !開いた.has(i)} class:figure={図を含むか(line.body)}><Markdown
+          {#if !塊の絵 || line.body.trim() !== ''}<div class="bubble" class:folded={長い && !開いた.has(i)} class:figure={図を含むか(line.body)}><Markdown
               本文={呼んだ.length > 0 || 写した.length > 0 ? 頭の呼びを外す(line.body, 見分ける名) : line.body}
               {見分ける名}
               {自分の呼ばれる名}
@@ -646,7 +683,7 @@
                   閉じる: t('chat.link.qr.close'),
                 },
               }}
-            />{#if line.画像}<button
+            />{#if line.画像 && !塊の絵}<button
                 type="button"
                 class="pic"
                 onclick={() => (大きく見る = line.画像 ?? null)}
@@ -655,11 +692,37 @@
                   src={line.画像}
                   alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(line, 画面での名簿, t('contacts.noname'))) })}
                 /></button
-              >{/if}{#if line.画像は残していない}<span class="gone">{t('chat.image.notKept')}</span>{/if}</div>
+              >{/if}{#if line.画像は残していない}<span class="gone">{t('chat.image.notKept')}</span>{/if}</div>{/if}
           {#if 長い}
             <button type="button" class="more" aria-expanded={開いた.has(i)} onclick={() => 開け閉め(i)}
               >{t(開いた.has(i) ? 'chat.less' : 'chat.more')}</button
             >
+          {/if}
+          {#if 塊の絵}
+            <!-- **続けて送られた画像は横に並べる**（0.1.62）。1 枚ずつ印を持ち、返信も元の発言への飛びも 1 枚ずつ効く -->
+            <div class="pics">
+              {#each 塊の絵 as 絵, n (n)}
+                <div class="thumb" data-mark={絵.頭 ? undefined : 絵.行.印}>
+                  <button type="button" class="pic" onclick={() => (大きく見る = 絵.行.画像 ?? null)}
+                    ><img
+                      onload={絵が開いた}
+                      src={絵.行.画像}
+                      alt={format(t('chat.image.alt'), { who: 見せる名(行の差出人名(絵.行, 画面での名簿, t('contacts.noname'))) })}
+                    /></button
+                  >{#if !絵.頭 && 絵.行.印}<button
+                      type="button"
+                      class="copy thumb-reply"
+                      title={t('chat.reply')}
+                      aria-label={t('chat.reply')}
+                      onclick={() => 返信を始める(絵.行)}><Icon name="reply" size={12} /></button
+                    >{/if}{#if !絵.頭 && 絵.行.届き && 絵.行.届き.札 !== line.届き?.札}<span
+                      class="mark"
+                      class:none={絵.行.届き.札 === 'mark.none'}
+                      title={t(絵.行.届き.訳 as MessageKey)}>{t(絵.行.届き.札 as MessageKey)}</span
+                    >{/if}
+                </div>
+              {/each}
+            </div>
           {/if}
           </div>
           {#if 宛て || 写し || line.届き || 受け}
@@ -777,6 +840,23 @@
       >
     </div>
   {/if}
+  {#if 添えた.length > 0}
+    <!-- **添えた画像**（0.1.62）。［送る］で文字と一緒に送る。×で 1 枚ずつ外す -->
+    <ul class="attached" aria-label={t('chat.image.attached')}>
+      {#each 添えた as 添え, k (添え.見本)}
+        <li>
+          <img src={添え.見本} alt={添え.画像.name} title={添え.画像.name} />
+          <button
+            type="button"
+            class="unattach"
+            aria-label={`${t('chat.image.remove')}: ${添え.画像.name}`}
+            title={t('chat.image.remove')}
+            onclick={() => 添えを外す(k)}><Icon name="close" size={12} /></button
+          >
+        </li>
+      {/each}
+    </ul>
+  {/if}
   <div class="say">
     <!--
       **改行できる**（2026-09-06）。Shift+Enter / Option+Enter で改行、
@@ -816,8 +896,9 @@
         bind:this={画像の口}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
         hidden
-        onchange={選んだ画像を送る}
+        onchange={選んだ画像を添える}
       />
       <button
         type="button"
@@ -831,7 +912,7 @@
       </button>
     {/if}
     <!-- **送るのは人**（11-12）。エージェントのカーソルは欄に打てても、送らせない（エージェントは chat_send で流す） -->
-    <button type="button" onclick={() => 出す()} disabled={!届く先がある || !下書き.trim()} data-agent-hands-off>
+    <button type="button" onclick={() => 出す()} disabled={!届く先がある || (!下書き.trim() && 添えた.length === 0)} data-agent-hands-off>
       {t('chat.send')}
     </button>
   </div>
@@ -889,6 +970,88 @@
     max-width: 100%;
     max-height: 280px;
     object-fit: contain;
+  }
+  /* **続けて送られた画像の塊**（0.1.62）。横に並べ、幅に収まらなければ折り返す */
+  .pics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin-top: var(--space-1);
+  }
+  .line.right .pics {
+    justify-content: flex-end;
+  }
+  .thumb {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    border-radius: 8px;
+  }
+  .pics .pic {
+    margin: 0;
+  }
+  .pics .pic img {
+    height: 130px;
+    width: auto;
+    max-width: 100%;
+    max-height: none;
+    object-fit: cover;
+  }
+  .thumb .mark {
+    margin-left: 0;
+  }
+  /* 1 枚ずつの返信の押し所。絵の右上に重ねる */
+  .thumb-reply {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    padding: 2px 4px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .thumb:global(.flash) .pic {
+    outline: 2px solid var(--info-fg);
+  }
+  /* **添えた画像**（打つ欄の上）。小さく並べ、× で 1 枚ずつ外す */
+  .attached {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    margin: var(--space-1) 0 var(--space-1);
+    /* × は絵の右上へはみ出すので、その分を空ける（会話の枠に重ねない） */
+    padding: 6px 6px 0 0;
+    list-style: none;
+  }
+  .attached li {
+    position: relative;
+  }
+  .attached img {
+    display: block;
+    height: 56px;
+    width: auto;
+    max-width: 120px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .unattach {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-full);
+    cursor: pointer;
   }
   /* **送るより目立たせない。**主役は文字の欄と「送る」 */
   /* 高さは 1 行の欄と「送る」に合わせる（欄が伸びても一緒に伸ばさない） */
