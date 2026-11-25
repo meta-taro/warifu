@@ -321,6 +321,11 @@ pub async fn 出す(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
         .受信箱を汲むには(std::sync::Arc::new(|| {
             Box::pin(crate::mail::汲む(一度に汲む通))
         }))
+        // **送信済みも、一覧のたびに汲み直す**（0.1.59）。開くときは 1 通だけ取りに行く
+        .送信済みを汲むには(
+            std::sync::Arc::new(|| Box::pin(crate::mail::送信済みを汲む(一度に汲む通))),
+            std::sync::Arc::new(|口, uid| Box::pin(crate::mail::送信済みを開く(口, uid))),
+        )
         .メールの控えを渡す(std::sync::Arc::new(crate::mail::控えの手))
         // **繋ぐたびに、画面に控えた名乗りを呼ばれる名へ足す**（0.1.46）
         .控えた名を読むには({

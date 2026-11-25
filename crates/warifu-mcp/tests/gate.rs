@@ -400,6 +400,8 @@ fn 出している口を_数えて名前で押さえる() {
             "room_status",
             "rules_list",
             "screen",
+            "sent_list",
+            "sent_open",
             "update_check",
             "update_install",
             "voice_say",
@@ -1252,6 +1254,10 @@ fn 外へ出る引数名は_asciiだけ() {
     );
     名を検める("inbox_open", &schemars::schema_for!(warifu_mcp::OpenArgs));
     名を検める(
+        "sent_open",
+        &schemars::schema_for!(warifu_mcp::SentOpenArgs),
+    );
+    名を検める(
         "mail_account_add",
         &schemars::schema_for!(warifu_mcp::MailAccountAddArgs),
     );
@@ -1476,5 +1482,99 @@ async fn 札が無ければ汲みにも行かない() {
         }),
     );
     assert!(口.inbox_list().await.is_err());
+    assert_eq!(回数.load(Ordering::SeqCst), 0);
+}
+
+/// **送信済みの通**（0.1.59・試験用）。
+fn 送信済み() -> Vec<warifu_mcp::送信済みの通> {
+    vec![warifu_mcp::送信済みの通 {
+        口: "me@example.com".to_owned(),
+        uid: 41,
+        送った: Some(1_756_000_000),
+        宛先: vec!["you@example.org".to_owned()],
+        件名: "見積の件".to_owned(),
+        印: Some("<1.2.0@example.com>".to_owned()),
+    }]
+}
+
+/// 送信済みの手を渡した口（0.1.59）。開く手は、渡された口と UID を本文に書いて返す。
+fn 送信済みの口(札: &[&str]) -> Warifu {
+    use std::sync::Arc;
+    Warifu::new(Vec::new(), 規則(), 札を出す(札), 1_756_000_000).送信済みを汲むには(
+        Arc::new(|| Box::pin(async { Ok(送信済み()) })),
+        Arc::new(|口, uid| {
+            Box::pin(async move {
+                Ok((format!("本文の目印 {口} {uid}"), vec!["a.pdf".to_owned()]))
+            })
+        }),
+    )
+}
+
+/// **送信済みの一覧は、宛先と Message-ID を並べ、本文は出さない。件名は原文の札があるときだけ**（0.1.59）
+#[tokio::test]
+async fn 送信済みの一覧は宛先と印を並べ_本文も件名も出さない() {
+    let 口 = 送信済みの口(&["inbox.list"]);
+    let 一覧 = 口.sent_list().await.unwrap();
+    assert!(一覧.contains("you@example.org"), "{一覧}");
+    assert!(一覧.contains("<1.2.0@example.com>"), "{一覧}");
+    assert!(一覧.contains("me@example.com"), "{一覧}");
+    assert!(
+        !一覧.contains("見積の件"),
+        "札が無いのに件名が出ました: {一覧}"
+    );
+    assert!(!一覧.contains("本文の目印"), "{一覧}");
+
+    let 読める = 送信済みの口(&["inbox.list", "inbox.open.raw"]);
+    let 一覧 = 読める.sent_list().await.unwrap();
+    assert!(一覧.contains("見積の件"), "{一覧}");
+}
+
+/// **送信済みを開くには、原文の札が要る**。開くと、どの口のどの UID かを開く手へ渡す
+#[tokio::test]
+async fn 送信済みを開くには原文の札が要り_番号の通の口と_uid_で開く() {
+    let 口 = 送信済みの口(&["inbox.list"]);
+    口.sent_list().await.unwrap();
+    assert!(
+        口.sent_open(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SentOpenArgs { index: 0 }
+        ))
+        .await
+        .is_err()
+    );
+
+    let 口 = 送信済みの口(&["inbox.list", "inbox.open.raw"]);
+    口.sent_list().await.unwrap();
+    let 開いた = 口
+        .sent_open(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SentOpenArgs { index: 0 },
+        ))
+        .await
+        .unwrap();
+    assert!(開いた.contains("本文の目印 me@example.com 41"), "{開いた}");
+    assert!(開いた.contains("a.pdf"), "{開いた}");
+    assert!(開いた.contains("<1.2.0@example.com>"), "{開いた}");
+    let 無い = 口
+        .sent_open(rmcp::handler::server::wrapper::Parameters(
+            warifu_mcp::SentOpenArgs { index: 5 },
+        ))
+        .await;
+    assert!(無い.is_err());
+}
+
+/// **札が無ければ、送信済みを汲みにも行かない**
+#[tokio::test]
+async fn 札が無ければ送信済みを汲みにも行かない() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let 回数 = Arc::new(AtomicUsize::new(0));
+    let 数える = Arc::clone(&回数);
+    let 口 = Warifu::new(Vec::new(), 規則(), 札を出す(&[]), 1_756_000_000).送信済みを汲むには(
+        Arc::new(move || {
+            数える.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async { Ok(Vec::new()) })
+        }),
+        Arc::new(|_, _| Box::pin(async { Ok((String::new(), Vec::new())) })),
+    );
+    assert!(口.sent_list().await.is_err());
     assert_eq!(回数.load(Ordering::SeqCst), 0);
 }

@@ -15,6 +15,13 @@ pub struct OpenArgs {
     pub level: String,
 }
 
+/// [`crate::Warifu::sent_open`] の引数（0.1.59）。
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct SentOpenArgs {
+    /// 何通目か（`sent_list` が返す番号。0 から数える）。
+    pub index: usize,
+}
+
 /// [`crate::Warifu::calendar_slots`] の引数。
 ///
 /// **件数の上限がここに無いのは意図。**何件返すかを相手に決めさせない

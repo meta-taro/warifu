@@ -8,6 +8,7 @@
 //!   warifu mail add <アドレス> --resend   送るだけの口（Resend）を控え、API キーをキーチェーンに置く（0.1.45）
 //!   warifu mail secret <アドレス>      パスワード・API キーを入れ直す（macOS が聞く・0.1.45）
 //!   warifu mail sort [<アドレス>] [--last <通>]  新しいほうからヘッダだけを読み、札ごとの数を出す（0.1.45）
+//!   warifu mail sent [<アドレス>] [--last <通>]  送信済みを新しい順に、ヘッダだけで並べる（0.1.59）
 //!
 //! アドレスはいくつでも控えられる。同じアドレスを add し直すと、繋ぎ先を置き換える。
 //! ```
@@ -63,7 +64,17 @@ pub enum 設定 {
         /// 何通見るか。
         件数: usize,
     },
+    /// 送信済みを新しい順に、ヘッダだけで並べる（0.1.59）。`None` なら控えた全部。
+    送信済みを並べる {
+        /// どのアドレスか。
+        利用者: Option<String>,
+        /// 何通見るか。
+        件数: usize,
+    },
 }
+
+/// `sent` で見る既定の通の数。
+const 送信済みの既定の通: usize = 20;
 
 /// `sort` で見る既定の通の数。
 const 仕分けの既定の通: usize = 200;
@@ -192,8 +203,22 @@ pub fn 読む(args: &mut impl Iterator<Item = String>) -> Result<設定, String>
             }
             Ok(設定::仕分けを数える { 利用者, 件数 })
         }
+        Some("sent") => {
+            let (mut 利用者, mut 件数) = (None, 送信済みの既定の通);
+            while let Some(a) = args.next() {
+                if a == "--last" {
+                    let v = args.next().ok_or("--last に値が付いていません")?;
+                    件数 = v
+                        .parse()
+                        .map_err(|_| format!("--last の値を読めません: {v}"))?;
+                } else {
+                    利用者 = Some(a);
+                }
+            }
+            Ok(設定::送信済みを並べる { 利用者, 件数 })
+        }
         Some(他) => Err(format!(
-            "知らない指定です: {他}（add / list / check / remove / sort / secret / notify）"
+            "知らない指定です: {他}（add / list / check / remove / sort / sent / secret / notify）"
         )),
     }
 }
@@ -320,6 +345,38 @@ pub async fn 行う(設: &設定) -> Result<(), Box<dyn std::error::Error>> {
                 return Err(
                     format!("{} 件のうち {落ちた} 件がつながりませんでした", 控え.len()).into(),
                 );
+            }
+            Ok(())
+        }
+        設定::送信済みを並べる { 利用者, 件数 } => {
+            let 控え = vault.inboxes()?;
+            let 見る: Vec<&MailAccount> = 控え
+                .iter()
+                .filter(|c| {
+                    利用者
+                        .as_ref()
+                        .is_none_or(|u| c.user.eq_ignore_ascii_case(u))
+                })
+                .collect();
+            if 見る.is_empty() {
+                return Err("その受信箱は控えていません（warifu mail list で並びます）".into());
+            }
+            for c in 見る {
+                let 行たち = 一つの送信済み(c, *件数).await?;
+                println!(
+                    "{}: 送信済み 新しいほうから {} 通（ヘッダだけ・時刻・宛先・件名・Message-ID。時刻は epoch 秒）",
+                    c.user,
+                    行たち.len()
+                );
+                for 行 in 行たち {
+                    println!(
+                        "  {}\t{}\t{}\t{}",
+                        行.送った.unwrap_or_default(),
+                        行.宛先.join(", "),
+                        行.件名,
+                        行.印.unwrap_or_default()
+                    );
+                }
             }
             Ok(())
         }
@@ -547,6 +604,88 @@ pub async fn 汲む(件数: usize) -> Result<Vec<warifu_read::Received>, String>
     // 新しい順にそろえる（アドレスをまたいで）
     通.sort_by_key(|r| std::cmp::Reverse(r.received_at()));
     Ok(通)
+}
+
+/// **エージェントの `sent_list` のために、控えた全部の口の送信済みを汲む**（0.1.59）。新しい順。
+///
+/// 全部が汲めなかったときだけ失敗にする（受信箱の [`汲む`] と同じ）。
+pub async fn 送信済みを汲む(
+    件数: usize,
+) -> Result<Vec<warifu_mcp::送信済みの通>, String> {
+    let vault = Vault::default_location().map_err(|e| e.to_string())?;
+    let 控え = vault.inboxes().map_err(|e| e.to_string())?;
+    if 控え.is_empty() {
+        return Err("メールのアドレスを控えていません（warifu mail add <アドレス>）".to_owned());
+    }
+    let mut 通 = Vec::new();
+    let mut 落ちた = Vec::new();
+    for c in &控え {
+        match 一つの送信済み(c, 件数).await {
+            Ok(分) => 通.extend(分.into_iter().map(|h| warifu_mcp::送信済みの通 {
+                口: c.user.clone(),
+                uid: h.uid,
+                送った: h.送った,
+                宛先: h.宛先,
+                件名: h.件名,
+                印: h.印,
+            })),
+            Err(e) => {
+                eprintln!("warifu mcp: {} の送信済みを汲めませんでした（{e}）", c.user);
+                落ちた.push(format!("{}: {e}", c.user));
+            }
+        }
+    }
+    if 落ちた.len() == 控え.len() {
+        return Err(落ちた.join("・"));
+    }
+    通.sort_by_key(|r| std::cmp::Reverse(r.送った));
+    Ok(通)
+}
+
+/// **送信済みの 1 通を開く**（0.1.59・`sent_open`）。返りは（本文・添付の名前）。
+pub async fn 送信済みを開く(口: String, uid: u32) -> Result<(String, Vec<String>), String> {
+    let vault = Vault::default_location().map_err(|e| e.to_string())?;
+    let 控え = vault.inboxes().map_err(|e| e.to_string())?;
+    let c = 控え
+        .iter()
+        .find(|c| c.user.eq_ignore_ascii_case(&口))
+        .ok_or_else(|| format!("{口} は控えていません"))?;
+    let 開いた = async {
+        let mut 箱 = 繋いで開く(c).await?;
+        let 通 = 箱.送信済みを開く(uid).await;
+        if let Err(e) = 箱.logout().await {
+            eprintln!("（閉じるときに落ちました: {e}）");
+        }
+        Ok::<_, Box<dyn std::error::Error>>(通?)
+    }
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok((開いた.本文, 開いた.添付))
+}
+
+/// 控えた 1 つの口の送信済みを、ヘッダだけで汲む。
+async fn 一つの送信済み(
+    c: &MailAccount,
+    件数: usize,
+) -> Result<Vec<warifu_imap::送った見出し>, Box<dyn std::error::Error>> {
+    let mut 箱 = 繋いで開く(c).await?;
+    let 行 = 箱.送信済みの一覧(件数).await;
+    if let Err(e) = 箱.logout().await {
+        eprintln!("（閉じるときに落ちました: {e}）");
+    }
+    Ok(行?)
+}
+
+/// 控えた口へ繋いでログインする。
+async fn 繋いで開く(
+    c: &MailAccount,
+) -> Result<Mailbox<warifu_imap::Stream>, Box<dyn std::error::Error>> {
+    let パスワード =
+        keychain::読む(&c.user).map_err(|_| format!("{}: {}", c.user, keychain::無いとき()))?;
+    let 繋ぎ先 = Account::new(&c.host, c.port, &c.user, &パスワード)?;
+    drop(パスワード);
+    let 流れ = warifu_imap::connect(&繋ぎ先).await?;
+    Ok(Mailbox::open(流れ, &繋ぎ先).await?)
 }
 
 async fn 一つから汲む(
@@ -823,6 +962,20 @@ mod tests {
             Ok(設定::仕分けを数える {
                 利用者: None,
                 件数: 200
+            })
+        );
+        assert_eq!(
+            読ませる(&["sent", "b@example.com", "--last", "5"]),
+            Ok(設定::送信済みを並べる {
+                利用者: Some("b@example.com".into()),
+                件数: 5
+            })
+        );
+        assert_eq!(
+            読ませる(&["sent"]),
+            Ok(設定::送信済みを並べる {
+                利用者: None,
+                件数: 20
             })
         );
         assert_eq!(

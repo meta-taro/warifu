@@ -309,6 +309,8 @@ async fn 口を全部_1回ずつ呼ぶ() {
     ));
     結果.push(("rules_list", format!("{:?}", 口.rules_list().await)));
     結果.push(("inbox_list", format!("{:?}", 口.inbox_list().await)));
+    // 送信済み（0.1.59）。この試験では汲む手を渡していないので「読めません」が返る
+    結果.push(("sent_list", format!("{:?}", 口.sent_list().await)));
     // メールの口の控え（0.1.45）。この試験では控えの手を渡していないので「読めません」が返る
     結果.push((
         "mail_account_list",
@@ -653,6 +655,16 @@ async fn 口を全部_1回ずつ呼ぶ() {
     for (名, 返り) in &結果 {
         時間切れでないこと(名, 返り);
     }
+    // **送った返りに、その通の Message-ID が付く**（0.1.59・送信済みと突き合わせるため）
+    let 送った = &結果
+        .iter()
+        .find(|(名, _)| *名 == "mail_send")
+        .expect("呼んだ")
+        .1;
+    assert!(
+        送った.contains("Message-ID <") && 送った.contains("@warifu.local>"),
+        "{送った}"
+    );
 
     // **呼び残しを、機械が数える** —— 口を足したら、ここに 1 行足すまで落ちる
     let 呼んだ: std::collections::BTreeSet<&str> = 結果.iter().map(|(名, _)| *名).collect();
@@ -661,6 +673,8 @@ async fn 口を全部_1回ずつ呼ぶ() {
     let 外す: std::collections::BTreeSet<&str> = [
         // 受信箱の中身に依る（**段ごとの試験が `gate.rs` に在る**）
         "inbox_open",
+        // 送信済みの中身に依る（**`gate.rs` に在る**）
+        "sent_open",
         // 予定表の窓に依る（**`gate.rs` に在る**）
         "calendar_slots",
     ]

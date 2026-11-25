@@ -65,14 +65,15 @@ pub fn 離席中の承認の行(入っている: bool) -> String {
 pub use handshake::{握手へ戻す, 握手を待つ口};
 pub use inflight::{呼びの札, 呼び中, 待つ上限, 閉じを待つ入力};
 pub use server::{
-    Warifu, subject, メールの口, メールの控え, 受信箱を汲む手, 建てた版
+    Warifu, subject, メールの口, メールの控え, 受信箱を汲む手, 建てた版, 送信済みの通,
+    送信済みを汲む手, 送信済みを開く手,
 };
 pub use tools::{
     AskArgs, AvatarArgs, CallArgs, ChangesArgs, ContactAddArgs, ContactNameArgs, ImageArgs,
     ImageSendArgs, InviteArgs, JoinArgs, KeyGiveArgs, MailAccountAddArgs, MailAccountRemoveArgs,
     MailSendArgs, OpenArgs, ProfileArgs, RoomCreateArgs, RoomKickArgs, RoomLeaveArgs,
-    RoomRenameArgs, SayArgs, ScreenArgs, SlotsArgs, StatusArgs, TakePassArgs, ToolError, VoiceArgs,
-    WaitArgs, WaitPassArgs, 会話の画像を読む, 顔の画像を読む,
+    RoomRenameArgs, SayArgs, ScreenArgs, SentOpenArgs, SlotsArgs, StatusArgs, TakePassArgs,
+    ToolError, VoiceArgs, WaitArgs, WaitPassArgs, 会話の画像を読む, 顔の画像を読む,
 };
 
 #[cfg(test)]

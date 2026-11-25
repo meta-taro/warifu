@@ -268,6 +268,65 @@ fn 外の画像を数える(html: &str) -> usize {
         .count()
 }
 
+/// **送信済みの一覧の 1 行**（0.1.59）。**本文は入らない**（ヘッダだけから作る）。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 送った見出し {
+    /// サーバの UID（送信済みの箱の中の番号）。開くときに使う。
+    pub uid: u32,
+    /// 宛先（`To` と `Cc` のアドレス・書いてある順）。`Bcc` は送信済みに残らないことが多いので読まない。
+    pub 宛先: Vec<String>,
+    /// 件名（無ければ空）。
+    pub 件名: String,
+    /// **サーバがその通を送信済みに置いた時刻**（epoch 秒・`INTERNALDATE`）。
+    pub 送った: Option<i64>,
+    /// `Message-ID`（`<…>` 込み）。`mail_send` の返りの印と突き合わせるため。
+    pub 印: Option<String>,
+}
+
+/// ヘッダだけのバイト列から、送信済みの一覧の 1 行を作る（0.1.59）。
+///
+/// 差出人は見ない（送信済みは自分が出したもの）。宛先が 1 つも読めなくても止めない
+/// （下書きから送った通などで `To` が無いことがある。空の宛先として並べる）。
+///
+/// # 失敗
+///
+/// [`Error::Unparsable`]。
+pub fn 送った見出しにする(
+    uid: u32,
+    ヘッダ: &[u8],
+    送った: Option<i64>,
+) -> Result<送った見出し, Error> {
+    let msg = MessageParser::default()
+        .parse_headers(ヘッダ)
+        .ok_or(Error::Unparsable)?;
+    let mut 宛先 = Vec::new();
+    for 欄 in [msg.to(), msg.cc()].into_iter().flatten() {
+        for a in 欄.iter() {
+            if let Some(先) = a.address() {
+                宛先.push(先.to_owned());
+            }
+        }
+    }
+    Ok(送った見出し {
+        uid,
+        宛先,
+        件名: msg.subject().unwrap_or_default().to_owned(),
+        送った,
+        印: msg.message_id().map(|id| format!("<{id}>")),
+    })
+}
+
+/// **送信済みの箱を選ぶ**（0.1.59）。`LIST` の返りの（名前・`\Sent` の印があるか・開けない箱か）から、
+/// **`\Sent` の印（RFC 6154）の付いた、開ける箱**を選ぶ。**名前では決めない**
+/// （Gmail は表示の言語で名前が変わる・ほかのサーバは名前がまちまち）。
+#[must_use]
+pub fn 送信済みの箱を選ぶ(並び: &[(String, bool, bool)]) -> Option<String> {
+    並び
+        .iter()
+        .find(|(_, 送信済み, 開けない)| *送信済み && !*開けない)
+        .map(|(名前, _, _)| 名前.clone())
+}
+
 #[cfg(test)]
 mod 試験 {
     use super::*;
@@ -330,5 +389,40 @@ Content-Type: text/html; charset=utf-8\r\n\
             b"From: a@example.com\r\nContent-Type: text/plain\r\n\r\n<img src=\"https://x\">\r\n";
         // text/plain の中の文字は、画像として読み込まれることがない
         assert_eq!(外の画像の数(raw), 0);
+    }
+
+    #[test]
+    fn 送信済みの見出しは_宛先を_to_と_cc_から順に取り_印と件名を持つ() {
+        let h =
+            b"From: me@example.com\r\nTo: =?UTF-8?B?5bGx5pys?= <a@example.com>, b@example.org\r\n\
+Cc: c@example.net\r\nSubject: Re: hello\r\nMessage-ID: <1.2@example.com>\r\n\r\n";
+        let 行 = 送った見出しにする(7, h, Some(1_700_000_000)).unwrap();
+        assert_eq!(行.uid, 7);
+        assert_eq!(行.宛先, ["a@example.com", "b@example.org", "c@example.net"]);
+        assert_eq!(行.件名, "Re: hello");
+        assert_eq!(行.印.as_deref(), Some("<1.2@example.com>"));
+        assert_eq!(行.送った, Some(1_700_000_000));
+    }
+
+    #[test]
+    fn 宛先の無い送信済みも_止めずに空の宛先で並べる() {
+        let 行 = 送った見出しにする(1, b"Subject: x\r\n\r\n", None).unwrap();
+        assert!(行.宛先.is_empty());
+        assert_eq!(行.印, None);
+    }
+
+    #[test]
+    fn 送信済みの箱は_名前ではなく_sent_の印で選び_開けない箱は飛ばす() {
+        let 並び = vec![
+            ("INBOX".to_owned(), false, false),
+            ("Sent".to_owned(), false, false),
+            ("[Gmail]".to_owned(), true, true),
+            ("[Gmail]/&kAFP4W4IMH8wojDrMEs-".to_owned(), true, false),
+        ];
+        assert_eq!(
+            送信済みの箱を選ぶ(&並び).as_deref(),
+            Some("[Gmail]/&kAFP4W4IMH8wojDrMEs-")
+        );
+        assert_eq!(送信済みの箱を選ぶ(&並び[..2]), None);
     }
 }

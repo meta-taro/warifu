@@ -41,6 +41,9 @@ pub struct 頼み {
     返信先: Option<String>,
     #[serde(skip)]
     参照: Option<String>,
+    /// この通に付ける `Message-ID`（0.1.59・頼む側が決める。古い口なら空で、送るときに決める）。
+    #[serde(skip)]
+    通の印: Option<String>,
 }
 
 static 頼みの棚: Mutex<Vec<頼み>> = Mutex::new(Vec::new());
@@ -148,6 +151,7 @@ pub async fn 頼む(
     本文: String,
     返信先: Option<String>,
     参照: Option<String>,
+    通の印: Option<String>,
     頼んだ人: &str,
     待つ秒: u64,
 ) -> メールの返り {
@@ -171,6 +175,7 @@ pub async fn 頼む(
         頼んだ時刻: chrono::Local::now().format("%m-%d %H:%M").to_string(),
         返信先,
         参照,
+        通の印,
     };
     // **人が画面でこの口を「端末の許可で送る」にしていれば、［送る］を待たずに送る**（0.1.53）。
     // 人は、エージェントの道具が許可を求めるときに出す全文を見て許している（リモートでも送れるように）
@@ -333,7 +338,9 @@ async fn 送り出す(頼: &頼み) -> メールの返り {
         参照: 頼.参照.clone(),
     };
     let 日時 = chrono::Local::now().to_rfc2822();
-    let id = format!("<{}.{}@warifu.local>", chrono::Utc::now().timestamp_micros(), 頼.番号);
+    let id = 頼.通の印.clone().unwrap_or_else(|| {
+        format!("<{}.{}@warifu.local>", chrono::Utc::now().timestamp_micros(), 頼.番号)
+    });
     match warifu_imap::smtp::送る(流れ, &頼.口, &パスワード, &通, &日時, &id).await {
         Ok(()) => {
             記録!("メールを送る: 送りました（宛先 {} 件）", 頼.宛先.len());

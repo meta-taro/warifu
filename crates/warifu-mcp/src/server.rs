@@ -64,6 +64,12 @@ pub struct Warifu {
     /// **受信箱を汲み直す手**（0.1.44）。`inbox_list` のたびに呼ぶ。
     /// **この層は IMAP を知らない**ので、汲み方は外から渡す（`warifu mcp` が控えたアドレスから汲む）。
     受信箱を汲む: Option<受信箱を汲む手>,
+    /// **送信済みを汲む手**（0.1.59）。`sent_list` のたびに呼ぶ。汲み方は外から渡す（受信箱と同じ）。
+    送信済みを汲む: Option<送信済みを汲む手>,
+    /// **送信済みの 1 通を開く手**（0.1.59）。`sent_open` が呼ぶ。
+    送信済みを開く: Option<送信済みを開く手>,
+    /// いちばん新しい `sent_list` の並び。`sent_open` の番号はこの並びの位置。
+    送信済み: Arc<Mutex<Vec<送信済みの通>>>,
     /// **メールの口の控え**（0.1.45）。この層は置き場所を知らないので、外から渡す。
     メールの控え: Option<Arc<dyn メールの控え>>,
     /// **画面に控えてある、このエージェントの名乗り**を読む手（0.1.46）。繋ぐたびに呼ばれる名へ足す。
@@ -126,6 +132,9 @@ impl Warifu {
             起こし方: crate::push::起こし方::default(),
             札を読み直す: None,
             受信箱を汲む: None,
+            送信済みを汲む: None,
+            送信済みを開く: None,
+            送信済み: Arc::default(),
             メールの控え: None,
             控えた名を読む: None,
             呼び: Arc::default(),
@@ -199,6 +208,18 @@ impl Warifu {
     #[must_use]
     pub fn 受信箱を汲むには(mut self, 汲む: 受信箱を汲む手) -> Self {
         self.受信箱を汲む = Some(汲む);
+        self
+    }
+
+    /// **送信済みを汲む手と、1 通を開く手を渡す**（0.1.59）。
+    #[must_use]
+    pub fn 送信済みを汲むには(
+        mut self,
+        汲む: 送信済みを汲む手,
+        開く: 送信済みを開く手,
+    ) -> Self {
+        self.送信済みを汲む = Some(汲む);
+        self.送信済みを開く = Some(開く);
         self
     }
 
@@ -521,6 +542,59 @@ fn 一覧の件名(件名: &str) -> String {
     }
 }
 
+/// `sent_list` の返り（0.1.59）。宛先は 3 つまで出し、残りは数だけ。
+fn 送信済みの言い方(
+    並び: &[送信済みの通],
+    件名を出す: bool,
+    汲めなかった: Option<&str>,
+) -> String {
+    let mut 行 = Vec::new();
+    if let Some(訳) = 汲めなかった {
+        行.push(format!(
+            "（送信済みを汲み直せませんでした：{訳}。前に汲んだ分を出します）"
+        ));
+    }
+    if 並び.is_empty() {
+        行.push("送信済みのメールはありません。".to_owned());
+        return 行.join("\n");
+    }
+    行.push(
+        if 件名を出す {
+            "番号\t送った\t口\t宛先\t件名\tMessage-ID"
+        } else {
+            "番号\t送った\t口\t宛先\tMessage-ID"
+        }
+        .to_owned(),
+    );
+    for (i, 通) in 並び.iter().enumerate() {
+        let mut 宛先 = 通
+            .宛先
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ");
+        if 通.宛先.len() > 3 {
+            宛先.push_str(&format!(" ほか {} 人", 通.宛先.len() - 3));
+        }
+        let 件名 = if 件名を出す {
+            format!("{}\t", 一覧の件名(&通.件名))
+        } else {
+            String::new()
+        };
+        行.push(format!(
+            "{i}\t{}\t{}\t{宛先}\t{件名}{}",
+            送った時刻の言い方(通.送った),
+            通.口,
+            通.印.as_deref().unwrap_or("")
+        ));
+    }
+    if !件名を出す {
+        行.push("（件名は、原文を読む札 inbox.open.raw があるときに出ます）".to_owned());
+    }
+    行.join("\n")
+}
+
 /// `mail_pending` の返り（0.1.58）。
 fn メールの待ちの言い方(並び: &[warifu_desk::メールの待ちの行]) -> String {
     if 並び.is_empty() {
@@ -597,6 +671,61 @@ pub type 受信箱を汲む手 = Arc<
         > + Send
         + Sync,
 >;
+
+/// **送信済みの 1 通**（0.1.59・[`Warifu::送信済みを汲むには`]）。本文は入らない。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct 送信済みの通 {
+    /// どの口の送信済みか（口のアドレス）。
+    pub 口: String,
+    /// その口の送信済みの箱の中の UID。
+    pub uid: u32,
+    /// サーバが送信済みに置いた時刻（epoch 秒）。
+    pub 送った: Option<i64>,
+    /// 宛先（To と Cc）。
+    pub 宛先: Vec<String>,
+    /// 件名。
+    pub 件名: String,
+    /// `Message-ID`（`<…>` 込み）。`mail_send` の返りの印と同じ形。
+    pub 印: Option<String>,
+}
+
+/// **送信済みを汲む手**（0.1.59）。控えた全部の口から、新しい順に返す。失敗は人が読める 1 文で返す。
+pub type 送信済みを汲む手 = Arc<
+    dyn Fn() -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<Vec<送信済みの通>, String>> + Send>,
+        > + Send
+        + Sync,
+>;
+
+/// **送信済みの 1 通を開く手**（0.1.59）。引数は（口のアドレス・UID）、返りは（本文の文字・添付の名前）。
+pub type 送信済みを開く手 = Arc<
+    dyn Fn(
+            String,
+            u32,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<(String, Vec<String>), String>> + Send>,
+        > + Send
+        + Sync,
+>;
+
+/// **この通に付ける `Message-ID` を決める**（0.1.59）。時刻（マイクロ秒）・この口の番号・連番で重ならないようにする。
+fn 通の印を作る() -> String {
+    static 連番: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = 連番.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!(
+        "<{}.{}.{n}@warifu.local>",
+        chrono::Utc::now().timestamp_micros(),
+        std::process::id()
+    )
+}
+
+/// 送信済みの一覧の時刻（この PC の時計の `YYYY-MM-DD HH:MM`）。読めなければ空。
+fn 送った時刻の言い方(秒: Option<i64>) -> String {
+    use chrono::TimeZone as _;
+    秒.and_then(|t| chrono::Local.timestamp_opt(t, 0).single())
+        .map(|d| d.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_default()
+}
 
 impl Warifu {
     /// 送れる口が控えてあるか。控えを読めなければ「無い」とみなす（添えを出さないだけ）。
@@ -788,6 +917,7 @@ impl Warifu {
                        返信なら reply_to に inbox_list の番号を書くと、宛先（Reply-To か差出人）・件名（Re:）・スレッドの見出しを元の通から埋める。返信でなければ to と subject を書く。\
                        最長 seconds 秒（1〜60・既定 30）待ち、押されなければ「まだ」が返る（頼みは画面に残り、押されると送って、結果は会話に「メールの送信: …」で届く）。同じ頼みを繰り返さない。\
                        ただし人が画面でその口を「端末の許可で送る」にしていれば、［送る］を待たずにすぐ送る（人はこの道具の許可の画面で全文を見て許す）。\
+                       返りにはその通の Message-ID が付く（sent_list の印の列と突き合わせて、送信済みに入ったかを確かめられる）。\
                        いま送れるのは Gmail の口だけ（受信箱と同じアプリパスワード）。この口には札（mail.send）が要る。無ければ pass_ask で頼む。"
     )]
     pub async fn mail_send(
@@ -829,7 +959,7 @@ impl Warifu {
             }
         };
         let この機械 = self.この機械().await?;
-        let 結果 = この機械
+        let (結果, 印) = この機械
             .メールを送る(
                 args.from.as_deref().unwrap_or_default(),
                 宛先,
@@ -838,15 +968,29 @@ impl Warifu {
                 下.as_ref().and_then(|d| d.返信先.clone()),
                 下.and_then(|d| d.参照),
                 args.seconds,
+                Some(通の印を作る()),
             )
             .await?;
+        // 古い画面（0.1.58 まで）は印を受け取らず、自分で決める。そのときは「分からない」と言う
+        let 印 = 印.unwrap_or_else(|| {
+            "（この画面の版では分かりません。sent_list で宛先と時刻から探してください）".to_owned()
+        });
         Ok(match 結果 {
-            warifu_desk::メールの返り::送った { 宛先の数 } => format!("送りました（{宛先の数} 人へ）。"),
-            warifu_desk::メールの返り::まだ => "まだ人が［送る］を押していません。押されると送り、結果は会話に「メールの送信: …」で届きます。\
+            warifu_desk::メールの返り::送った { 宛先の数 } => format!(
+                "送りました（{宛先の数} 人へ・Message-ID {印}）。送信済みに入ったかは sent_list の印の列で確かめられます。"
+            ),
+            warifu_desk::メールの返り::まだ => format!(
+                "まだ人が［送る］を押していません。押されると送り、結果は会話に「メールの送信: …」で届きます。\
+                 送ったときの Message-ID は {印} です（sent_list の印の列と突き合わせられます）。\
                  同じ頼みは出し直さないでください（待っているメールは `mail_pending` で見られます）。"
-                .to_owned(),
-            warifu_desk::メールの返り::断った => "この PC の人が、送らないと決めました。同じ頼みを繰り返さないでください。".to_owned(),
-            warifu_desk::メールの返り::送れない { 訳 } => format!("送れませんでした：{訳}"),
+            ),
+            warifu_desk::メールの返り::断った => {
+                "この PC の人が、送らないと決めました。同じ頼みを繰り返さないでください。"
+                    .to_owned()
+            }
+            warifu_desk::メールの返り::送れない { 訳 } => {
+                format!("送れませんでした：{訳}")
+            }
         })
     }
 
@@ -896,6 +1040,75 @@ impl Warifu {
             // View は non_exhaustive。**知らない段を勝手に文字列にしない**
             _ => Err(ToolError::Unavailable("知らない段が返りました".to_owned()).into()),
         }
+    }
+
+    /// **送信済みを metadata だけで並べる**（0.1.59）。本文は返らない。
+    #[tool(
+        description = "送ったメール（控えた口の送信済み）を、新しい順に並べる。番号・送った時刻・口・宛先・Message-ID（mail_send の返りの印と同じ形）。本文は返らない。\
+                       割符から送った通も、ブラウザから送った通も出る。件名は原文を読む札（inbox.open.raw）があるときだけ出る（受信箱と同じ）。\
+                       1 通を開くには sent_open に番号を渡す。札は inbox.list。"
+    )]
+    pub async fn sent_list(&self) -> Result<String, ErrorData> {
+        self.通すか尋ねる("inbox.list").await?;
+        let 汲む = self
+            .送信済みを汲む
+            .clone()
+            .ok_or_else(|| ToolError::Unavailable("この口では送信済みを読めません".to_owned()))?;
+        // 汲めなかったら、前の並びのまま汲めなかったと言う（黙って空にしない・受信箱と同じ）
+        let mut 汲めなかった = None;
+        match 汲む().await {
+            Ok(通) => *self.送信済み.lock().expect("毒されていない") = 通,
+            Err(訳) => 汲めなかった = Some(訳),
+        }
+        let 件名を出す = self.通るか("inbox.open.raw").is_ok();
+        let 並び = self.送信済み.lock().expect("毒されていない").clone();
+        Ok(送信済みの言い方(
+            &並び,
+            件名を出す,
+            汲めなかった.as_deref(),
+        ))
+    }
+
+    /// **送信済みの 1 通を開く**（0.1.59）。札は受信箱の原文と同じ段（inbox.open.raw）。
+    #[tool(
+        description = "送ったメールの 1 通を開いて、本文（文字）と添付の名前を返す。番号は sent_list のもの。札は inbox.open.raw（受信箱の原文と同じ段）。"
+    )]
+    pub async fn sent_open(
+        &self,
+        Parameters(args): Parameters<crate::tools::SentOpenArgs>,
+    ) -> Result<String, ErrorData> {
+        self.通すか尋ねる("inbox.open.raw").await?;
+        let 一通 = self
+            .送信済み
+            .lock()
+            .expect("毒されていない")
+            .get(args.index)
+            .cloned()
+            .ok_or_else(|| {
+                ToolError::BadArgs(format!(
+                    "{} 通目はありません（sent_list で番号を確かめてください）",
+                    args.index
+                ))
+            })?;
+        let 開く = self
+            .送信済みを開く
+            .clone()
+            .ok_or_else(|| ToolError::Unavailable("この口では送信済みを読めません".to_owned()))?;
+        let (本文, 添付) = 開く(一通.口.clone(), 一通.uid)
+            .await
+            .map_err(|訳| ToolError::Unavailable(format!("開けませんでした：{訳}")))?;
+        let mut 文 = format!(
+            "口: {}\n送った: {}\n宛先: {}\n件名: {}\nMessage-ID: {}\n\n{本文}",
+            一通.口,
+            送った時刻の言い方(一通.送った),
+            一通.宛先.join(", "),
+            一通.件名,
+            一通.印.as_deref().unwrap_or("（なし）"),
+        );
+        if !添付.is_empty() {
+            文.push_str(&format!("\n\n添付: {}", 添付.join("・")));
+        }
+        Ok(文)
     }
 
     /// 空いている枠を出す。**予定の中身は入らない。**

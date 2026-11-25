@@ -8,7 +8,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use warifu_read::Received;
 
 use crate::convert::{
-    人が読む形にする, 仕分けて直す, 見出し, 見出しにする, 開いた通
+    人が読む形にする, 仕分けて直す, 見出し, 見出しにする, 送った見出し, 送った見出しにする,
+    開いた通,
 };
 use crate::{Account, Error, to_received};
 
@@ -70,7 +71,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
         limit: usize,
         received_at: u64,
     ) -> Result<Vec<Received>, Error> {
-        self.読むだけで開く().await?;
+        self.読むだけで開く("INBOX").await?;
 
         let mut 番号: Vec<u32> = self
             .session
@@ -115,7 +116,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
     ///
     /// [`Error::Imap`]。ヘッダの読めない通は [`Error::Unparsable`] / [`Error::NoSender`] で止める。
     pub async fn 一覧(&mut self, 件数: usize) -> Result<Vec<見出し>, Error> {
-        let 全部 = self.読むだけで開く().await?;
+        let 全部 = self.読むだけで開く("INBOX").await?;
         if 全部 == 0 || 件数 == 0 {
             return Ok(Vec::new());
         }
@@ -162,7 +163,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
         今: u64,
         受け手: Option<&str>,
     ) -> Result<Vec<Received>, Error> {
-        let 全部 = self.読むだけで開く().await?;
+        let 全部 = self.読むだけで開く("INBOX").await?;
         if 全部 == 0 || 件数 == 0 {
             return Ok(Vec::new());
         }
@@ -195,7 +196,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
     ///
     /// [`Error::Imap`]（その UID が無いときも）/ [`Error::Unparsable`] / [`Error::NoSender`]。
     pub async fn 開く(&mut self, uid: u32) -> Result<開いた通, Error> {
-        self.読むだけで開く().await?;
+        self.読むだけで開く("INBOX").await?;
         let mut 流れ = self
             .session
             .uid_fetch(uid.to_string(), "BODY.PEEK[]")
@@ -218,7 +219,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
     ///
     /// [`Error::Imap`]。
     pub async fn count(&mut self) -> Result<数, Error> {
-        let 箱 = self.読むだけで開く().await?;
+        let 箱 = self.読むだけで開く("INBOX").await?;
         let 未読 = self
             .session
             .search("UNSEEN")
@@ -234,12 +235,107 @@ impl<T: AsyncRead + AsyncWrite + Unpin + fmt::Debug + Send> Mailbox<T> {
     ///
     /// `SELECT` で開くと、サーバは「最近届いた」印を落とし、書ける形で開く。
     /// 割符は読むだけなので、**受信箱に何の跡も付けない**開き方にする（0.1.44）。
-    async fn 読むだけで開く(&mut self) -> Result<u32, Error> {
+    async fn 読むだけで開く(&mut self, 箱: &str) -> Result<u32, Error> {
         self.session
-            .examine("INBOX")
+            .examine(箱)
             .await
             .map(|箱| 箱.exists)
             .map_err(|e| Error::Imap(e.to_string()))
+    }
+
+    /// **送信済みの箱の名前を探す**（0.1.59）。`LIST "" "*"` の返りから、`\Sent` の印の付いた箱を選ぶ。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`]。印の付いた箱が無いときも（サーバが RFC 6154 を話さない）、その旨を言う。
+    pub async fn 送信済みの箱(&mut self) -> Result<String, Error> {
+        use async_imap::types::NameAttribute;
+        let mut 並び = Vec::new();
+        {
+            let mut 流れ = self
+                .session
+                .list(Some(""), Some("*"))
+                .await
+                .map_err(|e| Error::Imap(e.to_string()))?;
+            while let Some(箱) = 流れ.next().await {
+                let 箱 = 箱.map_err(|e| Error::Imap(e.to_string()))?;
+                let 印 = 箱.attributes();
+                並び.push((
+                    箱.name().to_owned(),
+                    印.iter().any(|a| matches!(a, NameAttribute::Sent)),
+                    印.iter().any(|a| matches!(a, NameAttribute::NoSelect)),
+                ));
+            }
+        }
+        crate::convert::送信済みの箱を選ぶ(&並び).ok_or_else(|| {
+            Error::Imap(format!(
+                "送信済みの印（\\Sent）の付いた箱が見つかりません（箱は {} 個。このサーバは送信済みの印を出していません）",
+                並び.len()
+            ))
+        })
+    }
+
+    /// **送信済みの一覧**（0.1.59）。新しいほうから `件数` 通の**ヘッダだけ**を返す（新しい順）。
+    ///
+    /// 箱は [`Mailbox::送信済みの箱`] で探し、`EXAMINE` で読むだけで開く。本文は取らない。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`] / [`Error::Unparsable`]。
+    pub async fn 送信済みの一覧(
+        &mut self,
+        件数: usize,
+    ) -> Result<Vec<送った見出し>, Error> {
+        let 箱 = self.送信済みの箱().await?;
+        let 全部 = self.読むだけで開く(&箱).await?;
+        if 全部 == 0 || 件数 == 0 {
+            return Ok(Vec::new());
+        }
+        let 件数 = u32::try_from(件数).unwrap_or(u32::MAX);
+        let 先頭 = 全部.saturating_sub(件数) + 1;
+        let mut 流れ = self
+            .session
+            .fetch(
+                format!("{先頭}:{全部}"),
+                "(UID INTERNALDATE BODY.PEEK[HEADER])",
+            )
+            .await
+            .map_err(|e| Error::Imap(e.to_string()))?;
+        let mut 行 = Vec::new();
+        while let Some(一通) = 流れ.next().await {
+            let 一通 = 一通.map_err(|e| Error::Imap(e.to_string()))?;
+            let (Some(uid), Some(ヘッダ)) = (一通.uid, 一通.header()) else {
+                return Err(Error::Imap("UID かヘッダが返りませんでした".to_owned()));
+            };
+            let 時 = 一通.internal_date().map(|d| d.timestamp());
+            行.push(送った見出しにする(uid, ヘッダ, 時)?);
+        }
+        行.reverse();
+        Ok(行)
+    }
+
+    /// **送信済みの 1 通を開く**（0.1.59）。`BODY.PEEK[]` で取る。返りは人が読む形（[`Mailbox::開く`] と同じ）。
+    ///
+    /// # 失敗
+    ///
+    /// [`Error::Imap`]（その UID が無いときも）/ [`Error::Unparsable`]。
+    pub async fn 送信済みを開く(&mut self, uid: u32) -> Result<開いた通, Error> {
+        let 箱 = self.送信済みの箱().await?;
+        self.読むだけで開く(&箱).await?;
+        let mut 流れ = self
+            .session
+            .uid_fetch(uid.to_string(), "BODY.PEEK[]")
+            .await
+            .map_err(|e| Error::Imap(e.to_string()))?;
+        while let Some(一通) = 流れ.next().await {
+            let 一通 = 一通.map_err(|e| Error::Imap(e.to_string()))?;
+            if let Some(生) = 一通.body() {
+                return 人が読む形にする(生);
+            }
+        }
+        Err(Error::Imap(format!(
+            "送信済みに UID {uid} の通がありません"
+        )))
     }
 
     /// 閉じる。

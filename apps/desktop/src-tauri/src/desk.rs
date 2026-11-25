@@ -996,6 +996,7 @@ async fn 応じる(
             返信先,
             参照,
             秒,
+            通の印,
         } => {
             let 待つ秒 = 秒.unwrap_or(既定の待ち秒).min(warifu_desk::札を待てる秒);
             let 結果 = crate::mail_send::頼む(
@@ -1006,6 +1007,7 @@ async fn 応じる(
                 本文,
                 返信先,
                 参照,
+                通の印,
                 &呼び方(名乗り.as_deref()),
                 待つ秒,
             )

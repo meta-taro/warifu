@@ -975,6 +975,9 @@ impl Chat {
     }
 
     /// **メールを送ってよいかを人に聞き、押されたら送ってもらう**（D132）。
+    ///
+    /// 返りの 2 つ目は、その通に付く `Message-ID`（0.1.59）。古い画面（0.1.58 まで）は印の欄を読めず
+    /// 「行の形」で断るので、印を外して頼み直し、印は `None` で返す（印は画面が決める）。
     #[allow(clippy::too_many_arguments)]
     pub async fn メールを送る(
         &self,
@@ -985,24 +988,34 @@ impl Chat {
         返信先: Option<String>,
         参照: Option<String>,
         秒: Option<u64>,
-    ) -> Result<warifu_desk::メールの返り, crate::ToolError> {
+        通の印: Option<String>,
+    ) -> Result<(warifu_desk::メールの返り, Option<String>), crate::ToolError> {
         let 待つ秒 = 秒
             .unwrap_or(手渡しを待つ秒)
             .clamp(1, warifu_desk::札を待てる秒);
-        let 行 = ToDesk::メールを送る {
+        let 行 = |通の印: Option<String>| ToDesk::メールを送る {
             口: 口.trim().to_owned(),
-            宛先,
-            件名,
-            本文,
-            返信先,
-            参照,
+            宛先: 宛先.clone(),
+            件名: 件名.clone(),
+            本文: 本文.clone(),
+            返信先: 返信先.clone(),
+            参照: 参照.clone(),
             秒: Some(待つ秒),
+            通の印,
         };
-        match self
-            .頼んで待つ(行, メールの返事, 待つ秒 + 返事を待つ秒)
-            .await?
+        let mut 印 = 通の印;
+        let mut 返事 = self
+            .頼んで待つ(行(印.clone()), メールの返事, 待つ秒 + 返事を待つ秒)
+            .await?;
+        if 印.is_some() && matches!(&返事, FromDesk::Denied { why } if why.contains("行の形"))
         {
-            FromDesk::メール { 結果 } => Ok(結果),
+            印 = None;
+            返事 = self
+                .頼んで待つ(行(None), メールの返事, 待つ秒 + 返事を待つ秒)
+                .await?;
+        }
+        match 返事 {
+            FromDesk::メール { 結果 } => Ok((結果, 印)),
             FromDesk::Denied { why } => Err(crate::ToolError::Unavailable(why)),
             他 => Err(crate::ToolError::Unavailable(format!(
                 "この機械が想定しない返事をしました: {他:?}"

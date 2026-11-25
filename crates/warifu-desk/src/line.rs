@@ -336,6 +336,10 @@ pub enum ToDesk {
         参照: Option<String>,
         /// 人の答えを何秒まで待つか。**上限は [`札を待てる秒`]。**待ちきれなくても頼みは画面に残る。
         秒: Option<u64>,
+        /// **この通に付ける `Message-ID`**（`<…@…>`・0.1.59）。頼む側が決めて、送ったあと送信済みと突き合わせる。
+        /// 無ければ（古い口）この機械が決める。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        通の印: Option<String>,
     },
     /// **ルームキーで、この機械の割符をそのルームへ入れる**（0.1.30）。
     ///
@@ -580,6 +584,22 @@ pub const メールの宛先の上限: usize = 10;
 pub const メールの本文の上限: usize = 20_000;
 /// メールの件名の上限（文字・D132）。
 pub const メールの件名の上限: usize = 300;
+
+/// **`Message-ID` として読めるか**（0.1.59）。`<` と `>` で囲まれ、中に `@` が 1 つあり、
+/// 空白・制御文字・山括弧を中に含まず、200 字まで。見出しに入るので、改行は通さない。
+#[must_use]
+pub fn 通の印として読めるか(id: &str) -> bool {
+    let Some(中) = id.strip_prefix('<').and_then(|s| s.strip_suffix('>')) else {
+        return false;
+    };
+    id.chars().count() <= 200
+        && 中.matches('@').count() == 1
+        && !中.starts_with('@')
+        && !中.ends_with('@')
+        && !中
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || c == '<' || c == '>')
+}
 
 /// メールを送る頼みの形を見る（D132）。**見出しに改行を入れさせない**（宛先・件名・返信先）。
 fn メールを検める(
@@ -1420,9 +1440,16 @@ impl ToDesk {
                 返信先,
                 参照,
                 秒,
+                通の印,
             } => {
                 メールを検める(口, 宛先, 件名, 本文, 返信先.as_deref(), 参照.as_deref())?;
                 待つ秒を検める(*秒)?;
+                if 通の印
+                    .as_deref()
+                    .is_some_and(|id| !通の印として読めるか(id))
+                {
+                    return Err(Error::Malformed);
+                }
             }
             // **鍵の形も書き手の側で検める**（0.1.30）。中身（宛先・割符）はこの機械が読む
             Self::入る { 鍵 } => 入る鍵を検める(鍵)?,
@@ -1930,6 +1957,7 @@ mod tests {
             返信先: Some("<abc@example.com>".to_owned()),
             参照: None,
             秒: Some(30),
+            通の印: Some("<1.2@example.com>".to_owned()),
         };
         let 良い = 頼み(vec!["you@example.com"], "Re: 見積", "確かめました").書く();
         assert!(matches!(
@@ -1949,6 +1977,48 @@ mod tests {
         ] {
             assert!(ToDesk::読む(&悪い.書く()).is_err());
         }
+        // **通の印に改行や形の崩れがあれば運ばない**（0.1.59・見出しに入るため）
+        for 印 in [
+            "<a@b>\r\nBcc: x@example.net",
+            "a@b",
+            "<ab>",
+            "<a@b@c>",
+            "<a b@c>",
+        ] {
+            let ToDesk::メールを送る {
+                口,
+                宛先,
+                件名,
+                本文,
+                返信先,
+                参照,
+                秒,
+                ..
+            } = 頼み(vec!["you@example.com"], "件名", "本文")
+            else {
+                unreachable!()
+            };
+            let 悪い = ToDesk::メールを送る {
+                口,
+                宛先,
+                件名,
+                本文,
+                返信先,
+                参照,
+                秒,
+                通の印: Some(印.to_owned()),
+            };
+            assert!(ToDesk::読む(&悪い.書く()).is_err(), "{印}");
+        }
+        // **古い口は通の印を書かない**。無くても読める
+        let 古い = 良い.replace(",\"通の印\":\"<1.2@example.com>\"", "");
+        assert!(!古い.contains("通の印"), "{古い}");
+        assert!(matches!(
+            ToDesk::読む(&古い),
+            Ok(ToDesk::メールを送る {
+                通の印: None, ..
+            })
+        ));
     }
 
     #[test]
