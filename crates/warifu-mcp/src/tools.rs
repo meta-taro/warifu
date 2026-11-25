@@ -199,6 +199,10 @@ pub struct MailSendArgs {
     /// 人の答えを何秒まで待つか（1〜60・省くと 30）。待ちきれなくても頼みは画面に残る。
     #[serde(default)]
     pub seconds: Option<u64>,
+    /// **同じ通をもう一度送ると分かったうえで送る**（0.1.60）。省くと、同じ口・同じ宛先・同じ件名の通が
+    /// 24 時間以内に送信済みにあれば送らずに止める。sent_list で前の通を確かめてから付ける。
+    #[serde(default)]
+    pub send_again: bool,
 }
 
 /// [`crate::Warifu::screen`] の引数（11-12・エージェントの専用カーソル）。

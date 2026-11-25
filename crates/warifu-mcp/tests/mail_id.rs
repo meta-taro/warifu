@@ -93,6 +93,7 @@ fn 頼み() -> MailSendArgs {
         subject: Some("見積".to_owned()),
         from: None,
         seconds: Some(1),
+        send_again: false,
     }
 }
 
@@ -115,6 +116,8 @@ async fn 送った返りには_机へ渡したのと同じ印が付く() {
     };
     assert!(warifu_desk::通の印として読めるか(&印), "{印}");
     assert!(返り.contains(&format!("Message-ID {印}")), "{返り}");
+    // 送信済みを読む手の無い口なので、二重送信を確かめられなかったことを黙らずに添える（0.1.60）
+    assert!(返り.contains("送信済みを確かめられませんでした"), "{返り}");
 }
 
 #[tokio::test]

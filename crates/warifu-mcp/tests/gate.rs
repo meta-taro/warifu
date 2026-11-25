@@ -716,6 +716,7 @@ fn 送る頼み(
         subject: None,
         from: None,
         seconds: None,
+        send_again: false,
     })
 }
 
@@ -1577,4 +1578,92 @@ async fn 札が無ければ送信済みを汲みにも行かない() {
     );
     assert!(口.sent_list().await.is_err());
     assert_eq!(回数.load(Ordering::SeqCst), 0);
+}
+
+/// **二重送信の止め**（0.1.60）の試験の口。送信済みの手は `並び` を返す（`Err` なら読めない）。
+fn 二重送信を見る口(並び: Result<Vec<warifu_mcp::送信済みの通>, String>) -> Warifu {
+    use std::sync::Arc;
+    Warifu::new(Vec::new(), 規則(), 札を出す(&["mail.send"]), 1_756_000_000).送信済みを汲むには(
+        Arc::new(move || {
+            let 並び = 並び.clone();
+            Box::pin(async move { 並び })
+        }),
+        Arc::new(|_, _| Box::pin(async { Ok((String::new(), Vec::new())) })),
+    )
+}
+
+fn 一時間前に送った() -> Vec<warifu_mcp::送信済みの通> {
+    let 今 = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+    )
+    .unwrap();
+    let mut 並び = 送信済み();
+    並び[0].送った = Some(今 - 3600);
+    並び
+}
+
+fn 新しく送る頼み(
+    件名: &str,
+    send_again: bool,
+) -> rmcp::handler::server::wrapper::Parameters<warifu_mcp::MailSendArgs> {
+    rmcp::handler::server::wrapper::Parameters(warifu_mcp::MailSendArgs {
+        body: "確かめました".to_owned(),
+        reply_to: None,
+        to: Some(vec!["YOU@example.org".to_owned()]),
+        subject: Some(件名.to_owned()),
+        from: Some("me@example.com".to_owned()),
+        seconds: Some(1),
+        send_again,
+    })
+}
+
+/// **同じ口・宛先・件名を 24 時間以内に送っていれば、机へ頼みに行かずに止め、前の通の時刻と印を言う**
+#[tokio::test]
+async fn 同じ通を_24_時間以内に送っていれば_送らずに止めて前の通を言う() {
+    let 口 = 二重送信を見る口(Ok(一時間前に送った()));
+    let 返り = 口
+        .mail_send(新しく送る頼み("見積の件", false))
+        .await
+        .expect("止めたことは返りで言う");
+    assert!(返り.contains("二重送信の止め"), "{返り}");
+    assert!(返り.contains("<1.2.0@example.com>"), "{返り}");
+    assert!(返り.contains("send_again"), "{返り}");
+}
+
+/// **send_again を付ければ、止めずに机へ頼みに行く**（試験の場は画面が無いので、そこで断られる）
+#[tokio::test]
+async fn send_again_を付ければ_止めずに送りに行く() {
+    let 口 = 二重送信を見る口(Ok(一時間前に送った()));
+    let 文 = format!(
+        "{:?}",
+        口.mail_send(新しく送る頼み("見積の件", true))
+            .await
+            .unwrap_err()
+    );
+    assert!(文.contains("この機械が開いていません"), "{文}");
+}
+
+/// **件名が違えば止めない。送信済みが読めなくても止めない**
+#[tokio::test]
+async fn 件名が違うか_送信済みが読めなければ_止めずに送りに行く() {
+    let 口 = 二重送信を見る口(Ok(一時間前に送った()));
+    let 文 = format!(
+        "{:?}",
+        口.mail_send(新しく送る頼み("別の件", false))
+            .await
+            .unwrap_err()
+    );
+    assert!(文.contains("この機械が開いていません"), "{文}");
+
+    let 口 = 二重送信を見る口(Err("送信済みの印の付いた箱がありません".to_owned()));
+    let 文 = format!(
+        "{:?}",
+        口.mail_send(新しく送る頼み("見積の件", false))
+            .await
+            .unwrap_err()
+    );
+    assert!(文.contains("この機械が開いていません"), "{文}");
 }

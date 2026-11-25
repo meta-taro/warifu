@@ -489,6 +489,7 @@ async fn 口を全部_1回ずつ呼ぶ() {
                 subject: Some("見積".to_owned()),
                 from: None,
                 seconds: Some(1),
+                send_again: false,
             }))
             .await
         ),
