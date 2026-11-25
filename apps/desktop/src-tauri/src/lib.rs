@@ -1680,6 +1680,17 @@ pub(crate) async fn 会議キーで入る(
     }
     let meeting_id = meeting;
     記録!("入室: 会議 {} に入る", 短く(&meeting.to_string()));
+    // **主催の名簿を待ち始める**（0.1.60）。鍵で入った名簿は「自分と主催」だけなので、
+    // 名簿の届く前に主催ごしに来た発言を「名簿に居ない」と言わずに控え、待ちが明けたら照らし直す
+    roster_sync::待ちで(|w| w.入った(meeting, std::time::Instant::now()));
+    {
+        let app = app.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_secs(roster_sync::名簿を待つ秒)).await;
+            let 控え = roster_sync::待ちで(|w| w.待ちが明けた(meeting));
+            控えた食い違いを照らす(&app, meeting, 控え, "待っても主催の名簿が届かず、").await;
+        });
+    }
     // **呼んだ側にも「入った」を流す。**
     // ここを落としていたので、**呼んだ側は通話を作らず、相手の映像が来なかった**
     // （2026-09-04 に実機で判明）。受けた側だけが Call を持っている状態になる
@@ -2907,6 +2918,41 @@ fn 汲む(
                     // 主催が、線の切れた面々あての文字を影（本物の状態機械）で預かっている。
                     // 影の手配のうち、この相手への文字だけをこの線でそのまま送る（決めるのは影の規則）
                     // **「ここまで持っている」には、持っていない分を送り直す**（0.1.42・同じ道）
+                    // **入った（入り直した）本人へ、先にいまの名簿を渡す**（0.1.60）。
+                    // 鍵で入ったゲストの名簿は「自分と主催」だけで、主催はほかの客へしか配っていなかった。
+                    // 渡さないと、主催ごしに届く発言の差出人を知らず「名簿に居ない」と言い続ける（11-25）。
+                    // 預かった文字より先に送る（名簿を先に、発言を後に）
+                    if let Notice::Join { meeting } = &notice {
+                        let この部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        let 渡す名簿 = {
+                            let 棚 = conferences.lock().await;
+                            棚.get(meeting).and_then(|c| {
+                                let 人数 = c.members().len()
+                                    + usize::from(!c.members().contains(&peer));
+                                roster_sync::入った本人へ名簿を渡すか(
+                                    roster_sync::主催か(この部屋の主催.as_ref(), &me),
+                                    true,
+                                    人数,
+                                )
+                                .then(|| 名簿の写し(c))
+                            })
+                        };
+                        if let Some(名簿) = 渡す名簿
+                            && let Ok(intent) = (Notice::Invite {
+                                meeting: *meeting,
+                                roster: 名簿,
+                            })
+                            .to_intent()
+                        {
+                            let 送れた = channel.send(&intent).await.is_ok();
+                            記録!(
+                                "名簿: 入った {} へ先にいまの名簿を渡しました（部屋 {}・{}）",
+                                短く(&key_to_string(peer)),
+                                短く(&meeting.to_string()),
+                                if 送れた { "送れた" } else { "送れなかった" }
+                            );
+                        }
+                    }
                     if matches!(notice, Notice::Join { .. } | Notice::Since { .. }) {
                         記録!(
                             "預かり: {} が{}（部屋 {}・影の手配 {} 件・影が預かっている {} 件）",
@@ -2984,6 +3030,12 @@ fn 汲む(
                             let 棚 = conferences.lock().await;
                             if let Some(c) = 棚.get(meeting)
                                 && !c.members().contains(from)
+                                // **入った直後で主催の名簿がまだなら、言わずに控える**（0.1.60）。
+                                // 告げる（入り直させる）ときは待たない
+                                && (居ないと告げよ
+                                    || roster_sync::待ちで(|w| {
+                                        w.言うか(*meeting, *from, std::time::Instant::now())
+                                    }))
                             {
                                 let 文 = if 居ないと告げよ {
                                     format!(
@@ -3499,6 +3551,9 @@ fn 汲む(
                             emit_events(&app, *meeting, &events);
                             足す
                         };
+                        // **待っていた名簿が届いた**（0.1.60）。控えた差出人を、届いた名簿で照らし直す
+                        let 控え = roster_sync::待ちで(|w| w.名簿が届いた(*meeting));
+                        控えた食い違いを照らす(&app, *meeting, 控え, "主催の名簿が届いたあとも").await;
                         // **主催が「居る」と言った相手を、戸口で通す**（D111 と同じ構え）
                         for k in 足した {
                             if let Some(印) = warifu_door::Subject::new(&key_to_string(k)) {
@@ -3766,6 +3821,35 @@ async fn send_signal(bridge: State<'_, Bridge>, payload: SignalPayload) -> Answe
 }
 
 /// 主催の名簿を、送れる形に写す（先頭は主催）。
+/// **控えていた「名簿に居ない相手の発言」を、いまの名簿で照らし直す**（0.1.60）。
+///
+/// 名簿に入っていれば何も言わない（届く順の問題だった）。それでも居なければ、そのとき食い違いとして言う。
+async fn 控えた食い違いを照らす(app: &AppHandle, 部屋: MeetingId, 控え: Vec<PublicKey>, いつ: &str) {
+    if 控え.is_empty() {
+        return;
+    }
+    let bridge = app.state::<Bridge>();
+    let 居ない: Vec<PublicKey> = {
+        let 棚 = bridge.conferences.lock().await;
+        let Some(c) = 棚.get(&部屋) else { return };
+        控え.into_iter().filter(|k| !c.members().contains(k)).collect()
+    };
+    記録!(
+        "名簿: 控えた差出人を照らし直した（部屋 {}・まだ居ない {}）",
+        短く(&部屋.to_string()),
+        居ない.len()
+    );
+    for k in 居ない {
+        let 文 = format!(
+            "食い違い: 名簿に居ない {} から部屋 {} の発言が届きました（{いつ}名簿に居ません）",
+            短く(&key_to_string(k)),
+            短く(&部屋.to_string())
+        );
+        記録!("{文}");
+        desk::配る(&bridge, desk::聞いた("割符", &文));
+    }
+}
+
 fn 名簿の写し(c: &Conference) -> warifu_meeting::Roster {
     let me = c.me();
     let mut 名簿 = warifu_meeting::Roster::with_capacity(me, c.capacity())
@@ -3780,7 +3864,7 @@ fn 名簿の写し(c: &Conference) -> warifu_meeting::Roster {
 
 /// **いまの名簿を、ゲスト全員へ配る**（0.1.39・`roster_sync`）。**主催だけが呼ぶ。**
 ///
-/// 入った本人（`言った人`）には配らない —— 入るときに名簿を渡している。
+/// 入った本人（`言った人`）にはここでは配らない —— 入った知らせを受けた所で、先に渡している（0.1.60）。
 /// 届かない相手で止めない。
 async fn 名簿を配る(
     outbound: &Arc<Mutex<HashMap<[u8; 32], mpsc::Sender<Notice>>>>,

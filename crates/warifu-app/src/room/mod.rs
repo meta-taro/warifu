@@ -601,19 +601,24 @@ impl 部屋たち {
         出
     }
 
-    /// 主催が、いまの名簿を線のある面々へ配る。`除く` は入った本人（入るときに渡している）。
-    fn 名簿を配る(&self, 部屋: MeetingId, 除く: Option<PublicKey>) -> Vec<手配> {
-        let Some(c) = self.棚.get(&部屋) else {
-            return Vec::new();
-        };
-        let Ok(mut r) = Roster::with_capacity(self.me, c.capacity()) else {
-            return Vec::new();
-        };
+    /// 主催の名簿の写し（先頭が主催）。
+    fn 名簿の写し(&self, 部屋: MeetingId) -> Option<Roster> {
+        let c = self.棚.get(&部屋)?;
+        let mut r = Roster::with_capacity(self.me, c.capacity()).ok()?;
         for k in c.members() {
             if *k != self.me {
                 let _ = r.add(*k);
             }
         }
+        Some(r)
+    }
+
+    /// 主催が、いまの名簿を線のある面々へ配る。`除く` は入った本人（本人へは
+    /// [`roster::入った本人へ名簿を渡すか`] で別に、先に渡す）。
+    fn 名簿を配る(&self, 部屋: MeetingId, 除く: Option<PublicKey>) -> Vec<手配> {
+        let Some(r) = self.名簿の写し(部屋) else {
+            return Vec::new();
+        };
         self.線のある面々(部屋)
             .into_iter()
             .filter(|k| Some(*k) != 除く)
@@ -821,6 +826,23 @@ impl 部屋たち {
                 出.extend(events.iter().cloned().map(|e| 手配::画面へ {
                     部屋, 出来事: e
                 }));
+                // **入った（入り直した）本人へ、先にいまの名簿を渡す**（0.1.60）。鍵で入ったゲストは
+                // 名簿が「自分と主催」だけで、渡さないと主催ごしに届く発言の差出人を知らない
+                let 人数 = c.members().len();
+                if roster::入った本人へ名簿を渡すか(
+                    主催か,
+                    matches!(知らせ, Notice::Join { .. }),
+                    人数,
+                ) && let Some(r) = self.名簿の写し(部屋)
+                {
+                    出.push(手配::送る {
+                        宛先: 線の相手,
+                        知らせ: Notice::Invite {
+                            meeting: 部屋,
+                            roster: r,
+                        },
+                    });
+                }
                 // 名簿が動いたら、主催はいまの名簿を配る（画面へ出した後）
                 if roster::名簿を配るか(主催か, &events) {
                     出.extend(self.名簿を配る(部屋, Some(線の相手)));
