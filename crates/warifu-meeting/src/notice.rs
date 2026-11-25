@@ -541,6 +541,42 @@ impl Notice {
         Some(h.finalize().into())
     }
 
+    /// **画像の印**（0.1.60）。差出人・札・型・中身から作る。画像でなければ `None`。
+    ///
+    /// [`Notice::文字の印`] と同じく、**どの機械で作っても同じ印になる**ので、画像の行へも返信できる。
+    /// 文字の印と混ざらないよう、頭の名を変えてある。
+    #[must_use]
+    pub fn 画像の印(&self) -> Option<[u8; 32]> {
+        use sha2::{Digest, Sha256};
+        let Self::Image {
+            meeting,
+            from,
+            話し手,
+            型,
+            中身,
+        } = self
+        else {
+            return None;
+        };
+        let 札 = 話し手.as_deref().unwrap_or_default();
+        let mut h = Sha256::new();
+        h.update(b"warifu-image-v1");
+        h.update(meeting.to_string().as_bytes());
+        h.update(from.to_bytes());
+        h.update((札.len() as u64).to_be_bytes());
+        h.update(札.as_bytes());
+        h.update((型.len() as u64).to_be_bytes());
+        h.update(型.as_bytes());
+        h.update(中身);
+        Some(h.finalize().into())
+    }
+
+    /// **行の印**（0.1.60）。文字なら [`Notice::文字の印`]、画像なら [`Notice::画像の印`]。返信が指せる行の印。
+    #[must_use]
+    pub fn 行の印(&self) -> Option<[u8; 32]> {
+        self.文字の印().or_else(|| self.画像の印())
+    }
+
     /// 経路に載せられる形にする。
     ///
     /// 相関は**会議 id そのもの**。別に会議 id を荷物へ書くと、

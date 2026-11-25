@@ -2225,7 +2225,7 @@
       );
       unsubs.push(
         // **相手から画像が届いた。**文字と同じ所へ積む（閉じれば消える）
-        await onEvent<[string, string, number[], string?]>(EVENT_IMAGE, ([key, 型, 中身, ルーム]) => {
+        await onEvent<[string, string, number[], string?, (string | null)?]>(EVENT_IMAGE, ([key, 型, 中身, ルーム, 印]) => {
           log(`受信: 画像（${中身.length} バイト）from ${短く(key)}`);
           const 画像 = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 型 }));
           ルームの会話たち = この機械とルームへ足す(ルームの会話たち, ルーム ?? いまのルーム, {
@@ -2235,6 +2235,8 @@
             画像,
             mine: false,
             at: いま時刻(),
+            // **画像の行の印**（0.1.60）。この画像へ返信でき、返信の吹き出しが元の画像を指せる
+            ...(印 ? { 印 } : {}),
           });
         }),
       );
@@ -2272,9 +2274,9 @@
       );
       unsubs.push(
         // **この機械の席が流した画像**（0.1.56・`chat_image_send`）。席の発言と同じ形で積む
-        await onEvent<[string, string, number[], string, string]>(
+        await onEvent<[string, string, number[], string, string, (string | null)?]>(
           EVENT_DESK_IMAGE,
-          ([呼び方, 型, 中身, ルーム, at]) => {
+          ([呼び方, 型, 中身, ルーム, at, 印]) => {
             log(`送信: 席の画像（${中身.length} バイト）${呼び方}`);
             const 画像 = URL.createObjectURL(new Blob([new Uint8Array(中身)], { type: 型 }));
             const その行 = {
@@ -2285,6 +2287,8 @@
               mine: false,
               agent: true as const,
               at,
+              // **画像の行の印**（0.1.60）。席の画像へも返信でき、返信の吹き出しが元の画像を指せる
+              ...(印 ? { 印 } : {}),
             };
             ルームの会話たち = この機械とルームへ足す(ルームの会話たち, ルーム || いまのルーム, その行);
             ルームの会話たち = エージェントへ足す(ルームの会話たち, エージェントに戻す(呼び方), その行);

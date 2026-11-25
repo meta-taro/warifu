@@ -102,6 +102,7 @@ chat.reach.none	It goes nowhere yet. Someone coming into the room, or an agent o
 chat.reply	Reply	返信	回复	답장		発言ごとの小さなボタンの名前（字は出さず、読み上げと hover で出る）。押すと、その発言への返信を書き始める。		
 chat.reply.cancel	Cancel reply	返信をやめる	取消回复	답장 취소		返信をやめて、ふつうの発言に戻すボタンの名前。		
 chat.reply.gone	Reply to an earlier message (no longer on this screen)	前の発言への返信（この画面には残っていません）	回复较早的消息（此画面中已不存在）	이전 메시지에 대한 답장(이 화면에는 남아 있지 않음)		返信の吹き出しの上に出す。元の発言が古くて、この画面にはもう無いとき。		
+chat.reply.image	[Image]	［画像］	［图片］	[이미지]		返信の吹き出しの上の「元の発言」の添えで、元が画像だけ（文字が無い）ときに本文の代わりに出す短い札。		
 chat.reply.jump	Go to the original message	元の発言へ移る	跳到原消息	원래 메시지로 이동		返信の吹き出しの上の「元の発言」の添えに重ねた説明。押すと元の発言まで動く。		
 chat.reply.to	Replying to {name}	{name} への返信	回复 {name}	{name}에게 답장		打つ欄の上に出る「いま誰の発言に返信しているか」。{name} は元の発言の差出人。		
 chat.secret.cancel	Edit instead	送らずに直す	不发送，去修改	보내지 않고 고치기				

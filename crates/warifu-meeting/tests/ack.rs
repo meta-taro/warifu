@@ -76,3 +76,42 @@ fn 受ける側でも_壊れた荷物と知らない受け方は通さない() {
 fn 札に行を壊す字は運ばない() {
     assert!(受けた(Some("a\tb"), 受け方::押した).to_intent().is_err());
 }
+
+fn 画像(会議: MeetingId, 中身: &[u8]) -> Notice {
+    Notice::Image {
+        meeting: 会議,
+        from: 鍵(1),
+        話し手: Some("カムスタ".to_owned()),
+        型: "image/png".to_owned(),
+        中身: 中身.to_vec(),
+    }
+}
+
+/// **画像の行にも印が付き、経路を往復しても同じ印になる**（0.1.60・画像への返信）
+#[test]
+fn 画像の行の印は_往復しても同じで_中身が違えば別() {
+    let 会議 = MeetingId::generate();
+    let 中身 = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR".to_vec();
+    let 行 = 画像(会議, &中身);
+    let 印 = 行.画像の印().expect("画像には印がある");
+    assert_eq!(行.行の印(), Some(印));
+    assert_eq!(行.文字の印(), None);
+    let 戻った = Notice::from_intent(&行.to_intent().unwrap()).unwrap();
+    assert_eq!(戻った.画像の印(), Some(印));
+    let mut 違う = 中身.clone();
+    違う.push(0);
+    assert_ne!(画像(会議, &違う).画像の印(), Some(印));
+}
+
+/// **文字の行の印は、行の印でも変わらない**（文字への返信は前のまま）
+#[test]
+fn 文字の行の印は_行の印でも同じ() {
+    let 行 = Notice::Text {
+        meeting: MeetingId::generate(),
+        from: 鍵(1),
+        話し手: None,
+        body: "見積".to_owned(),
+    };
+    assert_eq!(行.行の印(), 行.文字の印());
+    assert_eq!(行.画像の印(), None);
+}

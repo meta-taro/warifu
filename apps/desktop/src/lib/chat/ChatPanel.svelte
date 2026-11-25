@@ -627,9 +627,9 @@
                 type="button"
                 class="quote"
                 title={t('chat.reply.jump')}
-                aria-label={`${t('chat.reply.jump')}: ${差出人の名(元)} ${本文の頭(元.body)}`}
+                aria-label={`${t('chat.reply.jump')}: ${差出人の名(元)} ${本文の頭(元.body) || (元.画像 ? t('chat.reply.image') : '')}`}
                 onclick={() => line.返信先 && 元の発言へ(line.返信先)}
-                ><Icon name="reply" size={11} /><b>{差出人の名(元)}</b><span>{本文の頭(元.body)}</span></button
+                ><Icon name="reply" size={11} /><b>{差出人の名(元)}</b><span>{本文の頭(元.body) || (元.画像 ? t('chat.reply.image') : '')}</span></button
               >{:else}<span class="quote gone">{t('chat.reply.gone')}</span>{/if}
           {/if}
           <div class="bubble" class:folded={長い && !開いた.has(i)} class:figure={図を含むか(line.body)}><Markdown

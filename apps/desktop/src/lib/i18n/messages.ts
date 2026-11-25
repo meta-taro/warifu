@@ -545,6 +545,7 @@ export type MessageKey =
   | 'chat.reply.to'
   | 'chat.reply.cancel'
   | 'chat.reply.gone'
+  | 'chat.reply.image'
   | 'chat.reply.jump'
   | 'roster.name.save'
   | 'roster.name.placeholder'
@@ -705,6 +706,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reply.to': '{name} への返信',
     'chat.reply.cancel': '返信をやめる',
     'chat.reply.gone': '前の発言への返信（この画面には残っていません）',
+    'chat.reply.image': '［画像］',
     'chat.reply.jump': '元の発言へ移る',
     'roster.name.save': '決める',
     'roster.name.placeholder': '呼び名（例: Mac Air のエージェント）',
@@ -1287,6 +1289,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reply.to': 'Replying to {name}',
     'chat.reply.cancel': 'Cancel reply',
     'chat.reply.gone': 'Reply to an earlier message (no longer on this screen)',
+    'chat.reply.image': '[Image]',
     'chat.reply.jump': 'Go to the original message',
     'roster.name.save': 'Save',
     'roster.name.placeholder': 'A name (e.g. Agent on Mac Air)',
@@ -1869,6 +1872,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reply.to': '回复 {name}',
     'chat.reply.cancel': '取消回复',
     'chat.reply.gone': '回复较早的消息（此画面中已不存在）',
+    'chat.reply.image': '［图片］',
     'chat.reply.jump': '跳到原消息',
     'roster.name.save': '保存',
     'roster.name.placeholder': '名称（例：Mac Air 上的智能体）',
@@ -2448,6 +2452,7 @@ export const MESSAGES: Record<Locale, Record<MessageKey, string>> = {
     'chat.reply.to': '{name}에게 답장',
     'chat.reply.cancel': '답장 취소',
     'chat.reply.gone': '이전 메시지에 대한 답장(이 화면에는 남아 있지 않음)',
+    'chat.reply.image': '[이미지]',
     'chat.reply.jump': '원래 메시지로 이동',
     'roster.name.save': '저장',
     'roster.name.placeholder': '이름 (예: Mac Air 에이전트)',
@@ -3209,6 +3214,8 @@ export const TRANSLATOR_NOTES: Partial<Record<MessageKey, string>> = {
     '返信をやめて、ふつうの発言に戻すボタンの名前。',
   'chat.reply.gone':
     '返信の吹き出しの上に出す。元の発言が古くて、この画面にはもう無いとき。',
+  'chat.reply.image':
+    '返信の吹き出しの上の「元の発言」の添えで、元が画像だけ（文字が無い）ときに本文の代わりに出す短い札。',
   'chat.reply.jump':
     '返信の吹き出しの上の「元の発言」の添えに重ねた説明。押すと元の発言まで動く。',
   'chat.personAt':

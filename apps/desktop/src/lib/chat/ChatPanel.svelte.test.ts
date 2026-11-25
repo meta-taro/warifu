@@ -86,6 +86,20 @@ describe('ChatPanel', () => {
     expect(screen.getByText(ja['chat.reply.gone'])).toBeTruthy();
   });
 
+  it('画像の行への返信は、元の差出人と［画像］を添える（文字が無くても空にしない）', () => {
+    // 0.1.60、画像の行にも印が付き、返信できるようになった
+    render(ChatPanel, {
+      ...素,
+      会話: [
+        { who: '山田さん', body: '', 画像: 'blob:x', mine: false, 印: 'e'.repeat(64) },
+        { who: '佐藤さん', body: '見ました', mine: false, 印: 'f'.repeat(64), 返信先: 'e'.repeat(64) },
+      ],
+    });
+    const 添え = screen.getByRole('button', { name: new RegExp(ja['chat.reply.jump']) });
+    expect(添え.textContent).toContain('山田さん');
+    expect(添え.textContent).toContain(ja['chat.reply.image']);
+  });
+
   it('［返信］を押して送ると、その発言の印を返信先として渡し、送ったら返信をやめる', async () => {
     const 送った: [string, boolean, string | undefined][] = [];
     render(ChatPanel, {

@@ -3141,22 +3141,32 @@ fn 汲む(
                             None => key_to_string(*from),
                         };
                         記録!("受信: 画像（{} バイト・{型}）", 中身.len());
+                        // **画像の行にも印を付ける**（0.1.60）。画面とエージェントが、この画像へ返信できる
+                        let 印 = notice.画像の印();
                         let _ = app.emit(
                             EVENT_IMAGE,
-                            (名.clone(), 型.clone(), 中身.clone(), meeting.to_string()),
+                            (
+                                名.clone(),
+                                型.clone(),
+                                中身.clone(),
+                                meeting.to_string(),
+                                印.map(|印| ack::印を字に(&印)),
+                            ),
                         );
                         notify::届いたと知らせる(&app, &短く(&key_to_string(*from)));
                         // **会話には札の 1 行だけ流し、画像は番号で覚える**（0.1.43）。
                         // エージェントは札の番号で `chat_image` を呼んで、画像そのものを見る
-                        desk::配る(
-                            &app.state::<Bridge>(),
-                            desk::画像を聞いた(
-                                &claimed::渡す差出人(&名, 話し手.is_some(), &key_to_string(*from)),
-                                型,
-                                中身,
-                                Some(meeting.to_string()),
-                            ),
+                        let 聞いた = desk::画像を聞いた(
+                            &claimed::渡す差出人(&名, 話し手.is_some(), &key_to_string(*from)),
+                            型,
+                            中身,
+                            Some(meeting.to_string()),
                         );
+                        // **番号と画像の印を結ぶ**（0.1.60）。エージェントが reply_to にこの番号を書ける
+                        if let warifu_desk::FromDesk::Heard { id, .. } = &聞いた {
+                            desk::画像の番号を控える(*id, Some(&notice));
+                        }
+                        desk::配る(&app.state::<Bridge>(), 聞いた);
                         let 主催 = conferences.lock().await.contains_key(&notice.meeting())
                             && roster_sync::主催か(部屋の主催.as_ref(), &me);
                         if 主催 {
@@ -4605,6 +4615,10 @@ async fn send_image(
         // **自分が送った画像も、この機械のエージェントが見られるように覚える**（0.1.43）
         let 話 =
             desk::画像を聞いた(&key_to_string(bridge.device.public_key()), 型, 中身, None);
+        // **番号と画像の印を結ぶ**（0.1.60）。この機械のエージェントが、人の画像へも返信できる
+        if let warifu_desk::FromDesk::Heard { id, .. } = &話 {
+            desk::画像の番号を控える(*id, Some(&知らせ));
+        }
         desk::配る(&bridge, 話);
     }
     for tx in &送り先 {

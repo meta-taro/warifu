@@ -576,6 +576,16 @@ async fn 画像を流す(
         ));
     }
     let 名札 = crate::profile::エージェントの名札(&呼び方);
+    // **部屋へ流すなら、先に知らせを組んで行の印を出す**（0.1.60）。画面の行とこの機械の番号に結び、
+    // 席の画像の行へも `reply_to` で返信できるようにする（印はどの機械でも同じ）
+    let 知らせ = 流す先.map(|meeting| warifu_meeting::Notice::Image {
+        meeting,
+        from: 自分,
+        話し手: Some(名札.clone()),
+        型: 型.to_owned(),
+        中身: 中身.clone(),
+    });
+    let 行の印 = 知らせ.as_ref().and_then(warifu_meeting::Notice::画像の印);
     // **先に人の画面へ出す。**会議が無くても、この PC の人には見える
     let 部屋の札 = 流す先.map(|m| m.to_string()).unwrap_or_default();
     let _ = app.emit(
@@ -586,6 +596,7 @@ async fn 画像を流す(
             中身.clone(),
             部屋の札.clone(),
             いま時刻(),
+            行の印.map(|印| crate::ack::印を字に(&印)),
         ),
     );
     // この機械の**他の**エージェントにも見せる（言った本人には返さない）。番号は `chat_image` の id
@@ -594,18 +605,12 @@ async fn 画像を流す(
         unreachable!("画像を聞いた は Heard を返す");
     };
     let id = *id;
+    画像の番号を控える(id, 知らせ.as_ref());
     let _ = bridge.desk.send((出所, 行));
     let mut 届いた = 届いた先を並べる(出所);
-    let Some(meeting) = 流す先 else {
+    let (Some(meeting), Some(知らせ)) = (流す先, 知らせ) else {
         届けた(id, 届いた.clone());
         return Ok((id, 名札で並べる(&届いた), None));
-    };
-    let 知らせ = warifu_meeting::Notice::Image {
-        meeting,
-        from: 自分,
-        話し手: Some(名札.clone()),
-        型: 型.to_owned(),
-        中身,
     };
     // **先に組み立てて確かめる。**壊れたものを黙って配らない（人の［画像］と同じ）
     if 知らせ.to_intent().is_err() {
@@ -1598,6 +1603,18 @@ async fn 客を外す(app: &AppHandle, 指定の部屋: &str, 指定の相手: &
     match crate::kick::外す(app, 部屋, 相手).await {
         Ok(()) => FromDesk::外した { 相手: 名 },
         Err(why) => 拒む(why),
+    }
+}
+
+/// **画像の行の番号と印を結ぶ**（0.1.60）。エージェントが `reply_to` にこの番号を書けるようにする。
+///
+/// 画像には文字の印が無く、番号を控えていなかったので、画像の行（自分の流した画像も、届いた画像も）へ
+/// `reply_to` を付けると「この機械に残っていない」で断っていた。部屋の無い画像は控えない（返信は部屋の中だけ）。
+pub(crate) fn 画像の番号を控える(番号: u64, 知らせ: Option<&warifu_meeting::Notice>) {
+    if let Some(n) = 知らせ
+        && let Some(印) = n.画像の印()
+    {
+        crate::reply::番号を控える(番号, n.meeting(), 印);
     }
 }
 
@@ -3514,6 +3531,32 @@ mod tests {
         assert_eq!(super::画像の型(b"RIFF\0\0\0\0WEBPVP8 "), Some("image/webp"));
         assert_eq!(super::画像の型(b"GIF89a......"), None);
         assert_eq!(super::画像の型(b"<svg></svg>"), None);
+    }
+
+    /// **画像の行の番号へ reply_to を付けられる**（0.1.60）。前は画像に印が無く、番号を控えていなかったので、
+    /// 自分が流した画像の行へも「この機械に残っていない」で断っていた
+    #[test]
+    fn 画像の行の番号へ返信でき_部屋と画像の印に直る() {
+        let 部屋 = warifu_meeting::MeetingId::generate();
+        let 知らせ = warifu_meeting::Notice::Image {
+            meeting: 部屋,
+            from: warifu_core::Seed::from_bytes([7; 32])
+                .profile("Personal")
+                .device("PC")
+                .public_key(),
+            話し手: Some("試験の席".to_owned()),
+            型: "image/png".to_owned(),
+            中身: vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3],
+        };
+        let 番号 = 9_000_000_001;
+        assert!(super::返信先を引く(Some(番号), None).is_err(), "控える前は引けない");
+        super::画像の番号を控える(番号, Some(&知らせ));
+        let (引いた部屋, 印) = super::返信先を引く(Some(番号), None).expect("引ける");
+        assert_eq!(引いた部屋, Some(部屋));
+        assert_eq!(印, 知らせ.画像の印());
+        // 部屋の無い画像（知らせが無い）は控えない
+        super::画像の番号を控える(9_000_000_002, None);
+        assert!(super::返信先を引く(Some(9_000_000_002), None).is_err());
     }
 
     use super::ミリ秒を時刻に;
