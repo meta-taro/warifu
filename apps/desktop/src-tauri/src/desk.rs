@@ -397,6 +397,8 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
         // **あとで返す返事の道**（0.1.58）。`pass_wait` は人が押すまで最長 300 秒待つ。
         // その間もこの席のほかの呼びと、届いた発言を通すため、待ちは別の task に出して答えをここへ戻す
         let (後で, mut 後で来た) = tokio::sync::mpsc::unbounded_channel::<FromDesk>();
+        // **書き込みは会話の配り（落としうる）に乗せず、線ごとの待ち行列で受ける**（0.1.62）
+        let mut 書き込み = crate::ink::座った(自分);
         loop {
             tokio::select! {
                 来た = 口.受ける() => {
@@ -410,6 +412,18 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
                 }
                 Some(返事) = 後で来た.recv() => {
                     if 口.送る(&返事.書く()).await.is_err() {
+                        break;
+                    }
+                }
+                Some(一つ) = 書き込み.recv() => {
+                    // 溢れて落とした分があれば、先に言う（黙らせない）
+                    if let Some(why) = crate::ink::落とした文(自分)
+                        && 口.送る(&FromDesk::Denied { why }.書く()).await.is_err()
+                    {
+                        break;
+                    }
+                    let 一つ = 部屋を落とすか(一つ, 聞き方.部屋);
+                    if 口.送る(&一つ.書く()).await.is_err() {
                         break;
                     }
                 }
@@ -427,8 +441,17 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
                                 break;
                             }
                         }
-                        // 追いつけずに落ちた分がある。**会話は止めない**
-                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                        // 追いつけずに落ちた分がある。**会話は止めない**が、居場所を聞く線（道具）には言う
+                        // （書き込みはここを通らないので落ちない。落ちたのは居場所か会話の行）
+                        Err(broadcast::error::RecvError::Lagged(数)) => {
+                            if 聞き方.居場所 {
+                                let why = format!("読みが追いつかず、居場所や会話の行を {数} 行落としました");
+                                if 口.送る(&FromDesk::Denied { why }.書く()).await.is_err() {
+                                    break;
+                                }
+                            }
+                            continue;
+                        }
                         Err(broadcast::error::RecvError::Closed) => break,
                     }
                 }
@@ -1475,6 +1498,7 @@ async fn 応じる(
         // **居場所を聞く**（0.1.43・同時編集）。返事は無い（以後、居場所の行が流れてくる）
         ToDesk::居場所を聞く => {
             聞き方.居場所 = true;
+            crate::ink::聞くと言った(自分);
             Ok(())
         }
         ToDesk::居場所 { .. } if 名乗り.is_none() => {

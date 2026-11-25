@@ -14,6 +14,12 @@
 //! - **速すぎる線は断る**（1 本の線から 1 秒に [`書き込みの毎秒の上限`] 行まで）。断ったら理由を返す
 //!
 //! **荷は読まない。**誰が書いたかは割符が刻む（会話の発言と同じ約束）。
+//!
+//! # この機械の線へは、線ごとの待ち行列で渡す
+//!
+//! 会話の行の配り（`Bridge.desk`・broadcast）は、読みの遅い線が追いつけないと古い行を落とす。
+//! 書き込みはそこへ乗せず、**線ごとの深い待ち行列**（[`線の溜め`] 行）で渡す。
+//! それでも溢れたら落とした数を数え、その線の次の行の前に `denied` で「N 行落としました」と言う（黙らせない）。
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::Mutex;
@@ -28,6 +34,74 @@ use crate::Bridge;
 
 /// 速さを数える幅。
 const 数える幅: Duration = Duration::from_secs(1);
+
+/// この機械の 1 本の線が溜められる書き込みの行の数。**1 秒 20 行 × 4 人で 50 秒ぶん。**
+pub(crate) const 線の溜め: usize = 4096;
+
+/// この機械の 1 本の線への渡し口。
+struct 渡し口 {
+    tx: tokio::sync::mpsc::Sender<FromDesk>,
+    /// `居場所を聞く` と言ったか。言っていない線（エージェント）には渡さない。
+    聞く: bool,
+    /// 溢れて落とした行の数（まだ言っていない分）。
+    落とした: usize,
+}
+
+/// この機械の線ごとの渡し口。
+static 渡し口たち: Mutex<BTreeMap<u64, 渡し口>> = Mutex::new(BTreeMap::new());
+
+/// **線が座った。**渡し口を作り、受け口を返す（聞くと言うまでは何も来ない）。
+pub(crate) fn 座った(線: u64) -> tokio::sync::mpsc::Receiver<FromDesk> {
+    let (tx, rx) = tokio::sync::mpsc::channel(線の溜め);
+    渡し口たち.lock().expect("毒されていない").insert(
+        線,
+        渡し口 {
+            tx,
+            聞く: false,
+            落とした: 0,
+        },
+    );
+    rx
+}
+
+/// その線が `居場所を聞く` と言った。以後、書き込みを渡す。
+pub(crate) fn 聞くと言った(線: u64) {
+    if let Some(口) = 渡し口たち.lock().expect("毒されていない").get_mut(&線) {
+        口.聞く = true;
+    }
+}
+
+/// **この機械の、聞くと言った線へ渡す**（`出所` の線には返さない）。溢れた分は数える。
+fn 線へ配る(出所: Option<u64>, 行: &FromDesk) {
+    let mut 棚 = 渡し口たち.lock().expect("毒されていない");
+    for (線, 口) in 棚.iter_mut() {
+        if !口.聞く || Some(*線) == 出所 {
+            continue;
+        }
+        渡すか数える(口, 行.clone());
+    }
+}
+
+/// 1 本の線へ入れる。溢れたら（閉じていたら）落とした数を足す。
+fn 渡すか数える(口: &mut 渡し口, 行: FromDesk) {
+    if 口.tx.try_send(行).is_err() {
+        口.落とした += 1;
+    }
+}
+
+/// **その線で落とした行があれば、言う文を返す**（数は 0 に戻す）。
+pub(crate) fn 落とした文(線: u64) -> Option<String> {
+    let mut 棚 = 渡し口たち.lock().expect("毒されていない");
+    let 口 = 棚.get_mut(&線)?;
+    let 数 = std::mem::take(&mut 口.落とした);
+    (数 > 0).then(|| 落としたと言う(数))
+}
+
+fn 落としたと言う(数: usize) -> String {
+    format!(
+        "書き込みを {数} 行落としました。読みが追いついていません（線の形が崩れているかもしれません）"
+    )
+}
 
 /// 線ごとの、直近 1 秒に通した書き込みの時刻。
 static 通した時刻: Mutex<BTreeMap<u64, VecDeque<Instant>>> = Mutex::new(BTreeMap::new());
@@ -64,9 +138,10 @@ pub(crate) fn この線から通すか(線: u64) -> bool {
     )
 }
 
-/// 線が切れた。数えを捨てる。
+/// 線が切れた。数えと渡し口を捨てる。
 pub(crate) fn 線が切れた(線: u64) {
     通した時刻.lock().expect("毒されていない").remove(&線);
+    渡し口たち.lock().expect("毒されていない").remove(&線);
 }
 
 /// **送る先**（純粋な部分）。主催なら面々の全員へ、ゲストなら主催へだけ（主催が配る）。
@@ -101,15 +176,15 @@ pub(crate) async fn 書いた(
     部屋: MeetingId,
 ) -> Result<(), String> {
     let bridge = app.state::<Bridge>();
-    let _ = bridge.desk.send((
-        線,
-        FromDesk::書き込み {
+    線へ配る(
+        Some(線),
+        &FromDesk::書き込み {
             誰: 名札.clone(),
             文書: 文書.clone(),
             荷: 荷.clone(),
             room: Some(部屋.to_string()),
         },
-    ));
+    );
     let 自分 = bridge.device.public_key();
     let 面々 = crate::そのルームの面々(&bridge.conferences, &bridge.outbound, 部屋, 自分).await;
     if 面々.is_empty() {
@@ -169,9 +244,9 @@ pub(crate) async fn 届いた(
         return;
     };
     let bridge = app.state::<Bridge>();
-    crate::desk::配る(
-        &bridge,
-        FromDesk::書き込み {
+    線へ配る(
+        None,
+        &FromDesk::書き込み {
             誰: crate::presence::見せる名(from, 話し手.as_deref()),
             文書: 文書.clone(),
             荷: 荷.clone(),
@@ -258,6 +333,51 @@ mod tests {
         assert_eq!(配り直す先(&[1, 2, 3, 4], 2, 2), [1, 3, 4]);
         // 主催ごしでない線（ゲストが別の道で受けた）でも、本人には返さない
         assert_eq!(配り直す先(&[1, 2, 3, 4], 2, 3), [1, 4]);
+    }
+
+    fn 行(n: usize) -> FromDesk {
+        FromDesk::書き込み {
+            誰: "x".to_owned(),
+            文書: "a".to_owned(),
+            荷: n.to_string(),
+            room: None,
+        }
+    }
+
+    #[test]
+    fn この機械の線へは_まとめず順に_聞く線にだけ_出所には返さない() {
+        let (書く線, 聞く線, 黙る線) = (8_100_001, 8_100_002, 8_100_003);
+        let _書く = 座った(書く線);
+        let mut 聞く = 座った(聞く線);
+        let mut 黙る = 座った(黙る線);
+        聞くと言った(書く線);
+        聞くと言った(聞く線);
+        for n in 0..100 {
+            線へ配る(Some(書く線), &行(n));
+        }
+        for n in 0..100 {
+            assert_eq!(聞く.try_recv().unwrap(), 行(n), "順が崩れた・まとめた");
+        }
+        assert!(聞く.try_recv().is_err());
+        assert!(黙る.try_recv().is_err(), "聞くと言っていない線に渡した");
+        assert!(_書く.is_empty(), "書いた線に返した");
+        for 線 in [書く線, 聞く線, 黙る線] {
+            線が切れた(線);
+        }
+    }
+
+    #[test]
+    fn 溢れたら落とした数を_次に言って黙らせない() {
+        let 線 = 8_200_001;
+        let mut 受け = 座った(線);
+        聞くと言った(線);
+        for n in 0..線の溜め + 3 {
+            線へ配る(None, &行(n));
+        }
+        assert_eq!(落とした文(線), Some(落としたと言う(3)));
+        assert_eq!(落とした文(線), None, "同じ落としを 2 度言う");
+        assert_eq!(受け.try_recv().unwrap(), 行(0), "溜めた分を捨てた");
+        線が切れた(線);
     }
 
     #[test]

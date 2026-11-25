@@ -120,4 +120,5 @@ S09-9	道具の書き込みが、同じ部屋の相手の聞く線に届く。�
 S09-10	書き込みはまとめず順に・ゲストは主催へだけ送り主催が配る	L0	apps/desktop/src-tauri/src/ink.rs 主催は全員へ_ゲストは主催へだけ送る・主催は_届いた線と書いた本人には配り直さない	一部（実機の 3 台では未）
 S09-11	1 行 1 KB・荷 900 バイト・1 秒 20 行まで。超えたら理由を返す	L0	crates/warifu-desk/src/line.rs 書き込みは_荷と行の上限を言って断る・apps/desktop/src-tauri/src/ink.rs 一秒に上限まで通し_超えた分は断る・間が空けば_また通す_断った分は数えない	済
 S09-12	聞くと言っていない線には書き込みを流さない	L0	apps/desktop/src-tauri/src/ink.rs 書き込みも_聞くと言った線にだけ渡す	済
+S09-14	この機械の線へは線ごとの待ち行列で順に渡し、溢れたら落とした数を denied で言う	L0	apps/desktop/src-tauri/src/ink.rs この機械の線へは_まとめず順に_聞く線にだけ_出所には返さない・溢れたら落とした数を_次に言って黙らせない	済
 S09-13	古い版は書き込みの知らせを読み飛ばす	L0	crates/warifu-meeting/src/notice.rs 知らない meeting.* は NotMeeting（既存）	一部（古い版との実機は未）
