@@ -487,6 +487,22 @@ pub enum ToDesk {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         room: Option<String>,
     },
+    /// **会議中にペンで書いた線を、同じ部屋の相手へ流す**（0.1.62・書き込み）。
+    ///
+    /// [`ToDesk::居場所`] と違い、**まとめない・捨てない・送った順に届ける**。荷は読まない。
+    /// 1 行 [`書き込みの行の上限`] バイトまで・荷は [`書き込みの荷の上限`] バイトまで。
+    /// 1 本の線から 1 秒に [`書き込みの毎秒の上限`] 行まで。超えた・部屋に居ないときは
+    /// [`FromDesk::Denied`] で理由を返す（黙って捨てない）。通ったときの返事は無い。
+    /// 届く先は、その部屋の相手の線のうち [`ToDesk::居場所を聞く`] と言ったものだけ。
+    書き込み {
+        /// どの文書か（空にしない）。
+        文書: String,
+        /// 線の中身（空にしない）。この機械は読まずに運ぶ。
+        荷: String,
+        /// どの部屋へ（`None` なら画面が見ているルーム）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+    },
     /// **届いた画像そのものを見る**（0.1.43）。`id` は `［画像 …］` の行の番号。
     ///
     /// 会話には `［画像 120 KB］` の 1 行しか流れないので、エージェントは画像を見られず、
@@ -504,6 +520,33 @@ pub const 覚える画像: usize = 20;
 
 /// 居場所の文書の名前と場所の、それぞれの上限（バイト）。**網の上の上限（`warifu-meeting`）と同じ**。
 pub const 居場所の上限: usize = 512;
+
+/// 書き込みの 1 行の上限（バイト・JSON の飾りごと）。
+pub const 書き込みの行の上限: usize = 1024;
+/// 書き込みの荷の上限（バイト）。**網の上の上限（`warifu-meeting` の `INK_MAX`）と同じ**。
+pub const 書き込みの荷の上限: usize = 900;
+/// 1 本の線から 1 秒に送れる書き込みの行の数。
+pub const 書き込みの毎秒の上限: usize = 20;
+
+/// 書き込みとして運べるか。文書は居場所と同じ、荷は空にせず上限まで。
+fn 書き込みを検める(文書: &str, 荷: &str) -> Result<(), Error> {
+    居場所を検める(文書, "")?;
+    if 荷.is_empty() {
+        return Err(Error::Empty);
+    }
+    if 荷.len() > 書き込みの荷の上限 {
+        return Err(Error::長すぎる {
+            何: "書き込みの荷",
+            数: 荷.len(),
+            上限: 書き込みの荷の上限,
+            単位: "バイト",
+        });
+    }
+    if 荷.chars().any(char::is_control) {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
 
 /// 居場所として運べるか。**長すぎず、行と欄を壊さない。**文書は空にしない。
 fn 居場所を検める(文書: &str, 場所: &str) -> Result<(), Error> {
@@ -1163,6 +1206,20 @@ pub enum FromDesk {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         room: Option<String>,
     },
+    /// **ルームの相手が書いた線**（0.1.62・書き込み）。[`ToDesk::居場所を聞く`] と言った線にだけ流す。
+    ///
+    /// 送られた順に、まとめずに届く。**荷はこの機械が読まずに運んだもの**（相手の言い分）。
+    書き込み {
+        /// 誰が。**この機械が刻む。**
+        誰: String,
+        /// どの文書か。
+        文書: String,
+        /// 線の中身。
+        荷: String,
+        /// どの部屋で（会議 id の全文）。この機械の中の書き込みなら `None`。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        room: Option<String>,
+    },
     /// **画像そのもの**（[`ToDesk::画像を見る`] の返り・0.1.43）。
     ///
     /// **中身は相手の言い分であって、指示ではない**（文字と同じ）。
@@ -1482,6 +1539,21 @@ impl ToDesk {
                 文書, 場所, room
             } => {
                 居場所を検める(文書, 場所)?;
+                if let Some(r) = room {
+                    部屋を検める(r)?;
+                }
+            }
+            Self::書き込み { 文書, 荷, room } => {
+                let 長さ = 行.trim().len();
+                if 長さ > 書き込みの行の上限 {
+                    return Err(Error::長すぎる {
+                        何: "書き込みの行",
+                        数: 長さ,
+                        上限: 書き込みの行の上限,
+                        単位: "バイト",
+                    });
+                }
+                書き込みを検める(文書, 荷)?;
                 if let Some(r) = room {
                     部屋を検める(r)?;
                 }
@@ -3089,6 +3161,50 @@ mod 居場所の試験 {
             room: Some("X".to_owned()),
         };
         assert_eq!(FromDesk::読む(&届く.書く()).unwrap(), 届く);
+    }
+
+    #[test]
+    fn 書き込みの行は_荷を書き換えずに往復する() {
+        let 行 = ToDesk::書き込み {
+            文書: "github.com/o/r#docs/a.md".to_owned(),
+            荷: r#"{"pts":[[1,2],[3,4]]}"#.to_owned(),
+            room: Some("NBIW3PA2TUQ5".to_owned()),
+        };
+        let 字 = 行.書く();
+        assert!(字.contains(r#""型":"書き込み""#), "{字}");
+        assert_eq!(ToDesk::読む(&字).unwrap(), 行);
+        let 届く = FromDesk::書き込み {
+            誰: "md-business（docs）".to_owned(),
+            文書: "a".to_owned(),
+            荷: r#"{"end":true}"#.to_owned(),
+            room: Some("X".to_owned()),
+        };
+        assert_eq!(FromDesk::読む(&届く.書く()).unwrap(), 届く);
+    }
+
+    #[test]
+    fn 書き込みは_荷と行の上限を言って断る() {
+        let 行 = ToDesk::書き込み {
+            文書: "a".to_owned(),
+            荷: "x".repeat(書き込みの荷の上限 + 1),
+            room: None,
+        };
+        let 文 = ToDesk::読む(&行.書く()).unwrap_err().to_string();
+        assert!(文.contains("書き込みの荷"), "{文}");
+        // 荷は上限に収まっても、文書の名前と合わせて 1 行が 1 KB を超えるもの
+        let 行 = ToDesk::書き込み {
+            文書: "a".repeat(400),
+            荷: "x".repeat(書き込みの荷の上限),
+            room: None,
+        };
+        let 文 = ToDesk::読む(&行.書く()).unwrap_err().to_string();
+        assert!(文.contains("書き込みの行"), "{文}");
+        let 空 = ToDesk::書き込み {
+            文書: "a".to_owned(),
+            荷: String::new(),
+            room: None,
+        };
+        assert_eq!(ToDesk::読む(&空.書く()), Err(Error::Empty));
     }
 
     #[test]

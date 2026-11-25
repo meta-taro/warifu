@@ -441,6 +441,7 @@ async fn 座らせる(app: AppHandle, 一本: Box<dyn warifu_desk::一本>) {
         }
         // **開いていた文書を閉じたとして流す**（0.1.43）。流さないと、相手の画面に居場所が残る
         crate::presence::線が切れた(&app, 自分);
+        crate::ink::線が切れた(自分);
         {
             let mut 棚 = エージェントたち.lock().expect("毒されていない");
             棚.remove(&自分);
@@ -1505,6 +1506,36 @@ async fn 応じる(
             };
             let 名札 = crate::profile::エージェントの名札(&呼び方(名乗り.as_deref()));
             crate::presence::言った(app, 自分, 名札, 文書, 場所, 部屋);
+            Ok(())
+        }
+        // **会議中にペンで書いた線**（0.1.62）。通ったときは返事が無い。断るときだけ理由を返す
+        ToDesk::書き込み { 文書, 荷, room } => {
+            if 名乗り.is_none() {
+                let why = 名乗ってください.to_owned();
+                let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                return Ok(());
+            }
+            if !crate::ink::この線から通すか(自分) {
+                let why = crate::ink::速すぎる文();
+                let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                return Ok(());
+            }
+            let 部屋 = match 部屋を決める(app, room.as_deref()).await {
+                Ok(Some(m)) => m,
+                Ok(None) => {
+                    let why = "ルームに居ないので、書き込みを運べません".to_owned();
+                    let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                    return Ok(());
+                }
+                Err(why) => {
+                    let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+                    return Ok(());
+                }
+            };
+            let 名札 = crate::profile::エージェントの名札(&呼び方(名乗り.as_deref()));
+            if let Err(why) = crate::ink::書いた(app, 自分, 名札, 文書, 荷, 部屋).await {
+                let _ = 口.送る(&FromDesk::Denied { why }.書く()).await;
+            }
             Ok(())
         }
         ToDesk::Say { .. } if 名乗り.is_none() => {

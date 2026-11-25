@@ -119,6 +119,7 @@ mod notify;
 mod open_link;
 mod postbox;
 mod peer_face;
+mod ink;
 mod presence;
 mod profile;
 mod recent_keep;
@@ -3373,6 +3374,22 @@ fn 汲む(
                         presence::届いた(&app, peer, &notice, 主催).await;
                         continue;
                     }
+                    // **会議中にペンで書いた線**（0.1.62）。**名簿は動かさない。**
+                    // 差出人の確かめは文字と同じ（主催ごしの分だけ通す）。主催なら面々へ順に配る
+                    if let Notice::書き込み { meeting, from, .. } = &notice {
+                        let 部屋の主催 = 主催たち.lock().await.get(meeting).copied();
+                        if !roster_sync::配られた発言を通すか(from, &peer, &me, 部屋の主催.as_ref()) {
+                            記録!("受信: 書き込みの差出人が経路の相手と違う。捨てた");
+                            continue;
+                        }
+                        if !conferences.lock().await.contains_key(meeting) {
+                            記録!("受信: 居ない部屋への書き込み。捨てた");
+                            continue;
+                        }
+                        let 主催 = roster_sync::主催か(部屋の主催.as_ref(), &me);
+                        ink::届いた(&app, peer, &notice, 主催).await;
+                        continue;
+                    }
                     // **メンションされた行を受けた**（D130・0.1.44）。**名簿は動かさない。**
                     // 差出人の確かめは文字と同じ（主催ごしの分だけ通す）。主催なら面々へ配る
                     if let Notice::受けた { meeting, from, .. } = &notice {
@@ -5191,6 +5208,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         // **中身は出さない**（画像）。種別だけ
         Notice::顔 { .. } => "顔",
         Notice::Presence { .. } => "居場所",
+        Notice::書き込み { .. } => "書き込み",
         Notice::受けた { .. } => "受けた",
         _ => "知らない知らせ",
     }
@@ -5727,6 +5745,13 @@ mod 知らせの名の試験 {
                 話し手: None,
                 文書: "a".to_owned(),
                 場所: String::new(),
+            },
+            Notice::書き込み {
+                meeting: 部屋,
+                from: 鍵(),
+                話し手: None,
+                文書: "a".to_owned(),
+                荷: "{}".to_owned(),
             },
             Notice::受けた {
                 meeting: 部屋,

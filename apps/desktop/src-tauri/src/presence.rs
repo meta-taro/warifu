@@ -358,10 +358,10 @@ pub(crate) fn 相手が抜けた(app: &AppHandle, 部屋: MeetingId, 相手: Pub
     }
 }
 
-/// 居場所を聞く線にだけ渡すか（それ以外の行は、どの線にも渡す）。
+/// 居場所と書き込み（0.1.62）は、居場所を聞く線にだけ渡すか（それ以外の行は、どの線にも渡す）。
 #[must_use]
 pub(crate) const fn この線に渡すか(行: &FromDesk, 居場所を聞く: bool) -> bool {
-    居場所を聞く || !matches!(行, FromDesk::居場所 { .. })
+    居場所を聞く || !matches!(行, FromDesk::居場所 { .. } | FromDesk::書き込み { .. })
 }
 
 /// 試験のための、控えの中身（線ごとの文書の数）。

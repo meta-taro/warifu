@@ -261,7 +261,9 @@ fn 机を立てる(mut 待ち: 受け口) -> tokio::task::JoinHandle<Vec<String>
                     }],
                 }),
                 // 口は居場所を使わない（同時編集の道具が使う・0.1.43）。返事も無い
-                ToDesk::居場所を聞く | ToDesk::居場所 { .. } => None,
+                ToDesk::居場所を聞く | ToDesk::居場所 { .. } | ToDesk::書き込み { .. } => {
+                    None
+                }
                 // 覚えている画像を返す（0.1.43）
                 ToDesk::画像を見る { id } => Some(FromDesk::画像 {
                     id,

@@ -1031,6 +1031,7 @@ pub const fn 知らせの名(知らせ: &Notice) -> &'static str {
         Notice::Since { .. } => "追いつき",
         Notice::追いついた { .. } => "追いついた",
         Notice::Presence { .. } => "居場所",
+        Notice::書き込み { .. } => "書き込み",
         Notice::受けた { .. } => "受けた",
         _ => "知らせ",
     }

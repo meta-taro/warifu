@@ -29,6 +29,8 @@ const CAUGHT_UP: &str = "meeting.caughtup";
 const IMAGE: &str = "meeting.image";
 /// **同時編集の居場所**（0.1.43）。誰がどの文書のどこに居るか。
 const PRESENCE: &str = "meeting.presence";
+/// **会議中にペンで書いた線**（0.1.62）。まとめず・捨てず・順に運ぶ。
+const INK: &str = "meeting.ink";
 /// **メンションされた行を受けた**（D130・0.1.44）。
 const ACK: &str = "meeting.ack";
 /// **返信の印**（11-11）。どの行が、どの行への返信か。
@@ -37,6 +39,10 @@ const REPLY: &str = "meeting.reply";
 ///
 /// 文書の名前は `<remote>#<相対パス>`、場所は小さな JSON（行・列・ブランチ）で、どちらも数百バイトに収まる。
 pub const PRESENCE_MAX: usize = 512;
+/// 書き込みの荷の長さの上限（バイト）。**受け取る側でも数える**（D15）。
+///
+/// 机の線の 1 行（1 KB）に、文書の名前と飾りごと収まる長さ。
+pub const INK_MAX: usize = 900;
 /// **本人の名乗り**（プロフィール・**D75**）。
 const PROFILE: &str = "meeting.profile";
 /// **ルームキーを、その相手にだけ手渡す**（2026-10-20）。
@@ -387,6 +393,25 @@ pub enum Notice {
         /// 文書の中のどこか（空なら閉じた）。
         場所: String,
     },
+    /// **会議中にペンで書いた線**（0.1.62・書き込み）。
+    ///
+    /// [`Notice::Presence`] と違い、**まとめない・捨てない・送った順に運ぶ**（途中の点が 1 つ落ちると形が崩れる）。
+    /// **荷は読まない**（中身は文書を扱う側が決める）。長さと、行を壊す字だけを見る。
+    /// 差出人と札の扱いは [`Notice::Text`] と同じ。
+    ///
+    /// 古い版（〜0.1.61）は知らない知らせとして読み飛ばす。
+    書き込み {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 誰が書いたか（[`Notice::Text`] の `from` と同じ）。
+        from: PublicKey,
+        /// その機械の誰か（文書の道具。人なら `None`）。
+        話し手: Option<String>,
+        /// どの文書か（空にしない）。
+        文書: String,
+        /// 線の中身（空にしない・[`INK_MAX`] バイトまで）。
+        荷: String,
+    },
     /// **メンションされた行を受けた**（D130・0.1.44）。メンションされた側から送り手へ返す。
     ///
     /// **既読ではない**（D94 はそのまま）。人の画面に出ただけでは返さず、
@@ -523,6 +548,7 @@ impl Notice {
             | Self::Since { meeting, .. }
             | Self::追いついた { meeting, .. }
             | Self::Presence { meeting, .. }
+            | Self::書き込み { meeting, .. }
             | Self::受けた { meeting, .. }
             | Self::返信 { meeting, .. }
             | Self::話し手の場所 { meeting, .. }
@@ -659,6 +685,13 @@ impl Notice {
                 PRESENCE,
                 居場所を詰める(from, 話し手.as_deref(), 文書, 場所)?,
             ),
+            Self::書き込み {
+                from,
+                話し手,
+                文書,
+                荷,
+                ..
+            } => (INK, 書き込みを詰める(from, 話し手.as_deref(), 文書, 荷)?),
             Self::受けた {
                 from,
                 話し手,
@@ -832,6 +865,7 @@ impl Notice {
             }
             IMAGE => 画像を読む(meeting, 荷物),
             PRESENCE => 居場所を読む(meeting, 荷物),
+            INK => 書き込みを読む(meeting, 荷物),
             ACK => 受けたを読む(meeting, 荷物),
             REPLY => 返信を読む(meeting, 荷物),
             SPEAKER_PLACE => 話し手の場所を読む(meeting, 荷物),
@@ -1060,6 +1094,39 @@ fn 居場所を検める(文書: &str, 場所: &str) -> Result<(), Error> {
     Ok(())
 }
 
+/// 書き込みとして運べるか。**文書は居場所と同じ、荷は空にせず [`INK_MAX`] まで。**
+fn 書き込みを検める(文書: &str, 荷: &str) -> Result<(), Error> {
+    居場所を検める(文書, "")?;
+    if 荷.is_empty() || 荷.len() > INK_MAX || 荷.chars().any(char::is_control) {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+/// 書き込みを詰める。形は居場所と同じ（場所の欄が荷）。
+fn 書き込みを詰める(
+    from: &PublicKey,
+    話し手: Option<&str>,
+    文書: &str,
+    荷: &str,
+) -> Result<Vec<u8>, Error> {
+    書き込みを検める(文書, 荷)?;
+    文書と中身を詰める(from, 話し手, 文書, 荷)
+}
+
+/// 書き込みを読む。**組み立てる側と同じ検めをする**（相手が守る保証は無い）。
+fn 書き込みを読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    let (from, 話し手, 文書, 荷) = 文書と中身を読む(荷物)?;
+    書き込みを検める(&文書, &荷)?;
+    Ok(Notice::書き込み {
+        meeting,
+        from,
+        話し手,
+        文書,
+        荷,
+    })
+}
+
 /// `[差出人 32][札の長さ 1][札][文書の長さ 2][文書][場所]`
 fn 居場所を詰める(
     from: &PublicKey,
@@ -1067,8 +1134,18 @@ fn 居場所を詰める(
     文書: &str,
     場所: &str,
 ) -> Result<Vec<u8>, Error> {
-    札を検める(話し手)?;
     居場所を検める(文書, 場所)?;
+    文書と中身を詰める(from, 話し手, 文書, 場所)
+}
+
+/// `[差出人 32][札の長さ 1][札][文書の長さ 2][文書][中身]`（居場所と書き込みで同じ形）。
+fn 文書と中身を詰める(
+    from: &PublicKey,
+    話し手: Option<&str>,
+    文書: &str,
+    場所: &str,
+) -> Result<Vec<u8>, Error> {
+    札を検める(話し手)?;
     let 札 = 話し手.unwrap_or_default();
     let mut 荷物 = Vec::with_capacity(32 + 1 + 札.len() + 2 + 文書.len() + 場所.len());
     荷物.extend_from_slice(&from.to_bytes());
@@ -1086,6 +1163,22 @@ fn 居場所を詰める(
 
 /// 居場所を読む。**組み立てる側と同じ検めをする**（相手が守る保証は無い）。
 fn 居場所を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error> {
+    let (from, 話し手, 文書, 場所) = 文書と中身を読む(荷物)?;
+    居場所を検める(&文書, &場所)?;
+    Ok(Notice::Presence {
+        meeting,
+        from,
+        話し手,
+        文書,
+        場所,
+    })
+}
+
+/// 差出人・札・文書・中身。
+type 文書と中身 = (PublicKey, Option<String>, String, String);
+
+/// `[差出人 32][札の長さ 1][札][文書の長さ 2][文書][中身]` を読む。札だけ検める。
+fn 文書と中身を読む(荷物: &[u8]) -> Result<文書と中身, Error> {
     let 頭: [u8; 32] = 荷物
         .get(..32)
         .ok_or(Error::Malformed)?
@@ -1110,14 +1203,7 @@ fn 居場所を読む(meeting: MeetingId, 荷物: &[u8]) -> Result<Notice, Error
     札を検める(話し手.as_deref())?;
     let 文書 = 字(文書)?;
     let 場所 = 字(&荷物[文書の終わり..])?;
-    居場所を検める(&文書, &場所)?;
-    Ok(Notice::Presence {
-        meeting,
-        from,
-        話し手,
-        文書,
-        場所,
-    })
+    Ok((from, 話し手, 文書, 場所))
 }
 
 /// `[差出人 32][札の長さ 1][札][行の印 32][受け方 1]`

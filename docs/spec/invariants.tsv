@@ -116,3 +116,8 @@ S09-5	後から入った相手に、いまの居場所をまとめて送る	L5	d
 S09-6	客どうしの居場所も届き、2 本の道で来ても 1 回だけ渡す（2 秒以上空いた同じ居場所は渡す）	L0	apps/desktop/src-tauri/src/presence.rs 二本の道で届いた同じ居場所は_二度目を渡さない・同じ居場所でも_間が空いていれば渡す	済（dev で客から客へ 1 回だけ届いた）
 S09-7	文書の名前と場所は 512 バイトまで・制御文字なし・文書は空にしない	L0	crates/warifu-meeting/tests/presence.rs・crates/warifu-desk/src/line.rs 居場所の試験	済
 S09-8	古い版は居場所の知らせを読み飛ばす	L0	crates/warifu-meeting/src/notice.rs 知らない meeting.* は NotMeeting（既存）	一部（0.1.42 の受け手が読めない知らせを continue で飛ばすのはコードで確かめた・古い版との実機は未）
+S09-9	道具の書き込みが、同じ部屋の相手の聞く線に届く。荷は書き換えない	L0	crates/warifu-meeting/tests/ink.rs 荷は書き換えずに往復する・crates/warifu-desk/src/line.rs 書き込みの行は_荷を書き換えずに往復する	一部（実機の 2 台では未）
+S09-10	書き込みはまとめず順に・ゲストは主催へだけ送り主催が配る	L0	apps/desktop/src-tauri/src/ink.rs 主催は全員へ_ゲストは主催へだけ送る・主催は_届いた線と書いた本人には配り直さない	一部（実機の 3 台では未）
+S09-11	1 行 1 KB・荷 900 バイト・1 秒 20 行まで。超えたら理由を返す	L0	crates/warifu-desk/src/line.rs 書き込みは_荷と行の上限を言って断る・apps/desktop/src-tauri/src/ink.rs 一秒に上限まで通し_超えた分は断る・間が空けば_また通す_断った分は数えない	済
+S09-12	聞くと言っていない線には書き込みを流さない	L0	apps/desktop/src-tauri/src/ink.rs 書き込みも_聞くと言った線にだけ渡す	済
+S09-13	古い版は書き込みの知らせを読み飛ばす	L0	crates/warifu-meeting/src/notice.rs 知らない meeting.* は NotMeeting（既存）	一部（古い版との実機は未）
