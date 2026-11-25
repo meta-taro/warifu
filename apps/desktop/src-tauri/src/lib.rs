@@ -2126,14 +2126,22 @@ pub(crate) async fn 自己点検(app: &AppHandle) {
     let 出 = self_check::見比べる(&本体, &画面);
     *bridge.いまの食い違い.lock().await = 出.clone();
     // **影との見比べは記録だけ**（A2 の段 1）。ずれが出なくなったら影を本物にする
-    for 文 in 影を見比べる(
+    let (影のずれ, 名簿が違うゲストの部屋) = 影を見比べる(
         &bridge,
         &ルームの並び(&bridge).await,
         本体.見ている.as_deref(),
     )
-    .await
-    {
+    .await;
+    for 文 in 影のずれ {
         記録!("影: {文}");
+    }
+    // **ゲストの部屋の名簿が食い違い続けたら、入り直す**（0.1.61）。記録するだけでは戻らなかった（11-25・17 分）
+    let 入り直す = 名簿の食い違い
+        .lock()
+        .await
+        .見る(&名簿が違うゲストの部屋, std::time::Instant::now());
+    for id in 入り直す {
+        主催を外して入り直させる(app, &id).await;
     }
     let 今 = now_secs();
     // **入り直しの直後に消える食い違いは言わない**（画面の届く先は名簿より数秒遅れて追いつく）
@@ -2253,14 +2261,56 @@ pub(crate) async fn 持っている所を言う(
     }
 }
 
+/// 影と本物の名簿の食い違いを数える（0.1.61・[`come_back::名簿の食い違い`]）。
+static 名簿の食い違い: std::sync::LazyLock<Mutex<come_back::名簿の食い違い>> =
+    std::sync::LazyLock::new(|| Mutex::new(come_back::名簿の食い違い::default()));
+
+/// **ゲストの部屋から主催を外し、見張りに帰り道から入り直させる**（0.1.61）。
+///
+/// 主催から「居ない」と告げられたときと同じ形にする（見張りは「主催が名簿に居ない」で戻る）。
+async fn 主催を外して入り直させる(app: &AppHandle, id: &str) {
+    let bridge = app.state::<Bridge>();
+    let Ok(部屋) = id.parse::<MeetingId>() else {
+        return;
+    };
+    let Some(主催) = bridge.主催たち.lock().await.get(&部屋).copied() else {
+        return;
+    };
+    if 主催 == bridge.device.public_key() {
+        return;
+    }
+    let 出来事 = bridge
+        .conferences
+        .lock()
+        .await
+        .get_mut(&部屋)
+        .and_then(|c| c.on_notice(主催, &Notice::Leave { meeting: 部屋 }).ok());
+    let 外した = 出来事.is_some();
+    if let Some(出来事) = 出来事 {
+        emit_events(app, 部屋, &出来事);
+    }
+    記録!(
+        "影: 部屋 {} の名簿の食い違いが続いたので、主催を外して入り直します（{}）",
+        短く(id),
+        if 外した {
+            "外した"
+        } else {
+            "外せなかった"
+        }
+    );
+}
+
 /// **影と本物を見比べる**（計画 A2 の段 1）。ずれは記録だけに出す（人とエージェントには言わない）。
+///
+/// ずれの文と、**名簿が食い違うゲストの部屋**を返す（0.1.61・入り直しは呼ぶ側が決める）。
 async fn 影を見比べる(
     bridge: &Bridge,
     並び: &[RoomRow],
     見ている: Option<&str>,
-) -> Vec<String> {
+) -> (Vec<String>, Vec<String>) {
     let 影 = bridge.影.lock().await;
     let mut 出 = Vec::new();
+    let mut 名簿が違う = Vec::new();
     let 影の見ている = 影.見ている().map(|m| m.to_string());
     if 影の見ている.as_deref() != 見ている {
         出.push(format!(
@@ -2282,6 +2332,9 @@ async fn 影を見比べる(
         本物.sort();
         影の.sort();
         if 本物 != 影の {
+            if !r.host {
+                名簿が違う.push(r.id.clone());
+            }
             出.push(format!(
                 "部屋 {} の名簿が違う（本物 {} 人・影 {} 人）",
                 短く(&r.id),
@@ -2303,7 +2356,7 @@ async fn 影を見比べる(
             出.push(format!("部屋 {} が影にだけある", 短く(&id.to_string())));
         }
     }
-    出
+    (出, 名簿が違う)
 }
 
 /// **経路の札を置く**（画面から）。
@@ -2888,6 +2941,41 @@ fn 汲む(
             warifu_app::room::入り口::線がついた { 相手: peer },
         )
         .await;
+        // **主催が立ち上げ直したあと、別の部屋の用事でついた線でも、名簿に居ない部屋を告げる**（0.1.61）。
+        // ゲストは古い線の始末が新しい線に隠れて、主催を名簿に残したまま戻らなかった（11-25・93 分）
+        {
+            let 口 = 私の口.clone();
+            let conferences = conferences.clone();
+            let 主催たち = 主催たち.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(
+                    come_back::名簿を確かめるまでの秒,
+                ))
+                .await;
+                if 口.is_closed() {
+                    return;
+                }
+                let 主催している部屋: Vec<(MeetingId, Vec<PublicKey>)> = {
+                    let 主 = 主催たち.lock().await;
+                    let 棚 = conferences.lock().await;
+                    棚.values()
+                        .filter(|c| roster_sync::主催か(主.get(&c.id()), &me))
+                        .map(|c| (c.id(), c.members().to_vec()))
+                        .collect()
+                };
+                for 部屋 in come_back::居ないと告げる部屋(&主催している部屋, &peer)
+                {
+                    記録!(
+                        "名簿: 線のついた {} は部屋 {} の名簿に居ないので、居ないと告げます（持っていれば入り直す）",
+                        短く(&key_to_string(peer)),
+                        短く(&部屋.to_string())
+                    );
+                    if 口.send(Notice::Leave { meeting: 部屋 }).await.is_err() {
+                        break;
+                    }
+                }
+            });
+        }
         // **この経路で、どの部屋について名乗り返したか**（0.1.35）。1 部屋 1 度だけ
         let mut 名乗り返した: std::collections::HashSet<MeetingId> =
             std::collections::HashSet::new();
