@@ -122,6 +122,7 @@ mod peer_face;
 mod ink;
 mod presence;
 mod profile;
+mod mouth_keep;
 mod recent_keep;
 mod redial;
 mod reply;

@@ -336,7 +336,7 @@ chat_read → 新しい発言はありません。（このエージェントは
 
 Since **D102**, a reconnecting agent also receives what it missed while away (up to 200 lines), so this warning matters mainly for the very first connection.
 
-When the server process itself drops and is reconnected (for example `/mcp` in Claude Code), the new process **continues the read position of the previous one with the same name**, receives the lines after it, and its first `chat_read` carries one line saying how many minutes it was away and how many `@` mentions arrived meanwhile. `room_status` shows the same next to "last read".
+When the server process itself drops and is reconnected (for example `/mcp` in Claude Code), the new process **continues the read position of the previous one with the same name**, receives the lines after it, and its first `chat_read` carries one line saying how many minutes it was away and how many `@` mentions arrived meanwhile. `room_status` shows the same next to "last read". This also holds when the warifu app itself is restarted (for example on an update): the read positions are kept on disk, and the line then says the app was stopped.
 
 ### Check which version you are talking to
 
