@@ -1502,7 +1502,14 @@ fn 送信済み() -> Vec<warifu_mcp::送信済みの通> {
 fn 送信済みの口(札: &[&str]) -> Warifu {
     use std::sync::Arc;
     Warifu::new(Vec::new(), 規則(), 札を出す(札), 1_756_000_000).送信済みを汲むには(
-        Arc::new(|| Box::pin(async { Ok(送信済み()) })),
+        Arc::new(|| {
+            Box::pin(async {
+                Ok(warifu_mcp::汲んだ送信済み {
+                    通: 送信済み(),
+                    読めなかった口: Vec::new(),
+                })
+            })
+        }),
         Arc::new(|口, uid| {
             Box::pin(async move {
                 Ok((format!("本文の目印 {口} {uid}"), vec!["a.pdf".to_owned()]))
@@ -1572,7 +1579,7 @@ async fn 札が無ければ送信済みを汲みにも行かない() {
     let 口 = Warifu::new(Vec::new(), 規則(), 札を出す(&[]), 1_756_000_000).送信済みを汲むには(
         Arc::new(move || {
             数える.fetch_add(1, Ordering::SeqCst);
-            Box::pin(async { Ok(Vec::new()) })
+            Box::pin(async { Ok(warifu_mcp::汲んだ送信済み::default()) })
         }),
         Arc::new(|_, _| Box::pin(async { Ok((String::new(), Vec::new())) })),
     );
@@ -1692,4 +1699,38 @@ async fn 件名が違うか_送信済みが読めなければ_止めずに送り
             .unwrap_err()
     );
     assert!(文.contains("この機械が開いていません"), "{文}");
+}
+
+/// **sent_list は、読めなかった口を黙って飛ばさず、口と訳を名指しで言う**（0.1.60）
+#[tokio::test]
+async fn 送信済みの一覧は_読めなかった口と訳を名指しで言う() {
+    use std::sync::Arc;
+    let 口 = Warifu::new(Vec::new(), 規則(), 札を出す(&["inbox.list"]), 1_756_000_000)
+        .送信済みを汲むには(
+            Arc::new(|| {
+                Box::pin(async {
+                    Ok(warifu_mcp::汲んだ送信済み {
+                        通: 送信済み(),
+                        読めなかった口: vec![(
+                            "other@example.com".to_owned(),
+                            "送信済みの印の付いた箱が見つかりません".to_owned(),
+                        )],
+                    })
+                })
+            }),
+            Arc::new(|_, _| Box::pin(async { Ok((String::new(), Vec::new())) })),
+        );
+    let 一覧 = 口.sent_list().await.unwrap();
+    // 読めた口の通は並び、読めなかった口は訳と一緒に名指しされる
+    assert!(一覧.contains("<1.2.0@example.com>"), "{一覧}");
+    assert!(一覧.contains("other@example.com"), "{一覧}");
+    assert!(一覧.contains("箱が見つかりません"), "{一覧}");
+    assert!(一覧.contains("読めなかった"), "{一覧}");
+}
+
+/// **全部が読めた口では、読めなかった口の注を出さない**
+#[tokio::test]
+async fn 全部読めた送信済みの一覧には_読めなかった注が出ない() {
+    let 一覧 = 送信済みの口(&["inbox.list"]).sent_list().await.unwrap();
+    assert!(!一覧.contains("読めなかった"), "{一覧}");
 }

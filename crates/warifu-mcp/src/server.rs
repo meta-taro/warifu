@@ -554,6 +554,17 @@ fn 一覧の件名(件名: &str) -> String {
 }
 
 /// `sent_list` の返り（0.1.59）。宛先は 3 つまで出し、残りは数だけ。
+/// **読めなかった口の注**（`sent_list`・0.1.60）。口と訳を名指しで書く。
+fn 読めなかった口の言い方(口: &[(String, String)]) -> String {
+    format!(
+        "（次の口の送信済みは読めなかったので、上の並びに入っていません：{}）",
+        口.iter()
+            .map(|(k, 訳)| format!("{k}（{訳}）"))
+            .collect::<Vec<_>>()
+            .join("・")
+    )
+}
+
 fn 送信済みの言い方(
     並び: &[送信済みの通],
     件名を出す: bool,
@@ -700,10 +711,20 @@ pub struct 送信済みの通 {
     pub 印: Option<String>,
 }
 
-/// **送信済みを汲む手**（0.1.59）。控えた全部の口から、新しい順に返す。失敗は人が読める 1 文で返す。
+/// **汲んだ送信済み**（[`送信済みを汲む手`] の返り・0.1.60）。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct 汲んだ送信済み {
+    /// 読めた口の通（新しい順）。
+    pub 通: Vec<送信済みの通>,
+    /// 読めなかった口と、その訳。**黙って飛ばさず**、`sent_list` の返りに名指しで出す。
+    pub 読めなかった口: Vec<(String, String)>,
+}
+
+/// **送信済みを汲む手**（0.1.59）。控えた全部の口から、新しい順に返す。
+/// 全部の口が読めないときだけ `Err`（人が読める 1 文）。一部の口が読めないときは返りの中に名指しで入れる（0.1.60）。
 pub type 送信済みを汲む手 = Arc<
     dyn Fn() -> std::pin::Pin<
-            Box<dyn std::future::Future<Output = Result<Vec<送信済みの通>, String>> + Send>,
+            Box<dyn std::future::Future<Output = Result<汲んだ送信済み, String>> + Send>,
         > + Send
         + Sync,
 >;
@@ -1182,17 +1203,22 @@ impl Warifu {
             .ok_or_else(|| ToolError::Unavailable("この口では送信済みを読めません".to_owned()))?;
         // 汲めなかったら、前の並びのまま汲めなかったと言う（黙って空にしない・受信箱と同じ）
         let mut 汲めなかった = None;
+        let mut 読めなかった口 = Vec::new();
         match 汲む().await {
-            Ok(通) => *self.送信済み.lock().expect("毒されていない") = 通,
+            Ok(汲んだ) => {
+                *self.送信済み.lock().expect("毒されていない") = 汲んだ.通;
+                読めなかった口 = 汲んだ.読めなかった口;
+            }
             Err(訳) => 汲めなかった = Some(訳),
         }
         let 件名を出す = self.通るか("inbox.open.raw").is_ok();
         let 並び = self.送信済み.lock().expect("毒されていない").clone();
-        Ok(送信済みの言い方(
-            &並び,
-            件名を出す,
-            汲めなかった.as_deref(),
-        ))
+        let mut 返り = 送信済みの言い方(&並び, 件名を出す, 汲めなかった.as_deref());
+        // **読めなかった口を黙って飛ばさない**（0.1.60）。並びに無いのが「送っていない」なのか「読めない」なのかを分ける
+        if !読めなかった口.is_empty() {
+            返り.push_str(&format!("\n{}", 読めなかった口の言い方(&読めなかった口)));
+        }
+        Ok(返り)
     }
 
     /// **送信済みの 1 通を開く**（0.1.59）。札は受信箱の原文と同じ段（inbox.open.raw）。

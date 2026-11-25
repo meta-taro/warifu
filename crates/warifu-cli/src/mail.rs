@@ -608,10 +608,11 @@ pub async fn 汲む(件数: usize) -> Result<Vec<warifu_read::Received>, String>
 
 /// **エージェントの `sent_list` のために、控えた全部の口の送信済みを汲む**（0.1.59）。新しい順。
 ///
-/// 全部が汲めなかったときだけ失敗にする（受信箱の [`汲む`] と同じ）。
+/// 全部が汲めなかったときだけ失敗にする（受信箱の [`汲む`] と同じ）。一部の口が読めないときは、
+/// その口と訳を返りに入れる（0.1.60・`sent_list` が名指しで言う）。
 pub async fn 送信済みを汲む(
     件数: usize,
-) -> Result<Vec<warifu_mcp::送信済みの通>, String> {
+) -> Result<warifu_mcp::汲んだ送信済み, String> {
     let vault = Vault::default_location().map_err(|e| e.to_string())?;
     let 控え = vault.inboxes().map_err(|e| e.to_string())?;
     if 控え.is_empty() {
@@ -631,15 +632,23 @@ pub async fn 送信済みを汲む(
             })),
             Err(e) => {
                 eprintln!("warifu mcp: {} の送信済みを汲めませんでした（{e}）", c.user);
-                落ちた.push(format!("{}: {e}", c.user));
+                落ちた.push((c.user.clone(), e.to_string()));
             }
         }
     }
     if 落ちた.len() == 控え.len() {
-        return Err(落ちた.join("・"));
+        return Err(落ちた
+            .iter()
+            .map(|(k, e)| format!("{k}: {e}"))
+            .collect::<Vec<_>>()
+            .join("・"));
     }
     通.sort_by_key(|r| std::cmp::Reverse(r.送った));
-    Ok(通)
+    // 読めなかった口は黙って飛ばさず、返りに名指しで入れる（0.1.60）
+    Ok(warifu_mcp::汲んだ送信済み {
+        通,
+        読めなかった口: 落ちた,
+    })
 }
 
 /// **二重送信を見るために、控えた全部の口の送信済みを遡る**（0.1.60・`mail_send` の前）。
