@@ -132,6 +132,7 @@ mod speaker_place;
 #[cfg(test)]
 mod room_sim;
 mod roster_sync;
+mod catch_up;
 mod save_image;
 mod schedule;
 mod self_check;
@@ -588,6 +589,9 @@ impl Bridge {
         for (部屋, 印) in 持っている印を読む() {
             影.印を思い出す(部屋, 印);
         }
+        // **残した会話から、部屋ごとの控えを組み直す**（0.1.60）。主催が立ち上げ直しても、
+        // 留守だった客が戻ったときに、その印のあとの発言を渡せるように
+        残した会話を控えへ戻す(&mut 影, &device);
         Self {
             device,
             影: Arc::new(Mutex::new(影)),
@@ -2188,6 +2192,29 @@ fn 印を読む(字: &str) -> Option<[u8; 32]> {
     Some(印)
 }
 
+/// **残した会話（`chat.seal`）を、影の控えへ戻す**（0.1.60）。読めなければ戻さない（記録に残す）。
+fn 残した会話を控えへ戻す(影: &mut warifu_app::room::部屋たち, device: &Device) {
+    let Ok(vault) = warifu_vault::Vault::default_location() else {
+        return;
+    };
+    let 会話 = match chat_keep::読む(vault.dir(), device) {
+        Ok(会話) => 会話,
+        Err(e) => {
+            記録!("控え: 残した会話を読めないので、控えを組み直しません（{e}）");
+            return;
+        }
+    };
+    for (部屋, 文字たち, 組めない) in catch_up::残した会話から(&会話, device.public_key()) {
+        記録!(
+            "控え: 部屋 {} の控えを、残した会話から {} 件組み直しました（組めなかった行 {}）",
+            短く(&部屋.to_string()),
+            文字たち.len(),
+            組めない
+        );
+        影.会話を戻す(部屋, 文字たち);
+    }
+}
+
 /// 控えに置いた、部屋ごとの持っている印。読めなければ空（送り直しが起きないだけ）。
 fn 持っている印を読む() -> Vec<(MeetingId, [u8; 32])> {
     let Ok(vault) = warifu_vault::Vault::default_location() else {
@@ -2908,6 +2935,23 @@ fn 汲む(
                         },
                     )
                     .await;
+                    // **主催から「抜けた分を何件渡したか」が来た**（0.1.60）。人とエージェントに言う
+                    for h in &影の手配 {
+                        if let warifu_app::room::手配::取り戻した {
+                            部屋,
+                            件数,
+                            取り戻せない,
+                        } = h
+                            && let Some(文) = 取り戻しの言い方(*件数, *取り戻せない)
+                        {
+                            let 文 = format!("{文}（部屋 {}）", 短く(&部屋.to_string()));
+                            記録!("追いつき: {文}");
+                            desk::配る(&app.state::<Bridge>(), desk::聞いた("割符", &文));
+                        }
+                    }
+                    if matches!(notice, Notice::追いついた { .. }) {
+                        continue;
+                    }
                     // **名簿に居ない送り主へ「居ない」と告げるか**（0.1.48・決めるのは影の規則）。
                     // 11-10、主催だけが線の切れを認めて外し、客は主催を相手に残したまま話し続けた。
                     // 告げれば客は主催を外し、帰り道から入り直す（預かった分も 1 回だけ届く）
@@ -2962,14 +3006,14 @@ fn 汲む(
                             影の手配.len(),
                             app.state::<Bridge>().影.lock().await.預かっている数(notice.meeting())
                         );
+                        // **何件渡したか（追いついた）も、送り直しの後ろに付けて渡す**（0.1.60）
                         let 渡す: Vec<Notice> = 影の手配
                             .into_iter()
                             .filter_map(|h| match h {
-                                warifu_app::room::手配::送る { 宛先, 知らせ: 文 @ Notice::Text { .. } }
-                                    if 宛先 == peer =>
-                                {
-                                    Some(文)
-                                }
+                                warifu_app::room::手配::送る {
+                                    宛先,
+                                    知らせ: 文 @ (Notice::Text { .. } | Notice::追いついた { .. }),
+                                } if 宛先 == peer => Some(文),
                                 _ => None,
                             })
                             .collect();
@@ -3848,6 +3892,17 @@ async fn 控えた食い違いを照らす(app: &AppHandle, 部屋: MeetingId, �
         記録!("{文}");
         desk::配る(&bridge, desk::聞いた("割符", &文));
     }
+}
+
+/// **取り戻した件数の言い方**（0.1.60）。0 件で取り戻せないことも無ければ、言わない。
+fn 取り戻しの言い方(件数: u32, 取り戻せない: bool) -> Option<String> {
+    if 取り戻せない {
+        return Some(
+            "主催も抜けた分を持っていなかったので、切れていたあいだの発言を取り戻せませんでした"
+                .to_owned(),
+        );
+    }
+    (件数 > 0).then(|| format!("切れていたあいだの発言を {件数} 件、主催から取り戻しました"))
 }
 
 fn 名簿の写し(c: &Conference) -> warifu_meeting::Roster {
@@ -5033,6 +5088,7 @@ fn 知らせの名(n: &Notice) -> &'static str {
         Notice::Signal(_) => "下ごしらえ（SDP / ICE）",
         Notice::Link { .. } => "回線の報せ",
         Notice::Since { .. } => "持っている所",
+        Notice::追いついた { .. } => "取り戻した数",
         Notice::Introduce { .. } => "紹介",
         Notice::Text { .. } => "文字",
         Notice::Image { .. } => "画像",
@@ -5454,6 +5510,21 @@ mod 時刻の言い方の試験 {
 }
 
 #[cfg(test)]
+mod 取り戻しの言い方の試験 {
+    use super::取り戻しの言い方;
+
+    #[test]
+    fn 取り戻した数を言い_何も無ければ黙り_取り戻せなければそう言う() {
+        assert_eq!(
+            取り戻しの言い方(3, false).as_deref(),
+            Some("切れていたあいだの発言を 3 件、主催から取り戻しました")
+        );
+        assert_eq!(取り戻しの言い方(0, false), None);
+        assert!(取り戻しの言い方(0, true).unwrap().contains("取り戻せませんでした"));
+    }
+}
+
+#[cfg(test)]
 mod 知らせの名の試験 {
     use super::知らせの名;
     use warifu_core::Seed;
@@ -5492,6 +5563,11 @@ mod 知らせの名の試験 {
             Notice::Since {
                 meeting: 部屋,
                 最後: None,
+            },
+            Notice::追いついた {
+                meeting: 部屋,
+                件数: 1,
+                取り戻せない: false,
             },
             Notice::Leave { meeting: 部屋 },
             Notice::Signal(warifu_meeting::Signal::new(

@@ -71,3 +71,40 @@ fn 文字の印は_配り直しても同じで_本文や札や部屋が違えば
     );
     assert_eq!(Notice::Join { meeting: 部屋 }.文字の印(), None);
 }
+
+#[test]
+fn 追いついた件数は_そのまま往復し_形の違う荷物は通さない() {
+    let 部屋 = MeetingId::generate();
+    for (件数, 取り戻せない) in [(0, false), (3, false), (0, true), (u32::MAX, false)] {
+        let n = Notice::追いついた {
+            meeting: 部屋,
+            件数,
+            取り戻せない,
+        };
+        let 戻り = Notice::from_intent(&n.to_intent().unwrap()).unwrap();
+        assert_eq!(戻り, n);
+        assert_eq!(戻り.meeting(), 部屋);
+    }
+    let 正しい = Notice::追いついた {
+        meeting: 部屋,
+        件数: 1,
+        取り戻せない: false,
+    }
+    .to_intent()
+    .unwrap();
+    for 荷物 in [
+        vec![0, 0, 0, 1],
+        vec![0, 0, 0, 1, 2],
+        vec![0, 0, 0, 1, 0, 0],
+    ] {
+        let 作った = warifu_intent::Intent::with_correlation(
+            正しい.kind().clone(),
+            正しい.correlation(),
+            荷物,
+        );
+        assert!(matches!(
+            Notice::from_intent(&作った),
+            Err(Error::Malformed)
+        ));
+    }
+}

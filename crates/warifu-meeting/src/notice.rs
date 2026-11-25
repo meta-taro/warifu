@@ -23,6 +23,8 @@ const INTRODUCE: &str = "meeting.introduce";
 const TEXT: &str = "meeting.text";
 /// ここまで持っている（入り直す客が主催へ・0.1.42）。
 const SINCE: &str = "meeting.since";
+/// 抜けた分を何件渡したか（主催が入り直した客へ・0.1.60）。
+const CAUGHT_UP: &str = "meeting.caughtup";
 /// 会議の中で画像を送る（チャット）。
 const IMAGE: &str = "meeting.image";
 /// **同時編集の居場所**（0.1.43）。誰がどの文書のどこに居るか。
@@ -352,6 +354,20 @@ pub enum Notice {
         /// 最後に持っている文字の印（[`Notice::文字の印`]）。
         最後: Option<[u8; 32]>,
     },
+    /// **抜けた分を何件渡したか**（0.1.60）。主催が [`Notice::Since`] に答えて、送り直したあとに言う。
+    ///
+    /// 戻った側はこれで「抜けた分を N 件取り戻した」と人とエージェントに言える。
+    /// `取り戻せない` は、主催も客の印を持っておらず（控えより古い・主催が交代した）、抜けた分を渡せなかったこと。
+    ///
+    /// 古い版（〜0.1.59）は知らない知らせとして読み飛ばす。
+    追いついた {
+        /// どの会議か。
+        meeting: MeetingId,
+        /// 送り直した文字の数。
+        件数: u32,
+        /// 抜けた分を渡せなかったと分かったか。
+        取り戻せない: bool,
+    },
     /// **同時編集の居場所**（0.1.43・内部の Issue 035）。誰がどの文書のどこを見ているか。
     ///
     /// **文書も場所も読まない。**中身（パス・行・列・ブランチ）は文書を扱う側が決める。
@@ -505,6 +521,7 @@ impl Notice {
             | Self::RoomName { meeting, .. }
             | Self::RoomRule { meeting, .. }
             | Self::Since { meeting, .. }
+            | Self::追いついた { meeting, .. }
             | Self::Presence { meeting, .. }
             | Self::受けた { meeting, .. }
             | Self::返信 { meeting, .. }
@@ -591,6 +608,15 @@ impl Notice {
             Self::Join { .. } => (JOIN, Vec::new()),
             Self::Leave { .. } => (LEAVE, Vec::new()),
             Self::Since { 最後, .. } => (SINCE, 最後.map(|h| h.to_vec()).unwrap_or_default()),
+            // `[件数 4（大きい順）][取り戻せない 1]`
+            Self::追いついた {
+                件数, 取り戻せない,
+            ..
+            } => {
+                let mut 荷物 = 件数.to_be_bytes().to_vec();
+                荷物.push(u8::from(*取り戻せない));
+                (CAUGHT_UP, 荷物)
+            }
             Self::Signal(s) => (SIGNAL, s.encode()?),
             Self::Text {
                 from, 話し手, body,
@@ -765,6 +791,15 @@ impl Notice {
                 32 => Ok(Self::Since {
                     meeting,
                     最後: Some(荷物.try_into().map_err(|_| Error::Malformed)?),
+                }),
+                _ => Err(Error::Malformed),
+            },
+            // 5 byte だけ。印の欄は 0 か 1 だけ
+            CAUGHT_UP => match 荷物 {
+                [a, b, c, d, 印 @ (0 | 1)] => Ok(Self::追いついた {
+                    meeting,
+                    件数: u32::from_be_bytes([*a, *b, *c, *d]),
+                    取り戻せない: *印 == 1,
                 }),
                 _ => Err(Error::Malformed),
             },
